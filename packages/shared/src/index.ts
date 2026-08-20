@@ -29,3 +29,16 @@ export {
   startOfIstDay,
   toIstIsoString,
 } from './time.js';
+export {
+  ALL_TIMEFRAMES,
+  BUCKET_ORIGIN_IST_MINUTES,
+  derivationSource,
+  isPersistedTimeframe,
+  isTimeframe,
+  PERSISTED_TIMEFRAMES,
+  TIMEFRAME_LABELS,
+  Timeframe,
+  timeframeFromCode,
+  timeframeFromLabel,
+  timeframeMinutes,
+} from './timeframe.js';
