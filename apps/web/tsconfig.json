@@ -1,0 +1,23 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // Next.js bundles rather than emitting Node-resolvable output, so this app
+    // overrides the workspace-wide NodeNext settings. Everything else — strict,
+    // noUncheckedIndexedAccess, ES2022 — is inherited unchanged.
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "ES2023.Intl", "DOM", "DOM.Iterable"],
+    "jsx": "preserve",
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "allowJs": true,
+    "incremental": true,
+    "plugins": [{ "name": "next" }],
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules", ".next"]
+}

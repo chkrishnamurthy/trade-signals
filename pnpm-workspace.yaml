@@ -1,0 +1,9 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+
+# esbuild (via tsx and drizzle-kit) and sharp (via next) fetch a platform binary
+# in a postinstall script. pnpm 10 blocks build scripts unless listed here.
+onlyBuiltDependencies:
+  - esbuild
+  - sharp
