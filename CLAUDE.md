@@ -1,7 +1,21 @@
 # NSE Signal Platform
 
-Single-user personal tool generating BUY/SELL/HOLD signals for NSE equities across
-intraday and swing timeframes. Not a product. Not multi-tenant. Never deployed publicly.
+Single-user personal tool for **tracking, analysing and screening NSE equities** to
+surface technical setups worth attention — bullish/bearish setups, breakouts,
+breakdowns, momentum, trend changes, volume anomalies. Decision support, not
+execution. Not multi-tenant. Never deployed publicly.
+
+**This is not a broker and not a trading terminal.** It never places, manages, or
+represents an order. Orders are placed by hand on a separate platform. The product
+answers three questions and nothing else:
+
+1. What is happening in the market?
+2. Which stocks deserve attention right now?
+3. Why does this stock deserve attention?
+
+**Fyers is a market-data provider, not the product.** The app is broker-independent:
+business logic consumes a normalised `MarketDataProvider`, never a Fyers type. The
+UI never presents itself as a Fyers client.
 
 Design docs: `docs/nse-signals-technical-plan.md` (§1, §3, §5–§8 authoritative)
 and `docs/nse-signals-prompt-pack-v2.md` (§2–§3 authoritative for stack and schema).
@@ -70,5 +84,14 @@ Fyers API v3 for market data. No Redis. No Celery. No Python in the app.
 - Do not add Redis, Celery, Kubernetes, or Terraform
 - Do not use `technicalindicators` or similar npm packages for the core indicator
   set; they are hand-written for auditability
-- Do not put Fyers-specific types outside `packages/fyers`
+- Do not put Fyers-specific types outside `packages/fyers` and its adapter. Nothing
+  in `apps/*`, `packages/core`, or any DTO may import `@signal/fyers` or name a
+  Fyers symbol, resolution, or field
 - Do not use floating point for money
+- **Do not build order execution of any kind** — no place/modify/cancel order, order
+  book, positions, funds, holdings, or broker portfolio. Not even read-only
+- Do not use order vocabulary in the UI. Say "Bullish setup", "Breakout candidate",
+  "Potential entry level", "Watch" — never "BUY", "SELL", "ORDER", "ENTRY PRICE".
+  An entry or exit level is a technical price level, labelled as such
+- Do not display a confidence number the factors cannot explain. Every score renders
+  with its component breakdown or it does not render

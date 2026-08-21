@@ -138,6 +138,24 @@ importers:
         specifier: ^3.25.76
         version: 3.25.76
 
+  packages/market-data:
+    dependencies:
+      '@signal/shared':
+        specifier: workspace:*
+        version: link:../shared
+
+  packages/providers-fyers:
+    dependencies:
+      '@signal/fyers':
+        specifier: workspace:*
+        version: link:../fyers
+      '@signal/market-data':
+        specifier: workspace:*
+        version: link:../market-data
+      '@signal/shared':
+        specifier: workspace:*
+        version: link:../shared
+
   packages/shared: {}
 
 packages:
