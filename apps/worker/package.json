@@ -12,9 +12,15 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
+    "@signal/core": "workspace:*",
     "@signal/db": "workspace:*",
+    "@signal/market-data": "workspace:*",
+    "@signal/providers-fyers": "workspace:*",
     "@signal/shared": "workspace:*",
-    "dotenv": "^16.6.1"
+    "croner": "^9.0.0",
+    "dotenv": "^16.6.1",
+    "yaml": "^2.8.1",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "tsx": "^4.20.6"

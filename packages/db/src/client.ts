@@ -44,7 +44,10 @@ export function createDatabase(options: CreateDatabaseOptions = {}): DatabaseHan
     idleTimeoutMillis: options.idleTimeoutMillis ?? 30_000,
   });
 
-  const db = drizzle(pool, { schema });
+  // `casing` MUST match drizzle.config.ts. Without it, runtime queries emit
+  // camelCase column names ("configHash") while migrations created snake_case
+  // ("config_hash"), and every query against a multi-word column fails.
+  const db = drizzle(pool, { schema, casing: 'snake_case' });
 
   return {
     db,

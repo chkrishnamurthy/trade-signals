@@ -1,12 +1,4 @@
-import {
-  bigint,
-  index,
-  integer,
-  pgTable,
-  primaryKey,
-  text,
-  timestamp,
-} from 'drizzle-orm/pg-core';
+import { bigint, index, integer, pgTable, primaryKey, text, timestamp } from 'drizzle-orm/pg-core';
 import { instruments } from './instruments.js';
 
 /**
