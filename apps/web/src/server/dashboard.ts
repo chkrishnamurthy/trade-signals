@@ -1,7 +1,6 @@
 import 'server-only';
-import { fetchMarketStatus, fetchQuotes, type Quote } from '@signal/fyers';
+import type { Quote } from '@signal/market-data';
 import type { DashboardDto, HeadlineIndexDto, MoverDto } from '@/lib/dashboard-types';
-import type { MarketStatusCode } from '@/lib/market-types';
 import {
   computeBreadth,
   computeSectors,
@@ -13,14 +12,14 @@ import {
   unusualVolume,
 } from './analytics';
 import { MarketDataError, toMarketError } from './errors';
-import { getFyersFetcher } from './fyers-client';
 import { getHeadlineIndices, getIndex, type ResolvedIndex } from './indices';
+import { getProvider } from './provider';
 import { getIndicatorCache } from './signals';
 
 /**
  * Assembles the dashboard snapshot.
  *
- * Cost: exactly two Fyers calls regardless of how many cards the UI renders —
+ * Cost: exactly two upstream calls regardless of how many cards the UI renders —
  * quotes are batched 50 per request and everything else (breadth, sentiment,
  * sectors, movers) is computed locally from the same payload. Indicator-derived
  * fields are read from a separate, slower cache rather than fetched here.
@@ -38,14 +37,14 @@ const cache = new Map<string, CacheEntry>();
 const inFlight = new Map<string, Promise<DashboardDto>>();
 
 function headlineDto(
-  meta: { symbol: string; name: string; kind: 'index' | 'volatility' },
+  meta: { symbol: string; name: string; display: 'index' | 'volatility' },
   quote: Quote,
   sparkline: readonly number[],
 ): HeadlineIndexDto {
   return {
     symbol: meta.symbol,
     name: meta.name,
-    kind: meta.kind,
+    display: meta.display,
     ltp: quote.ltp,
     change: quote.change,
     changePercent: quote.changePercent,
@@ -58,17 +57,15 @@ function headlineDto(
 }
 
 async function build(index: ResolvedIndex): Promise<DashboardDto> {
-  const fetcher = getFyersFetcher();
+  const provider = getProvider();
   const headlines = await getHeadlineIndices();
-
-  const symbols = [
-    ...headlines.map((h) => h.fyersSymbol),
-    ...index.constituents.map((c) => c.fyersSymbol),
-  ];
+  const refs = [...headlines, ...index.constituents];
 
   const [statusResult, quotesResult] = await Promise.all([
-    fetchMarketStatus(fetcher).catch(() => null),
-    fetchQuotes(fetcher, symbols),
+    // A missing status must not fail the whole snapshot; it degrades to
+    // `unknown`, which the UI renders as "session state unavailable".
+    provider.fetchMarketStatus().catch(() => null),
+    provider.fetchQuotes(refs),
   ]);
 
   const { quotes, missing } = quotesResult;
@@ -76,14 +73,14 @@ async function build(index: ResolvedIndex): Promise<DashboardDto> {
 
   const indices: HeadlineIndexDto[] = [];
   for (const headline of headlines) {
-    const quote = quotes.get(headline.fyersSymbol);
+    const quote = quotes.get(headline.symbol);
     if (quote === undefined) continue;
     indices.push(headlineDto(headline, quote, indicators?.sparklines.get(headline.symbol) ?? []));
   }
 
   const movers: MoverDto[] = [];
   for (const constituent of index.constituents) {
-    const quote = quotes.get(constituent.fyersSymbol);
+    const quote = quotes.get(constituent.symbol);
     if (quote === undefined) continue;
     // Relative volume needs the 20-day average, which only exists once the
     // indicator pass has run. Until then it stays null rather than being faked.
@@ -138,7 +135,7 @@ async function build(index: ResolvedIndex): Promise<DashboardDto> {
       nearHigh52w,
       nearLow52w,
     },
-    market: { isOpen, status: (statusResult?.status ?? 'UNKNOWN') as MarketStatusCode },
+    market: { isOpen, phase: statusResult?.phase ?? 'unknown' },
     fetchedAt: new Date().toISOString(),
     cached: false,
     missing,

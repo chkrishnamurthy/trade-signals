@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getDashboard, getStaleDashboard } from '@/server/dashboard';
-import { MarketDataError, toMarketError } from '@/server/errors';
+import { canServeStale, MarketDataError, toMarketError } from '@/server/errors';
 
-/** GET /api/dashboard/[index] — the fast path: two Fyers calls, heavily cached. */
+/** GET /api/dashboard/[index] — the fast path: two upstream calls, heavily cached. */
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
@@ -18,9 +18,10 @@ export async function GET(
   } catch (error) {
     const failure = error instanceof MarketDataError ? error : toMarketError(error);
 
-    // A transient upstream blip should not blank the screen.
+    // A transient upstream blip should not blank the screen. An expired or
+    // missing credential is not transient, so it surfaces as an error instead.
     const stale = getStaleDashboard(index);
-    if (stale !== null && failure.code !== 'NOT_CONFIGURED' && failure.code !== 'TOKEN_EXPIRED') {
+    if (stale !== null && canServeStale(failure)) {
       return NextResponse.json(stale, {
         headers: { 'Cache-Control': 'no-store', 'X-Stale-Reason': failure.code },
       });

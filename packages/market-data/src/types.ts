@@ -87,15 +87,7 @@ export interface Bar {
  */
 export type Resolution = '1m' | '5m' | '15m' | '30m' | '1h' | '1d' | '1w';
 
-export const ALL_RESOLUTIONS: readonly Resolution[] = [
-  '1m',
-  '5m',
-  '15m',
-  '30m',
-  '1h',
-  '1d',
-  '1w',
-];
+export const ALL_RESOLUTIONS: readonly Resolution[] = ['1m', '5m', '15m', '30m', '1h', '1d', '1w'];
 
 /** True for a resolution that closes only at the end of a session or later. */
 export function isDailyOrSlower(resolution: Resolution): boolean {

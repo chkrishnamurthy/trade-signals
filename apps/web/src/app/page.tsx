@@ -1,60 +1,60 @@
-import { formatPaise, MARKET_CLOSE_MINUTES, MARKET_OPEN_MINUTES } from '@signal/shared';
+import Link from 'next/link';
 
 /**
- * Placeholder home page.
+ * Entry point.
  *
- * It renders one formatted price purely as a wiring check: if the paise helper
- * resolves and Indian digit grouping shows up here, the shared package is
- * correctly linked into the Next build.
+ * Deliberately plain: the dashboard is the product, and this exists only to
+ * route into it and into the daily re-authorisation when data stops flowing.
  */
-export default function HomePage() {
-  const sessionHours = `${formatMinutes(MARKET_OPEN_MINUTES)}–${formatMinutes(MARKET_CLOSE_MINUTES)} IST`;
+export const metadata = {
+  title: 'Signal — NSE market analysis',
+  description: 'Track, screen and analyse NSE equities. Technical decision support.',
+};
 
+const SECTIONS = [
+  {
+    href: '/dashboard',
+    title: 'Market dashboard',
+    detail: 'Indices, breadth, sectors, movers, technical setups and swing candidates',
+  },
+] as const;
+
+export default function HomePage() {
   return (
-    <main className="mx-auto flex min-h-dvh max-w-2xl flex-col justify-center gap-6 px-6 py-16">
+    <main className="mx-auto flex min-h-dvh max-w-2xl flex-col justify-center gap-8 px-6 py-16">
       <div>
-        <h1 className="text-3xl font-semibold tracking-tight">NSE Signal Platform</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">Signal</h1>
         <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-          Scaffold only. No signals, no schema, no market data yet.
+          NSE market tracking, screening and technical analysis. Decision support — orders are
+          placed elsewhere.
         </p>
       </div>
 
-      <a
-        href="/dashboard"
-        className="rounded-lg border border-slate-200 p-5 transition-colors hover:border-slate-400 dark:border-slate-800 dark:hover:border-slate-600"
-      >
-        <span className="font-medium">Market dashboard →</span>
-        <span className="mt-1 block text-sm text-slate-600 dark:text-slate-400">
-          Indices, breadth, sectors, signals and swing setups
-        </span>
-      </a>
+      <div className="grid gap-3">
+        {SECTIONS.map((section) => (
+          <Link
+            key={section.href}
+            href={section.href}
+            className="rounded-lg border border-slate-200 p-5 transition-colors hover:border-slate-400 dark:border-slate-800 dark:hover:border-slate-600"
+          >
+            <span className="font-medium">{section.title} →</span>
+            <span className="mt-1 block text-sm text-slate-600 dark:text-slate-400">
+              {section.detail}
+            </span>
+          </Link>
+        ))}
+      </div>
 
-      <a
-        href="/nifty50"
-        className="rounded-lg border border-slate-200 p-5 transition-colors hover:border-slate-400 dark:border-slate-800 dark:hover:border-slate-600"
-      >
-        <span className="font-medium">NIFTY 50 →</span>
-        <span className="mt-1 block text-sm text-slate-600 dark:text-slate-400">
-          Live constituent prices from Fyers
-        </span>
-      </a>
-
-      <dl className="grid gap-3 rounded-lg border border-slate-200 p-5 text-sm dark:border-slate-800">
-        <div className="flex justify-between gap-4">
-          <dt className="text-slate-600 dark:text-slate-400">Continuous session</dt>
-          <dd className="font-mono">{sessionHours}</dd>
-        </div>
-        <div className="flex justify-between gap-4">
-          <dt className="text-slate-600 dark:text-slate-400">Price rendering</dt>
-          <dd className="font-mono">{formatPaise(12455000)}</dd>
-        </div>
-      </dl>
+      <p className="text-sm text-slate-500 dark:text-slate-500">
+        Market data credentials expire daily.{' '}
+        <a
+          href="/login"
+          className="underline underline-offset-4 hover:text-slate-900 dark:hover:text-slate-200"
+        >
+          Re-authorise the data source
+        </a>
+        .
+      </p>
     </main>
   );
-}
-
-function formatMinutes(minutesOfDay: number): string {
-  const hour = Math.floor(minutesOfDay / 60);
-  const minute = minutesOfDay % 60;
-  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
 }

@@ -1,96 +1,72 @@
 import 'server-only';
-import type { Bar } from '@signal/core';
-import { type Candle, type FyersResolution, fetchCandles } from '@signal/fyers';
+import type { Bar, InstrumentRef, Resolution } from '@signal/market-data';
 import { istDateKey } from '@signal/shared';
-import { getFyersFetcher } from './fyers-client';
+import { getProvider } from './provider';
 
 /**
- * Historical candles, cached hard.
+ * Historical bars, cached hard.
  *
- * This is the expensive path. `/data/history` takes ONE symbol per request, so
- * indicators across a 50-stock index cost 50 calls — against a 200/minute
- * account-wide ceiling whose penalty for repeat breaches is a same-day ban.
+ * This is the expensive path: history APIs serve ONE symbol per call, so
+ * indicators across a 50-stock index cost 50 requests against an account-wide
+ * ceiling whose penalty for repeat breaches is a same-day ban.
  *
- * What makes it affordable: daily candles only change once a day, and the
- * engine only ever consumes CLOSED candles (CLAUDE.md hard rule 2), so a
- * snapshot stays correct for the whole session. Cache by trading date and the
- * cost collapses to 50 calls per day rather than per refresh.
+ * What makes it affordable: daily bars change once a day, and the engine only
+ * ever consumes CLOSED bars (CLAUDE.md hard rule 2), so a snapshot stays
+ * correct for the whole session. Cache by trading date and the cost collapses
+ * to 50 calls per day rather than per refresh.
  */
 
 interface CacheEntry {
-  readonly bars: Bar[];
-  readonly key: string;
+  readonly bars: readonly Bar[];
+  readonly validity: string;
   readonly storedAt: number;
 }
 
 const cache = new Map<string, CacheEntry>();
-const inFlight = new Map<string, Promise<Bar[]>>();
+const inFlight = new Map<string, Promise<readonly Bar[]>>();
 
 /** Intraday caches expire on a clock; daily caches expire on the trading date. */
 const INTRADAY_TTL_MS = 5 * 60_000;
 
-/** Candles → the pure engine's Bar shape. Prices are already integer paise. */
-function toBars(candles: readonly Candle[]): Bar[] {
-  return candles.map((c) => ({
-    timestamp: c.timestamp.getTime(),
-    open: c.open,
-    high: c.high,
-    low: c.low,
-    close: c.close,
-    volume: c.volume,
-  }));
-}
-
-/**
- * Drops the final candle when it may still be forming.
- *
- * The engine must never see a partial bar — that is lookahead bias, and it
- * silently corrupts every backtest built on the same code path.
- */
-function dropFormingCandle(bars: Bar[], resolution: FyersResolution, now: Date): Bar[] {
-  const last = bars.at(-1);
-  if (last === undefined) return bars;
-
-  if (resolution === 'D' || resolution === '1D') {
-    // A daily candle for today is still forming until the session closes.
-    return istDateKey(new Date(last.timestamp)) === istDateKey(now) ? bars.slice(0, -1) : bars;
-  }
-  return bars;
-}
-
 export interface HistoryRequest {
-  readonly fyersSymbol: string;
-  readonly resolution: FyersResolution;
+  readonly ref: InstrumentRef;
+  readonly resolution: Resolution;
   readonly from: Date;
   readonly to: Date;
-  /** Omit the possibly-forming final candle. Default true. */
-  readonly closedOnly?: boolean;
+  /**
+   * Include the possibly-forming final bar. Default false.
+   *
+   * Charts may. The signal engine must NEVER — that is lookahead bias.
+   */
+  readonly includeForming?: boolean;
 }
 
 /**
- * Fetches candles, serving from cache when still valid.
+ * Fetches bars, serving from cache when still valid.
  *
- * Concurrent callers for the same symbol share one upstream request.
+ * Concurrent callers for the same key share one upstream request.
  */
-export async function getBars(request: HistoryRequest, now = new Date()): Promise<Bar[]> {
-  const { fyersSymbol, resolution, from, to, closedOnly = true } = request;
-  const isDaily = resolution === 'D' || resolution === '1D';
-  // Daily data is keyed by trading date; intraday by a rolling clock bucket.
+export async function getBars(request: HistoryRequest, now = new Date()): Promise<readonly Bar[]> {
+  const { ref, resolution, from, to, includeForming = false } = request;
+  const isDaily = resolution === '1d' || resolution === '1w';
   const validity = isDaily ? istDateKey(now) : String(Math.floor(now.getTime() / INTRADAY_TTL_MS));
-  const cacheKey = `${fyersSymbol}|${resolution}|${istDateKey(from)}|${istDateKey(to)}`;
+  const cacheKey = `${ref.symbol}|${ref.kind}|${resolution}|${istDateKey(from)}|${istDateKey(to)}|${includeForming}`;
 
   const hit = cache.get(cacheKey);
-  if (hit !== undefined && hit.key === validity) return hit.bars;
+  if (hit !== undefined && hit.validity === validity) return hit.bars;
 
   const pending = inFlight.get(cacheKey);
   if (pending !== undefined) return pending;
 
   const task = (async () => {
-    const fetcher = getFyersFetcher();
-    const candles = await fetchCandles(fetcher, fyersSymbol, resolution, { from, to });
-    let bars = toBars(candles);
-    if (closedOnly) bars = dropFormingCandle(bars, resolution, now);
-    cache.set(cacheKey, { bars, key: validity, storedAt: Date.now() });
+    const bars = await getProvider().fetchBars({
+      ref,
+      resolution,
+      range: { from, to },
+      includeForming,
+      now,
+    });
+    cache.set(cacheKey, { bars, validity, storedAt: Date.now() });
     return bars;
   })().finally(() => {
     inFlight.delete(cacheKey);
@@ -102,9 +78,7 @@ export async function getBars(request: HistoryRequest, now = new Date()): Promis
 
 /** Daily bars covering roughly `days` calendar days back from today. */
 export function dailyRange(days: number, now = new Date()): { from: Date; to: Date } {
-  const to = new Date(now);
-  const from = new Date(now.getTime() - days * 86_400_000);
-  return { from, to };
+  return { from: new Date(now.getTime() - days * 86_400_000), to: new Date(now) };
 }
 
 export function historyCacheStats(): { entries: number; oldestMs: number | null } {

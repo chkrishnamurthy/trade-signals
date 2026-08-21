@@ -15,9 +15,9 @@ import { getHeadlineIndices, getIndex, type ResolvedIndex } from './indices';
 /**
  * Technical indicators and signals for an index's constituents.
  *
- * This is the expensive half of the dashboard. `/data/history` serves one
- * symbol per call, so a 50-stock index costs 50 requests — roughly a quarter of
- * the entire per-minute budget. Two things keep it affordable:
+ * This is the expensive half of the dashboard. History APIs serve one symbol
+ * per call, so a 50-stock index costs 50 requests — roughly a quarter of the
+ * entire per-minute budget. Two things keep it affordable:
  *
  *   1. Daily candles change once a day, and the engine only consumes CLOSED
  *      candles (CLAUDE.md hard rule 2), so a result stays valid all session.
@@ -72,7 +72,7 @@ async function build(index: ResolvedIndex, now: Date): Promise<SignalsDto> {
     let bars: Awaited<ReturnType<typeof getBars>>;
     try {
       bars = await getBars(
-        { fyersSymbol: constituent.fyersSymbol, resolution: 'D', from: range.from, to: range.to },
+        { ref: constituent, resolution: '1d', from: range.from, to: range.to },
         now,
       );
     } catch {
@@ -174,8 +174,8 @@ async function build(index: ResolvedIndex, now: Date): Promise<SignalsDto> {
     try {
       const bars = await getBars(
         {
-          fyersSymbol: headline.fyersSymbol,
-          resolution: 'D',
+          ref: headline,
+          resolution: '1d',
           from: new Date(now.getTime() - 45 * 86_400_000),
           to: now,
         },

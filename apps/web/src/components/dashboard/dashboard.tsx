@@ -86,7 +86,7 @@ export function Dashboard({ indexKey = 'nifty50' }: { indexKey?: string }) {
   return (
     <div className="min-h-dvh bg-slate-50 dark:bg-slate-950">
       <TopNav
-        status={data?.market.status ?? 'UNKNOWN'}
+        phase={data?.market.phase ?? 'unknown'}
         isOpen={data?.market.isOpen ?? false}
         lastUpdated={data === null ? '—' : `${istTime(data.fetchedAt)} IST`}
         onSelectSymbol={onSelect}

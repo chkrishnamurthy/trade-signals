@@ -1,18 +1,11 @@
 import type {
   Candle as FyersCandle,
+  Instrument as FyersInstrument,
   FyersMarketStatus,
   Quote as FyersQuote,
-  Instrument as FyersInstrument,
   Tick as FyersTick,
 } from '@signal/fyers';
-import type {
-  Bar,
-  Instrument,
-  MarketPhase,
-  MarketStatus,
-  Quote,
-  Tick,
-} from '@signal/market-data';
+import type { Bar, Instrument, MarketPhase, MarketStatus, Quote, Tick } from '@signal/market-data';
 
 /**
  * Fyers shapes to product shapes.

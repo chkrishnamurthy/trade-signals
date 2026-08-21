@@ -4,7 +4,7 @@
  * All prices are integer PAISE; all instants are ISO-8601 strings. `null`
  * always means "not supplied by the exchange", never zero.
  */
-import type { MarketStatusCode, QuoteDto } from './market-types';
+import type { MarketStateDto, QuoteDto } from './market-types';
 
 export type SignalDirection =
   | 'strong_bullish'
@@ -16,7 +16,8 @@ export type SignalDirection =
 export interface HeadlineIndexDto {
   readonly symbol: string;
   readonly name: string;
-  readonly kind: 'index' | 'volatility';
+  /** How the card renders: a VIX rise is risk-off, not a gain. */
+  readonly display: 'index' | 'volatility';
   readonly ltp: number;
   readonly change: number | null;
   readonly changePercent: number | null;
@@ -148,14 +149,14 @@ export interface DashboardDto {
   readonly unusualVolume: readonly MoverDto[];
   readonly quotes: readonly MoverDto[];
   readonly quickStats: QuickStatsDto;
-  readonly market: { readonly isOpen: boolean; readonly status: MarketStatusCode };
+  readonly market: MarketStateDto;
   readonly fetchedAt: string;
   readonly cached: boolean;
   readonly missing: readonly string[];
   readonly refreshAfterSeconds: number;
   /**
    * True when indicator-derived fields are present. They arrive on a slower
-   * cycle than quotes because each one costs a separate Fyers history call.
+   * cycle than quotes because each one costs a separate upstream history call.
    */
   readonly indicatorsReady: boolean;
 }

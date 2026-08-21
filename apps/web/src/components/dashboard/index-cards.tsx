@@ -20,7 +20,7 @@ export function IndexCards({ indices }: { indices: readonly HeadlineIndexDto[] }
 }
 
 function IndexCard({ index }: { index: HeadlineIndexDto }) {
-  const isVix = index.kind === 'volatility';
+  const isVix = index.display === 'volatility';
   // For VIX, a rise is bearish for equities — flip the tone, not the number.
   const toneValue = isVix ? -(index.change ?? 0) : (index.change ?? 0);
   const tone = toneFor(toneValue);

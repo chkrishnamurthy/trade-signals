@@ -2,25 +2,27 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { MarketStatusBadge } from '@/components/market-status-badge';
-import type { MarketStatusCode } from '@/lib/market-types';
+import { MarketPhaseBadge } from '@/components/ui/market-phase-badge';
+import type { MarketPhase } from '@/lib/market-types';
 import { StockSearch } from './search';
 
-const LINKS = [
-  { href: '/dashboard', label: 'Dashboard' },
-  { href: '/nifty50', label: 'NIFTY 50' },
-] as const;
+const LINKS = [{ href: '/dashboard', label: 'Dashboard' }] as const;
 
-/** Sections that exist only as routes-to-be; shown disabled rather than dead. */
-const PLANNED = ['Markets', 'Watchlist', 'Screener', 'Signals', 'Portfolio', 'Alerts'] as const;
+/**
+ * Sections that exist only as routes-to-be; shown disabled rather than dead.
+ *
+ * No "Portfolio" or "Orders": this is a decision-support tool and never
+ * represents a broker account (CLAUDE.md).
+ */
+const PLANNED = ['Screener', 'Signals', 'Sectors', 'Watchlist', 'Alerts'] as const;
 
 export function TopNav({
-  status,
+  phase,
   isOpen,
   lastUpdated,
   onSelectSymbol,
 }: {
-  status: MarketStatusCode;
+  phase: MarketPhase;
   isOpen: boolean;
   lastUpdated: string;
   onSelectSymbol: (symbol: string) => void;
@@ -66,7 +68,7 @@ export function TopNav({
         <div className="ml-auto flex flex-1 items-center justify-end gap-3">
           <StockSearch onSelect={onSelectSymbol} />
           <div className="hidden items-center gap-2 sm:flex">
-            <MarketStatusBadge status={status} isOpen={isOpen} />
+            <MarketPhaseBadge phase={phase} isOpen={isOpen} />
             <span className="font-mono text-xs tabular-nums text-slate-500 dark:text-slate-400">
               {lastUpdated}
             </span>

@@ -44,9 +44,12 @@ importers:
       '@signal/db':
         specifier: workspace:*
         version: link:../../packages/db
-      '@signal/fyers':
+      '@signal/market-data':
         specifier: workspace:*
-        version: link:../../packages/fyers
+        version: link:../../packages/market-data
+      '@signal/providers-fyers':
+        specifier: workspace:*
+        version: link:../../packages/providers-fyers
       '@signal/shared':
         specifier: workspace:*
         version: link:../../packages/shared

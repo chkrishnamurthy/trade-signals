@@ -1,4 +1,4 @@
-import type { FyersResolution } from '@signal/fyers';
+import type { Resolution } from '@signal/market-data';
 import { NextResponse } from 'next/server';
 import { MarketDataError, toMarketError } from '@/server/errors';
 import { getBars } from '@/server/history';
@@ -8,20 +8,20 @@ import { resolveSymbol } from '@/server/search';
  * GET /api/history/[symbol]?tf=1D — chart data.
  *
  * Timeframes map to a (resolution, lookback) pair chosen so each request stays
- * inside Fyers' documented per-request range limits: 100 days for minute
- * resolutions, 366 for daily.
+ * inside typical provider per-request range limits: ~100 days for minute
+ * resolutions, ~366 for daily. The adapter chunks anything larger.
  */
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const TIMEFRAMES: Record<string, { resolution: FyersResolution; days: number }> = {
-  '1D': { resolution: '5', days: 5 },
-  '5D': { resolution: '15', days: 9 },
-  '1M': { resolution: '60', days: 34 },
-  '3M': { resolution: 'D', days: 95 },
-  '6M': { resolution: 'D', days: 190 },
-  '1Y': { resolution: 'D', days: 370 },
-  '5Y': { resolution: 'D', days: 1830 },
+const TIMEFRAMES: Record<string, { resolution: Resolution; days: number }> = {
+  '1D': { resolution: '5m', days: 5 },
+  '5D': { resolution: '15m', days: 9 },
+  '1M': { resolution: '1h', days: 34 },
+  '3M': { resolution: '1d', days: 95 },
+  '6M': { resolution: '1d', days: 190 },
+  '1Y': { resolution: '1d', days: 370 },
+  '5Y': { resolution: '1d', days: 1830 },
 };
 
 export async function GET(
@@ -55,13 +55,13 @@ export async function GET(
     const now = new Date();
     const bars = await getBars(
       {
-        fyersSymbol: resolved.fyersSymbol,
+        ref: { symbol: resolved.symbol, kind: resolved.kind },
         resolution: spec.resolution,
         from: new Date(now.getTime() - spec.days * 86_400_000),
         to: now,
-        // Intraday charts show the forming candle; only the signal engine
+        // Intraday charts show the forming bar; only the signal engine
         // requires closed-only bars.
-        closedOnly: spec.resolution === 'D',
+        includeForming: spec.resolution !== '1d',
       },
       now,
     );
@@ -70,7 +70,6 @@ export async function GET(
       {
         symbol: resolved.symbol,
         name: resolved.name,
-        fyersSymbol: resolved.fyersSymbol,
         timeframe,
         resolution: spec.resolution,
         bars: bars.map((b) => ({

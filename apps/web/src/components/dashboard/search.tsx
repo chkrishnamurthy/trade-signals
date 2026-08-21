@@ -5,7 +5,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 interface SearchHit {
   readonly symbol: string;
   readonly name: string;
-  readonly fyersSymbol: string;
   readonly kind: 'equity' | 'index';
   readonly exchange: string;
 }
@@ -108,7 +107,7 @@ export function StockSearch({ onSelect }: { onSelect: (symbol: string) => void }
           ) : (
             <ul>
               {results.map((hit) => (
-                <li key={hit.fyersSymbol}>
+                <li key={hit.symbol}>
                   <button
                     type="button"
                     onClick={() => choose(hit.symbol)}

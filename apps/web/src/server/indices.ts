@@ -1,7 +1,7 @@
 import 'server-only';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { toFyersSymbol } from '@signal/fyers';
+import type { InstrumentRef } from '@signal/market-data';
 import { parse } from 'yaml';
 import { z } from 'zod';
 
@@ -9,7 +9,10 @@ import { z } from 'zod';
  * Index constituent config, read from `config/indices.yaml`.
  *
  * Adding NIFTY 100 or a watchlist is a change to that file alone — nothing here
- * or in the route handler enumerates index names.
+ * or in a route handler enumerates index names.
+ *
+ * Symbols stay in OUR form (`RELIANCE`). Translating to a provider's symbol
+ * format happens inside the adapter, never here.
  */
 
 const constituentSchema = z.object({
@@ -38,26 +41,28 @@ const configSchema = z.object({
 
 export type IndexConfig = z.infer<typeof indexSchema>;
 
-export interface ResolvedConstituent {
+export interface ResolvedConstituent extends InstrumentRef {
   readonly symbol: string;
   readonly name: string;
-  readonly fyersSymbol: string;
+  readonly kind: 'equity';
   readonly sector: string;
 }
 
-export interface HeadlineIndex {
+export interface HeadlineIndex extends InstrumentRef {
   readonly symbol: string;
   readonly name: string;
-  readonly fyersSymbol: string;
-  /** `volatility` renders differently: a VIX rise is risk-off, not "good". */
-  readonly kind: 'index' | 'volatility';
+  readonly kind: 'index';
+  /**
+   * How the card renders. A VIX rise is risk-off, not "good", so it must not
+   * be coloured green like an index gain.
+   */
+  readonly display: 'index' | 'volatility';
 }
 
 export interface ResolvedIndex {
   readonly key: string;
   readonly name: string;
-  readonly indexSymbol: string;
-  readonly indexFyersSymbol: string;
+  readonly ref: InstrumentRef;
   readonly description: string | null;
   readonly constituents: readonly ResolvedConstituent[];
 }
@@ -86,14 +91,12 @@ async function loadAll(): Promise<Map<string, ResolvedIndex>> {
     resolved.set(key.toLowerCase(), {
       key: key.toLowerCase(),
       name: config.name,
-      indexSymbol: config.indexSymbol,
-      indexFyersSymbol: toFyersSymbol(config.indexSymbol, 'index'),
+      ref: { symbol: config.indexSymbol, kind: 'index' },
       description: config.description ?? null,
       constituents: config.constituents.map((c) => ({
         symbol: c.symbol,
         name: c.name.trim(),
-        // The one place a bare symbol becomes a Fyers symbol.
-        fyersSymbol: toFyersSymbol(c.symbol, 'equity'),
+        kind: 'equity' as const,
         sector: c.sector ?? 'Other',
       })),
     });
@@ -103,8 +106,8 @@ async function loadAll(): Promise<Map<string, ResolvedIndex>> {
   headlineCache = parsed.data.headlineIndices.map((h) => ({
     symbol: h.symbol,
     name: h.name,
-    fyersSymbol: toFyersSymbol(h.symbol, 'index'),
-    kind: h.kind === 'volatility' ? ('volatility' as const) : ('index' as const),
+    kind: 'index' as const,
+    display: h.kind === 'volatility' ? ('volatility' as const) : ('index' as const),
   }));
   return resolved;
 }

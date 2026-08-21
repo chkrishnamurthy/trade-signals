@@ -1,5 +1,5 @@
 import 'server-only';
-import type { Quote } from '@signal/fyers';
+import type { Quote } from '@signal/market-data';
 import type { BreadthDto, MoverDto, SectorDto, SentimentDto } from '@/lib/dashboard-types';
 import type { ResolvedConstituent } from './indices';
 
@@ -43,7 +43,6 @@ export function toMover(entry: EnrichedQuote, relativeVolume: number | null = nu
   const { constituent, quote } = entry;
   return {
     symbol: constituent.symbol,
-    fyersSymbol: constituent.fyersSymbol,
     name: constituent.name,
     sector: constituent.sector,
     ltp: quote.ltp,

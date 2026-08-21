@@ -1,19 +1,19 @@
 import 'server-only';
-import { type Instrument, listInstruments } from '@signal/fyers';
-import { getFyersFetcher } from './fyers-client';
-import { getIndex, listIndexKeys, type ResolvedConstituent } from './indices';
+import type { Instrument, InstrumentKind } from '@signal/market-data';
+import { getIndex, listIndexKeys } from './indices';
+import { getProvider } from './provider';
 
 /**
- * Symbol search, backed by the Fyers symbol master.
+ * Symbol search over the provider's instrument universe.
  *
- * The master is a ~1.7 MB CSV on a public CDN — no auth, no rate limit — so it
- * is fetched once and held in memory. Falling back to the configured index
- * constituents means search still works if the CDN is unreachable.
+ * The universe is large and changes at most daily, so it is fetched once and
+ * held in memory. Falling back to the configured index constituents means
+ * search still works when the provider is unreachable.
  */
 
 interface Loaded {
-  readonly instruments: Instrument[];
-  readonly byFyersSymbol: Map<string, Instrument>;
+  readonly instruments: readonly Instrument[];
+  readonly bySymbol: ReadonlyMap<string, Instrument>;
   readonly loadedAt: number;
 }
 
@@ -27,11 +27,10 @@ async function load(): Promise<Loaded> {
   if (loading !== null) return loading;
 
   loading = (async () => {
-    const { http } = getFyersFetcher();
-    const { instruments } = await listInstruments(http);
+    const instruments = await getProvider().listInstruments();
     const result: Loaded = {
       instruments,
-      byFyersSymbol: new Map(instruments.map((i) => [i.fyersSymbol, i])),
+      bySymbol: new Map(instruments.map((i: Instrument) => [i.symbol.toUpperCase(), i])),
       loadedAt: Date.now(),
     };
     loaded = result;
@@ -46,8 +45,7 @@ async function load(): Promise<Loaded> {
 export interface SearchHit {
   readonly symbol: string;
   readonly name: string;
-  readonly fyersSymbol: string;
-  readonly kind: 'equity' | 'index';
+  readonly kind: InstrumentKind;
   readonly exchange: string;
 }
 
@@ -73,12 +71,11 @@ export async function searchSymbols(query: string, limit = 12): Promise<SearchHi
     pool = instruments.map((i) => ({
       symbol: i.symbol,
       name: i.name,
-      fyersSymbol: i.fyersSymbol,
       kind: i.kind,
       exchange: i.exchange,
     }));
   } catch {
-    // CDN unreachable — search the configured universe instead of failing.
+    // Provider unreachable — search the configured universe instead of failing.
     pool = await configuredUniverse();
   }
 
@@ -97,29 +94,27 @@ async function configuredUniverse(): Promise<SearchHit[]> {
     const index = await getIndex(key);
     if (index === null) continue;
     for (const c of index.constituents) {
-      if (seen.has(c.fyersSymbol)) continue;
-      seen.add(c.fyersSymbol);
-      hits.push({
-        symbol: c.symbol,
-        name: c.name,
-        fyersSymbol: c.fyersSymbol,
-        kind: 'equity',
-        exchange: 'NSE',
-      });
+      if (seen.has(c.symbol)) continue;
+      seen.add(c.symbol);
+      hits.push({ symbol: c.symbol, name: c.name, kind: 'equity', exchange: 'NSE' });
     }
   }
   return hits;
 }
 
-export interface ResolvedSymbol extends ResolvedConstituent {
-  readonly kind: 'equity' | 'index';
+/** A symbol resolved to something the provider can be asked about. */
+export interface ResolvedSymbol {
+  readonly symbol: string;
+  readonly name: string;
+  readonly kind: InstrumentKind;
+  readonly sector: string;
 }
 
 /**
- * Resolves an internal symbol to its Fyers symbol.
+ * Resolves a symbol to a full instrument reference.
  *
  * Prefers the configured indices (which carry curated display names and
- * sectors) and falls back to the symbol master.
+ * sectors) and falls back to the provider's universe.
  */
 export async function resolveSymbol(symbol: string): Promise<ResolvedSymbol | null> {
   const target = symbol.trim().toUpperCase();
@@ -127,30 +122,17 @@ export async function resolveSymbol(symbol: string): Promise<ResolvedSymbol | nu
   for (const key of await listIndexKeys()) {
     const index = await getIndex(key);
     if (index === null) continue;
-    if (index.indexSymbol.toUpperCase() === target) {
-      return {
-        symbol: index.indexSymbol,
-        name: index.name,
-        fyersSymbol: index.indexFyersSymbol,
-        sector: 'Index',
-        kind: 'index',
-      };
+    if (index.ref.symbol.toUpperCase() === target) {
+      return { symbol: index.ref.symbol, name: index.name, sector: 'Index', kind: 'index' };
     }
     const match = index.constituents.find((c) => c.symbol.toUpperCase() === target);
     if (match !== undefined) return { ...match, kind: 'equity' };
   }
 
   try {
-    const { instruments } = await load();
-    const match = instruments.find((i) => i.symbol.toUpperCase() === target);
+    const match = (await load()).bySymbol.get(target);
     if (match !== undefined) {
-      return {
-        symbol: match.symbol,
-        name: match.name,
-        fyersSymbol: match.fyersSymbol,
-        sector: 'Other',
-        kind: match.kind,
-      };
+      return { symbol: match.symbol, name: match.name, sector: 'Other', kind: match.kind };
     }
   } catch {
     // Fall through to null.

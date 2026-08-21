@@ -1,9 +1,19 @@
 /**
  * Drizzle schema.
  *
- * Deliberately empty. Tables land here once the schema in
- * `docs/nse-signals-prompt-pack-v2.md` §3 is implemented; `drizzle-kit` reads
- * this file (see `drizzle.config.ts`) and every table must be re-exported from
- * here or migrations will silently omit it.
+ * `drizzle-kit` reads this file (see `drizzle.config.ts`), and every table must
+ * be re-exported here or migrations will silently omit it.
+ *
+ * Invariants enforced by this schema, from CLAUDE.md:
+ *   - Only 1m and 1d candles are stored; everything else derives (rule 4)
+ *   - Candles are append-only; corrections are corporate_actions rows (rule 5)
+ *   - All prices are integer paise (rule 3)
+ *   - All timestamps are TIMESTAMPTZ in UTC (rule 6)
+ *   - strategy_versions rows are immutable (rule 7)
+ *   - Every signal writes its factor breakdown (rule 8)
  */
-export {};
+export { dailyCandles, minuteCandles } from './candles.js';
+export { dailyIndicators } from './indicators.js';
+export { corporateActions, ingestionRuns, instruments } from './instruments.js';
+export { signalFactors, signals, strategyVersions } from './signals.js';
+export { alertEvents, alerts, watchlistItems, watchlists } from './watchlists.js';
