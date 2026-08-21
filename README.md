@@ -90,6 +90,22 @@ neon connection-string test --project-id <id>
 Clean up afterwards with `neon branches delete test --project-id <id>` — the
 free plan caps branch storage at 512 MB each.
 
+## Troubleshooting
+
+**`Cannot find module './289.js'`** (or any numbered chunk) from `apps/web`.
+
+Stale `.next` output. It happens when `pnpm build` runs while a Next server is
+already serving that directory: the rebuild rewrites chunk hashes underneath the
+live process, whose in-memory webpack runtime still points at the old ones.
+
+```bash
+lsof -ti:3000 | xargs kill      # stop the server first
+pnpm clean                      # drop .next and every dist/
+pnpm build
+```
+
+Avoid it by stopping `next dev` / `next start` before a workspace-wide build.
+
 ## TypeScript
 
 `tsconfig.base.json` holds the shared settings — `strict`,

@@ -1,0 +1,12 @@
+[
+  {
+    "symbol": "NSE:RELIANCE-EQ",
+    "ltp": 1245.5,
+    "type": "sf",
+    "last_traded_time": 1755772800,
+    "exch_feed_time": 1755772801,
+    "vol_traded_today": 4821993
+  },
+  { "symbol": "NSE:NIFTY50-INDEX", "iv": 24567.85, "type": "if", "exch_feed_time": 1755772801 },
+  { "symbol": "NSE:SBIN-EQ", "type": "sf" }
+]

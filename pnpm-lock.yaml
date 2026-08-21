@@ -11,12 +11,24 @@ importers:
       '@biomejs/biome':
         specifier: ^2.5.9
         version: 2.5.9
+      '@signal/fyers':
+        specifier: workspace:*
+        version: link:packages/fyers
+      '@signal/shared':
+        specifier: workspace:*
+        version: link:packages/shared
       '@types/node':
         specifier: ^22.19.4
         version: 22.20.1
       '@vitest/coverage-v8':
         specifier: ^3.2.7
         version: 3.2.7(vitest@3.2.7(@types/node@22.20.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.12))
+      dotenv:
+        specifier: ^16.6.1
+        version: 16.6.1
+      tsx:
+        specifier: ^4.20.6
+        version: 4.23.12
       typescript:
         specifier: ^5.9.3
         version: 5.9.3

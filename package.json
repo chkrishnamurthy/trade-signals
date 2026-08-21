@@ -19,13 +19,20 @@
     "typecheck": "pnpm -r typecheck",
     "db:generate": "pnpm --filter @signal/db db:generate",
     "db:migrate": "pnpm --filter @signal/db db:migrate",
-    "db:studio": "pnpm --filter @signal/db db:studio"
+    "db:studio": "pnpm --filter @signal/db db:studio",
+    "verify:adjustment": "tsx scripts/verify-adjustment.ts",
+    "fyers:login": "tsx scripts/fyers-login.ts",
+    "clean": "pnpm -r clean && rm -rf apps/web/.next"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.9",
     "@types/node": "^22.19.4",
     "@vitest/coverage-v8": "^3.2.7",
     "typescript": "^5.9.3",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "@signal/fyers": "workspace:*",
+    "@signal/shared": "workspace:*",
+    "dotenv": "^16.6.1",
+    "tsx": "^4.20.6"
   }
 }
