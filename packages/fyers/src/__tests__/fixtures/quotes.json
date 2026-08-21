@@ -1,0 +1,72 @@
+{
+  "s": "ok",
+  "code": 200,
+  "d": [
+    {
+      "n": "NSE:SBIN-EQ",
+      "s": "ok",
+      "v": {
+        "ch": 1.7,
+        "chp": 0.4,
+        "lp": 426.9,
+        "spread": 0.05,
+        "ask": 426.9,
+        "bid": 426.85,
+        "open_price": 430.5,
+        "high_price": 433.65,
+        "low_price": 423.6,
+        "prev_close_price": 425.2,
+        "atp": 428.07,
+        "volume": 38977242,
+        "short_name": "SBIN-EQ",
+        "exchange": "NSE",
+        "description": "NSE:SBIN-EQ",
+        "original_name": "NSE:SBIN-EQ",
+        "symbol": "NSE:SBIN-EQ",
+        "fyToken": "10100000003045",
+        "tt": "1622160000"
+      }
+    },
+    {
+      "n": "NSE:NIFTY50-INDEX",
+      "s": "ok",
+      "v": {
+        "ch": -95.4,
+        "chp": -0.39,
+        "lp": 24567.85,
+        "open_price": 24700.1,
+        "high_price": 24712.5,
+        "low_price": 24540.2,
+        "prev_close_price": 24663.25,
+        "exchange": "NSE",
+        "symbol": "NSE:NIFTY50-INDEX",
+        "fyToken": "101000000026000",
+        "tt": 1622160000
+      }
+    },
+    {
+      "n": "NSE:THINLY-EQ",
+      "s": "ok",
+      "v": {
+        "lp": 12.5,
+        "open_price": 0,
+        "high_price": 0,
+        "low_price": 0,
+        "prev_close_price": 12.5,
+        "volume": 0,
+        "exchange": "NSE"
+      }
+    },
+    { "n": "NSE:BADSYMBOL-EQ", "s": "error" },
+    {
+      "n": "NSE:DELISTED-EQ",
+      "s": "ok",
+      "v": {
+        "n": "NSE:DELISTED-EQ",
+        "errmsg": "Please provide a valid symbol",
+        "code": -300,
+        "s": "error"
+      }
+    }
+  ]
+}

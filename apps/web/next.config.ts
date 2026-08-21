@@ -1,5 +1,12 @@
 import { fileURLToPath } from 'node:url';
+import { config as loadEnv } from 'dotenv';
 import type { NextConfig } from 'next';
+
+// Secrets live in the repo-root .env, but Next only auto-loads .env from the
+// app directory. This runs in the server process before any route handler, so
+// FYERS_* reaches the backend while staying out of the client bundle (only
+// NEXT_PUBLIC_* is ever inlined).
+loadEnv({ path: fileURLToPath(new URL('../../.env', import.meta.url)) });
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,

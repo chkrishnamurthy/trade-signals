@@ -47,6 +47,23 @@ export {
   SYMBOL_MASTER_URLS,
   splitCsvLine,
 } from './instruments.js';
+export type {
+  FetchQuotesResult,
+  FyersMarketStatus,
+  MarketStatus,
+  Quote,
+  QuoteFetcher,
+  QuotesResponse,
+} from './quotes.js';
+export {
+  chunkSymbols,
+  fetchMarketStatus,
+  fetchQuotes,
+  MAX_QUOTE_SYMBOLS,
+  marketStatusResponseSchema,
+  quotesResponseSchema,
+  toQuote,
+} from './quotes.js';
 export type { RateLimits, TokenBucketOptions } from './rate-limit.js';
 export {
   DEFAULT_LIMITS,

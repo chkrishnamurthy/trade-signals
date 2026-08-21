@@ -1,0 +1,88 @@
+# Index constituents.
+#
+# Versioned config, not a database table (CLAUDE.md: "config is versioned YAML").
+# `symbol` is our internal symbol; the Fyers symbol is derived by
+# toFyersSymbol(symbol, kind), so `NSE:` prefixes and `-EQ` suffixes never
+# appear here.
+#
+# Adding NIFTY100 / BANKNIFTY / a personal watchlist means adding a block here
+# and nothing else — the API route reads whatever this file defines.
+
+indices:
+  nifty50:
+    name: NIFTY 50
+    # The index instrument itself, for the header ticker.
+    indexSymbol: NIFTY50
+    description: NSE benchmark index of 50 large-cap constituents
+    constituents:
+      - { symbol: ADANIENT,    name: Adani Enterprises }
+      - { symbol: ADANIPORTS,  name: Adani Ports & SEZ }
+      - { symbol: APOLLOHOSP,  name: Apollo Hospitals }
+      - { symbol: ASIANPAINT,  name: Asian Paints }
+      - { symbol: AXISBANK,    name: Axis Bank }
+      - { symbol: BAJAJ-AUTO,  name: Bajaj Auto }
+      - { symbol: BAJFINANCE,  name: Bajaj Finance }
+      - { symbol: BAJAJFINSV,  name: Bajaj Finserv }
+      - { symbol: BEL,         name: Bharat Electronics }
+      - { symbol: BHARTIARTL,  name: Bharti Airtel }
+      - { symbol: CIPLA,       name: Cipla }
+      - { symbol: COALINDIA,   name: Coal India }
+      - { symbol: DRREDDY,     name: "Dr. Reddy's Laboratories" }
+      - { symbol: EICHERMOT,   name: Eicher Motors }
+      - { symbol: ETERNAL,     name: Eternal (Zomato) }
+      - { symbol: GRASIM,      name: Grasim Industries }
+      - { symbol: HCLTECH,     name: HCL Technologies }
+      - { symbol: HDFCBANK,    name: HDFC Bank }
+      - { symbol: HDFCLIFE,    name: HDFC Life Insurance }
+      - { symbol: HEROMOTOCO,  name: Hero MotoCorp }
+      - { symbol: HINDALCO,    name: Hindalco Industries }
+      - { symbol: HINDUNILVR,  name: Hindustan Unilever }
+      - { symbol: ICICIBANK,   name: ICICI Bank }
+      - { symbol: INDUSINDBK,  name: IndusInd Bank }
+      - { symbol: INFY,        name: Infosys }
+      - { symbol: ITC,         name: ITC }
+      - { symbol: JIOFIN,      name: Jio Financial Services }
+      - { symbol: JSWSTEEL,    name: JSW Steel }
+      - { symbol: KOTAKBANK,   name: Kotak Mahindra Bank }
+      - { symbol: LT,          name: Larsen & Toubro }
+      - { symbol: M&M,         name: Mahindra & Mahindra }
+      - { symbol: MARUTI,      name: Maruti Suzuki India }
+      - { symbol: NESTLEIND,   name: Nestle India }
+      - { symbol: NTPC,        name: NTPC }
+      - { symbol: ONGC,        name: Oil & Natural Gas Corp }
+      - { symbol: POWERGRID,   name: Power Grid Corp }
+      - { symbol: RELIANCE,    name: Reliance Industries }
+      - { symbol: SBILIFE,     name: SBI Life Insurance }
+      - { symbol: SBIN,        name: State Bank of India }
+      - { symbol: SHRIRAMFIN,  name: Shriram Finance }
+      - { symbol: SUNPHARMA,   name: Sun Pharmaceutical }
+      - { symbol: TATACONSUM,  name: Tata Consumer Products }
+      # Tata Motors demerged: NSE:TATAMOTORS-EQ no longer resolves (error -300).
+      # TMPV = passenger vehicles, TMCV = commercial vehicles ("TATA MOTORS
+      # LIMITED" in the symbol master). Confirm which holds the index seat.
+      - { symbol: TMPV,        name: Tata Motors Passenger Vehicles }
+      - { symbol: TATASTEEL,   name: Tata Steel }
+      - { symbol: TCS,         name: Tata Consultancy Services }
+      - { symbol: TECHM,       name: Tech Mahindra }
+      - { symbol: TITAN,       name: Titan Company }
+      - { symbol: TRENT,       name: Trent }
+      - { symbol: ULTRACEMCO,  name: UltraTech Cement }
+      - { symbol: WIPRO,       name: Wipro }
+
+  banknifty:
+    name: NIFTY BANK
+    indexSymbol: NIFTYBANK
+    description: NSE banking sector index
+    constituents:
+      - { symbol: AXISBANK,   name: Axis Bank }
+      - { symbol: BANKBARODA, name: Bank of Baroda }
+      - { symbol: CANBK,      name: Canara Bank }
+      - { symbol: FEDERALBNK, name: Federal Bank }
+      - { symbol: HDFCBANK,   name: HDFC Bank }
+      - { symbol: ICICIBANK,  name: ICICI Bank }
+      - { symbol: IDFCFIRSTB, name: IDFC First Bank }
+      - { symbol: INDUSINDBK, name: IndusInd Bank }
+      - { symbol: KOTAKBANK,  name: Kotak Mahindra Bank }
+      - { symbol: PNB,        name: Punjab National Bank }
+      - { symbol: SBIN,       name: State Bank of India }
+      - { symbol: AUBANK,     name: AU Small Finance Bank }

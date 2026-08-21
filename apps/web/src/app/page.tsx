@@ -19,6 +19,16 @@ export default function HomePage() {
         </p>
       </div>
 
+      <a
+        href="/nifty50"
+        className="rounded-lg border border-slate-200 p-5 transition-colors hover:border-slate-400 dark:border-slate-800 dark:hover:border-slate-600"
+      >
+        <span className="font-medium">NIFTY 50 →</span>
+        <span className="mt-1 block text-sm text-slate-600 dark:text-slate-400">
+          Live constituent prices from Fyers
+        </span>
+      </a>
+
       <dl className="grid gap-3 rounded-lg border border-slate-200 p-5 text-sm dark:border-slate-800">
         <div className="flex justify-between gap-4">
           <dt className="text-slate-600 dark:text-slate-400">Continuous session</dt>
