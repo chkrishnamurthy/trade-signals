@@ -15,6 +15,7 @@ import { z } from 'zod';
 const constituentSchema = z.object({
   symbol: z.string().min(1),
   name: z.string().min(1),
+  sector: z.string().min(1).optional(),
 });
 
 const indexSchema = z.object({
@@ -24,7 +25,14 @@ const indexSchema = z.object({
   constituents: z.array(constituentSchema).min(1),
 });
 
+const headlineSchema = z.object({
+  symbol: z.string().min(1),
+  name: z.string().min(1),
+  kind: z.string().optional(),
+});
+
 const configSchema = z.object({
+  headlineIndices: z.array(headlineSchema).min(1),
   indices: z.record(z.string(), indexSchema),
 });
 
@@ -34,6 +42,15 @@ export interface ResolvedConstituent {
   readonly symbol: string;
   readonly name: string;
   readonly fyersSymbol: string;
+  readonly sector: string;
+}
+
+export interface HeadlineIndex {
+  readonly symbol: string;
+  readonly name: string;
+  readonly fyersSymbol: string;
+  /** `volatility` renders differently: a VIX rise is risk-off, not "good". */
+  readonly kind: 'index' | 'volatility';
 }
 
 export interface ResolvedIndex {
@@ -49,6 +66,7 @@ export interface ResolvedIndex {
 const CONFIG_PATH = join(process.cwd(), '..', '..', 'config', 'indices.yaml');
 
 let cache: Map<string, ResolvedIndex> | null = null;
+let headlineCache: HeadlineIndex[] | null = null;
 
 async function loadAll(): Promise<Map<string, ResolvedIndex>> {
   if (cache !== null) return cache;
@@ -73,15 +91,28 @@ async function loadAll(): Promise<Map<string, ResolvedIndex>> {
       description: config.description ?? null,
       constituents: config.constituents.map((c) => ({
         symbol: c.symbol,
-        name: c.name,
+        name: c.name.trim(),
         // The one place a bare symbol becomes a Fyers symbol.
         fyersSymbol: toFyersSymbol(c.symbol, 'equity'),
+        sector: c.sector ?? 'Other',
       })),
     });
   }
 
   cache = resolved;
+  headlineCache = parsed.data.headlineIndices.map((h) => ({
+    symbol: h.symbol,
+    name: h.name,
+    fyersSymbol: toFyersSymbol(h.symbol, 'index'),
+    kind: h.kind === 'volatility' ? ('volatility' as const) : ('index' as const),
+  }));
   return resolved;
+}
+
+/** Indices shown across the top of the dashboard. */
+export async function getHeadlineIndices(): Promise<readonly HeadlineIndex[]> {
+  await loadAll();
+  return headlineCache ?? [];
 }
 
 export async function getIndex(key: string): Promise<ResolvedIndex | null> {

@@ -20,6 +20,16 @@ export default function HomePage() {
       </div>
 
       <a
+        href="/dashboard"
+        className="rounded-lg border border-slate-200 p-5 transition-colors hover:border-slate-400 dark:border-slate-800 dark:hover:border-slate-600"
+      >
+        <span className="font-medium">Market dashboard →</span>
+        <span className="mt-1 block text-sm text-slate-600 dark:text-slate-400">
+          Indices, breadth, sectors, signals and swing setups
+        </span>
+      </a>
+
+      <a
         href="/nifty50"
         className="rounded-lg border border-slate-200 p-5 transition-colors hover:border-slate-400 dark:border-slate-800 dark:hover:border-slate-600"
       >

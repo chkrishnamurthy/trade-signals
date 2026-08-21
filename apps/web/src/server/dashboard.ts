@@ -1,0 +1,202 @@
+import 'server-only';
+import { fetchMarketStatus, fetchQuotes, type Quote } from '@signal/fyers';
+import type { DashboardDto, HeadlineIndexDto, MoverDto } from '@/lib/dashboard-types';
+import type { MarketStatusCode } from '@/lib/market-types';
+import {
+  computeBreadth,
+  computeSectors,
+  computeSentiment,
+  mostActive,
+  toMover,
+  topGainers,
+  topLosers,
+  unusualVolume,
+} from './analytics';
+import { MarketDataError, toMarketError } from './errors';
+import { getFyersFetcher } from './fyers-client';
+import { getHeadlineIndices, getIndex, type ResolvedIndex } from './indices';
+import { getIndicatorCache } from './signals';
+
+/**
+ * Assembles the dashboard snapshot.
+ *
+ * Cost: exactly two Fyers calls regardless of how many cards the UI renders —
+ * quotes are batched 50 per request and everything else (breadth, sentiment,
+ * sectors, movers) is computed locally from the same payload. Indicator-derived
+ * fields are read from a separate, slower cache rather than fetched here.
+ */
+
+const OPEN_TTL_MS = 5_000;
+const CLOSED_TTL_MS = 120_000;
+
+interface CacheEntry {
+  readonly snapshot: DashboardDto;
+  readonly expiresAt: number;
+}
+
+const cache = new Map<string, CacheEntry>();
+const inFlight = new Map<string, Promise<DashboardDto>>();
+
+function headlineDto(
+  meta: { symbol: string; name: string; kind: 'index' | 'volatility' },
+  quote: Quote,
+  sparkline: readonly number[],
+): HeadlineIndexDto {
+  return {
+    symbol: meta.symbol,
+    name: meta.name,
+    kind: meta.kind,
+    ltp: quote.ltp,
+    change: quote.change,
+    changePercent: quote.changePercent,
+    open: quote.open,
+    high: quote.high,
+    low: quote.low,
+    previousClose: quote.previousClose,
+    sparkline,
+  };
+}
+
+async function build(index: ResolvedIndex): Promise<DashboardDto> {
+  const fetcher = getFyersFetcher();
+  const headlines = await getHeadlineIndices();
+
+  const symbols = [
+    ...headlines.map((h) => h.fyersSymbol),
+    ...index.constituents.map((c) => c.fyersSymbol),
+  ];
+
+  const [statusResult, quotesResult] = await Promise.all([
+    fetchMarketStatus(fetcher).catch(() => null),
+    fetchQuotes(fetcher, symbols),
+  ]);
+
+  const { quotes, missing } = quotesResult;
+  const indicators = getIndicatorCache(index.key);
+
+  const indices: HeadlineIndexDto[] = [];
+  for (const headline of headlines) {
+    const quote = quotes.get(headline.fyersSymbol);
+    if (quote === undefined) continue;
+    indices.push(headlineDto(headline, quote, indicators?.sparklines.get(headline.symbol) ?? []));
+  }
+
+  const movers: MoverDto[] = [];
+  for (const constituent of index.constituents) {
+    const quote = quotes.get(constituent.fyersSymbol);
+    if (quote === undefined) continue;
+    // Relative volume needs the 20-day average, which only exists once the
+    // indicator pass has run. Until then it stays null rather than being faked.
+    const snapshot = indicators?.snapshots.get(constituent.symbol);
+    const relativeVolume =
+      snapshot?.averageVolume != null && snapshot.averageVolume > 0 && quote.volume !== null
+        ? quote.volume / snapshot.averageVolume
+        : null;
+    movers.push(toMover({ constituent, quote }, relativeVolume));
+  }
+
+  const breadth = computeBreadth(movers);
+  if (indicators !== null) {
+    Object.assign(breadth, {
+      aboveEma20: indicators.aboveEma20,
+      aboveEma50: indicators.aboveEma50,
+      aboveEma200: indicators.aboveEma200,
+      withIndicators: indicators.snapshots.size,
+    });
+  }
+
+  const isOpen = statusResult?.isOpen ?? false;
+  const totalVolume = movers.reduce((sum, m) => sum + (m.volume ?? 0), 0);
+  const turnovers = movers.map((m) => m.turnover).filter((t): t is number => t !== null);
+
+  let nearHigh52w: number | null = null;
+  let nearLow52w: number | null = null;
+  if (indicators !== null) {
+    nearHigh52w = 0;
+    nearLow52w = 0;
+    for (const mover of movers) {
+      const snap = indicators.snapshots.get(mover.symbol);
+      if (snap?.high52w != null && mover.ltp >= snap.high52w * 0.98) nearHigh52w += 1;
+      if (snap?.low52w != null && mover.ltp <= snap.low52w * 1.02) nearLow52w += 1;
+    }
+  }
+
+  return {
+    indices,
+    sentiment: computeSentiment(movers, breadth),
+    sectors: computeSectors(movers),
+    gainers: topGainers(movers),
+    losers: topLosers(movers),
+    mostActive: mostActive(movers),
+    unusualVolume: unusualVolume(movers),
+    quotes: movers,
+    quickStats: {
+      totalVolume,
+      totalTurnover: turnovers.length === 0 ? null : turnovers.reduce((s, t) => s + t, 0),
+      advancing: breadth.advancing,
+      declining: breadth.declining,
+      nearHigh52w,
+      nearLow52w,
+    },
+    market: { isOpen, status: (statusResult?.status ?? 'UNKNOWN') as MarketStatusCode },
+    fetchedAt: new Date().toISOString(),
+    cached: false,
+    missing,
+    refreshAfterSeconds: isOpen ? OPEN_TTL_MS / 1000 : CLOSED_TTL_MS / 1000,
+    indicatorsReady: indicators !== null,
+  };
+}
+
+export async function getDashboard(indexKey: string): Promise<DashboardDto> {
+  const index = await getIndex(indexKey);
+  if (index === null) {
+    throw new MarketDataError(`Unknown index "${indexKey}".`, {
+      code: 'UNKNOWN_INDEX',
+      status: 404,
+      remedy: 'Add it to config/indices.yaml.',
+    });
+  }
+
+  const cached = cache.get(index.key);
+  if (cached !== undefined && cached.expiresAt > Date.now()) {
+    return { ...cached.snapshot, cached: true };
+  }
+
+  const existing = inFlight.get(index.key);
+  if (existing !== undefined) return existing;
+
+  const pending = build(index)
+    .then((snapshot) => {
+      cache.set(index.key, {
+        snapshot,
+        expiresAt: Date.now() + (snapshot.market.isOpen ? OPEN_TTL_MS : CLOSED_TTL_MS),
+      });
+      return snapshot;
+    })
+    .catch((error: unknown) => {
+      throw toMarketError(error);
+    })
+    .finally(() => {
+      inFlight.delete(index.key);
+    });
+
+  inFlight.set(index.key, pending);
+  return pending;
+}
+
+/**
+ * Drops the cached snapshot for an index.
+ *
+ * Called when the indicator pass completes: the cached snapshot was assembled
+ * without indicator data, and without this it would keep serving
+ * `indicatorsReady: false` for the rest of its TTL even though the data is now
+ * available.
+ */
+export function invalidateDashboard(indexKey: string): void {
+  cache.delete(indexKey.toLowerCase());
+}
+
+export function getStaleDashboard(indexKey: string): DashboardDto | null {
+  const entry = cache.get(indexKey.toLowerCase());
+  return entry === undefined ? null : { ...entry.snapshot, cached: true };
+}

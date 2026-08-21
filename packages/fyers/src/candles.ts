@@ -1,7 +1,6 @@
 import { istDateKey } from '@signal/shared';
 import type { FyersHttpClient } from './http.js';
 import { FYERS_DATA_BASE } from './http.js';
-import { encodeFyersSymbol } from './symbols.js';
 import { type Candle, historyResponseSchema, toCandle } from './types.js';
 
 /**
@@ -144,7 +143,10 @@ export async function fetchCandles(
         method: 'GET',
         headers: { Authorization: fetcher.authorization },
         query: {
-          symbol: encodeFyersSymbol(fyersSymbol),
+          // Raw, NOT pre-encoded: the URL layer percent-encodes query values
+          // once. Encoding here too produced `NSE%253ARELIANCE-EQ`, which the
+          // API rejects with -300 "Invalid symbol provided".
+          symbol: fyersSymbol,
           resolution,
           date_format: 1,
           range_from: istDateKey(chunk.from),

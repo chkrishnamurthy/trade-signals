@@ -1,35 +1,25 @@
 import 'server-only';
-import {
-  FyersApiError,
-  FyersAuthError,
-  FyersRateLimitError,
-  fetchMarketStatus,
-  fetchQuotes,
-  isTokenExpiryCode,
-  type Quote,
-} from '@signal/fyers';
+import { fetchMarketStatus, fetchQuotes, type Quote } from '@signal/fyers';
 import type {
   IndexQuoteDto,
   MarketSnapshotDto,
   MarketStatusCode,
   QuoteDto,
 } from '@/lib/market-types';
+import { MarketDataError, toMarketError } from './errors';
 import { getFyersFetcher } from './fyers-client';
 import type { ResolvedIndex } from './indices';
 
 /**
- * Builds a market snapshot from Fyers.
+ * Single-index quote snapshot, backing /api/market/[index].
  *
  * Rate-limit discipline lives here. Fyers allows 200 requests/minute across the
- * whole account and blocks you for the rest of the day if you breach it three
- * times; a NIFTY 50 refresh costs two quote calls (51 symbols, capped at 50 per
- * call). The cache below means twenty open browser tabs still cost exactly the
- * same as one.
+ * whole account and blocks you for the rest of the day after three breaches; a
+ * refresh costs two quote calls (51 symbols, capped at 50 per call). The cache
+ * means twenty open tabs cost the same as one.
  */
 
-/** How long a snapshot stays fresh while the market is trading. */
 const OPEN_TTL_MS = 5_000;
-/** Outside trading hours nothing changes, so poll rarely. */
 const CLOSED_TTL_MS = 120_000;
 
 interface CacheEntry {
@@ -38,22 +28,7 @@ interface CacheEntry {
 }
 
 const cache = new Map<string, CacheEntry>();
-/** Collapses concurrent requests for the same index into one upstream call. */
 const inFlight = new Map<string, Promise<MarketSnapshotDto>>();
-
-export class MarketDataError extends Error {
-  readonly remedy: string | undefined;
-  readonly code: string;
-  readonly status: number;
-
-  constructor(message: string, options: { code: string; status: number; remedy?: string }) {
-    super(message);
-    this.name = 'MarketDataError';
-    this.code = options.code;
-    this.status = options.status;
-    this.remedy = options.remedy;
-  }
-}
 
 function toQuoteDto(
   constituent: { symbol: string; name: string; fyersSymbol: string },
@@ -78,17 +53,14 @@ function toQuoteDto(
 
 async function build(index: ResolvedIndex): Promise<MarketSnapshotDto> {
   const fetcher = getFyersFetcher();
-
   const symbols = [index.indexFyersSymbol, ...index.constituents.map((c) => c.fyersSymbol)];
 
-  // Market status and quotes are independent; overlap them.
   const [statusResult, quotesResult] = await Promise.all([
     fetchMarketStatus(fetcher).catch(() => null),
     fetchQuotes(fetcher, symbols),
   ]);
 
   const { quotes, missing } = quotesResult;
-
   const indexQuote = quotes.get(index.indexFyersSymbol);
   const indexDto: IndexQuoteDto | null =
     indexQuote === undefined
@@ -114,56 +86,15 @@ async function build(index: ResolvedIndex): Promise<MarketSnapshotDto> {
   }
 
   const isOpen = statusResult?.isOpen ?? false;
-
   return {
     index: indexDto,
     constituents,
-    market: {
-      isOpen,
-      status: (statusResult?.status ?? 'UNKNOWN') as MarketStatusCode,
-    },
+    market: { isOpen, status: (statusResult?.status ?? 'UNKNOWN') as MarketStatusCode },
     fetchedAt: new Date().toISOString(),
     cached: false,
     missing,
     refreshAfterSeconds: isOpen ? OPEN_TTL_MS / 1000 : CLOSED_TTL_MS / 1000,
   };
-}
-
-/** Translates transport failures into something the UI can act on. */
-function toMarketError(error: unknown): MarketDataError {
-  if (error instanceof MarketDataError) return error;
-
-  if (error instanceof FyersAuthError) {
-    return new MarketDataError(error.message, { code: 'AUTH', status: 401, remedy: error.remedy });
-  }
-  if (error instanceof FyersRateLimitError) {
-    return new MarketDataError('Fyers rate limit reached. Backing off.', {
-      code: 'RATE_LIMIT',
-      status: 429,
-      remedy: 'Wait a moment — the client retries automatically.',
-    });
-  }
-  if (error instanceof FyersApiError) {
-    if (isTokenExpiryCode(error.code)) {
-      return new MarketDataError('The Fyers access token has expired.', {
-        code: 'TOKEN_EXPIRED',
-        status: 401,
-        remedy: 'Run `pnpm fyers:login` to get a fresh token. Tokens expire daily.',
-      });
-    }
-    return new MarketDataError(error.message, { code: 'FYERS_API', status: 502 });
-  }
-  if (error instanceof Error && error.name === 'FyersNotConfiguredError') {
-    return new MarketDataError(error.message, {
-      code: 'NOT_CONFIGURED',
-      status: 503,
-      remedy: (error as { remedy?: string }).remedy ?? 'Configure Fyers credentials in .env.',
-    });
-  }
-  return new MarketDataError(error instanceof Error ? error.message : String(error), {
-    code: 'UNKNOWN',
-    status: 500,
-  });
 }
 
 /**
@@ -173,9 +104,8 @@ function toMarketError(error: unknown): MarketDataError {
  * from the rate-limit budget.
  */
 export async function getMarketSnapshot(index: ResolvedIndex): Promise<MarketSnapshotDto> {
-  const now = Date.now();
   const cached = cache.get(index.key);
-  if (cached !== undefined && cached.expiresAt > now) {
+  if (cached !== undefined && cached.expiresAt > Date.now()) {
     return { ...cached.snapshot, cached: true };
   }
 
@@ -206,3 +136,5 @@ export function getStaleSnapshot(key: string): MarketSnapshotDto | null {
   const entry = cache.get(key);
   return entry === undefined ? null : { ...entry.snapshot, cached: true };
 }
+
+export { MarketDataError };

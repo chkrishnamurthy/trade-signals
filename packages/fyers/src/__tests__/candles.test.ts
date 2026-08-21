@@ -133,14 +133,31 @@ describe('fetchCandles', () => {
     expect(url.searchParams.get('oi_flag')).toBe('1');
   });
 
-  it('percent-encodes symbols containing an ampersand', async () => {
+  it('encodes an ampersand exactly once', async () => {
     const { fetcher: f, stub } = fetcher([{ body: jsonFixture('history-empty.json') }]);
     await fetchCandles(f, 'NSE:M&M-EQ', 'D', {
       from: new Date('2026-08-01T00:00:00Z'),
       to: new Date('2026-08-02T00:00:00Z'),
     });
-    // The raw query string must carry the escaped form, not a bare '&'.
-    expect(stub.calls[0]).toContain('M%2526M');
+
+    // Double-encoding is a real bug this test previously enshrined: passing a
+    // pre-encoded symbol through URLSearchParams yields `NSE%253AM%2526M-EQ`,
+    // which Fyers rejects with -300. The wire form must decode back to the
+    // original symbol in one step.
+    const url = new URL(stub.calls[0] ?? '');
+    expect(url.searchParams.get('symbol')).toBe('NSE:M&M-EQ');
+    expect(stub.calls[0]).toContain('M%26M');
+    expect(stub.calls[0]).not.toContain('%2526');
+    expect(stub.calls[0]).not.toContain('%253A');
+  });
+
+  it('sends the symbol so it decodes back intact for a plain symbol too', async () => {
+    const { fetcher: f, stub } = fetcher([{ body: jsonFixture('history-empty.json') }]);
+    await fetchCandles(f, 'NSE:RELIANCE-EQ', 'D', {
+      from: new Date('2026-08-01T00:00:00Z'),
+      to: new Date('2026-08-02T00:00:00Z'),
+    });
+    expect(new URL(stub.calls[0] ?? '').searchParams.get('symbol')).toBe('NSE:RELIANCE-EQ');
   });
 
   it('sends the Authorization header in appId:token form', async () => {

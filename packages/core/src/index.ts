@@ -1,10 +1,12 @@
 /**
  * Pure signal engine.
  *
- * Empty until indicators and strategies land. The constraint that makes this
- * package worth its own boundary (CLAUDE.md hard rule 1): every export takes
- * data plus config and returns a result. No database, no `Date.now()`, no
- * network, no `process.env`, no module-level mutable state. That is what lets
- * the backtester and the live path execute byte-identical code.
+ * Every export takes data plus config and returns a result. No database, no
+ * `Date.now()`, no network, no `process.env`, no module-level mutable state
+ * (CLAUDE.md hard rule 1) — that is what lets the backtester and the live path
+ * execute byte-identical code.
  */
-export {};
+export * from './indicators/index.js';
+export * from './signals/index.js';
+export type { Bar, Series } from './types.js';
+export { at, latest } from './types.js';
