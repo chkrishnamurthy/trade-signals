@@ -1,0 +1,1 @@
+ALTER TABLE "intraday_signals" ADD COLUMN "scoring" jsonb DEFAULT '{}'::jsonb NOT NULL;

@@ -31,6 +31,14 @@ export interface CreateDatabaseOptions {
    */
   readonly connectionTimeoutMillis?: number;
   readonly idleTimeoutMillis?: number;
+  /**
+   * Called when an IDLE pooled connection fails.
+   *
+   * Optional: the failure is always handled, and this only decides whether it
+   * is also logged. See the handler in {@link createDatabase} for why one must
+   * exist at all.
+   */
+  readonly onIdleError?: (error: Error) => void;
 }
 
 /** Opens a connection pool against Neon and wraps it in Drizzle. */
@@ -47,6 +55,24 @@ export function createDatabase(options: CreateDatabaseOptions = {}): DatabaseHan
   // `casing` MUST match drizzle.config.ts. Without it, runtime queries emit
   // camelCase column names ("configHash") while migrations created snake_case
   // ("config_hash"), and every query against a multi-word column fails.
+  /**
+   * Idle-connection failures must not kill the process.
+   *
+   * `pg.Pool` emits `error` when a connection that is sitting IDLE in the pool
+   * dies — and in Node an unhandled `error` event on an EventEmitter is a
+   * crash, not a rejected promise. Neon makes this routine rather than
+   * exceptional: computes scale to zero and idle TCP connections get dropped,
+   * so a worker that spends three minutes on an upstream fetch can come back to
+   * a pool full of dead sockets.
+   *
+   * `pg` has already removed the bad client from the pool by the time this
+   * fires; the next query gets a fresh connection. There is nothing to do but
+   * not die.
+   */
+  pool.on('error', (error: Error) => {
+    options.onIdleError?.(error);
+  });
+
   const db = drizzle(pool, { schema, casing: 'snake_case' });
 
   return {

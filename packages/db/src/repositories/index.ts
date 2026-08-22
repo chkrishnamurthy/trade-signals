@@ -1,11 +1,16 @@
-export type { BarQuery, CandleInput, StoredBar } from './candles.js';
+export type { BarQuery, CandleInput, SessionCoverage, StoredBar } from './candles.js';
 export {
   applyAdjustments,
   getDailyBars,
+  getDailyBarsForInstruments,
   getIntradayBars,
+  getMinuteBars,
+  getMinuteBarsForInstruments,
   getStoredSessionDates,
   insertDailyCandles,
   insertMinuteCandles,
+  latestMinuteBarPerInstrument,
+  minuteCandleCoverage,
 } from './candles.js';
 export type {
   IndicatorUpsert,
@@ -23,6 +28,45 @@ export {
   resolveInstrumentIds,
   syncInstruments,
 } from './instruments.js';
+export type {
+  IntradayEventInput,
+  IntradayFactorInput,
+  IntradayReasonInput,
+  IntradaySignalDetail,
+  IntradaySignalInput,
+  IntradaySignalUpdate,
+  StoredIntradaySignal,
+} from './intraday-signals.js';
+export {
+  createIntradaySignal,
+  expireOpenSignals,
+  finishIntradayRun,
+  getIntradayEventsFor,
+  getIntradayFactorsFor,
+  getIntradayReasonsFor,
+  getIntradaySignalDetail,
+  getIntradaySignals,
+  getIntradaySummary,
+  getLiveIntradaySignals,
+  getRecentlyEndedSetups,
+  latestIntradayRun,
+  latestIntradaySignalDate,
+  pruneIntradaySignals,
+  startIntradayRun,
+  TERMINAL_SIGNAL_STATES,
+  updateIntradaySignal,
+} from './intraday-signals.js';
+export type {
+  PaperTradeInput,
+  StoredPaperTrade,
+  TriggeredSignal,
+} from './paper-trades.js';
+export {
+  getPaperTrades,
+  getTriggeredSignals,
+  recordPaperTrade,
+  settledSignalIds,
+} from './paper-trades.js';
 export type { SignalFactorInput, SignalInput, StoredSignal } from './signals.js';
 export {
   getSignalFactors,

@@ -7,7 +7,7 @@ import {
   macd,
   rsi,
   sma,
-} from '@signal/core';
+} from '@wealthos/core';
 import {
   getDailyBars,
   type IndicatorUpsert,
@@ -15,8 +15,8 @@ import {
   registerStrategy,
   saveSignal,
   upsertDailyIndicators,
-} from '@signal/db';
-import { istDateKey } from '@signal/shared';
+} from '@wealthos/db';
+import { istDateKey } from '@wealthos/shared';
 import type { WorkerContext } from '../context.js';
 import { errorFields, type Logger } from '../log.js';
 

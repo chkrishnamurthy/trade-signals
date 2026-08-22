@@ -1,7 +1,24 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
-import { Card, SkeletonRows } from '@/components/ui/card';
+import {
+  CardSkeleton,
+  ChartSkeleton,
+  ConnectionError,
+  SkeletonRows,
+} from '@/components/data-display/states';
+import { AppShell } from '@/components/layout/app-shell';
+import { ContentGrid, GridMain, GridRail } from '@/components/layout/grid';
+import {
+  PageContainer,
+  PageContent,
+  PageDescription,
+  PageHeader,
+  PageTitle,
+} from '@/components/layout/page';
+import { LastUpdated, MarketStatus } from '@/components/market/market-status';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Card, CardContent, CardHeader, CardHeading, CardTitle } from '@/components/ui/card';
 import { istTime } from '@/lib/format';
 import { useDashboard } from '@/lib/use-dashboard';
 import { MarketActivity, QuickStats } from './activity';
@@ -9,11 +26,11 @@ import { MarketBreadth } from './breadth';
 import { MarketChart } from './chart';
 import { IndexCards } from './index-cards';
 import { MoversCard } from './movers';
+import { StockSearch } from './search';
 import { SectorHeatmap, SectorPerformance } from './sectors';
 import { MarketSentiment } from './sentiment';
 import { SwingOpportunities, TradingSignals } from './signals';
 import { StockDetailDrawer } from './stock-drawer';
-import { TopNav } from './top-nav';
 import { Watchlist } from './watchlist';
 
 /**
@@ -22,6 +39,10 @@ import { Watchlist } from './watchlist';
  * Two feeds drive everything: a cheap quote poll and an expensive indicator
  * pass. Sections that need indicators show their own loading state rather than
  * holding up the whole page.
+ *
+ * Layout is composed entirely from the design system — AppShell, PageContainer,
+ * ContentGrid — so a second page inherits the same frame by writing the same
+ * five lines.
  */
 export function Dashboard({ indexKey = 'nifty50' }: { indexKey?: string }) {
   const { dashboard, signals, refresh, isRefreshing } = useDashboard(indexKey);
@@ -58,71 +79,84 @@ export function Dashboard({ indexKey = 'nifty50' }: { indexKey?: string }) {
     };
   }, [data, signalData]);
 
+  const topbar = (
+    <>
+      <StockSearch onSelect={onSelect} />
+      <div className="hidden items-center gap-2 sm:flex">
+        <MarketStatus
+          phase={data?.market.phase ?? 'unknown'}
+          isOpen={data?.market.isOpen ?? false}
+        />
+        <LastUpdated at={data?.fetchedAt ?? null} />
+      </div>
+    </>
+  );
+
   if (dashboard.status === 'error') {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-16">
-        <div className="rounded-lg border border-rose-200 bg-rose-50 p-6 dark:border-rose-900 dark:bg-rose-950/40">
-          <h1 className="font-semibold text-rose-900 dark:text-rose-200">
-            Market data temporarily unavailable
-          </h1>
-          <p className="mt-1 text-sm text-rose-800 dark:text-rose-300">{dashboard.error.error}</p>
-          {dashboard.error.remedy !== undefined && (
-            <p className="mt-3 rounded bg-rose-100 px-3 py-2 font-mono text-xs text-rose-900 dark:bg-rose-900/40 dark:text-rose-200">
-              {dashboard.error.remedy}
-            </p>
-          )}
-          <button
-            type="button"
-            onClick={refresh}
-            className="mt-4 rounded-md border border-rose-300 px-3 py-1.5 text-sm font-medium text-rose-800 hover:bg-rose-100 dark:border-rose-800 dark:text-rose-200"
-          >
-            Try again
-          </button>
-        </div>
-      </div>
+      <AppShell topbar={topbar}>
+        <PageContainer width="narrow">
+          <ConnectionError
+            detail={dashboard.error.remedy ?? dashboard.error.error}
+            onRetry={refresh}
+          />
+        </PageContainer>
+      </AppShell>
     );
   }
 
   return (
-    <div className="min-h-dvh bg-slate-50 dark:bg-slate-950">
-      <TopNav
-        phase={data?.market.phase ?? 'unknown'}
-        isOpen={data?.market.isOpen ?? false}
-        lastUpdated={data === null ? '—' : `${istTime(data.fetchedAt)} IST`}
-        onSelectSymbol={onSelect}
-      />
+    <AppShell topbar={topbar}>
+      <PageContainer>
+        <PageHeader>
+          <div className="min-w-0">
+            <PageTitle>Market dashboard</PageTitle>
+            <PageDescription>
+              Indices, breadth, sectors and technical setups across the NIFTY 50. Decision support
+              only — orders are placed elsewhere.
+            </PageDescription>
+          </div>
+          <div className="flex items-center gap-2 sm:hidden">
+            <MarketStatus
+              phase={data?.market.phase ?? 'unknown'}
+              isOpen={data?.market.isOpen ?? false}
+            />
+          </div>
+        </PageHeader>
 
-      <main className="mx-auto max-w-[1800px] space-y-4 px-4 py-4 sm:px-6">
         {data === null ? (
           <DashboardSkeleton />
         ) : (
-          <>
+          <PageContent>
             {isStale && (
-              <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
-                Upstream unreachable — showing the last successful snapshot from{' '}
-                {istTime(data.fetchedAt)} IST.
-              </p>
+              <Alert variant="warning">
+                <AlertTitle>Showing a cached snapshot</AlertTitle>
+                <AlertDescription>
+                  The market data source is unreachable. These figures are from{' '}
+                  {istTime(data.fetchedAt)} IST and are not current.
+                </AlertDescription>
+              </Alert>
             )}
 
             <IndexCards indices={data.indices} />
             <QuickStats stats={data.quickStats} />
 
-            {/* Main grid: chart + analytics rail on desktop, stacked on mobile. */}
-            <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-              <div className="xl:col-span-2">
+            {/* Chart plus analytics rail on desktop, stacked on mobile. */}
+            <ContentGrid columns="board">
+              <GridMain>
                 <MarketChart
                   symbol={data.indices[0]?.symbol ?? 'NIFTY50'}
                   title={data.indices[0]?.name ?? 'NIFTY 50'}
                   previousClose={data.indices[0]?.previousClose ?? null}
                 />
-              </div>
-              <div className="space-y-4">
+              </GridMain>
+              <GridRail>
                 <MarketSentiment sentiment={data.sentiment} />
                 {breadth !== null && <MarketBreadth breadth={breadth} />}
-              </div>
-            </div>
+              </GridRail>
+            </ContentGrid>
 
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <ContentGrid columns="cards">
               <MoversCard
                 title="Top gainers"
                 movers={data.gainers}
@@ -156,29 +190,31 @@ export function Dashboard({ indexKey = 'nifty50' }: { indexKey?: string }) {
                 }
                 onSelect={onSelect}
               />
-            </div>
+            </ContentGrid>
 
-            <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-              <TradingSignals
-                signals={signalData?.signals ?? []}
-                loading={signalsLoading}
-                onSelect={onSelect}
-              />
-              <div className="xl:col-span-2">
+            <ContentGrid columns="board">
+              <GridRail>
+                <TradingSignals
+                  signals={signalData?.signals ?? []}
+                  loading={signalsLoading}
+                  onSelect={onSelect}
+                />
+              </GridRail>
+              <GridMain>
                 <SwingOpportunities
                   candidates={signalData?.swing ?? []}
                   loading={signalsLoading}
                   onSelect={onSelect}
                 />
-              </div>
-            </div>
+              </GridMain>
+            </ContentGrid>
 
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <ContentGrid columns="split">
               <SectorPerformance sectors={data.sectors} />
               <SectorHeatmap sectors={data.sectors} quotes={data.quotes} onSelect={onSelect} />
-            </div>
+            </ContentGrid>
 
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <ContentGrid columns="split">
               <Watchlist
                 quotes={data.quotes}
                 signals={signalData?.signals ?? []}
@@ -186,9 +222,9 @@ export function Dashboard({ indexKey = 'nifty50' }: { indexKey?: string }) {
                 onBrowse={() => onSelect(data.gainers[0]?.symbol ?? data.quotes[0]?.symbol ?? '')}
               />
               <MarketActivity events={signalData?.activity ?? []} loading={signalsLoading} />
-            </div>
+            </ContentGrid>
 
-            <footer className="flex flex-wrap items-center justify-between gap-2 pb-6 pt-2 text-xs text-slate-500 dark:text-slate-400">
+            <footer className="flex flex-wrap items-center justify-between gap-2 pb-6 text-xs text-muted-foreground">
               <span>
                 {data.quotes.length} constituents · updated {istTime(data.fetchedAt)} IST
                 {data.cached && ' · cached'}
@@ -201,9 +237,9 @@ export function Dashboard({ indexKey = 'nifty50' }: { indexKey?: string }) {
                   ` No history for: ${signalData.skipped.join(', ')}`}
               </span>
             </footer>
-          </>
+          </PageContent>
         )}
-      </main>
+      </PageContainer>
 
       {selected !== null && selected !== '' && (
         <StockDetailDrawer
@@ -213,29 +249,38 @@ export function Dashboard({ indexKey = 'nifty50' }: { indexKey?: string }) {
           onClose={closeDrawer}
         />
       )}
-    </div>
+    </AppShell>
   );
 }
 
+/** Mirrors the real layout so nothing jumps when the first payload lands. */
 function DashboardSkeleton() {
   return (
-    <div className="space-y-4" aria-busy="true">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <PageContent aria-busy="true">
+      <ContentGrid columns="metrics">
         {Array.from({ length: 4 }, (_, i) => (
-          <div
-            // biome-ignore lint/suspicious/noArrayIndexKey: fixed-length skeleton
-            key={i}
-            className="h-32 animate-pulse rounded-lg bg-slate-200 dark:bg-slate-800/70"
-          />
+          // biome-ignore lint/suspicious/noArrayIndexKey: fixed-length skeleton
+          <CardSkeleton key={i} />
         ))}
-      </div>
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-        <div className="h-80 animate-pulse rounded-lg bg-slate-200 xl:col-span-2 dark:bg-slate-800/70" />
-        <Card title="Market sentiment">
-          <SkeletonRows rows={4} />
-        </Card>
-      </div>
+      </ContentGrid>
+      <ContentGrid columns="board">
+        <GridMain>
+          <ChartSkeleton />
+        </GridMain>
+        <GridRail>
+          <Card>
+            <CardHeader>
+              <CardHeading>
+                <CardTitle>Market sentiment</CardTitle>
+              </CardHeading>
+            </CardHeader>
+            <CardContent>
+              <SkeletonRows rows={4} />
+            </CardContent>
+          </Card>
+        </GridRail>
+      </ContentGrid>
       <span className="sr-only">Loading market data</span>
-    </div>
+    </PageContent>
   );
 }

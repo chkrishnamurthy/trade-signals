@@ -1,9 +1,17 @@
 'use client';
 
-import { Card, EmptyState } from '@/components/ui/card';
-import { ratio, turnover } from '@/lib/dashboard-format';
+import { EmptyState } from '@/components/data-display/states';
+import { PercentChange, Price, Ratio, Turnover, Volume } from '@/components/market/numeric';
+import { StockIdentity } from '@/components/market/stock-identity';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardHeading,
+  CardTitle,
+} from '@/components/ui/card';
 import type { MoverDto } from '@/lib/dashboard-types';
-import { priceCompact, signedPercent, toneFor, volume } from '@/lib/format';
 
 /**
  * Movers list — gainers, losers, most active and unusual volume all share this.
@@ -21,16 +29,16 @@ const METRIC_LABEL: Record<MoverMetric, string> = {
   relativeVolume: 'Rel. vol',
 };
 
-function metricValue(mover: MoverDto, metric: MoverMetric): string {
+function MetricValue({ mover, metric }: { mover: MoverDto; metric: MoverMetric }) {
   switch (metric) {
     case 'volume':
-      return volume(mover.volume);
+      return <Volume shares={mover.volume} size="sm" />;
     case 'turnover':
-      return turnover(mover.turnover);
+      return <Turnover paise={mover.turnover} size="sm" />;
     case 'relativeVolume':
-      return ratio(mover.relativeVolume);
+      return <Ratio value={mover.relativeVolume} size="sm" />;
     default:
-      return signedPercent(mover.changePercent);
+      return <PercentChange value={mover.changePercent} size="sm" />;
   }
 }
 
@@ -44,61 +52,54 @@ export function MoversCard({
   onSelect,
 }: {
   title: string;
-  subtitle?: string;
+  subtitle?: string | undefined;
   movers: readonly MoverDto[];
-  metric?: MoverMetric;
+  metric?: MoverMetric | undefined;
   emptyTitle: string;
-  emptyDetail?: string;
+  emptyDetail?: string | undefined;
   onSelect: (symbol: string) => void;
 }) {
   return (
-    <Card title={title} subtitle={subtitle} bodyClassName="p-0">
-      {movers.length === 0 ? (
-        <EmptyState title={emptyTitle} detail={emptyDetail} />
-      ) : (
-        <ul className="divide-y divide-slate-100 dark:divide-slate-800">
-          {movers.map((mover) => {
-            const tone = toneFor(mover.changePercent);
-            return (
+    <Card>
+      <CardHeader>
+        <CardHeading>
+          <CardTitle>{title}</CardTitle>
+          {subtitle !== undefined && <CardDescription>{subtitle}</CardDescription>}
+        </CardHeading>
+      </CardHeader>
+      <CardContent flush>
+        {movers.length === 0 ? (
+          <EmptyState title={emptyTitle} description={emptyDetail} />
+        ) : (
+          <ul className="divide-y divide-border">
+            {movers.map((mover) => (
               <li key={mover.symbol}>
                 <button
                   type="button"
                   onClick={() => onSelect(mover.symbol)}
-                  className="flex w-full items-center gap-3 px-4 py-2 text-left hover:bg-slate-50 focus:outline-none focus-visible:bg-slate-50 dark:hover:bg-slate-800/60 dark:focus-visible:bg-slate-800/60"
+                  className="flex w-full items-center gap-3 px-4 py-2 text-left transition-colors hover:bg-accent/60 focus-visible:bg-accent/60"
                 >
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium">{mover.symbol}</span>
-                    <span className="block truncate text-xs text-slate-500 dark:text-slate-400">
-                      {mover.sector}
-                    </span>
-                  </span>
+                  <StockIdentity symbol={mover.symbol} name={mover.sector} className="flex-1" />
 
-                  <span className="shrink-0 text-right">
-                    <span className="block font-mono text-sm tabular-nums">
-                      {priceCompact(mover.ltp)}
-                    </span>
-                    <span className={`block font-mono text-xs tabular-nums ${tone}`}>
-                      <span aria-hidden>{(mover.changePercent ?? 0) >= 0 ? '▲' : '▼'}</span>{' '}
-                      {signedPercent(mover.changePercent)}
-                    </span>
+                  <span className="flex shrink-0 flex-col items-end">
+                    <Price paise={mover.ltp} bare size="sm" />
+                    <PercentChange value={mover.changePercent} size="xs" />
                   </span>
 
                   {metric !== 'changePercent' && (
-                    <span className="w-20 shrink-0 text-right">
-                      <span className="block font-mono text-sm tabular-nums">
-                        {metricValue(mover, metric)}
-                      </span>
-                      <span className="block text-[10px] uppercase tracking-wide text-slate-400">
+                    <span className="flex w-20 shrink-0 flex-col items-end">
+                      <MetricValue mover={mover} metric={metric} />
+                      <span className="text-[0.625rem] tracking-wide text-subtle-foreground uppercase">
                         {METRIC_LABEL[metric]}
                       </span>
                     </span>
                   )}
                 </button>
               </li>
-            );
-          })}
-        </ul>
-      )}
+            ))}
+          </ul>
+        )}
+      </CardContent>
     </Card>
   );
 }

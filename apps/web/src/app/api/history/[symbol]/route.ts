@@ -1,4 +1,4 @@
-import type { Resolution } from '@signal/market-data';
+import type { Resolution } from '@wealthos/market-data';
 import { NextResponse } from 'next/server';
 import { MarketDataError, toMarketError } from '@/server/errors';
 import { getBars } from '@/server/history';

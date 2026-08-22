@@ -1,5 +1,5 @@
 {
-  "name": "@signal/market-data",
+  "name": "@wealthos/market-data",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -21,6 +21,6 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
-    "@signal/shared": "workspace:*"
+    "@wealthos/shared": "workspace:*"
   }
 }

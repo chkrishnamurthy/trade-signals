@@ -1,7 +1,7 @@
 import 'server-only';
-import { PathCircuitBreaker, RateLimiter } from '@signal/fyers';
-import type { MarketDataProvider } from '@signal/market-data';
-import { createFyersProvider } from '@signal/providers-fyers';
+import { PathCircuitBreaker, RateLimiter } from '@wealthos/fyers';
+import type { MarketDataProvider } from '@wealthos/market-data';
+import { createFyersProvider } from '@wealthos/providers-fyers';
 
 /**
  * Composition root for market data.

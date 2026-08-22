@@ -1,6 +1,6 @@
 import 'server-only';
-import type { Bar, InstrumentRef, Resolution } from '@signal/market-data';
-import { istDateKey } from '@signal/shared';
+import type { Bar, InstrumentRef, Resolution } from '@wealthos/market-data';
+import { istDateKey } from '@wealthos/shared';
 import { getProvider } from './provider';
 
 /**

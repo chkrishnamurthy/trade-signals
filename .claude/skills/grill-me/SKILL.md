@@ -81,7 +81,7 @@ Use `git grep` for every sweep. It respects the index, so it skips `dist/`, `.ne
 Domain depth lives in `references/checklists.md`. For the three areas with their own
 enforcement discipline, call the Skill tool: "indicator-math" before judging any indicator,
 "closed-candles" before judging the signal engine or a backtest, "provider-boundary" before
-judging the adapter or anything importing `@signal/fyers`.
+judging the adapter or anything importing `@wealthos/fyers`.
 
 **Phase 1 is complete when you can state all six of these as fact, from files you opened:**
 

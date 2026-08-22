@@ -1,7 +1,20 @@
-import { Card, EmptyState, SkeletonRows } from '@/components/ui/card';
-import { turnover } from '@/lib/dashboard-format';
+import { StatTile } from '@/components/data-display/metric-card';
+import { EmptyState, SkeletonRows } from '@/components/data-display/states';
+import { ContentGrid } from '@/components/layout/grid';
+import { Turnover, Volume } from '@/components/market/numeric';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardHeading,
+  CardTitle,
+} from '@/components/ui/card';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import type { ActivityEventDto, QuickStatsDto } from '@/lib/dashboard-types';
-import { istTime, volume } from '@/lib/format';
+import { istTime } from '@/lib/format';
+import { toneFill } from '@/lib/tone';
+import { cn } from '@/lib/utils';
 
 /**
  * Market activity.
@@ -17,71 +30,87 @@ export function MarketActivity({
   loading: boolean;
 }) {
   return (
-    <Card title="Market activity" subtitle="Detected technical events" bodyClassName="p-0">
-      {loading ? (
-        <SkeletonRows rows={5} className="p-4" />
-      ) : events.length === 0 ? (
-        <EmptyState
-          title="No events detected"
-          detail="Nothing in the index triggered a named technical setup on the latest close."
-        />
-      ) : (
-        <ul className="max-h-72 divide-y divide-slate-100 overflow-y-auto dark:divide-slate-800">
-          {events.map((event) => (
-            <li
-              // One setup fires at most once per symbol per bar, so this is unique.
-              key={`${event.symbol}-${event.message}-${event.at}`}
-              className="flex items-start gap-2 px-4 py-2"
-            >
-              <span
-                className={`mt-1 size-1.5 shrink-0 rounded-full ${
-                  event.tone === 'bullish'
-                    ? 'bg-emerald-500'
-                    : event.tone === 'bearish'
-                      ? 'bg-rose-500'
-                      : 'bg-slate-400'
-                }`}
-                aria-hidden
-              />
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm">
-                  <span className="font-medium">{event.symbol}</span>{' '}
-                  <span className="text-slate-600 dark:text-slate-300">{event.message}</span>
-                </span>
-                <span className="block font-mono text-[11px] tabular-nums text-slate-400">
-                  {istTime(event.at)} IST
-                </span>
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
+    <Card>
+      <CardHeader>
+        <CardHeading>
+          <CardTitle>Market activity</CardTitle>
+          <CardDescription>Detected technical events</CardDescription>
+        </CardHeading>
+      </CardHeader>
+      <CardContent flush>
+        {loading ? (
+          <SkeletonRows rows={5} className="p-4" />
+        ) : events.length === 0 ? (
+          <EmptyState
+            title="No events detected"
+            description="Nothing in the index triggered a named technical setup on the latest close."
+          />
+        ) : (
+          <ScrollArea className="max-h-72">
+            <ul className="divide-y divide-border">
+              {events.map((event) => (
+                <li
+                  // One setup fires at most once per symbol per bar, so this is unique.
+                  key={`${event.symbol}-${event.message}-${event.at}`}
+                  className="flex items-start gap-2 px-4 py-2"
+                >
+                  <span
+                    className={cn(
+                      'mt-1.5 size-1.5 shrink-0 rounded-full',
+                      toneFill({
+                        tone:
+                          event.tone === 'bullish'
+                            ? 'bullish'
+                            : event.tone === 'bearish'
+                              ? 'bearish'
+                              : 'neutral',
+                      }),
+                    )}
+                    aria-hidden
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm">
+                      <span className="font-medium">{event.symbol}</span>{' '}
+                      <span className="text-muted-foreground">{event.message}</span>
+                    </span>
+                    <span className="figure block font-mono text-[0.6875rem] text-subtle-foreground">
+                      {istTime(event.at)} IST
+                    </span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </ScrollArea>
+        )}
+      </CardContent>
     </Card>
   );
 }
 
 /** Compact statistic tiles — deliberately smaller than the index cards. */
 export function QuickStats({ stats }: { stats: QuickStatsDto }) {
-  const tiles: [string, string][] = [
-    ['Total volume', volume(stats.totalVolume)],
-    ['Turnover', turnover(stats.totalTurnover)],
-    ['Advancing', String(stats.advancing)],
-    ['Declining', String(stats.declining)],
-    ['Near 52W high', stats.nearHigh52w === null ? '—' : String(stats.nearHigh52w)],
-    ['Near 52W low', stats.nearLow52w === null ? '—' : String(stats.nearLow52w)],
-  ];
-
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-      {tiles.map(([label, value]) => (
-        <div
-          key={label}
-          className="rounded-md border border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900/50"
-        >
-          <p className="truncate text-[11px] text-slate-500 dark:text-slate-400">{label}</p>
-          <p className="font-mono text-sm font-medium tabular-nums">{value}</p>
-        </div>
-      ))}
-    </div>
+    <ContentGrid columns="stats">
+      <StatTile label="Total volume" value={<Volume shares={stats.totalVolume} />} />
+      <StatTile label="Turnover" value={<Turnover paise={stats.totalTurnover} />} />
+      <StatTile
+        label="Advancing"
+        value={<span className="figure text-bullish-strong">{stats.advancing}</span>}
+      />
+      <StatTile
+        label="Declining"
+        value={<span className="figure text-bearish-strong">{stats.declining}</span>}
+      />
+      <StatTile
+        label="Near 52W high"
+        hint="Constituents trading within 2% of their 52-week high."
+        value={<span className="figure">{stats.nearHigh52w ?? '—'}</span>}
+      />
+      <StatTile
+        label="Near 52W low"
+        hint="Constituents trading within 2% of their 52-week low."
+        value={<span className="figure">{stats.nearLow52w ?? '—'}</span>}
+      />
+    </ContentGrid>
   );
 }

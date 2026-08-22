@@ -4,13 +4,20 @@ import type {
   FyersMarketStatus,
   Quote as FyersQuote,
   Tick as FyersTick,
-} from '@signal/fyers';
-import type { Bar, Instrument, MarketPhase, MarketStatus, Quote, Tick } from '@signal/market-data';
+} from '@wealthos/fyers';
+import type {
+  Bar,
+  Instrument,
+  MarketPhase,
+  MarketStatus,
+  Quote,
+  Tick,
+} from '@wealthos/market-data';
 
 /**
  * Fyers shapes to product shapes.
  *
- * `@signal/fyers` has already done the hard part — Zod-parsed the wire format
+ * `@wealthos/fyers` has already done the hard part — Zod-parsed the wire format
  * and converted every price to integer paise. This layer strips what remains of
  * the provider from the data: the `NSE:RELIANCE-EQ` symbol form, the `fyToken`,
  * and Fyers' own status vocabulary.

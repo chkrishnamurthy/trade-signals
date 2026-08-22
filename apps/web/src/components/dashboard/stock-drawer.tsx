@@ -1,10 +1,29 @@
 'use client';
 
-import { useEffect } from 'react';
-import { SignalBadge, SignalStrength } from '@/components/ui/signal-badge';
-import { ratio, turnover } from '@/lib/dashboard-format';
+import { StarIcon } from 'lucide-react';
+import { DefinitionGrid, DefinitionRow } from '@/components/data-display/metric-card';
+import { LiveIndicator } from '@/components/market/market-status';
+import {
+  IndicatorValue,
+  Price,
+  PriceChange,
+  Ratio,
+  Turnover,
+  Volume,
+} from '@/components/market/numeric';
+import { SetupTag, SignalBadge, SignalReason, SignalScore } from '@/components/market/signal';
+import { Button } from '@/components/ui/button';
+import {
+  Sheet,
+  SheetBody,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
+import { Text } from '@/components/ui/typography';
 import type { MoverDto, StockSignalDto } from '@/lib/dashboard-types';
-import { price, signedPercent, signedPrice, toneFor, volume } from '@/lib/format';
+import { signedPrice } from '@/lib/format';
 import { useWatchlist } from '@/lib/watchlist';
 import { MarketChart } from './chart';
 
@@ -14,6 +33,10 @@ import { MarketChart } from './chart';
  * Opened from anywhere in the dashboard. Quote fields come from the fast feed;
  * indicator fields from the slow one, and each renders "—" rather than a
  * placeholder number when its feed has not arrived.
+ *
+ * Built on the Sheet primitive, so focus is trapped inside, Escape closes, the
+ * page behind is inert and focus returns to whatever opened it. The hand-rolled
+ * version this replaces did none of that.
  */
 export function StockDetailDrawer({
   quote,
@@ -29,19 +52,6 @@ export function StockDetailDrawer({
   const { has, toggle } = useWatchlist();
   const symbol = quote?.symbol ?? signal?.symbol ?? null;
 
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', onKey);
-    // Prevent the page behind the drawer from scrolling.
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = '';
-    };
-  }, [onClose]);
-
   if (symbol === null) return null;
 
   const rangePosition =
@@ -49,104 +59,68 @@ export function StockDetailDrawer({
       ? ((quote.ltp - quote.low) / (quote.high - quote.low)) * 100
       : null;
 
-  const metrics: [string, string][] = [
-    ['Open', price(quote?.open ?? null)],
-    ['Previous close', price(quote?.previousClose ?? null)],
-    ['High', price(quote?.high ?? null)],
-    ['Low', price(quote?.low ?? null)],
-    ['Volume', volume(quote?.volume ?? null)],
-    ['Turnover', turnover(quote?.turnover ?? null)],
-    ['52W high', price(signal?.high52w ?? null)],
-    ['52W low', price(signal?.low52w ?? null)],
-  ];
-
-  const indicators: [string, string][] = [
-    ['RSI (14)', signal?.rsi == null ? '—' : signal.rsi.toFixed(1)],
-    ['EMA 20', price(signal?.ema20 ?? null)],
-    ['EMA 50', price(signal?.ema50 ?? null)],
-    ['EMA 200', price(signal?.ema200 ?? null)],
-    ['MACD hist', signal?.macdHistogram == null ? '—' : signedPrice(signal.macdHistogram)],
-    ['ATR (14)', price(signal?.atr ?? null)],
-    ['Rel. volume', ratio(quote?.relativeVolume ?? signal?.relativeVolume ?? null)],
-  ];
+  const watching = has(symbol);
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
-      <button
-        type="button"
-        aria-label="Close details"
-        onClick={onClose}
-        className="absolute inset-0 size-full cursor-default bg-slate-900/40 backdrop-blur-sm"
-      />
-
-      <aside
-        role="dialog"
-        aria-modal="true"
-        aria-label={`${symbol} details`}
-        className="relative flex h-full w-full max-w-lg flex-col overflow-y-auto border-l border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-950"
-      >
-        <header className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-slate-200 bg-white px-5 py-4 dark:border-slate-800 dark:bg-slate-950">
+    <Sheet
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <SheetContent side="right" className="sm:max-w-lg">
+        <SheetHeader>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-semibold tracking-tight">{symbol}</h2>
+              <SheetTitle>{symbol}</SheetTitle>
               {signal !== null && <SignalBadge direction={signal.direction} />}
             </div>
-            <p className="truncate text-sm text-slate-500 dark:text-slate-400">
-              {quote?.name ?? signal?.name ?? ''}
-            </p>
+            <SheetDescription>{quote?.name ?? signal?.name ?? ''}</SheetDescription>
           </div>
-          <div className="flex shrink-0 gap-1">
-            <button
-              type="button"
+          <div className="mr-8 flex shrink-0 gap-1">
+            <Button
+              variant={watching ? 'secondary' : 'outline'}
+              size="sm"
               onClick={() => toggle(symbol)}
-              aria-pressed={has(symbol)}
-              className="rounded-md border border-slate-200 px-2 py-1 text-xs hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
+              aria-pressed={watching}
             >
-              {has(symbol) ? '★ Watching' : '☆ Watch'}
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Close"
-              className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800"
-            >
-              ✕
-            </button>
+              <StarIcon className={watching ? 'fill-current' : undefined} />
+              {watching ? 'Watching' : 'Watch'}
+            </Button>
           </div>
-        </header>
+        </SheetHeader>
 
-        <div className="space-y-5 px-5 py-4">
+        <SheetBody className="space-y-5">
           {quote !== null && (
             <div>
               <div className="flex flex-wrap items-baseline gap-x-3">
-                <span className="font-mono text-3xl font-semibold tabular-nums">
-                  {price(quote.ltp)}
-                </span>
-                <span className={`font-mono tabular-nums ${toneFor(quote.change)}`}>
-                  <span aria-hidden>{(quote.change ?? 0) >= 0 ? '▲' : '▼'}</span>{' '}
-                  {signedPrice(quote.change)} ({signedPercent(quote.changePercent)})
-                </span>
+                <Price paise={quote.ltp} size="display" />
+                <PriceChange paise={quote.change} percent={quote.changePercent} />
               </div>
-              <p className="mt-1 flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-                <span
-                  className={`size-1.5 rounded-full ${isLive ? 'bg-emerald-500' : 'bg-slate-400'}`}
-                  aria-hidden
-                />
-                {isLive ? 'Live — updating automatically' : 'Market closed — last traded price'}
-              </p>
+              <LiveIndicator
+                live={isLive}
+                label={
+                  isLive ? 'Live — updating automatically' : 'Market closed — last traded price'
+                }
+                className="mt-1"
+              />
             </div>
           )}
 
           {rangePosition !== null && quote !== null && (
             <div>
-              <div className="flex justify-between font-mono text-xs tabular-nums text-slate-500 dark:text-slate-400">
-                <span>{price(quote.low)}</span>
-                <span className="text-slate-400">Day range</span>
-                <span>{price(quote.high)}</span>
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <Price paise={quote.low} size="xs" />
+                <span>Day range</span>
+                <Price paise={quote.high} size="xs" />
               </div>
-              <div className="relative mt-1.5 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700">
+              <div
+                className="relative mt-1.5 h-1.5 rounded-full bg-muted"
+                role="img"
+                aria-label={`Trading at ${rangePosition.toFixed(0)}% of the day's range`}
+              >
                 <div
-                  className="absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-slate-900 dark:border-slate-950 dark:bg-white"
+                  className="absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-surface bg-foreground"
                   style={{ left: `${Math.min(100, Math.max(0, rangePosition))}%` }}
                   aria-hidden
                 />
@@ -155,41 +129,28 @@ export function StockDetailDrawer({
           )}
 
           {signal !== null && (
-            <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-sm font-medium">Signal</span>
-                <span className="text-xs text-slate-500 dark:text-slate-400">
-                  {signal.setups.length > 0 ? signal.setups.join(' · ') : 'No named setup'}
-                </span>
-              </div>
-              <SignalStrength
-                strength={signal.strength}
-                direction={signal.direction}
-                className="mt-2"
-              />
-              <ul className="mt-3 space-y-1">
-                {signal.factors.map((factor) => (
-                  <li key={factor.key} className="flex items-start gap-2 text-xs">
-                    <span
-                      className={
-                        factor.score > 0
-                          ? 'text-emerald-600 dark:text-emerald-400'
-                          : factor.score < 0
-                            ? 'text-rose-600 dark:text-rose-400'
-                            : 'text-slate-400'
-                      }
-                      aria-hidden
-                    >
-                      {factor.score > 0 ? '✓' : factor.score < 0 ? '✕' : '·'}
-                    </span>
-                    <span className="flex-1 text-slate-600 dark:text-slate-300">
-                      {factor.label}
-                    </span>
-                    <span className="text-slate-400 dark:text-slate-500">{factor.detail}</span>
-                  </li>
-                ))}
-              </ul>
-              <p className="mt-3 border-t border-slate-100 pt-2 text-[11px] text-slate-400 dark:border-slate-800 dark:text-slate-500">
+            <div className="rounded-lg border border-border p-3">
+              <SignalScore score={signal.strength} direction={signal.direction}>
+                {signal.setups.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {signal.setups.map((setup) => (
+                      <SetupTag key={setup}>{setup}</SetupTag>
+                    ))}
+                  </div>
+                )}
+                {/* The breakdown is what earns the number the right to be shown. */}
+                <ul className="space-y-1">
+                  {signal.factors.map((factor) => (
+                    <SignalReason
+                      key={factor.key}
+                      label={factor.label}
+                      detail={factor.detail}
+                      score={factor.score}
+                    />
+                  ))}
+                </ul>
+              </SignalScore>
+              <p className="mt-3 border-t border-border pt-2 text-[0.6875rem] text-subtle-foreground">
                 Technical observation from indicator readings. Not a recommendation.
               </p>
             </div>
@@ -202,31 +163,56 @@ export function StockDetailDrawer({
             compact
           />
 
-          <Section title="Metrics" rows={metrics} />
-          {signal !== null && <Section title="Technical indicators" rows={indicators} />}
-        </div>
-      </aside>
-    </div>
-  );
-}
+          <section>
+            <Text as="h3" variant="overline" className="mb-1 block">
+              Metrics
+            </Text>
+            <DefinitionGrid>
+              <DefinitionRow label="Open" value={<Price paise={quote?.open} size="sm" />} />
+              <DefinitionRow
+                label="Previous close"
+                value={<Price paise={quote?.previousClose} size="sm" />}
+              />
+              <DefinitionRow label="High" value={<Price paise={quote?.high} size="sm" />} />
+              <DefinitionRow label="Low" value={<Price paise={quote?.low} size="sm" />} />
+              <DefinitionRow label="Volume" value={<Volume shares={quote?.volume} size="sm" />} />
+              <DefinitionRow
+                label="Turnover"
+                value={<Turnover paise={quote?.turnover} size="sm" />}
+              />
+              <DefinitionRow label="52W high" value={<Price paise={signal?.high52w} size="sm" />} />
+              <DefinitionRow label="52W low" value={<Price paise={signal?.low52w} size="sm" />} />
+            </DefinitionGrid>
+          </section>
 
-function Section({ title, rows }: { title: string; rows: readonly [string, string][] }) {
-  return (
-    <div>
-      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-        {title}
-      </h3>
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
-        {rows.map(([label, value]) => (
-          <div
-            key={label}
-            className="flex justify-between gap-2 border-b border-slate-100 pb-1.5 dark:border-slate-800"
-          >
-            <dt className="text-slate-500 dark:text-slate-400">{label}</dt>
-            <dd className="font-mono tabular-nums">{value}</dd>
-          </div>
-        ))}
-      </dl>
-    </div>
+          {signal !== null && (
+            <section>
+              <Text as="h3" variant="overline" className="mb-1 block">
+                Technical indicators
+              </Text>
+              <DefinitionGrid>
+                <DefinitionRow label="RSI (14)" value={<IndicatorValue value={signal.rsi} />} />
+                <DefinitionRow label="EMA 20" value={<Price paise={signal.ema20} size="sm" />} />
+                <DefinitionRow label="EMA 50" value={<Price paise={signal.ema50} size="sm" />} />
+                <DefinitionRow label="EMA 200" value={<Price paise={signal.ema200} size="sm" />} />
+                <DefinitionRow
+                  label="MACD hist"
+                  value={
+                    <span className="figure text-sm">
+                      {signal.macdHistogram == null ? '—' : signedPrice(signal.macdHistogram)}
+                    </span>
+                  }
+                />
+                <DefinitionRow label="ATR (14)" value={<Price paise={signal.atr} size="sm" />} />
+                <DefinitionRow
+                  label="Rel. volume"
+                  value={<Ratio value={quote?.relativeVolume ?? signal.relativeVolume} size="sm" />}
+                />
+              </DefinitionGrid>
+            </section>
+          )}
+        </SheetBody>
+      </SheetContent>
+    </Sheet>
   );
 }

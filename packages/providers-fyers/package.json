@@ -1,5 +1,5 @@
 {
-  "name": "@signal/providers-fyers",
+  "name": "@wealthos/providers-fyers",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -21,8 +21,8 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
-    "@signal/fyers": "workspace:*",
-    "@signal/market-data": "workspace:*",
-    "@signal/shared": "workspace:*"
+    "@wealthos/fyers": "workspace:*",
+    "@wealthos/market-data": "workspace:*",
+    "@wealthos/shared": "workspace:*"
   }
 }
