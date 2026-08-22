@@ -24,6 +24,7 @@ import {
 import { Text } from '@/components/ui/typography';
 import type { MoverDto, StockSignalDto } from '@/lib/dashboard-types';
 import { signedPrice } from '@/lib/format';
+import { rangePosition } from '@/lib/market-math';
 import { useWatchlist } from '@/lib/watchlist';
 import { MarketChart } from './chart';
 
@@ -54,10 +55,11 @@ export function StockDetailDrawer({
 
   if (symbol === null) return null;
 
-  const rangePosition =
-    quote?.low != null && quote.high != null && quote.high > quote.low
-      ? ((quote.ltp - quote.low) / (quote.high - quote.low)) * 100
-      : null;
+  // The same positioning the breadth counters use, so "near the day's high" in
+  // the drawer and on the dashboard mean the same thing — including the guard
+  // that suppresses a range too thin to be worth reading.
+  const position = quote === null ? null : rangePosition(quote.ltp, quote.low, quote.high);
+  const rangePercent = position === null ? null : position * 100;
 
   const watching = has(symbol);
 
@@ -107,7 +109,7 @@ export function StockDetailDrawer({
             </div>
           )}
 
-          {rangePosition !== null && quote !== null && (
+          {rangePercent !== null && quote !== null && (
             <div>
               <div className="flex justify-between text-xs text-muted-foreground">
                 <Price paise={quote.low} size="xs" />
@@ -117,11 +119,11 @@ export function StockDetailDrawer({
               <div
                 className="relative mt-1.5 h-1.5 rounded-full bg-muted"
                 role="img"
-                aria-label={`Trading at ${rangePosition.toFixed(0)}% of the day's range`}
+                aria-label={`Trading at ${rangePercent.toFixed(0)}% of the day's range`}
               >
                 <div
                   className="absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-surface bg-foreground"
-                  style={{ left: `${Math.min(100, Math.max(0, rangePosition))}%` }}
+                  style={{ left: `${Math.min(100, Math.max(0, rangePercent))}%` }}
                   aria-hidden
                 />
               </div>

@@ -1,6 +1,7 @@
 import 'server-only';
 import type { Quote } from '@wealthos/market-data';
 import type { BreadthDto, MoverDto, SectorDto, SentimentDto } from '@/lib/dashboard-types';
+import { NEAR_HIGH_POSITION, NEAR_LOW_POSITION, rangePosition } from '@/lib/market-math';
 import type { ResolvedConstituent } from './indices';
 
 /**
@@ -8,31 +9,11 @@ import type { ResolvedConstituent } from './indices';
  *
  * Pure functions over the quotes we already hold — no extra API calls, so the
  * whole breadth/sentiment/sector layer is free in rate-limit terms.
- */
-
-/**
- * Where in the day's range a price must sit to count as "near" an extreme.
  *
- * Expressed as a position in the range rather than a percentage of price. A
- * fixed 1%-of-price threshold double-counts every stock whose whole day range
- * is under 2% — on a quiet day that was most of the index, making "near high"
- * and "near low" both fire for the same stock.
+ * The range arithmetic lives in `@/lib/market-math` rather than here, because
+ * client components need the same positions this module counts with and cannot
+ * import a `server-only` module.
  */
-const NEAR_HIGH_POSITION = 0.8;
-const NEAR_LOW_POSITION = 0.2;
-
-/**
- * Minimum day range, as a fraction of price, for positioning to mean anything.
- * Below this the stock has effectively not moved and is neither near high nor low.
- */
-const MIN_MEANINGFUL_RANGE = 0.005;
-
-/** Position of `ltp` within [low, high], 0–1. Null when the range is too thin. */
-export function rangePosition(ltp: number, low: number | null, high: number | null): number | null {
-  if (low === null || high === null || high <= low || high <= 0) return null;
-  if ((high - low) / high < MIN_MEANINGFUL_RANGE) return null;
-  return (ltp - low) / (high - low);
-}
 
 export interface EnrichedQuote {
   readonly constituent: ResolvedConstituent;

@@ -64,10 +64,11 @@ export const NAVIGATION: readonly NavGroup[] = [
         description: 'Constituent-level view of the index',
       },
       {
-        status: 'planned',
+        status: 'ready',
+        href: '/stocks',
         label: 'Stocks',
         icon: CandlestickChartIcon,
-        description: 'Per-instrument analysis and history',
+        description: 'Every tracked name, by sector',
       },
     ],
   },
