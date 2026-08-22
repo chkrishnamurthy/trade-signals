@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { MarketPhaseBadge } from '@/components/ui/market-phase-badge';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 import type { MarketPhase } from '@/lib/market-types';
 import { StockSearch } from './search';
 
@@ -73,6 +74,7 @@ export function TopNav({
               {lastUpdated}
             </span>
           </div>
+          <ThemeToggle />
         </div>
       </div>
     </header>

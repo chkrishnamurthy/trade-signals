@@ -1,10 +1,24 @@
 @import "tailwindcss";
 
+/*
+ * Tailwind v4 resolves `dark:` from `prefers-color-scheme` by default, which
+ * leaves no way to override the OS. The theme toggle writes a `dark` class on
+ * <html>, so the variant keys off that class instead; `theme.ts` is what
+ * decides when the class is present (explicit choice, else system preference).
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", monospace;
 }
 
+/* Keeps form controls, scrollbars and the canvas behind <body> in step with
+   the chosen theme rather than with the OS. */
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
+}
+
+:root.dark {
+  color-scheme: dark;
 }
