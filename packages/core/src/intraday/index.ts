@@ -23,6 +23,8 @@ export type { IntradayConfig, RegimeProfile, ScoreWeights } from './config.js';
 export { DEFAULT_INTRADAY_CONFIG, qualityFor, totalWeight } from './config.js';
 export type { ContextInput } from './context.js';
 export { buildMarketContext, emptyMarketContext } from './context.js';
+export type { CostBreakdown, CostModel } from './costs.js';
+export { costPercent, DEFAULT_COST_MODEL, netPnl, roundTripCost } from './costs.js';
 export type { IntradayEngineInput } from './engine.js';
 export { evaluateIntraday } from './engine.js';
 export type { EvaluationFrame, FrameInput, FrameResult } from './frame.js';
@@ -47,6 +49,8 @@ export type {
   TransitionResult,
 } from './lifecycle.js';
 export { transition } from './lifecycle.js';
+export type { PaperExitReason, PaperStats, PaperTrade, PaperTradeInput } from './paper.js';
+export { resolvePaperTrade, summarisePaperTrades } from './paper.js';
 export type { PatternMatch } from './patterns.js';
 export { bodyRatio, detectPatterns, patternBias } from './patterns.js';
 export type { ScoredCandidate } from './scoring.js';

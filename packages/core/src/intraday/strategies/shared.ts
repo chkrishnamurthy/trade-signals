@@ -1,4 +1,5 @@
 import type { IntradayConfig } from '../config.js';
+import { roundTripCost } from '../costs.js';
 import type { EvaluationFrame } from '../frame.js';
 import type { Reason, ScoreCategory, TechnicalLevels, TradeDirection } from '../types.js';
 
@@ -63,6 +64,14 @@ export function technicalLevels(
       invalidation = structuralStop;
     }
   }
+  // Floor the stop so it sits outside the spread. A stop 30 paise below a
+  // 400-rupee entry is not an invalidation level, it is a coin flip on the
+  // next tick, and it flatters the reward-to-risk ratio precisely when the
+  // setup is least tradeable.
+  const floorDistance = (entry * config.targets.minStopPercent) / 100;
+  if (Math.abs(entry - invalidation) < floorDistance) {
+    invalidation = entry - sign * floorDistance;
+  }
   invalidation = Math.round(invalidation);
 
   const risk = Math.abs(entry - invalidation);
@@ -71,6 +80,12 @@ export function technicalLevels(
   const target1 = Math.round(entry + sign * target1Atr * atr);
   const target2 = Math.round(entry + sign * target2Atr * atr);
   const reward = Math.abs(target1 - entry);
+
+  // Costs are charged on both outcomes: subtracted from the winner, added to
+  // the loser. Anything else understates how hard the trade has to work.
+  const costPaise = roundTripCost(direction, entry, target1, config.costs).total;
+  const netReward = reward - costPaise;
+  const netRisk = risk + roundTripCost(direction, entry, invalidation, config.costs).total;
 
   // The zone, not a price: the setup's premise holds across a small band
   // around the trigger, and quoting a single number implies a precision the
@@ -86,6 +101,10 @@ export function technicalLevels(
     risk,
     reward,
     riskReward: risk === 0 ? null : reward / risk,
+    costPaise,
+    netReward,
+    netRisk,
+    netRiskReward: netRisk <= 0 || netReward <= 0 ? null : netReward / netRisk,
   };
 }
 

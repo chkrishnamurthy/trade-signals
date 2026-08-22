@@ -1,5 +1,6 @@
 'use client';
 
+import { UserButton } from '@clerk/nextjs';
 import { MenuIcon } from 'lucide-react';
 import type * as React from 'react';
 import { Button } from '@/components/ui/button';
@@ -11,8 +12,12 @@ import { Brand } from './brand';
  * Application topbar.
  *
  * Fixed contents on the outside — navigation trigger and brand on the left,
- * theme on the right — and a single page-supplied slot between them. Pages get
- * to add search and session state without being able to move the furniture.
+ * theme and account on the right — and a single page-supplied slot between
+ * them. Pages get to add search and session state without being able to move
+ * the furniture.
+ *
+ * The account control is unconditional: every route rendering this shell is
+ * behind the authentication gate, so there is no signed-out state to handle.
  */
 export function Topbar({
   onOpenNavigation,
@@ -46,6 +51,7 @@ export function Topbar({
       <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-2 sm:gap-3">
         {children}
         <ThemeToggle />
+        <UserButton appearance={{ elements: { avatarBox: 'size-7' } }} />
       </div>
     </header>
   );

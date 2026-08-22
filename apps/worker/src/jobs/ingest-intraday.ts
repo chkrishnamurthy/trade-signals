@@ -86,6 +86,15 @@ export interface IntradayIngestOptions {
   readonly refs: readonly InstrumentRef[];
   /** Force a full backfill regardless of what is already stored. */
   readonly backfill?: boolean;
+  /**
+   * How far back a forced backfill reaches, in calendar days.
+   *
+   * Defaults to {@link BACKFILL_DAYS}, which is sized for the live loop's
+   * catch-up needs. Deepening history for a backtest is a different job with a
+   * different budget, and asking for it explicitly keeps a routine cycle from
+   * ever accidentally requesting three months of minute bars per symbol.
+   */
+  readonly backfillDays?: number;
 }
 
 export async function ingestIntradayCandles(
@@ -107,7 +116,9 @@ export async function ingestIntradayCandles(
   // The incremental cursor. Without it every cycle refetches the whole
   // session, which at fifty symbols is fifty full-day requests every few
   // minutes for data we already have.
-  const backfillFrom = new Date(now.getTime() - BACKFILL_DAYS * MS_PER_DAY);
+  const backfillFrom = new Date(
+    now.getTime() - (options.backfillDays ?? BACKFILL_DAYS) * MS_PER_DAY,
+  );
   const lastStored =
     options.backfill === true
       ? new Map<number, Date>()

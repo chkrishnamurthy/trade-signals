@@ -158,7 +158,7 @@ function evaluate(frame: EvaluationFrame, direction: TradeDirection): StrategyEv
   // The stop goes beyond the rejection bar's extreme. If price trades through
   // the very wick that defined the rejection, the rejection did not happen.
   const structuralStop = long ? last.low - near * 0.5 : last.high + near * 0.5;
-  const levels = technicalLevels(direction, last.close, structuralStop, atr, config);
+  const levels = technicalLevels(direction, last.close, structuralStop, frame.atrLevels, config);
 
   const conviction = Math.max(
     0,

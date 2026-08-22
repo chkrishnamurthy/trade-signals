@@ -6,6 +6,7 @@ import { loadIntradaySettings } from './intraday-config.js';
 import { computeIndicators } from './jobs/compute-indicators.js';
 import { ingestDailyCandles } from './jobs/ingest-daily.js';
 import { runIntradayCycle } from './jobs/intraday-signals.js';
+import { recordPaperTrades } from './jobs/paper-trades.js';
 import { createLogger, errorFields } from './log.js';
 import { createScheduler, type Scheduler } from './scheduler.js';
 
@@ -86,7 +87,17 @@ function buildScheduler(context: WorkerContext, cycleMinutes: number): Scheduler
         name: 'intraday-cycle',
         schedule: intradaySchedule(cycleMinutes),
         run: async () => {
-          await runIntradayCycle(context, log.child('intraday-cycle'));
+          const result = await runIntradayCycle(context, log.child('intraday-cycle'));
+          // Recorded in the same job, immediately after: the recorder needs the
+          // signals this cycle just wrote and the bars it just ingested, and a
+          // separate schedule would race the cycle for both.
+          if (result.evaluated > 0) {
+            const settings = await loadIntradaySettings();
+            await recordPaperTrades(context, log.child('paper-trades'), {
+              now: new Date(),
+              config: settings.config,
+            });
+          }
         },
       },
       {
@@ -101,6 +112,15 @@ function buildScheduler(context: WorkerContext, cycleMinutes: number): Scheduler
             'Session closed — intraday setups do not carry overnight',
           );
           log.info('intraday close-out', { expired, tradingDate: istDateKey(now) });
+
+          // Settle the day's outcomes once the tape is final. Trades still
+          // open at the last cycle are closed at the force-exit bar here, so
+          // the results page never carries an `unresolved` row overnight.
+          const settings = await loadIntradaySettings();
+          await recordPaperTrades(context, log.child('paper-trades'), {
+            now,
+            config: settings.config,
+          });
         },
       },
       {

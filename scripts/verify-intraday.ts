@@ -96,6 +96,7 @@ async function main(): Promise<void> {
   const { runIntradayCycle } = await import('../apps/worker/src/jobs/intraday-signals.js');
   const { createContext } = await import('../apps/worker/src/context.js');
   const { createLogger } = await import('../apps/worker/src/log.js');
+  const { recordPaperTrades } = await import('../apps/worker/src/jobs/paper-trades.js');
 
   const settings = await loadIntradaySettings();
   const regime = sessionRegime(at, settings.config);
@@ -154,6 +155,19 @@ async function main(): Promise<void> {
     for (const skip of result.skipped.slice(0, 10)) {
       console.log(`      ${skip.symbol.padEnd(14)} ${skip.reason}`);
     }
+
+    // Grade the day against the tape. Runs here rather than only in the
+    // scheduler so a replayed session produces its outcomes too, which is what
+    // makes this script usable as an end-to-end check of the whole path.
+    const paper = await recordPaperTrades(context, log.child('paper'), {
+      now: at,
+      config: settings.config,
+    });
+    console.log('');
+    console.log(
+      `  paper outcomes    ${paper.recorded} recorded, ${paper.skipped} skipped` +
+        ` (of ${paper.considered} triggered)`,
+    );
 
     const { db } = context;
     const rows = await db.execute<{

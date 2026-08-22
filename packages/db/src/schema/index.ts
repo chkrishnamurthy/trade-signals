@@ -21,6 +21,7 @@ export {
   intradaySignalFactors,
   intradaySignalReasons,
   intradaySignals,
+  paperTrades,
 } from './intraday.js';
 export { signalFactors, signals, strategyVersions } from './signals.js';
 export { alertEvents, alerts, watchlistItems, watchlists } from './watchlists.js';

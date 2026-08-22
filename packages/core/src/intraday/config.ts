@@ -1,3 +1,4 @@
+import { type CostModel, DEFAULT_COST_MODEL } from './costs.js';
 import type { ScoreCategory, SessionRegime, SignalQuality } from './types.js';
 
 /**
@@ -127,9 +128,32 @@ export interface IntradayConfig {
     readonly stopAtr: number;
     readonly target1Atr: number;
     readonly target2Atr: number;
-    /** Setups below this reward-to-risk are not surfaced. */
+    /** Setups below this GROSS reward-to-risk are not surfaced. */
     readonly minRiskReward: number;
+    /**
+     * Setups below this reward-to-risk NET of transaction costs are not
+     * surfaced. The binding filter — gross ratios flatter every setup, and
+     * flatter the cheap-target ones most.
+     */
+    readonly minNetRiskReward: number;
+    /**
+     * Target 1 must sit at least this percent from entry.
+     *
+     * A hard floor beneath the ratio test. A target inside two round trips of
+     * cost is not a trade at any ratio, because the ratio itself becomes
+     * dominated by the cost estimate's own error.
+     */
+    readonly minTargetPercent: number;
+    /**
+     * The invalidation level is pushed out to at least this percent from
+     * entry. In a compressed afternoon tape 1.2 × ATR can land inside the
+     * spread, where the stop is hit by noise rather than by being wrong.
+     */
+    readonly minStopPercent: number;
   };
+
+  /** Round-trip transaction costs. See `costs.ts`. */
+  readonly costs: CostModel;
 
   readonly rsi: {
     /** Healthy bullish range — momentum without exhaustion. */
@@ -255,7 +279,18 @@ export const DEFAULT_INTRADAY_CONFIG: IntradayConfig = {
 
   levels: { breakBufferAtr: 0.15, proximityAtr: 0.35 },
 
-  targets: { stopAtr: 1.2, target1Atr: 1.6, target2Atr: 2.8, minRiskReward: 1.2 },
+  targets: {
+    stopAtr: 1.2,
+    target1Atr: 1.6,
+    target2Atr: 2.8,
+    minRiskReward: 1.2,
+    minNetRiskReward: 1.3,
+    // ~2.4x the default round-trip cost of 0.146%. Below this the cost model's
+    // own uncertainty is a large fraction of the edge being claimed.
+    minTargetPercent: 0.35,
+    minStopPercent: 0.12,
+  },
+  costs: DEFAULT_COST_MODEL,
 
   rsi: {
     bullBand: { min: 50, max: 78 },

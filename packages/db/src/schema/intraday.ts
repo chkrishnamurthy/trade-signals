@@ -100,6 +100,18 @@ export const intradaySignals = pgTable(
     rewardPaise: integer().notNull(),
     /** reward ÷ risk. A ratio, so a float. */
     riskReward: doublePrecision(),
+    /**
+     * Cost-adjusted level economics, paise, as computed when the signal was
+     * created.
+     *
+     * Stored rather than derived on read so a signal stays interpretable after
+     * the cost configuration changes, and so the UI can show the user exactly
+     * what was deducted from the published reward-to-risk figure.
+     */
+    costPaise: integer().notNull().default(0),
+    netRewardPaise: integer().notNull().default(0),
+    netRiskPaise: integer().notNull().default(0),
+    netRiskReward: doublePrecision(),
     /** Price when the trigger fired, paise. Null until it does. */
     referencePrice: integer(),
 
@@ -266,4 +278,82 @@ export const intradayRuns = pgTable(
     error: text(),
   },
   (table) => [index('intraday_runs_date_idx').on(table.tradingDate, table.startedAt.desc())],
+);
+
+/**
+ * Paper-traded outcomes of intraday signals.
+ *
+ * The table that turns "the engine produced a signal" into "and here is what
+ * happened next". Without it, accuracy is unanswerable: `intraday_signals`
+ * records what the engine BELIEVED, and belief graded by the same engine that
+ * formed it is not evidence.
+ *
+ * NO MONEY IS INVOLVED and none is represented. Every figure is per share, in
+ * paise, so nothing here implies a position, a quantity or a capital base — the
+ * application still knows none of those and must not (CLAUDE.md). This is a
+ * measurement of the signal, not a record of a trade.
+ *
+ * Rows are written by the worker from `resolvePaperTrade`, the same pure
+ * function the backtester uses, so a live paper result and a backtested one are
+ * produced by identical logic and can legitimately be compared.
+ */
+export const paperTrades = pgTable(
+  'paper_trades',
+  {
+    id: bigint({ mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
+
+    /**
+     * One paper trade per signal, ever.
+     *
+     * The unique constraint below is what makes the recorder idempotent: it
+     * re-runs every cycle, refining an unresolved outcome into a resolved one,
+     * and must never accumulate duplicates of the same trade.
+     */
+    signalId: bigint({ mode: 'number' })
+      .notNull()
+      .references(() => intradaySignals.id, { onDelete: 'cascade' }),
+    instrumentId: integer()
+      .notNull()
+      .references(() => instruments.id),
+    tradingDate: date().notNull(),
+
+    /** Copied from the signal so results can be sliced without a join. */
+    kind: text().notNull(),
+    strategy: text().notNull(),
+    direction: text().notNull(),
+    regime: text().notNull(),
+    score: integer().notNull(),
+    quality: text().notNull(),
+
+    /**
+     * The fill is the OPEN of the first bar after the trigger (rule 2), never
+     * the published entry zone. The difference between the two is real
+     * slippage and belongs in the result.
+     */
+    entryAt: timestamp({ withTimezone: true }).notNull(),
+    entryPrice: integer().notNull(),
+    exitAt: timestamp({ withTimezone: true }).notNull(),
+    exitPrice: integer().notNull(),
+    /** `target1` | `target2` | `stop` | `session_close` | `unresolved`. */
+    exitReason: text().notNull(),
+
+    /** Per share, paise. Signed. `net` is `gross` less real transaction costs. */
+    grossPaise: integer().notNull(),
+    costPaise: integer().notNull(),
+    netPaise: integer().notNull(),
+    /** Net result as a multiple of the risk taken at the fill. */
+    rMultiple: doublePrecision().notNull(),
+
+    maxFavourable: integer().notNull().default(0),
+    maxAdverse: integer().notNull().default(0),
+    barsHeld: integer().notNull().default(0),
+    reachedTarget2: text().notNull().default('false'),
+
+    recordedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('paper_trades_signal_idx').on(table.signalId),
+    index('paper_trades_date_idx').on(table.tradingDate),
+    index('paper_trades_score_idx').on(table.tradingDate, table.score),
+  ],
 );

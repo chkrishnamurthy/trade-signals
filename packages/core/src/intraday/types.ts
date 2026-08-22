@@ -174,6 +174,20 @@ export interface TechnicalLevels {
   readonly reward: number;
   /** reward ÷ risk. A ratio, so a float. Null when risk is zero. */
   readonly riskReward: number | null;
+  /**
+   * Round-trip transaction cost per share, paise, on the target-1 path.
+   *
+   * Stored rather than recomputed so the UI can show the user exactly what was
+   * deducted, and so a stored signal stays interpretable after the cost
+   * configuration changes.
+   */
+  readonly costPaise: number;
+  /** reward − cost. Negative means the target cannot pay for the trade. */
+  readonly netReward: number;
+  /** risk + cost. Costs are paid on a loser too. */
+  readonly netRisk: number;
+  /** netReward ÷ netRisk. The only ratio worth filtering on. */
+  readonly netRiskReward: number | null;
 }
 
 /** Named support/resistance levels found for the session. */

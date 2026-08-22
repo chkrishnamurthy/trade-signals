@@ -539,3 +539,34 @@ export async function getStoredSessionDates(
   }
   return byInstrument;
 }
+
+/** One stored session's minute-candle coverage. */
+export interface SessionCoverage {
+  /** IST trading date, `YYYY-MM-DD`. */
+  readonly tradingDate: string;
+  readonly bars: number;
+  readonly instruments: number;
+}
+
+/**
+ * What minute-candle history actually exists, by IST trading date.
+ *
+ * The first question any backtest has to answer before its results mean
+ * anything: a strong number over four sessions and a strong number over eighty
+ * are different claims, and only this tells them apart.
+ */
+export async function minuteCandleCoverage(db: Database): Promise<SessionCoverage[]> {
+  const rows = await db.execute<{ d: string; n: string; syms: string }>(sql`
+    SELECT (${minuteCandles.ts} AT TIME ZONE 'Asia/Kolkata')::date AS d,
+           count(*) AS n,
+           count(DISTINCT ${minuteCandles.instrumentId}) AS syms
+    FROM ${minuteCandles}
+    GROUP BY 1
+    ORDER BY 1`);
+
+  return rows.rows.map((row) => ({
+    tradingDate: String(row.d).slice(0, 10),
+    bars: Number(row.n),
+    instruments: Number(row.syms),
+  }));
+}

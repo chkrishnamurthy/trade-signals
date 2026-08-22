@@ -73,11 +73,32 @@ export function scoreEvidence(frame: EvaluationFrame, evidence: StrategyEvidence
     };
   }
 
-  const riskReward = evidence.levels.riskReward;
+  const levels = evidence.levels;
+  const riskReward = levels.riskReward;
   if (riskReward === null || riskReward < config.targets.minRiskReward) {
     return {
       candidate: null,
       rejection: `${evidence.strategy}: reward-to-risk ${riskReward?.toFixed(2) ?? '—'} is below the ${config.targets.minRiskReward} floor`,
+    };
+  }
+
+  // The target must clear transaction costs by a wide enough margin that the
+  // trade is worth taking at all. Checked before the ratio because a target
+  // this close makes the ratio meaningless rather than merely unattractive.
+  const entry = Math.round((levels.entryLow + levels.entryHigh) / 2);
+  const targetPercent = entry <= 0 ? 0 : (levels.reward / entry) * 100;
+  if (targetPercent < config.targets.minTargetPercent) {
+    return {
+      candidate: null,
+      rejection: `${evidence.strategy}: target 1 is only ${targetPercent.toFixed(2)}% away, below the ${config.targets.minTargetPercent}% floor — transaction costs would consume it`,
+    };
+  }
+
+  const netRiskReward = levels.netRiskReward;
+  if (netRiskReward === null || netRiskReward < config.targets.minNetRiskReward) {
+    return {
+      candidate: null,
+      rejection: `${evidence.strategy}: reward-to-risk net of costs is ${netRiskReward?.toFixed(2) ?? 'negative'}, below the ${config.targets.minNetRiskReward} floor`,
     };
   }
 

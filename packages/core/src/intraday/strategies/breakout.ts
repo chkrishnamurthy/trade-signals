@@ -178,7 +178,7 @@ function evaluate(
     ? Math.min(level.price - buffer, frame.triggerBars.at(-1)?.low ?? level.price)
     : Math.max(level.price + buffer, frame.triggerBars.at(-1)?.high ?? level.price);
 
-  const levels = technicalLevels(direction, close, structuralStop, frame.atrValue, config);
+  const levels = technicalLevels(direction, close, structuralStop, frame.atrLevels, config);
 
   const conviction = clamp(
     level.significance * 0.4 +

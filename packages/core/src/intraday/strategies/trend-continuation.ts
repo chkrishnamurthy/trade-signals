@@ -151,7 +151,7 @@ function evaluate(frame: EvaluationFrame, direction: TradeDirection): StrategyEv
     ? Math.min(...window.slice(touchIndex).map((bar) => bar.low)) - near * 0.5
     : Math.max(...window.slice(touchIndex).map((bar) => bar.high)) + near * 0.5;
 
-  const levels = technicalLevels(direction, last.close, structuralStop, atr, config);
+  const levels = technicalLevels(direction, last.close, structuralStop, frame.atrLevels, config);
 
   const conviction = Math.max(
     0,

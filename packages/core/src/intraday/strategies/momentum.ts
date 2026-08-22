@@ -174,7 +174,7 @@ function evaluate(frame: EvaluationFrame, direction: TradeDirection): StrategyEv
     ? Math.min(...recent.map((bar) => bar.low))
     : Math.max(...recent.map((bar) => bar.high));
 
-  const levels = technicalLevels(direction, last.close, structuralStop, atr, config);
+  const levels = technicalLevels(direction, last.close, structuralStop, frame.atrLevels, config);
 
   const conviction = Math.max(
     0,

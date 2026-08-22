@@ -103,7 +103,27 @@ export interface EvaluationFrame {
   readonly rsiSeries: Series;
   /** MACD histogram on the trigger timeframe, kept for expansion checks. */
   readonly macdHistogramSeries: Series;
+  /**
+   * ATR on the TRIGGER timeframe. Used for break buffers, level proximity and
+   * pattern scale — the places where fine granularity is what is wanted.
+   */
   readonly atrValue: number | null;
+  /**
+   * ATR on the TREND timeframe, for sizing stops and targets.
+   *
+   * Deliberately a different, wider measurement than `atrValue`, because the
+   * two answer different questions. "Has price cleared this level decisively?"
+   * is a 3-minute question. "How far might this move run, and is that far
+   * enough to be worth the round trip?" is not.
+   *
+   * Measured on NIFTY 50 constituents, the median trigger-timeframe ATR is
+   * 0.088% of price. Sizing a target at 1.6x that gives 0.140%, against a
+   * round-trip cost of about 0.146% — the target was, at the median, smaller
+   * than the cost of reaching it, so every such setup was a structural loser
+   * however good the pattern behind it looked. The trend-timeframe ATR is
+   * 0.246%, which puts the same multiple at 0.393%, or 2.7x costs.
+   */
+  readonly atrLevels: number | null;
   readonly snapshot: IntradaySnapshot;
   readonly patterns: readonly PatternMatch[];
   readonly structure: StructureRead;
@@ -212,6 +232,7 @@ export function buildFrame(input: FrameInput, config: IntradayConfig): FrameResu
   const vwapSeries = computeVwap(minuteBars);
   const vwapValue = latest(vwapSeries);
   const atrValue = latest(computeAtr(triggerBars, config.atrPeriod));
+  const atrLevels = latest(computeAtr(trendBars, config.atrPeriod)) ?? atrValue;
   const price = lastTrigger.close;
 
   const macdResult = computeMacd(triggerCloses, config.macd);
@@ -324,6 +345,7 @@ export function buildFrame(input: FrameInput, config: IntradayConfig): FrameResu
       rsiSeries,
       macdHistogramSeries: macdResult.histogram,
       atrValue,
+      atrLevels,
       snapshot,
       patterns,
       structure,

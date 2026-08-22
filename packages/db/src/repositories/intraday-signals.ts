@@ -77,6 +77,10 @@ export interface IntradaySignalInput {
   readonly riskPaise: number;
   readonly rewardPaise: number;
   readonly riskReward: number | null;
+  readonly costPaise: number;
+  readonly netRewardPaise: number;
+  readonly netRiskPaise: number;
+  readonly netRiskReward: number | null;
   readonly referencePrice: number | null;
   readonly triggerMinutes: number;
   readonly setupMinutes: number;
@@ -126,6 +130,10 @@ export async function createIntradaySignal(
         riskPaise: input.riskPaise,
         rewardPaise: input.rewardPaise,
         riskReward: input.riskReward,
+        costPaise: input.costPaise,
+        netRewardPaise: input.netRewardPaise,
+        netRiskPaise: input.netRiskPaise,
+        netRiskReward: input.netRiskReward,
         referencePrice: input.referencePrice,
         triggerMinutes: input.triggerMinutes,
         setupMinutes: input.setupMinutes,
@@ -187,6 +195,10 @@ export interface IntradaySignalUpdate {
   readonly riskPaise: number;
   readonly rewardPaise: number;
   readonly riskReward: number | null;
+  readonly costPaise: number;
+  readonly netRewardPaise: number;
+  readonly netRiskPaise: number;
+  readonly netRiskReward: number | null;
   readonly updatedAt: Date;
   readonly endedAt: Date | null;
   readonly endReason: string | null;
@@ -229,6 +241,10 @@ export async function updateIntradaySignal(
         riskPaise: update.riskPaise,
         rewardPaise: update.rewardPaise,
         riskReward: update.riskReward,
+        costPaise: update.costPaise,
+        netRewardPaise: update.netRewardPaise,
+        netRiskPaise: update.netRiskPaise,
+        netRiskReward: update.netRiskReward,
         updatedAt: update.updatedAt,
         endedAt: update.endedAt,
         endReason: update.endReason,
@@ -286,6 +302,10 @@ export interface StoredIntradaySignal {
   readonly riskPaise: number;
   readonly rewardPaise: number;
   readonly riskReward: number | null;
+  readonly costPaise: number;
+  readonly netRewardPaise: number;
+  readonly netRiskPaise: number;
+  readonly netRiskReward: number | null;
   readonly referencePrice: number | null;
   readonly triggerMinutes: number;
   readonly setupMinutes: number;
@@ -325,6 +345,10 @@ const SIGNAL_COLUMNS = {
   riskPaise: intradaySignals.riskPaise,
   rewardPaise: intradaySignals.rewardPaise,
   riskReward: intradaySignals.riskReward,
+  costPaise: intradaySignals.costPaise,
+  netRewardPaise: intradaySignals.netRewardPaise,
+  netRiskPaise: intradaySignals.netRiskPaise,
+  netRiskReward: intradaySignals.netRiskReward,
   referencePrice: intradaySignals.referencePrice,
   triggerMinutes: intradaySignals.triggerMinutes,
   setupMinutes: intradaySignals.setupMinutes,

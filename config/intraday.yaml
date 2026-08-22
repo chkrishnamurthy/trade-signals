@@ -81,12 +81,46 @@ levels:
   breakBufferAtr: 0.15
   proximityAtr: 0.35
 
+# Stops and targets are ATR multiples on the TREND timeframe, not the trigger
+# timeframe. This matters more than any other number in the file. Measured
+# across the NIFTY 50, the median 3-minute ATR is 0.088% of price, so a 1.6x
+# target sized off it is 0.140% — smaller than the 0.146% it costs to open and
+# close the trade. Every such setup is a structural loser however good the
+# pattern behind it looks. The 15-minute ATR is 0.246%, which puts the same
+# multiple at 0.393%, or 2.7x costs.
 targets:
   stopAtr: 1.2
   target1Atr: 1.6
   target2Atr: 2.8
   # Setups whose technical reward-to-risk is worse than this are not surfaced.
   minRiskReward: 1.2
+  # The binding filter: reward-to-risk AFTER transaction costs. Gross ratios
+  # flatter every setup, and flatter the cheap-target ones most.
+  minNetRiskReward: 1.3
+  # Hard floor beneath the ratio test. A target inside ~2.4x a round trip is
+  # not a trade at any ratio, because the cost estimate's own error becomes a
+  # large fraction of the edge being claimed.
+  minTargetPercent: 0.35
+  # In a compressed afternoon tape 1.2x ATR can land inside the spread, where
+  # the stop is hit by noise rather than by being wrong.
+  minStopPercent: 0.12
+
+# Round-trip transaction costs for NSE INTRADAY equity, as percentages of
+# turnover. Change these to match your broker — they are not decoration, they
+# decide which setups survive the filters above.
+#
+# Slippage is not a fee but is the dominant cost on a 3-minute trigger: the
+# engine's entry is a bar's open, and a marketable order at that moment pays
+# the spread plus whatever moves against it. Counting it as zero is the most
+# common way a backtest lies.
+costs:
+  brokeragePercentPerLeg: 0.03
+  sttPercentOnSell: 0.025      # intraday equity: sell leg only
+  exchangePercent: 0.00297     # NSE, both legs
+  sebiPercent: 0.0001
+  stampPercentOnBuy: 0.003     # buy leg only
+  gstPercent: 18               # on brokerage + exchange + SEBI
+  slippagePercentPerLeg: 0.02
 
 rsi:
   # Ranges, not thresholds: a trending stock holds RSI above 50 for hours, and

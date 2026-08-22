@@ -106,7 +106,19 @@ function cacheFor(tradingDate: string): SessionCache {
 export async function runIntradayCycle(
   context: WorkerContext,
   log: Logger,
-  options: { readonly now?: Date; readonly force?: boolean } = {},
+  options: {
+    readonly now?: Date;
+    readonly force?: boolean;
+    /**
+     * Skip the candle fetch and evaluate what is already stored.
+     *
+     * For replaying a past session: the bars are in the database already, and
+     * re-requesting them for every cycle of the day would be thousands of
+     * upstream calls for data we have. Never set on the live path — a cycle
+     * that does not ingest is evaluating stale bars.
+     */
+    readonly ingest?: boolean;
+  } = {},
 ): Promise<IntradayCycleResult> {
   const { db } = context;
   const now = options.now ?? new Date();
@@ -150,6 +162,7 @@ export async function runIntradayCycle(
       constituents,
       contextRefs,
       settings,
+      ingest: options.ingest ?? true,
     });
 
     await finishIntradayRun(db, runId, {
@@ -181,6 +194,7 @@ interface ExecuteInput {
   readonly constituents: readonly UniverseConstituent[];
   readonly contextRefs: readonly InstrumentRef[];
   readonly settings: Awaited<ReturnType<typeof loadIntradaySettings>>;
+  readonly ingest: boolean;
 }
 
 async function execute(
@@ -189,17 +203,19 @@ async function execute(
   input: ExecuteInput,
 ): Promise<IntradayCycleResult> {
   const { db } = context;
-  const { now, tradingDate, regime, config, constituents, contextRefs, settings } = input;
+  const { now, tradingDate, regime, config, constituents, contextRefs, settings, ingest } = input;
 
   // --- 1. Fresh candles ----------------------------------------------------
   const equityRefs: InstrumentRef[] = constituents.map((c) => ({
     symbol: c.symbol,
     kind: 'equity' as const,
   }));
-  await ingestIntradayCandles(context, log.child('ingest'), {
-    now,
-    refs: [...contextRefs, ...equityRefs],
-  });
+  if (ingest) {
+    await ingestIntradayCandles(context, log.child('ingest'), {
+      now,
+      refs: [...contextRefs, ...equityRefs],
+    });
+  }
 
   // --- 2. Resolve instrument ids ------------------------------------------
   const active = await listActiveInstruments(db);
@@ -426,6 +442,10 @@ async function execute(
         riskPaise: change.levels.risk,
         rewardPaise: change.levels.reward,
         riskReward: change.levels.riskReward,
+        costPaise: Math.round(change.levels.costPaise),
+        netRewardPaise: Math.round(change.levels.netReward),
+        netRiskPaise: Math.round(change.levels.netRisk),
+        netRiskReward: change.levels.netRiskReward,
         updatedAt: now,
         endedAt: change.endedAt === null ? null : new Date(change.endedAt),
         endReason: change.endReason,
@@ -689,6 +709,10 @@ function toLiveSignal(row: StoredIntradaySignal): LiveSignal {
       risk: row.riskPaise,
       reward: row.rewardPaise,
       riskReward: row.riskReward,
+      costPaise: row.costPaise,
+      netReward: row.netRewardPaise,
+      netRisk: row.netRiskPaise,
+      netRiskReward: row.netRiskReward,
     },
     invalidations: Array.isArray(row.invalidations)
       ? (row.invalidations as InvalidationRule[])
@@ -715,6 +739,10 @@ function levelColumns(candidate: SignalCandidate) {
     riskPaise: candidate.levels.risk,
     rewardPaise: candidate.levels.reward,
     riskReward: candidate.levels.riskReward,
+    costPaise: Math.round(candidate.levels.costPaise),
+    netRewardPaise: Math.round(candidate.levels.netReward),
+    netRiskPaise: Math.round(candidate.levels.netRisk),
+    netRiskReward: candidate.levels.netRiskReward,
   };
 }
 

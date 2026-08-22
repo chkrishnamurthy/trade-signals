@@ -90,6 +90,21 @@ const fileSchema = z.object({
       target1Atr: positive,
       target2Atr: positive,
       minRiskReward: z.number().nonnegative(),
+      minNetRiskReward: z.number().nonnegative(),
+      minTargetPercent: z.number().nonnegative(),
+      minStopPercent: z.number().nonnegative(),
+    })
+    .partial()
+    .optional(),
+  costs: z
+    .object({
+      brokeragePercentPerLeg: z.number().nonnegative(),
+      sttPercentOnSell: z.number().nonnegative(),
+      exchangePercent: z.number().nonnegative(),
+      sebiPercent: z.number().nonnegative(),
+      stampPercentOnBuy: z.number().nonnegative(),
+      gstPercent: z.number().nonnegative(),
+      slippagePercentPerLeg: z.number().nonnegative(),
     })
     .partial()
     .optional(),
@@ -248,6 +263,7 @@ export async function loadIntradaySettings(path = CONFIG_PATH): Promise<Intraday
     volatility: merge(base.volatility, file.volatility),
     levels: merge(base.levels, file.levels),
     targets: merge(base.targets, file.targets),
+    costs: merge(base.costs, file.costs),
     rsi: merge(base.rsi, file.rsi),
     weights: merge(base.weights, file.weights),
     quality: merge(base.quality, file.quality),
@@ -321,6 +337,28 @@ function assertCoherent(config: IntradayConfig): void {
   }
   if (config.targets.target2Atr <= config.targets.target1Atr) {
     problems.push('targets.target2Atr must be beyond target1Atr');
+  }
+  if (config.targets.minNetRiskReward < config.targets.minRiskReward) {
+    problems.push(
+      'targets.minNetRiskReward below minRiskReward makes the gross filter the binding one,' +
+        ' which is the failure mode the net filter exists to prevent',
+    );
+  }
+  // A target must clear a round trip by a margin, or the cost estimate's own
+  // error dominates the edge being claimed.
+  const roundTripPercent =
+    2 * config.costs.brokeragePercentPerLeg +
+    config.costs.sttPercentOnSell +
+    2 * config.costs.exchangePercent +
+    2 * config.costs.sebiPercent +
+    config.costs.stampPercentOnBuy +
+    2 * config.costs.slippagePercentPerLeg;
+  if (config.targets.minTargetPercent < roundTripPercent * 1.5) {
+    problems.push(
+      `targets.minTargetPercent (${config.targets.minTargetPercent}%) is under 1.5x the` +
+        ` round-trip cost of ~${roundTripPercent.toFixed(3)}% — such targets cannot pay for` +
+        ' the trades that reach them',
+    );
   }
   if (config.volatility.choppyAdx >= config.volatility.trendingAdx) {
     problems.push('volatility.choppyAdx must be below trendingAdx');

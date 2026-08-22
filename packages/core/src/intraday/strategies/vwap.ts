@@ -151,7 +151,7 @@ function evaluate(
     ? Math.min(vwapValue - buffer, last.low)
     : Math.max(vwapValue + buffer, last.high);
 
-  const levels = technicalLevels(direction, last.close, structuralStop, frame.atrValue, config);
+  const levels = technicalLevels(direction, last.close, structuralStop, frame.atrLevels, config);
 
   const conviction = Math.max(
     0,

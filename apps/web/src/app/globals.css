@@ -1,5 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+/* Lets Tailwind generate the utility classes Clerk's shadcn theme applies
+   to its own markup, so the sign-in surfaces use this file's tokens. */
+@import "@clerk/ui/themes/shadcn.css";
 
 /*
  * ============================================================================

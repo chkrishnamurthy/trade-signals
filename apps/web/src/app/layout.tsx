@@ -1,6 +1,8 @@
+import { ClerkProvider } from '@clerk/nextjs';
+import { shadcn } from '@clerk/ui/themes';
 import type { Metadata } from 'next';
 import { Inter, JetBrains_Mono } from 'next/font/google';
-import type { ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import { THEME_INIT_SCRIPT } from '@/lib/theme';
 import './globals.css';
 
@@ -26,6 +28,31 @@ const jetbrainsMono = JetBrains_Mono({
   display: 'swap',
 });
 
+type ClerkAppearance = NonNullable<ComponentProps<typeof ClerkProvider>['appearance']>;
+
+/**
+ * Clerk, wearing this application's tokens.
+ *
+ * The shadcn theme already reads the shadcn registry variable names that
+ * `globals.css` publishes, so most of the palette arrives for free — including
+ * the dark ramp, because those variables are redefined under `.dark`. The three
+ * overrides below map the two surface tokens this product renamed
+ * (`--card` -> `--surface`). No colour is declared here, only redirected.
+ *
+ * The cast exists because Clerk ships the theme's type from a second copy of
+ * its own definitions, and the two differ only in whether `cssLayerName` may be
+ * `undefined` — a variance this workspace's `exactOptionalPropertyTypes` sees
+ * and TypeScript cannot reconcile across the package boundary.
+ */
+const CLERK_APPEARANCE: ClerkAppearance = {
+  theme: shadcn as NonNullable<ClerkAppearance['theme']>,
+  variables: {
+    colorBackground: 'var(--surface)',
+    colorForeground: 'var(--foreground)',
+    colorInputForeground: 'var(--foreground)',
+  },
+};
+
 export const metadata: Metadata = {
   title: 'Signal — NSE market analysis',
   description: 'Track, screen and analyse NSE equities. Technical decision support, not execution.',
@@ -46,7 +73,17 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             the content is a module constant, never user input. */}
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
-      <body className="min-h-dvh bg-background text-foreground">{children}</body>
+      <body className="min-h-dvh bg-background text-foreground">
+        {/* Every route is behind the gate; only /sign-in and /sign-up are open. */}
+        <ClerkProvider
+          signInUrl="/sign-in"
+          signUpUrl="/sign-up"
+          afterSignOutUrl="/sign-in"
+          appearance={CLERK_APPEARANCE}
+        >
+          {children}
+        </ClerkProvider>
+      </body>
     </html>
   );
 }

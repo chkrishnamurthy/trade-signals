@@ -8,6 +8,7 @@ import {
   ListIcon,
   RocketIcon,
   SwatchBookIcon,
+  TargetIcon,
   TrendingUpIcon,
 } from 'lucide-react';
 import type { Route } from 'next';
@@ -79,6 +80,13 @@ export const NAVIGATION: readonly NavGroup[] = [
         label: 'Trade signals',
         icon: ActivityIcon,
         description: 'Intraday setups, scored and explained',
+      },
+      {
+        status: 'ready',
+        href: '/signals/performance',
+        label: 'Signal accuracy',
+        icon: TargetIcon,
+        description: 'Paper outcomes of triggered signals',
       },
       {
         status: 'planned',
