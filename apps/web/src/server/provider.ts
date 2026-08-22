@@ -1,5 +1,5 @@
 import 'server-only';
-import { RateLimiter } from '@signal/fyers';
+import { PathCircuitBreaker, RateLimiter } from '@signal/fyers';
 import type { MarketDataProvider } from '@signal/market-data';
 import { createFyersProvider } from '@signal/providers-fyers';
 
@@ -22,6 +22,14 @@ import { createFyersProvider } from '@signal/providers-fyers';
  */
 const rateLimiter = new RateLimiter();
 
+/**
+ * One breaker for the whole process, for the same reason.
+ *
+ * Edge bans are keyed on IP and path, so re-authorising does not lift one.
+ * A fresh breaker per provider would send us straight back into a live ban.
+ */
+const circuitBreaker = new PathCircuitBreaker();
+
 let cached: { provider: MarketDataProvider; credential: string } | null = null;
 
 /**
@@ -39,7 +47,7 @@ export function getProvider(): MarketDataProvider {
 
   if (cached !== null && cached.credential === credential) return cached.provider;
 
-  const provider = createFyersProvider({ appId, accessToken, rateLimiter });
+  const provider = createFyersProvider({ appId, accessToken, rateLimiter, circuitBreaker });
   cached = { provider, credential };
   return provider;
 }

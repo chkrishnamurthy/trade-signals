@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { fetchCandles } from '../candles.js';
+import { FyersRateLimitError } from '../errors.js';
 import { FyersHttpClient } from '../http.js';
 import { RateLimiter } from '../rate-limit.js';
 import { jsonFixture, type StubResponse, stubFetch } from './helpers.js';
@@ -185,19 +186,21 @@ describe('fetchCandles', () => {
     expect(seen[0]).toBe('APP-100:tok');
   });
 
-  it('recovers from a 429 mid-chunk and still returns the whole range', async () => {
+  it('aborts the whole range when a 429 lands mid-chunk', async () => {
     const { fetcher: f, stub } = fetcher([
       { body: jsonFixture('history-daily.json') },
       { status: 429, body: jsonFixture('rate-limited-429.json') },
       { body: jsonFixture('history-daily.json') },
     ]);
 
-    const candles = await fetchCandles(f, 'NSE:SBIN-EQ', '5', {
-      from: new Date('2026-01-01T00:00:00Z'),
-      to: new Date('2026-06-01T00:00:00Z'),
-    });
-
-    expect(stub.calls.length).toBe(3); // 2 chunks, one retried
-    expect(candles).toHaveLength(4);
+    // Failing loudly beats returning a range with a silent hole in it: the
+    // indicators computed from a gapped series would be wrong, not merely late.
+    await expect(
+      fetchCandles(f, 'NSE:SBIN-EQ', '5', {
+        from: new Date('2026-01-01T00:00:00Z'),
+        to: new Date('2026-06-01T00:00:00Z'),
+      }),
+    ).rejects.toBeInstanceOf(FyersRateLimitError);
+    expect(stub.calls.length).toBe(2);
   });
 });

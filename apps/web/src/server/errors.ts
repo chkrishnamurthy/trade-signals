@@ -12,13 +12,30 @@ export class MarketDataError extends Error {
   readonly remedy: string | undefined;
   readonly code: string;
   readonly status: number;
+  /**
+   * Seconds the client should wait before asking again.
+   *
+   * Set only when the upstream gave a real deadline. The route turns this into
+   * a `Retry-After` header and the polling hook obeys it — without that, a
+   * 22-minute upstream ban is met with a poll every few seconds for 22 minutes.
+   */
+  readonly retryAfterSeconds: number | undefined;
 
-  constructor(message: string, options: { code: string; status: number; remedy?: string }) {
+  constructor(
+    message: string,
+    options: {
+      code: string;
+      status: number;
+      remedy?: string;
+      retryAfterSeconds?: number | undefined;
+    },
+  ) {
     super(message);
     this.name = 'MarketDataError';
     this.code = options.code;
     this.status = options.status;
     this.remedy = options.remedy;
+    this.retryAfterSeconds = options.retryAfterSeconds;
   }
 }
 
@@ -43,6 +60,9 @@ export function toMarketError(error: unknown): MarketDataError {
       code: mapped.code,
       status: mapped.status,
       ...(error.remedy === undefined ? {} : { remedy: error.remedy }),
+      ...(error.retryAfterMs === undefined
+        ? {}
+        : { retryAfterSeconds: Math.ceil(error.retryAfterMs / 1000) }),
     });
   }
 

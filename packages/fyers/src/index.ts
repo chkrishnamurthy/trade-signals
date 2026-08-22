@@ -21,6 +21,12 @@ export {
   HISTORY_EPOCH_START,
 } from './candles.js';
 export {
+  DEFAULT_COOLDOWN_MS,
+  MAX_COOLDOWN_MS,
+  PathCircuitBreaker,
+  parseRetryAfter,
+} from './circuit.js';
+export {
   FYERS_ERROR_CODES,
   FyersApiError,
   FyersAuthError,

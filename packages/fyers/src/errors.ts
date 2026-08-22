@@ -1,9 +1,9 @@
 /**
  * Fyers error taxonomy.
  *
- * The distinction that matters to callers: `FyersRateLimitError` and transient
- * transport failures are *expected* and retried internally, whereas
- * `FyersAuthError` means a human has to go and log in.
+ * The distinction that matters to callers: transient transport failures are
+ * *expected* and retried internally, `FyersRateLimitError` means back off for a
+ * known duration, and `FyersAuthError` means a human has to go and log in.
  */
 
 /** Base for anything this package throws. */
@@ -43,17 +43,31 @@ export class FyersAuthError extends FyersError {
 /**
  * Rate limited (HTTP 429 or API code -429).
  *
- * Expected under normal operation. The HTTP layer catches this, backs off and
- * retries; it only escapes to the caller if the retry budget is exhausted.
+ * NOT retried internally. The upstream ban is fixed-duration — Cloudflare's
+ * edge rule on `/data/quotes` was observed handing out `Retry-After: 1358`
+ * (~22 minutes) — so retrying inside it cannot succeed and only wastes budget.
+ * The HTTP layer raises this immediately and opens a circuit for the path.
  */
 export class FyersRateLimitError extends FyersError {
   /** Attempts already made when this was raised. */
   readonly attempts: number;
+  /**
+   * How long to wait before this path can be used again.
+   *
+   * Taken from `Retry-After` when the upstream sends one, otherwise a
+   * conservative default. Always populated, so callers never have to guess.
+   */
+  readonly retryAfterMs: number;
 
-  constructor(message: string, attempts: number, options: { code?: number | undefined } = {}) {
+  constructor(
+    message: string,
+    attempts: number,
+    options: { code?: number | undefined; retryAfterMs: number },
+  ) {
     super(message, options);
     this.name = 'FyersRateLimitError';
     this.attempts = attempts;
+    this.retryAfterMs = options.retryAfterMs;
   }
 }
 

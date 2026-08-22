@@ -7,6 +7,7 @@ import {
   internalSymbolFor,
   listInstruments,
   MAX_SUBSCRIPTION_SYMBOLS,
+  PathCircuitBreaker,
   RateLimiter,
   streamTicks,
   type TickTransport,
@@ -50,6 +51,8 @@ export interface FyersProviderOptions {
    * whole budget, and three breaches in a day cost the rest of the day.
    */
   readonly rateLimiter?: RateLimiter;
+  /** Shared across providers for one account; edge bans outlive a credential. */
+  readonly circuitBreaker?: PathCircuitBreaker;
   readonly timeoutMs?: number;
   readonly attempts?: number;
   /** Builds the live socket transport. Omit to disable streaming. */
@@ -72,6 +75,7 @@ export function createFyersProvider(options: FyersProviderOptions): MarketDataPr
 
   const http = new FyersHttpClient({
     rateLimiter: options.rateLimiter ?? new RateLimiter(),
+    circuitBreaker: options.circuitBreaker ?? new PathCircuitBreaker(),
     backoff: { attempts: options.attempts ?? 3, baseDelayMs: 800, maxDelayMs: 5_000 },
     timeoutMs: options.timeoutMs ?? 12_000,
   });

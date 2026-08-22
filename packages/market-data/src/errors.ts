@@ -30,6 +30,14 @@ export class MarketDataProviderError extends Error {
   readonly remedy: string | undefined;
   /** True when trying again later could plausibly succeed. */
   readonly retryable: boolean;
+  /**
+   * How long to wait before retrying, when the provider told us.
+   *
+   * Provider-neutral on purpose: every upstream that throttles has some way of
+   * saying "not before X", and callers need it to avoid hammering a closed
+   * door. Undefined means the provider gave no guidance, not "retry now".
+   */
+  readonly retryAfterMs: number | undefined;
 
   constructor(
     message: string,
@@ -38,6 +46,7 @@ export class MarketDataProviderError extends Error {
       providerId: string;
       remedy?: string | undefined;
       retryable?: boolean;
+      retryAfterMs?: number | undefined;
       cause?: unknown;
     },
   ) {
@@ -47,6 +56,7 @@ export class MarketDataProviderError extends Error {
     this.providerId = options.providerId;
     this.remedy = options.remedy;
     this.retryable = options.retryable ?? options.failure === 'rate_limit';
+    this.retryAfterMs = options.retryAfterMs;
   }
 }
 

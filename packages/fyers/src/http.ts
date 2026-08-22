@@ -1,5 +1,6 @@
 import type { z } from 'zod';
-import { FYERS_ERROR_CODES, FyersApiError, FyersRateLimitError } from './errors.js';
+import { DEFAULT_COOLDOWN_MS, PathCircuitBreaker, parseRetryAfter } from './circuit.js';
+import { FYERS_ERROR_CODES, FyersApiError, FyersError, FyersRateLimitError } from './errors.js';
 import { RateLimiter } from './rate-limit.js';
 import { fyersEnvelopeSchema } from './types.js';
 
@@ -18,6 +19,11 @@ export interface BackoffOptions {
 
 export interface HttpClientOptions {
   readonly rateLimiter?: RateLimiter;
+  /**
+   * Shared with every client for the same account. Upstream bans are keyed on
+   * IP and path, not on this process's object graph.
+   */
+  readonly circuitBreaker?: PathCircuitBreaker;
   readonly backoff?: BackoffOptions;
   /** Injectable for tests. Defaults to global `fetch`. */
   readonly fetchImpl?: typeof fetch;
@@ -49,9 +55,24 @@ export function backoffDelay(
   return Math.round(ceiling * (0.5 + random() * 0.5));
 }
 
-/** True when a response should be retried rather than surfaced. */
+/**
+ * True when a response should be retried rather than surfaced.
+ *
+ * 429 is deliberately absent. The upstream ban is fixed-duration and tells us
+ * its length via `Retry-After`, so a retry inside the window is guaranteed to
+ * fail; it is handled by the circuit breaker instead.
+ */
 function isRetryableStatus(status: number): boolean {
-  return status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
+  return status === 500 || status === 502 || status === 503 || status === 504;
+}
+
+/** Circuit-breaker key. Bans are per path, not per full URL. */
+function pathKey(url: string): string {
+  try {
+    return new URL(url).pathname;
+  } catch {
+    return url;
+  }
 }
 
 export interface RequestOptions {
@@ -66,12 +87,13 @@ export interface RequestOptions {
 /**
  * The single HTTP path out of this package.
  *
- * Every call is rate limited before it leaves, and 429 is treated as an
- * expected control signal — backed off and retried with jitter, never thrown
- * on the first occurrence.
+ * Every call is rate limited before it leaves. Transport blips and 5xx are
+ * retried with jitter; 429 is not, because the upstream ban is fixed-duration
+ * and the path is short-circuited until it expires.
  */
 export class FyersHttpClient {
   private readonly rateLimiter: RateLimiter;
+  private readonly circuit: PathCircuitBreaker;
   private readonly backoff: BackoffOptions;
   private readonly fetchImpl: typeof fetch;
   private readonly sleep: (ms: number) => Promise<void>;
@@ -80,6 +102,7 @@ export class FyersHttpClient {
 
   constructor(options: HttpClientOptions = {}) {
     this.rateLimiter = options.rateLimiter ?? new RateLimiter();
+    this.circuit = options.circuitBreaker ?? new PathCircuitBreaker();
     this.backoff = options.backoff ?? {};
     this.fetchImpl = options.fetchImpl ?? globalThis.fetch;
     this.sleep = options.sleep ?? defaultSleep;
@@ -88,15 +111,53 @@ export class FyersHttpClient {
   }
 
   /**
+   * Throws without touching the network when `path` is still banned.
+   *
+   * Called before the rate limiter, so a banned path does not spend a token it
+   * cannot use.
+   */
+  private assertPathUsable(path: string): void {
+    const waitMs = this.circuit.retryAfterMs(path);
+    if (waitMs <= 0) return;
+    throw new FyersRateLimitError(
+      `${path} is rate limited upstream for another ${Math.ceil(waitMs / 1000)}s`,
+      0,
+      { code: FYERS_ERROR_CODES.RATE_LIMITED, retryAfterMs: waitMs },
+    );
+  }
+
+  /** Opens the breaker for `path` and raises the matching error. */
+  private tripAndThrow(
+    path: string,
+    attempt: number,
+    reason: string,
+    retryAfterHeader?: string | null,
+  ): never {
+    const waitMs = parseRetryAfter(retryAfterHeader) ?? DEFAULT_COOLDOWN_MS;
+    this.circuit.trip(path, waitMs);
+    throw new FyersRateLimitError(reason, attempt, {
+      code: FYERS_ERROR_CODES.RATE_LIMITED,
+      retryAfterMs: waitMs,
+    });
+  }
+
+  /** Milliseconds until `path` is usable, 0 if it is usable now. */
+  cooldownMs(path: string): number {
+    return this.circuit.retryAfterMs(path);
+  }
+
+  /**
    * Fetches a plain-text body (the symbol-master CSV), with the same rate
    * limiting and backoff as JSON requests but no envelope parsing.
    */
   async requestText(url: string, options: RequestOptions = {}): Promise<string> {
     const attempts = this.backoff.attempts ?? 6;
+    const path = pathKey(url);
     let lastReason = 'unknown';
     let lastStatus: number | undefined;
 
     for (let attempt = 1; attempt <= attempts; attempt += 1) {
+      this.assertPathUsable(path);
       if (options.skipRateLimit !== true) {
         await this.rateLimiter.acquire();
       }
@@ -113,6 +174,9 @@ export class FyersHttpClient {
           lastStatus = response.status;
           if (response.ok) return await response.text();
           lastReason = `HTTP ${response.status}`;
+          if (response.status === 429) {
+            this.tripAndThrow(path, attempt, lastReason, response.headers.get('retry-after'));
+          }
           if (!isRetryableStatus(response.status)) {
             throw new FyersApiError(lastReason, { httpStatus: response.status });
           }
@@ -120,7 +184,8 @@ export class FyersHttpClient {
           clearTimeout(timer);
         }
       } catch (error) {
-        if (error instanceof FyersApiError) throw error;
+        // Rate-limit and auth errors are decisions, not blips; never retry them.
+        if (error instanceof FyersError) throw error;
         lastReason = error instanceof Error ? error.message : String(error);
       }
 
@@ -130,13 +195,6 @@ export class FyersHttpClient {
       await this.sleep(delayMs);
     }
 
-    if (lastStatus === 429) {
-      throw new FyersRateLimitError(
-        `Rate limited after ${attempts} attempts: ${lastReason}`,
-        attempts,
-        { code: FYERS_ERROR_CODES.RATE_LIMITED },
-      );
-    }
     throw new FyersApiError(`Request failed after ${attempts} attempts: ${lastReason}`, {
       httpStatus: lastStatus,
     });
@@ -152,8 +210,10 @@ export class FyersHttpClient {
     for (const [key, value] of Object.entries(options.query ?? {})) {
       if (value !== undefined) target.searchParams.set(key, String(value));
     }
+    const path = target.pathname;
 
     for (let attempt = 1; attempt <= attempts; attempt += 1) {
+      this.assertPathUsable(path);
       if (options.skipRateLimit !== true) {
         await this.rateLimiter.acquire();
       }
@@ -182,6 +242,11 @@ export class FyersHttpClient {
 
           if (!response.ok) {
             lastReason = `HTTP ${status}: ${text.slice(0, 200)}`;
+            // Cloudflare answers 1015 as text/plain, so there is no envelope to
+            // read here — the status and `Retry-After` are the whole signal.
+            if (status === 429) {
+              this.tripAndThrow(path, attempt, lastReason, response.headers.get('retry-after'));
+            }
             if (!isRetryableStatus(status)) {
               throw new FyersApiError(lastReason, {
                 httpStatus: status,
@@ -193,19 +258,21 @@ export class FyersHttpClient {
           clearTimeout(timer);
         }
       } catch (error) {
-        if (error instanceof FyersApiError) throw error;
+        // Rate-limit and auth errors are decisions, not blips; never retry them.
+        if (error instanceof FyersError) throw error;
         lastReason = error instanceof Error ? error.message : String(error);
         payload = undefined;
       }
 
       if (payload !== undefined && (status === undefined || status < 400)) {
         const code = envelopeCode(payload);
-        // The API also signals rate limiting in-band with a 200 body.
+        // The API also signals rate limiting in-band with a 200 body. That is
+        // the documented account limit rather than the edge one, and it carries
+        // no `Retry-After`, so the default cooldown covers its 60s window.
         if (code !== FYERS_ERROR_CODES.RATE_LIMITED) {
           return parseOrThrow(schema, payload, target.toString());
         }
-        lastReason = `API code ${code} (rate limited)`;
-        lastStatus = 429;
+        this.tripAndThrow(path, attempt, `API code ${code} (rate limited)`);
       }
 
       if (attempt === attempts) break;
@@ -215,13 +282,6 @@ export class FyersHttpClient {
       await this.sleep(delayMs);
     }
 
-    if (lastStatus === 429) {
-      throw new FyersRateLimitError(
-        `Rate limited after ${attempts} attempts: ${lastReason}`,
-        attempts,
-        { code: FYERS_ERROR_CODES.RATE_LIMITED },
-      );
-    }
     throw new FyersApiError(`Request failed after ${attempts} attempts: ${lastReason}`, {
       httpStatus: lastStatus,
     });

@@ -28,11 +28,15 @@ export function toProviderError(error: unknown): MarketDataProviderError {
   }
 
   if (error instanceof FyersRateLimitError) {
+    const seconds = Math.ceil(error.retryAfterMs / 1000);
     return new MarketDataProviderError('Upstream rate limit reached.', {
       failure: 'rate_limit',
       providerId: PROVIDER_ID,
-      remedy: 'Requests back off automatically. Reduce refresh frequency if it persists.',
+      // The ban is fixed-duration and not shortened by waiting quietly, so the
+      // honest remedy is a deadline, not "it will sort itself out".
+      remedy: `Blocked upstream for another ${seconds}s. Reduce refresh frequency if this recurs.`,
       retryable: true,
+      retryAfterMs: error.retryAfterMs,
       cause: error,
     });
   }

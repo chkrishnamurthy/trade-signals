@@ -19,14 +19,30 @@ import { getIndicatorCache } from './signals';
 /**
  * Assembles the dashboard snapshot.
  *
- * Cost: exactly two upstream calls regardless of how many cards the UI renders —
- * quotes are batched 50 per request and everything else (breadth, sentiment,
- * sectors, movers) is computed locally from the same payload. Indicator-derived
- * fields are read from a separate, slower cache rather than fetched here.
+ * Cost: two quotes calls regardless of how many cards the UI renders — quotes
+ * are batched 50 per request and everything else (breadth, sentiment, sectors,
+ * movers) is computed locally from the same payload. Market status adds a third
+ * call at most once a minute. Indicator-derived fields are read from a separate,
+ * slower cache rather than fetched here.
  */
 
-const OPEN_TTL_MS = 5_000;
+/**
+ * Refresh cadence.
+ *
+ * 15s rather than the 5s this used to run at. `/data/quotes` sits behind a
+ * Cloudflare edge rule far tighter than the documented 200/min, and a 5s poll
+ * costs 24 quotes calls a minute — enough to earn a ~22 minute ban. The product
+ * screens daily-candle setups; nothing it renders is meaningfully fresher at 5s.
+ */
+const OPEN_TTL_MS = 15_000;
 const CLOSED_TTL_MS = 120_000;
+
+/**
+ * Market status changes a handful of times a day, so refetching it on every
+ * poll is a third of the request budget spent on a value that cannot have
+ * changed. Cached separately from the snapshot, which turns over faster.
+ */
+const STATUS_TTL_MS = 60_000;
 
 interface CacheEntry {
   readonly snapshot: DashboardDto;
@@ -35,6 +51,27 @@ interface CacheEntry {
 
 const cache = new Map<string, CacheEntry>();
 const inFlight = new Map<string, Promise<DashboardDto>>();
+
+type Status = Awaited<ReturnType<ReturnType<typeof getProvider>['fetchMarketStatus']>>;
+let statusCache: { status: Status | null; expiresAt: number } | null = null;
+
+/**
+ * Market status, cached.
+ *
+ * A missing status must not fail the whole snapshot; it degrades to `unknown`,
+ * which the UI renders as "session state unavailable". A failed lookup is
+ * cached too, so a banned path is not retried on every single poll.
+ */
+async function fetchStatus(): Promise<Status | null> {
+  const now = Date.now();
+  if (statusCache !== null && statusCache.expiresAt > now) return statusCache.status;
+
+  const status = await getProvider()
+    .fetchMarketStatus()
+    .catch(() => null);
+  statusCache = { status, expiresAt: now + STATUS_TTL_MS };
+  return status;
+}
 
 function headlineDto(
   meta: { symbol: string; name: string; display: 'index' | 'volatility' },
@@ -62,9 +99,7 @@ async function build(index: ResolvedIndex): Promise<DashboardDto> {
   const refs = [...headlines, ...index.constituents];
 
   const [statusResult, quotesResult] = await Promise.all([
-    // A missing status must not fail the whole snapshot; it degrades to
-    // `unknown`, which the UI renders as "session state unavailable".
-    provider.fetchMarketStatus().catch(() => null),
+    fetchStatus(),
     provider.fetchQuotes(refs),
   ]);
 

@@ -13,6 +13,9 @@ import type { MarketErrorDto } from './market-types';
  *   quotes   two Fyers calls  → polled on the server-dictated interval
  *   signals  fifty calls      → fetched once and refreshed rarely
  *
+ * The server dictates the interval rather than the client picking one, because
+ * only the server knows whether the upstream has handed us a `Retry-After`.
+ *
  * Polling rather than a socket: the Fyers data socket authenticates with
  * `appId:accessToken`, which must never reach the browser, and a server-side
  * socket needs a long-lived process that a Next route handler is not. The seam
@@ -57,8 +60,11 @@ export function useDashboard(indexKey: string) {
       if (!mounted.current) return 60;
 
       if (!response.ok) {
-        setDashboard({ status: 'error', error: payload as MarketErrorDto });
-        return 30;
+        const error = payload as MarketErrorDto;
+        setDashboard({ status: 'error', error });
+        // An upstream ban lasts as long as it says it does. Polling through it
+        // cannot succeed and spends budget we will want the moment it lifts.
+        return error.retryAfterSeconds ?? 30;
       }
       const data = payload as DashboardDto;
       setDashboard({

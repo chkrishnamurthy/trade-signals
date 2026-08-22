@@ -55,4 +55,6 @@ export interface MarketErrorDto {
   /** What the operator must do, when the failure is actionable. */
   readonly remedy?: string;
   readonly code?: string;
+  /** Seconds to wait before retrying, when the upstream gave a deadline. */
+  readonly retryAfterSeconds?: number;
 }

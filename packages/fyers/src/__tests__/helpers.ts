@@ -16,6 +16,8 @@ export interface StubResponse {
   readonly body: unknown;
   /** When set, the body is returned verbatim instead of JSON-stringified. */
   readonly text?: string;
+  /** Response headers. `Retry-After` is the one that changes behaviour. */
+  readonly headers?: Record<string, string>;
 }
 
 export interface StubFetch {
@@ -43,6 +45,9 @@ export function stubFetch(responses: StubResponse[]): StubFetch {
     return {
       ok: status >= 200 && status < 300,
       status,
+      // A real Response always has these. Omitting them let a 429 look like a
+      // transport fault to the client and quietly get retried.
+      headers: new Headers(spec.headers ?? {}),
       text: async () => text,
     } as Response;
   }) as unknown as typeof fetch;

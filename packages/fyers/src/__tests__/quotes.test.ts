@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { FyersRateLimitError } from '../errors.js';
 import { FyersHttpClient } from '../http.js';
 import {
   chunkSymbols,
@@ -157,14 +158,16 @@ describe('fetchQuotes', () => {
     expect(stub.calls).toHaveLength(2);
   });
 
-  it('recovers from a 429 and still returns quotes', async () => {
+  it('surfaces a 429 rather than retrying into a ban', async () => {
     const { fetcher: f, stub } = fetcher([
       { status: 429, body: jsonFixture('rate-limited-429.json') },
       { body: jsonFixture('quotes.json') },
     ]);
-    const result = await fetchQuotes(f, ['NSE:SBIN-EQ']);
-    expect(stub.calls).toHaveLength(2);
-    expect(result.quotes.get('NSE:SBIN-EQ')?.ltp).toBe(42690);
+
+    // /data/quotes is the path Cloudflare actually bans, and the ban is
+    // fixed-duration. The 200 in the script must stay unreached.
+    await expect(fetchQuotes(f, ['NSE:SBIN-EQ'])).rejects.toBeInstanceOf(FyersRateLimitError);
+    expect(stub.calls).toHaveLength(1);
   });
 });
 

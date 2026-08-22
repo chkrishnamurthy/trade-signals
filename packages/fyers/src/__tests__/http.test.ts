@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { DEFAULT_COOLDOWN_MS } from '../circuit.js';
 import { FyersApiError, FyersRateLimitError } from '../errors.js';
 import { backoffDelay, FyersHttpClient } from '../http.js';
 import { RateLimiter } from '../rate-limit.js';
@@ -33,11 +34,12 @@ describe('backoffDelay', () => {
 });
 
 describe('FyersHttpClient — 429 handling', () => {
-  it('treats an HTTP 429 as expected: backs off and retries, does not throw', async () => {
+  const rateLimited = () => jsonFixture('rate-limited-429.json');
+
+  it('throws immediately on HTTP 429 instead of retrying', async () => {
     const { sleep, delays } = recordingSleep();
     const fetchStub = stubFetch([
-      { status: 429, body: jsonFixture('rate-limited-429.json') },
-      { status: 429, body: jsonFixture('rate-limited-429.json') },
+      { status: 429, body: rateLimited() },
       { status: 200, body: jsonFixture('history-daily.json') },
     ]);
 
@@ -45,29 +47,52 @@ describe('FyersHttpClient — 429 handling', () => {
       fetchImpl: fetchStub.impl,
       sleep,
       rateLimiter: instantLimiter(),
-      backoff: { baseDelayMs: 1000, maxDelayMs: 8000 },
+      backoff: { attempts: 4 },
     });
 
-    const result = await client.request(
-      'https://api-t1.fyers.in/data/history',
-      historyResponseSchema,
-    );
-
-    expect(result.s).toBe('ok');
-    expect(result.candles).toHaveLength(4);
-    expect(fetchStub.calls).toHaveLength(3);
-    // Backoff fired twice, growing, each within its jitter band.
-    expect(delays).toHaveLength(2);
-    expect(delays[0]).toBeGreaterThanOrEqual(500);
-    expect(delays[0]).toBeLessThanOrEqual(1000);
-    expect(delays[1]).toBeGreaterThanOrEqual(1000);
-    expect(delays[1]).toBeLessThanOrEqual(2000);
+    // The upstream ban is fixed-duration, so the 200 waiting in the script must
+    // never be reached: retrying inside the window cannot succeed.
+    await expect(
+      client.request('https://api-t1.fyers.in/data/history', historyResponseSchema),
+    ).rejects.toBeInstanceOf(FyersRateLimitError);
+    expect(fetchStub.calls).toHaveLength(1);
+    expect(delays).toHaveLength(0);
   });
 
-  it('also backs off when 429 arrives in-band as code -429 with HTTP 200', async () => {
+  it('takes the cooldown from Retry-After', async () => {
+    const fetchStub = stubFetch([
+      { status: 429, body: rateLimited(), headers: { 'retry-after': '1358' } },
+    ]);
+
+    const client = new FyersHttpClient({
+      fetchImpl: fetchStub.impl,
+      sleep: async () => {},
+      rateLimiter: instantLimiter(),
+    });
+
+    await expect(
+      client.request('https://api-t1.fyers.in/data/quotes', historyResponseSchema),
+    ).rejects.toMatchObject({ retryAfterMs: 1_358_000 });
+  });
+
+  it('falls back to a default cooldown when Retry-After is missing', async () => {
+    const fetchStub = stubFetch([{ status: 429, body: rateLimited() }]);
+
+    const client = new FyersHttpClient({
+      fetchImpl: fetchStub.impl,
+      sleep: async () => {},
+      rateLimiter: instantLimiter(),
+    });
+
+    await expect(
+      client.request('https://api-t1.fyers.in/data/quotes', historyResponseSchema),
+    ).rejects.toMatchObject({ retryAfterMs: DEFAULT_COOLDOWN_MS });
+  });
+
+  it('throws immediately when 429 arrives in-band as code -429 with HTTP 200', async () => {
     const { sleep, delays } = recordingSleep();
     const fetchStub = stubFetch([
-      { status: 200, body: jsonFixture('rate-limited-429.json') },
+      { status: 200, body: rateLimited() },
       { status: 200, body: jsonFixture('history-daily.json') },
     ]);
 
@@ -79,14 +104,65 @@ describe('FyersHttpClient — 429 handling', () => {
 
     await expect(
       client.request('https://api-t1.fyers.in/data/history', historyResponseSchema),
+    ).rejects.toBeInstanceOf(FyersRateLimitError);
+    expect(fetchStub.calls).toHaveLength(1);
+    expect(delays).toHaveLength(0);
+  });
+
+  it('short-circuits later calls to a banned path without touching the network', async () => {
+    const fetchStub = stubFetch([
+      { status: 429, body: rateLimited(), headers: { 'retry-after': '600' } },
+    ]);
+
+    const client = new FyersHttpClient({
+      fetchImpl: fetchStub.impl,
+      sleep: async () => {},
+      rateLimiter: instantLimiter(),
+    });
+
+    const quotes = 'https://api-t1.fyers.in/data/quotes';
+    await expect(client.request(quotes, historyResponseSchema)).rejects.toBeInstanceOf(
+      FyersRateLimitError,
+    );
+    await expect(client.request(quotes, historyResponseSchema)).rejects.toBeInstanceOf(
+      FyersRateLimitError,
+    );
+    await expect(client.request(quotes, historyResponseSchema)).rejects.toBeInstanceOf(
+      FyersRateLimitError,
+    );
+
+    // This is the whole point: two of those three never left the process.
+    expect(fetchStub.calls).toHaveLength(1);
+    expect(client.cooldownMs('/data/quotes')).toBeGreaterThan(0);
+  });
+
+  it('bans only the offending path, since the edge rule is per path', async () => {
+    const fetchStub = stubFetch([
+      { status: 429, body: rateLimited(), headers: { 'retry-after': '600' } },
+      { status: 200, body: jsonFixture('history-daily.json') },
+    ]);
+
+    const client = new FyersHttpClient({
+      fetchImpl: fetchStub.impl,
+      sleep: async () => {},
+      rateLimiter: instantLimiter(),
+    });
+
+    await expect(
+      client.request('https://api-t1.fyers.in/data/quotes', historyResponseSchema),
+    ).rejects.toBeInstanceOf(FyersRateLimitError);
+
+    // Observed live: /data/quotes was banned while /data/history kept serving.
+    await expect(
+      client.request('https://api-t1.fyers.in/data/history', historyResponseSchema),
     ).resolves.toMatchObject({ s: 'ok' });
-    expect(delays).toHaveLength(1);
+    expect(client.cooldownMs('/data/history')).toBe(0);
   });
 
   it('reports every retry to onRetry', async () => {
     const onRetry = vi.fn();
     const fetchStub = stubFetch([
-      { status: 429, body: jsonFixture('rate-limited-429.json') },
+      { status: 503, body: {} },
       { status: 200, body: jsonFixture('history-daily.json') },
     ]);
 
@@ -98,25 +174,7 @@ describe('FyersHttpClient — 429 handling', () => {
     }).request('https://x/data/history', historyResponseSchema);
 
     expect(onRetry).toHaveBeenCalledTimes(1);
-    expect(onRetry.mock.calls[0]?.[0]).toMatchObject({ attempt: 1, status: 429 });
-  });
-
-  it('surfaces FyersRateLimitError only once the retry budget is spent', async () => {
-    const { sleep, delays } = recordingSleep();
-    const fetchStub = stubFetch([{ status: 429, body: jsonFixture('rate-limited-429.json') }]);
-
-    const client = new FyersHttpClient({
-      fetchImpl: fetchStub.impl,
-      sleep,
-      rateLimiter: instantLimiter(),
-      backoff: { attempts: 4 },
-    });
-
-    await expect(
-      client.request('https://x/data/history', historyResponseSchema),
-    ).rejects.toBeInstanceOf(FyersRateLimitError);
-    expect(fetchStub.calls).toHaveLength(4);
-    expect(delays).toHaveLength(3);
+    expect(onRetry.mock.calls[0]?.[0]).toMatchObject({ attempt: 1, status: 503 });
   });
 });
 
