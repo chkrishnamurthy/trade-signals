@@ -92,6 +92,35 @@ Nothing else belongs there — not `DATABASE_URL_DIRECT`, not `FYERS_SECRET_KEY`
 not `FYERS_TOTP_SECRET`, not `NEON_API_KEY`. Migrations, the OAuth handshake and
 the schema tests all run from a developer machine.
 
+### Clerk instance
+
+The site is served from `wealthos-demo.netlify.app`, a Netlify subdomain, so a
+Clerk **production** instance is not an option: production requires a domain you
+own and DNS records you can add, and neither is true of `*.netlify.app`. Clerk
+documents deploy domains of exactly this shape as running **development** keys,
+so `pk_test_` / `sk_test_` here is the supported configuration rather than a
+shortcut — and moving to `pk_live_` means buying a domain first, not flipping a
+setting.
+
+What that costs, and why the allowlist below is not optional: a development
+instance does not carry the session in a same-site cookie. It passes it as a
+`__clerk_db_jwt` querystring parameter, which Clerk itself calls "not secure
+enough for production use" because querystrings land in server logs and browser
+history. On a publicly reachable host, Clerk's sign-up restriction is therefore
+the real gate on this application, not a second layer behind one:
+
+The instance is therefore configured `sign_up_mode: "restricted"`: nobody can
+create an account at all, invitation or nothing. The single existing user signs
+in as before, because sign-in is not gated by the sign-up mode.
+
+Note that **`restricted` and the allowlist are mutually exclusive** — Clerk
+rejects `allowlist: true` with `sign_up_mode_restricted_invalid_value` when the
+mode is restricted. The allowlist is the weaker of the two: it applies to
+`public` sign-up and permits anyone holding a listed address. For a tool with
+exactly one user and that user already created, `restricted` is strictly
+stronger and needs no list. The allowlist entry for the owner's address is left
+in place, inert, so switching modes later does not lock anyone out.
+
 Two limits are inherent to the platform rather than the configuration: `/login`
 and `/callback` write the refreshed Fyers token to disk, which a read-only
 serverless filesystem cannot do — re-authorise locally and paste the new

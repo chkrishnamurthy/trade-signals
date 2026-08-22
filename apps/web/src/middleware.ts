@@ -32,7 +32,7 @@ export default clerkMiddleware(
   async (auth, request) => {
     if (isAuthRoute(request.nextUrl.pathname)) return;
 
-    const { userId } = await auth();
+    const { userId, redirectToSignIn } = await auth();
     if (userId !== null) return;
 
     // The dashboard polls JSON endpoints from the browser. Answering those with
@@ -45,7 +45,11 @@ export default clerkMiddleware(
       );
     }
 
-    await auth.protect();
+    // Not `auth.protect()`: that answers 404, hiding the route's existence. That
+    // is the right default for a public app and the wrong one here, where the
+    // only visitor is the owner and a bare 404 offers them no way in. Send them
+    // to the form, and back to where they were aiming once they are through.
+    return redirectToSignIn({ returnBackUrl: request.url });
   },
   // Keeps sign-in inside this application rather than bouncing to Clerk's
   // hosted account portal.
