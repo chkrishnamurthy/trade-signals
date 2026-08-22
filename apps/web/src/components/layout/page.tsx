@@ -58,17 +58,6 @@ export function PageDescription({ className, ...props }: React.ComponentProps<'p
   );
 }
 
-/** Right-hand slot of the page header: filters, export, refresh. */
-export function PageActions({ className, ...props }: React.ComponentProps<'div'>) {
-  return (
-    <div
-      data-slot="page-actions"
-      className={cn('flex shrink-0 flex-wrap items-center gap-2', className)}
-      {...props}
-    />
-  );
-}
-
 /** Vertical rhythm between the blocks of a page. One gap value, everywhere. */
 export function PageContent({ className, ...props }: React.ComponentProps<'div'>) {
   return (

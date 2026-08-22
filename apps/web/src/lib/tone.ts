@@ -1,4 +1,4 @@
-import { cva, type VariantProps } from 'class-variance-authority';
+import { cva } from 'class-variance-authority';
 import type { SignalDirection } from './dashboard-types';
 
 /**
@@ -72,29 +72,3 @@ export const toneFill = cva('', {
   },
   defaultVariants: { tone: 'neutral' },
 });
-
-/** Tinted background + ring, for badges and highlighted rows. */
-export const toneSurface = cva('ring-1 ring-inset', {
-  variants: {
-    tone: {
-      bullish: 'bg-bullish-soft text-bullish-strong ring-bullish-line',
-      bearish: 'bg-bearish-soft text-bearish-strong ring-bearish-line',
-      neutral: 'bg-neutral-soft text-neutral-strong ring-neutral-line',
-    },
-  },
-  defaultVariants: { tone: 'neutral' },
-});
-
-/**
- * Resolved token values, for the few places that need a colour string rather
- * than a class: inline SVG fills and `style` attributes on heatmap tiles.
- * These read the same custom properties the utilities do, so a theme change
- * still moves them.
- */
-export const TONE_VAR: Record<Tone, string> = {
-  bullish: 'var(--bullish)',
-  bearish: 'var(--bearish)',
-  neutral: 'var(--neutral)',
-};
-
-export type ToneVariant = VariantProps<typeof toneText>;

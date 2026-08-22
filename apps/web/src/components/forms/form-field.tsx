@@ -98,29 +98,3 @@ export function FormMessage({ className, children, ...props }: React.ComponentPr
     </p>
   );
 }
-
-interface FormSectionProps extends React.ComponentProps<'fieldset'> {
-  title: string;
-  description?: string | undefined;
-}
-
-/** A titled group of fields — "Entry conditions", "Alert delivery". */
-export function FormSection({
-  title,
-  description,
-  className,
-  children,
-  ...props
-}: FormSectionProps) {
-  return (
-    <fieldset className={cn('flex flex-col gap-3 border-0 p-0', className)} {...props}>
-      <div>
-        <legend className="text-sm font-semibold tracking-tight">{title}</legend>
-        {description !== undefined && (
-          <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
-        )}
-      </div>
-      {children}
-    </fieldset>
-  );
-}

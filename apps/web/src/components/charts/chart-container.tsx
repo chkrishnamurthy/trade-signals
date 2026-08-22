@@ -133,39 +133,3 @@ export function ChartLegendItem({
     </li>
   );
 }
-
-/**
- * Hover readout.
- *
- * Positioned by the caller, because only the chart knows where its cursor is.
- * The styling — surface, border, figures — is fixed here so a candle tooltip
- * and a sparkline tooltip cannot look like different products.
- */
-export function ChartTooltip({ className, ...props }: React.ComponentProps<'div'>) {
-  return (
-    <div
-      className={cn(
-        'pointer-events-none rounded-md border border-border bg-surface-raised px-2 py-1.5 text-xs shadow-overlay',
-        className,
-      )}
-      {...props}
-    />
-  );
-}
-
-export function ChartTooltipRow({
-  label,
-  value,
-  className,
-}: {
-  label: string;
-  value: React.ReactNode;
-  className?: string | undefined;
-}) {
-  return (
-    <div className={cn('flex items-baseline justify-between gap-3', className)}>
-      <span className="text-muted-foreground">{label}</span>
-      <span className="figure font-medium">{value}</span>
-    </div>
-  );
-}

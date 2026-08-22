@@ -110,21 +110,6 @@ export function istTime(iso: string | null): string {
   }).format(date);
 }
 
-/** `DD MMM, HH:MM` in IST — for anything that may not be from today. */
-export function istDateTime(iso: string | null): string {
-  if (iso === null) return DASH;
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return DASH;
-  return new Intl.DateTimeFormat('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-    timeZone: 'Asia/Kolkata',
-  }).format(date);
-}
-
 /**
  * "12s ago" / "4m ago" / "2h ago", for data-freshness labels.
  *

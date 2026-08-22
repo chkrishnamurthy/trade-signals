@@ -237,9 +237,4 @@ export function PriceChange({
   );
 }
 
-/** Escape hatch for a pre-formatted string that still needs figure treatment. */
-export function FigureText(props: FigureProps) {
-  return <Figure {...props} />;
-}
-
 export { figureVariants };

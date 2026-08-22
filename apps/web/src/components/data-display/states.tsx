@@ -217,8 +217,3 @@ export function TableSkeleton({
     </div>
   );
 }
-
-/** Placeholder for a single value inside otherwise-loaded content. */
-export function InlineSkeleton({ className }: { className?: string | undefined }) {
-  return <Skeleton className={cn('inline-block h-3.5 w-14 align-middle', className)} aria-hidden />;
-}
