@@ -58,6 +58,28 @@ Fyers API v3 for market data. No Redis. No Celery. No Python in the app.
 8. **Every signal writes its factor breakdown and indicator snapshot.** The
    "Why this signal?" UI reads `signal_factors`; it never recomputes.
 
+## Intraday trade signals
+
+Second engine, alongside the daily one, and deliberately separate from it.
+
+- `packages/core/src/intraday` is the whole analysis: bucketing, indicators,
+  structure, patterns, levels, five strategies, the confluence scorer and the
+  lifecycle state machine. Pure, like the rest of core (rule 1).
+- `apps/worker` owns the loop: it pulls closed 1m candles into `minute_candles`
+  every few minutes while the market is open, runs the engine, and persists
+  signals with their factor breakdown, their evidence and their timeline.
+- `apps/web` only READS. `/signals` and `/api/intraday-signals` serve what the
+  worker stored; the web app never runs the engine and never calls the provider
+  for bars. Two writers would race on the live-signal unique index.
+- Timeframes 3m/5m/15m are derived from stored 1m bars in pure code, aligned to
+  the 09:15 IST open (rule 4). Prior sessions warm the indicators; VWAP, the
+  day's extremes, the opening range, volume and structure are today-only.
+- Relative volume compares against the same MINUTE OF SESSION in prior
+  sessions, never a full-day average.
+- Config lives in `config/intraday.yaml` and mints a `strategy_versions` row
+  (rule 7). `pnpm verify:intraday` replays any instant through the real engine
+  and prints the evidence and every rejection.
+
 ## Neon specifics
 
 - Two connection strings in env: `DATABASE_URL` (pooled, for the app) and
@@ -90,8 +112,14 @@ Fyers API v3 for market data. No Redis. No Celery. No Python in the app.
 - Do not use floating point for money
 - **Do not build order execution of any kind** — no place/modify/cancel order, order
   book, positions, funds, holdings, or broker portfolio. Not even read-only
-- Do not use order vocabulary in the UI. Say "Bullish setup", "Breakout candidate",
-  "Potential entry level", "Watch" — never "BUY", "SELL", "ORDER", "ENTRY PRICE".
-  An entry or exit level is a technical price level, labelled as such
+- **BUY / SELL may label a signal's direction, and nothing else.** The direction
+  badge on a trade signal reads BUY or SELL because that is the fastest thing to
+  scan. Every other word stays technical: "Bullish setup", "Breakout candidate",
+  "Technical entry zone", "Invalidation level", "Watch". Never "ORDER", never
+  "ENTRY PRICE", never "position", never "quantity". An entry or exit level is a
+  technical price level and is labelled as one
+- There is no order button, order ticket, or order-shaped affordance anywhere.
+  A direction label describes price structure; it is not an instruction, and the
+  UI must never imply the application could act on it
 - Do not display a confidence number the factors cannot explain. Every score renders
   with its component breakdown or it does not render

@@ -13,6 +13,7 @@ import {
 } from './analytics';
 import { MarketDataError, toMarketError } from './errors';
 import { getHeadlineIndices, getIndex, type ResolvedIndex } from './indices';
+import { getMarketStatus } from './market-status';
 import { getProvider } from './provider';
 import { getIndicatorCache } from './signals';
 
@@ -37,13 +38,6 @@ import { getIndicatorCache } from './signals';
 const OPEN_TTL_MS = 15_000;
 const CLOSED_TTL_MS = 120_000;
 
-/**
- * Market status changes a handful of times a day, so refetching it on every
- * poll is a third of the request budget spent on a value that cannot have
- * changed. Cached separately from the snapshot, which turns over faster.
- */
-const STATUS_TTL_MS = 60_000;
-
 interface CacheEntry {
   readonly snapshot: DashboardDto;
   readonly expiresAt: number;
@@ -51,27 +45,6 @@ interface CacheEntry {
 
 const cache = new Map<string, CacheEntry>();
 const inFlight = new Map<string, Promise<DashboardDto>>();
-
-type Status = Awaited<ReturnType<ReturnType<typeof getProvider>['fetchMarketStatus']>>;
-let statusCache: { status: Status | null; expiresAt: number } | null = null;
-
-/**
- * Market status, cached.
- *
- * A missing status must not fail the whole snapshot; it degrades to `unknown`,
- * which the UI renders as "session state unavailable". A failed lookup is
- * cached too, so a banned path is not retried on every single poll.
- */
-async function fetchStatus(): Promise<Status | null> {
-  const now = Date.now();
-  if (statusCache !== null && statusCache.expiresAt > now) return statusCache.status;
-
-  const status = await getProvider()
-    .fetchMarketStatus()
-    .catch(() => null);
-  statusCache = { status, expiresAt: now + STATUS_TTL_MS };
-  return status;
-}
 
 function headlineDto(
   meta: { symbol: string; name: string; display: 'index' | 'volatility' },
@@ -98,8 +71,10 @@ async function build(index: ResolvedIndex): Promise<DashboardDto> {
   const headlines = await getHeadlineIndices();
   const refs = [...headlines, ...index.constituents];
 
+  // A missing status must not fail the whole snapshot; it degrades to
+  // `unknown`, which the UI renders as "session state unavailable".
   const [statusResult, quotesResult] = await Promise.all([
-    fetchStatus(),
+    getMarketStatus(),
     provider.fetchQuotes(refs),
   ]);
 

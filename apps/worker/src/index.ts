@@ -1,8 +1,11 @@
-import { withRetry } from '@signal/db';
+import { expireOpenSignals, withRetry } from '@signal/db';
+import { istDateKey } from '@signal/shared';
 import { config as loadEnv } from 'dotenv';
 import { createContext, type WorkerContext } from './context.js';
+import { loadIntradaySettings } from './intraday-config.js';
 import { computeIndicators } from './jobs/compute-indicators.js';
 import { ingestDailyCandles } from './jobs/ingest-daily.js';
+import { runIntradayCycle } from './jobs/intraday-signals.js';
 import { createLogger, errorFields } from './log.js';
 import { createScheduler, type Scheduler } from './scheduler.js';
 
@@ -23,6 +26,7 @@ loadEnv({ path: new URL('../../../.env', import.meta.url).pathname });
  *   pnpm --filter @signal/worker dev              schedule and stay running
  *   pnpm --filter @signal/worker dev -- --once ingest-daily    run one job now
  *   pnpm --filter @signal/worker dev -- --backfill             deep history pull
+ *   pnpm --filter @signal/worker dev -- --once intraday-cycle  one signal pass
  */
 
 const log = createLogger('worker');
@@ -39,9 +43,29 @@ const SCHEDULES = {
   computeIndicators: '45 16 * * 1-5',
   /** A second attempt, in case the first ran while the credential was stale. */
   ingestRetry: '30 18 * * 1-5',
+  /**
+   * Close-out for intraday signals, a couple of minutes after the bell.
+   *
+   * Separate from the cycle because the cycle's own interval is configurable
+   * and may not land on 15:30. A live signal that survives the close would be
+   * rendered tomorrow as a current opportunity, and would also block the same
+   * setup from ever forming again.
+   */
+  intradayClose: '32 15 * * 1-5',
 } as const;
 
-function buildScheduler(context: WorkerContext): Scheduler {
+/**
+ * The intraday cycle's cron expression.
+ *
+ * Fires across the whole trading hour range; the job itself checks the session
+ * regime and returns immediately outside continuous trading, so a stray fire
+ * costs one clock read rather than a wasted request budget.
+ */
+function intradaySchedule(cycleMinutes: number): string {
+  return `*/${cycleMinutes} 9-15 * * 1-5`;
+}
+
+function buildScheduler(context: WorkerContext, cycleMinutes: number): Scheduler {
   return createScheduler(
     [
       {
@@ -56,6 +80,27 @@ function buildScheduler(context: WorkerContext): Scheduler {
         schedule: SCHEDULES.computeIndicators,
         run: async () => {
           await computeIndicators(context, log.child('compute-indicators'));
+        },
+      },
+      {
+        name: 'intraday-cycle',
+        schedule: intradaySchedule(cycleMinutes),
+        run: async () => {
+          await runIntradayCycle(context, log.child('intraday-cycle'));
+        },
+      },
+      {
+        name: 'intraday-close',
+        schedule: SCHEDULES.intradayClose,
+        run: async () => {
+          const now = new Date();
+          const expired = await expireOpenSignals(
+            context.db,
+            istDateKey(now),
+            now,
+            'Session closed — intraday setups do not carry overnight',
+          );
+          log.info('intraday close-out', { expired, tradingDate: istDateKey(now) });
         },
       },
       {
@@ -92,6 +137,9 @@ async function waitForDatabase(context: WorkerContext): Promise<void> {
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const context = createContext();
+  // Loaded before anything is scheduled: an invalid config must stop the
+  // process at startup, not at 09:18 on the first cycle.
+  const { cycleMinutes } = await loadIntradaySettings();
 
   let shuttingDown = false;
   let scheduler: Scheduler | null = null;
@@ -136,13 +184,19 @@ async function main(): Promise<void> {
     const jobName = args[onceIndex + 1];
     if (jobName === undefined) {
       log.error('--once requires a job name', {
-        available: ['ingest-daily', 'compute-indicators', 'ingest-retry'],
+        available: [
+          'ingest-daily',
+          'compute-indicators',
+          'ingest-retry',
+          'intraday-cycle',
+          'intraday-close',
+        ],
       });
       process.exitCode = 1;
       await context.close();
       return;
     }
-    scheduler = buildScheduler(context);
+    scheduler = buildScheduler(context, cycleMinutes);
     scheduler.stop(); // one-shot: do not also arm the schedules
     await scheduler.trigger(jobName);
     await context.close();
@@ -157,8 +211,8 @@ async function main(): Promise<void> {
     return;
   }
 
-  scheduler = buildScheduler(context);
-  log.info('worker running; ctrl-c to stop');
+  scheduler = buildScheduler(context, cycleMinutes);
+  log.info('worker running; ctrl-c to stop', { intradayCycleMinutes: cycleMinutes });
 }
 
 main().catch((error: unknown) => {

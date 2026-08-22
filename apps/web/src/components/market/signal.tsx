@@ -69,22 +69,37 @@ export function SignalBadge({
 export function SignalStrength({
   strength,
   direction,
+  tone: toneOverride,
+  label,
   showValue = true,
   className,
 }: {
   strength: number;
-  direction: SignalDirection;
+  /** The daily engine's five-way bias. Omit when passing `tone` directly. */
+  direction?: SignalDirection | undefined;
+  /**
+   * Overrides the tone derived from `direction`.
+   *
+   * The intraday engine speaks in long/short rather than the daily engine's
+   * five-way bias, and both must render the same meter — one bar component,
+   * one set of colours, whichever vocabulary the caller uses.
+   */
+  tone?: Tone | undefined;
+  /** Accessible description. Defaults to the direction's label. */
+  label?: string | undefined;
   showValue?: boolean | undefined;
   className?: string | undefined;
 }) {
-  const tone = toneOfDirection(direction);
+  const tone = toneOverride ?? (direction === undefined ? 'neutral' : toneOfDirection(direction));
+  const description =
+    label ?? (direction === undefined ? 'setup strength' : DIRECTION_LABEL[direction]);
   const clamped = Math.min(100, Math.max(0, strength));
   return (
     <div className={cn('flex items-center gap-2', className)}>
       <div
         className="h-1.5 w-full min-w-12 overflow-hidden rounded-full bg-muted"
         role="img"
-        aria-label={`Signal strength ${clamped} of 100, ${DIRECTION_LABEL[direction]}`}
+        aria-label={`Score ${clamped} of 100, ${description}`}
       >
         <div
           className={cn('h-full rounded-full transition-[width]', toneFill({ tone }))}
@@ -109,26 +124,33 @@ export function SignalStrength({
 export function SignalScore({
   score,
   direction,
+  title,
+  tone: toneOverride,
   className,
   children,
 }: {
   score: number;
-  direction: SignalDirection;
+  direction?: SignalDirection | undefined;
+  /** Heading text. Defaults to the direction's label. */
+  title?: string | undefined;
+  tone?: Tone | undefined;
   className?: string | undefined;
   /** The factor breakdown. Required — this is the "why" that earns the number. */
   children: React.ReactNode;
 }) {
-  const tone = toneOfDirection(direction);
+  const tone = toneOverride ?? (direction === undefined ? 'neutral' : toneOfDirection(direction));
   return (
     <div className={cn('flex flex-col gap-2', className)}>
       <div className="flex items-baseline justify-between gap-2">
-        <Text variant="section-title">{DIRECTION_LABEL[direction]}</Text>
+        <Text variant="section-title">
+          {title ?? (direction === undefined ? 'Setup score' : DIRECTION_LABEL[direction])}
+        </Text>
         <span className={cn('figure text-lg font-semibold', toneText({ tone }))}>
           {score}
           <span className="text-xs font-normal text-subtle-foreground">/100</span>
         </span>
       </div>
-      <SignalStrength strength={score} direction={direction} showValue={false} />
+      <SignalStrength strength={score} tone={tone} showValue={false} />
       {children}
     </div>
   );

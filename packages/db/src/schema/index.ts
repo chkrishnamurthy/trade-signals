@@ -15,5 +15,12 @@
 export { dailyCandles, minuteCandles } from './candles.js';
 export { dailyIndicators } from './indicators.js';
 export { corporateActions, ingestionRuns, instruments } from './instruments.js';
+export {
+  intradayRuns,
+  intradaySignalEvents,
+  intradaySignalFactors,
+  intradaySignalReasons,
+  intradaySignals,
+} from './intraday.js';
 export { signalFactors, signals, strategyVersions } from './signals.js';
 export { alertEvents, alerts, watchlistItems, watchlists } from './watchlists.js';

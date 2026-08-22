@@ -1,7 +1,9 @@
 # NSE Signal Platform
 
-Scaffold only. No business logic, no database schema, no market data yet.
-See [CLAUDE.md](CLAUDE.md) for the hard rules that govern everything added on top.
+Technical analysis and decision support for NSE equities. It answers what the
+market is doing, which stocks deserve attention, and why — and it never places,
+manages or represents an order. See [CLAUDE.md](CLAUDE.md) for the hard rules
+that govern everything added on top.
 
 ## Layout
 
@@ -11,11 +13,35 @@ apps/
   worker/         Node entrypoint; scheduler and jobs live here
 packages/
   shared/         paise + IST/market-time helpers — everything depends on this
-  core/           pure signal engine (empty)
+  core/           pure engines: daily signals + intraday trade signals
+  market-data/    the provider-neutral boundary everything above depends on
   db/             Drizzle schema, client, migrations
-  fyers/          Fyers API v3 adapter (empty)
-config/           versioned YAML strategy config
+  fyers/          Fyers API v3 client
+  providers-fyers/ the adapter — the only place Fyers types and ours co-exist
+config/           versioned YAML: index constituents, intraday strategy config
 ```
+
+## Intraday trade signals
+
+`/signals` shows same-day intraday setups across the NIFTY 50, scored on
+confluence across trend, price action, momentum, volume, VWAP, market context,
+volatility and timeframe alignment. Every signal carries the factor breakdown
+that produced its score, the individual observations behind it, its invalidation
+conditions and a timeline of how it got there.
+
+The engine (`packages/core/src/intraday`) is pure. The worker runs it every few
+minutes while the market is open and stores the results; the web app only reads.
+
+```bash
+pnpm --filter @signal/worker dev              # schedule everything, incl. the intraday loop
+pnpm --filter @signal/worker dev -- --once intraday-cycle   # one pass, now
+pnpm verify:intraday --at "2026-08-21 13:30"  # replay any instant through the real engine
+pnpm verify:intraday --scan                   # score every symbol, write nothing
+pnpm verify:intraday --symbol RELIANCE        # full evidence for one symbol
+```
+
+Signals are technical observations, not advice, and the score is setup strength
+— not a probability of profit.
 
 ## Setup
 
@@ -46,6 +72,8 @@ it is handed a pooled URL.
 | `pnpm db:generate` | drizzle-kit: SQL migration from the schema |
 | `pnpm db:migrate` | drizzle-kit: apply migrations (direct endpoint) |
 | `pnpm db:studio` | drizzle-kit studio |
+| `pnpm verify:intraday` | replay the intraday engine at any instant and print the evidence |
+| `pnpm verify:adjustment` | check whether the provider back-adjusts split history |
 
 ## Schema tests and Neon branches
 

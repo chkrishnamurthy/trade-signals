@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { parse } from 'yaml';
 import { z } from 'zod';
 
@@ -19,7 +19,13 @@ const configSchema = z.object({
     z.object({
       name: z.string().min(1),
       indexSymbol: z.string().min(1),
-      constituents: z.array(z.object({ symbol: z.string().min(1), name: z.string().min(1) })),
+      constituents: z.array(
+        z.object({
+          symbol: z.string().min(1),
+          name: z.string().min(1),
+          sector: z.string().min(1).optional(),
+        }),
+      ),
     }),
   ),
 });
@@ -30,7 +36,14 @@ export interface UniverseEntry {
   readonly kind: 'equity' | 'index';
 }
 
-const CONFIG_PATH = join(process.cwd(), '..', '..', 'config', 'indices.yaml');
+/**
+ * Repo root, resolved from this module rather than from `process.cwd()`.
+ *
+ * The worker is started from `apps/worker` by pnpm but from the repo root by
+ * the verification script, and a cwd-relative path silently resolves outside
+ * the repo in the second case.
+ */
+const CONFIG_PATH = fileURLToPath(new URL('../../../config/indices.yaml', import.meta.url));
 
 /**
  * Every distinct instrument across every configured index, deduplicated.
@@ -78,4 +91,47 @@ export async function loadUniverse(path = CONFIG_PATH): Promise<UniverseEntry[]>
   }
 
   return [...bySymbol.values()];
+}
+
+/** A constituent of one index, with the sector used for market context. */
+export interface UniverseConstituent {
+  readonly symbol: string;
+  readonly name: string;
+  readonly sector: string;
+  readonly kind: 'equity';
+}
+
+/**
+ * The constituents of one configured index.
+ *
+ * The intraday engine works a single, deliberately liquid index rather than
+ * the whole universe: an intraday signal on an illiquid name is a pattern that
+ * cannot be acted on at anything near the printed price, and every symbol
+ * costs a history call against an account-wide per-minute budget.
+ */
+export async function loadIndexConstituents(
+  indexKey: string,
+  path = CONFIG_PATH,
+): Promise<UniverseConstituent[]> {
+  const parsed = configSchema.safeParse(parse(await readFile(path, 'utf8')));
+  if (!parsed.success) {
+    throw new Error(
+      `config/indices.yaml is invalid: ${parsed.error.issues
+        .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+        .join('; ')}`,
+    );
+  }
+
+  const index = parsed.data.indices[indexKey.toLowerCase()];
+  if (index === undefined) {
+    const available = Object.keys(parsed.data.indices).join(', ');
+    throw new Error(`Unknown index "${indexKey}" in config/indices.yaml. Available: ${available}`);
+  }
+
+  return index.constituents.map((constituent) => ({
+    symbol: constituent.symbol,
+    name: constituent.name.trim(),
+    sector: constituent.sector ?? 'Other',
+    kind: 'equity' as const,
+  }));
 }

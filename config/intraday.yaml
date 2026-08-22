@@ -1,0 +1,159 @@
+# Intraday trade-signal configuration.
+#
+# Versioned YAML, not a database table and not constants in code (CLAUDE.md:
+# "config is versioned YAML"). Every threshold the engine consults is here, so
+# tuning the strategy is a change to this file — and every change mints a new
+# `strategy_versions` row (hard rule 7), which means past signals keep pointing
+# at the exact configuration that produced them.
+#
+# Anything omitted falls back to DEFAULT_INTRADAY_CONFIG in
+# packages/core/src/intraday/config.ts, where each field is documented.
+#
+# THESE ARE TECHNICAL PARAMETERS. Nothing here sizes a position, and nothing
+# here knows the user's risk tolerance — the reward-to-risk floor is a filter
+# on the SHAPE of a setup, not a statement about capital.
+
+# Which instruments are evaluated. NIFTY 50 only to begin with: liquid,
+# reliable real-time data, and tight enough to stay well inside the provider's
+# per-minute request budget.
+universe:
+  index: nifty50
+  # The benchmark whose trend and VWAP define market context.
+  benchmark: NIFTY50
+  # Additional context instruments fetched each cycle.
+  bankingIndex: NIFTYBANK
+  volatilityIndex: INDIAVIX
+
+engine:
+  # Timeframe hierarchy, in minutes. All derived from stored 1m candles
+  # (hard rule 4) with buckets aligned to the 09:15 IST open.
+  timeframes:
+    trend: 15     # sets the bias
+    setup: 5      # where structure is read
+    trigger: 3    # where the trigger must close
+
+  ema:
+    fast: 9
+    medium: 20
+    slow: 50
+  rsiPeriod: 14
+  macd: { fast: 12, slow: 26, signal: 9 }
+  atrPeriod: 14
+  adxPeriod: 14
+  roc: { fast: 5, slow: 15 }
+
+  # Prior sessions prepended when warming indicators. A 15-minute EMA-50 needs
+  # about two sessions of bars; without this the higher-timeframe trend reads
+  # "flat" until mid-afternoon and every trend-aware strategy silently never
+  # fires. Used only for indicator warm-up — VWAP, the day's extremes, the
+  # opening range and price structure are all computed from today alone.
+  warmupSessions: 3
+
+  openingRangeMinutes: 15
+  swingLookback: 3
+  structureLookback: 20
+
+volume:
+  # Multiples of what this symbol NORMALLY trades at this minute of the
+  # session — never of a full-day average, which would call every morning a
+  # surge and every lunchtime a drought.
+  participationThreshold: 1.2
+  spikeThreshold: 1.8
+  dryThreshold: 0.7
+  # Prior sessions averaged into the intraday volume profile. The profile is a
+  # shape, not a precise estimate, and each extra session is 375 more rows per
+  # symbol to read on the first cycle of the day.
+  profileSessions: 5
+
+liquidity:
+  minAverageDailyVolume: 200000
+  minPrice: 2000              # paise (₹20)
+  minSessionTurnover: 5000000000  # paise (₹5 crore)
+
+volatility:
+  minAtrPercent: 0.05
+  maxAtrPercent: 2.5
+  trendingAdx: 20
+  choppyAdx: 15
+
+levels:
+  # A close must clear a level by this fraction of ATR to count as a break.
+  breakBufferAtr: 0.15
+  proximityAtr: 0.35
+
+targets:
+  stopAtr: 1.2
+  target1Atr: 1.6
+  target2Atr: 2.8
+  # Setups whose technical reward-to-risk is worse than this are not surfaced.
+  minRiskReward: 1.2
+
+rsi:
+  # Ranges, not thresholds: a trending stock holds RSI above 50 for hours, and
+  # "RSI over 70 is a sell" would fade every real move.
+  bullBand: { min: 50, max: 78 }
+  bearBand: { min: 22, max: 50 }
+  overbought: 78
+  oversold: 22
+
+# Confluence weights, in points out of 100. No single category can carry a
+# signal: the largest is 20 and the surfacing floor is 60, so at least four
+# independent kinds of evidence must agree before anything reaches the screen.
+weights:
+  trend: 20
+  priceAction: 20
+  momentum: 15
+  volume: 15
+  vwap: 10
+  marketContext: 10
+  volatility: 5
+  multiTimeframe: 5
+
+# Score bands. Below `watch`, nothing is surfaced at all.
+quality:
+  exceptional: 90
+  strong: 80
+  good: 70
+  watch: 60
+minScore: 60
+
+lifecycle:
+  confirmationBars: 1
+  staleAfterMinutes: 12
+  setupTimeoutMinutes: 45
+  cooldownMinutes: 30
+  scoreChangeThreshold: 4
+  maxLiveSignalsPerSymbol: 2
+
+data:
+  minSessionBars: 25
+  minDailyBars: 20
+  maxStalenessMinutes: 10
+
+session:
+  warmupMinutes: 20
+  noNewSignalsBeforeCloseMinutes: 35
+  forceExitBeforeCloseMinutes: 10
+
+# Regime boundaries, in minutes since the 09:15 open.
+regimeBoundaries:
+  openingEnds: 30      # 09:45
+  earlyEnds: 135       # 11:30
+  midEnds: 255         # 13:30
+  afternoonEnds: 345   # 15:00
+
+# Per-regime threshold adjustments. Intraday behaviour is not constant across
+# the day, and applying one set of thresholds to all of it is how an engine
+# ends up firing on opening noise and on closing illiquidity alike.
+regimes:
+  opening:   { volumeMultiplier: 1.6,  scorePenalty: 8,  allowNewSignals: true }
+  early:     { volumeMultiplier: 1.0,  scorePenalty: 0,  allowNewSignals: true }
+  mid:       { volumeMultiplier: 0.85, scorePenalty: 5,  allowNewSignals: true }
+  afternoon: { volumeMultiplier: 1.0,  scorePenalty: 2,  allowNewSignals: true }
+  closing:   { volumeMultiplier: 1.3,  scorePenalty: 15, allowNewSignals: false }
+
+# How often the evaluation loop runs while the market is open, in minutes.
+# One history call per symbol per cycle: at 50 symbols and a 3-minute cycle
+# that is roughly 17 requests a minute against a self-imposed 100/minute
+# ceiling, leaving ample headroom for the dashboard's quote polling.
+cycleMinutes: 3

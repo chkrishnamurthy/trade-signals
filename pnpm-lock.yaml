@@ -11,6 +11,12 @@ importers:
       '@biomejs/biome':
         specifier: ^2.5.9
         version: 2.5.9
+      '@signal/core':
+        specifier: workspace:*
+        version: link:packages/core
+      '@signal/db':
+        specifier: workspace:*
+        version: link:packages/db
       '@signal/fyers':
         specifier: workspace:*
         version: link:packages/fyers

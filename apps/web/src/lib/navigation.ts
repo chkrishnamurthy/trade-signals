@@ -74,10 +74,11 @@ export const NAVIGATION: readonly NavGroup[] = [
     label: 'Analysis',
     items: [
       {
-        status: 'planned',
-        label: 'Signals',
+        status: 'ready',
+        href: '/signals',
+        label: 'Trade signals',
         icon: ActivityIcon,
-        description: 'Technical setups across the universe',
+        description: 'Intraday setups, scored and explained',
       },
       {
         status: 'planned',
