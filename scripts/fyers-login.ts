@@ -25,8 +25,8 @@ import {
   type FyersCredentials,
   FyersHttpClient,
   writeCachedToken,
-} from '@signal/fyers';
-import { toIstIsoString } from '@signal/shared';
+} from '@wealthos/fyers';
+import { toIstIsoString } from '@wealthos/shared';
 import { config as loadEnv } from 'dotenv';
 
 const ENV_PATH = new URL('../.env', import.meta.url).pathname;

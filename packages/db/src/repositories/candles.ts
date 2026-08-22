@@ -14,7 +14,7 @@ import { corporateActions, dailyCandles, minuteCandles } from '../schema/index.j
  *    record; adjusted rows are what indicators must see.
  */
 
-/** A bar in the shape `@signal/core` consumes. Prices are integer paise. */
+/** A bar in the shape `@wealthos/core` consumes. Prices are integer paise. */
 export interface StoredBar {
   readonly timestamp: number;
   readonly open: number;

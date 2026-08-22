@@ -1,5 +1,5 @@
 import 'server-only';
-import type { Quote } from '@signal/market-data';
+import type { Quote } from '@wealthos/market-data';
 import type { BreadthDto, MoverDto, SectorDto, SentimentDto } from '@/lib/dashboard-types';
 import type { ResolvedConstituent } from './indices';
 

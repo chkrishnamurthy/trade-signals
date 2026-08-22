@@ -12,7 +12,7 @@ import {
   type SignalCandidate,
   sessionRegime,
   transition,
-} from '@signal/core';
+} from '@wealthos/core';
 import {
   createIntradaySignal,
   expireOpenSignals,
@@ -32,9 +32,9 @@ import {
   type StoredIntradaySignal,
   startIntradayRun,
   updateIntradaySignal,
-} from '@signal/db';
-import type { InstrumentRef } from '@signal/market-data';
-import { istDateKey, sessionOpen, startOfIstDay } from '@signal/shared';
+} from '@wealthos/db';
+import type { InstrumentRef } from '@wealthos/market-data';
+import { istDateKey, sessionOpen, startOfIstDay } from '@wealthos/shared';
 import type { WorkerContext } from '../context.js';
 import { loadIntradaySettings } from '../intraday-config.js';
 import { errorFields, type Logger } from '../log.js';
@@ -48,7 +48,7 @@ import { ingestIntradayCandles } from './ingest-intraday.js';
  * order: pull the newest closed 1m candles, measure every symbol, decide what
  * changed, and persist it with its evidence.
  *
- * All of the analysis is `@signal/core`, which is pure. This file supplies
+ * All of the analysis is `@wealthos/core`, which is pure. This file supplies
  * data and stores results and contains no technical judgement of its own —
  * which is what lets the future backtester feed historical bars to the same
  * `evaluateIntraday` and `transition` and get identical answers.

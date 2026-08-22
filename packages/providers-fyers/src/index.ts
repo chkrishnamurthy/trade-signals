@@ -2,7 +2,7 @@
  * The Fyers adapter.
  *
  * Only the composition root (`apps/web/src/server/provider.ts`, the worker's
- * bootstrap) imports this. Business logic depends on `@signal/market-data`.
+ * bootstrap) imports this. Business logic depends on `@wealthos/market-data`.
  */
 export type { FyersProviderOptions } from './adapter.js';
 export { createFyersProvider } from './adapter.js';

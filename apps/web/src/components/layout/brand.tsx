@@ -24,10 +24,10 @@ export function Brand({
         className="grid size-6 shrink-0 place-items-center rounded-md bg-primary text-xs text-primary-foreground"
         aria-hidden
       >
-        S
+        W
       </span>
-      {showWordmark && <span className="text-sm">Signal</span>}
-      <span className="sr-only">Signal — NSE market analysis, home</span>
+      {showWordmark && <span className="text-sm">WealthOS</span>}
+      <span className="sr-only">WealthOS — NSE market analysis, home</span>
     </Link>
   );
 }

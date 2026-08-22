@@ -11,16 +11,16 @@ importers:
       '@biomejs/biome':
         specifier: ^2.5.9
         version: 2.5.9
-      '@signal/core':
+      '@wealthos/core':
         specifier: workspace:*
         version: link:packages/core
-      '@signal/db':
+      '@wealthos/db':
         specifier: workspace:*
         version: link:packages/db
-      '@signal/fyers':
+      '@wealthos/fyers':
         specifier: workspace:*
         version: link:packages/fyers
-      '@signal/shared':
+      '@wealthos/shared':
         specifier: workspace:*
         version: link:packages/shared
       '@types/node':
@@ -89,19 +89,19 @@ importers:
       '@radix-ui/react-tooltip':
         specifier: ^1.2.16
         version: 1.2.16(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      '@signal/core':
+      '@wealthos/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@signal/db':
+      '@wealthos/db':
         specifier: workspace:*
         version: link:../../packages/db
-      '@signal/market-data':
+      '@wealthos/market-data':
         specifier: workspace:*
         version: link:../../packages/market-data
-      '@signal/providers-fyers':
+      '@wealthos/providers-fyers':
         specifier: workspace:*
         version: link:../../packages/providers-fyers
-      '@signal/shared':
+      '@wealthos/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       class-variance-authority:
@@ -156,19 +156,19 @@ importers:
 
   apps/worker:
     dependencies:
-      '@signal/core':
+      '@wealthos/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@signal/db':
+      '@wealthos/db':
         specifier: workspace:*
         version: link:../../packages/db
-      '@signal/market-data':
+      '@wealthos/market-data':
         specifier: workspace:*
         version: link:../../packages/market-data
-      '@signal/providers-fyers':
+      '@wealthos/providers-fyers':
         specifier: workspace:*
         version: link:../../packages/providers-fyers
-      '@signal/shared':
+      '@wealthos/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       croner:
@@ -190,7 +190,7 @@ importers:
 
   packages/core:
     dependencies:
-      '@signal/shared':
+      '@wealthos/shared':
         specifier: workspace:*
         version: link:../shared
 
@@ -218,7 +218,7 @@ importers:
 
   packages/fyers:
     dependencies:
-      '@signal/shared':
+      '@wealthos/shared':
         specifier: workspace:*
         version: link:../shared
       zod:
@@ -227,19 +227,19 @@ importers:
 
   packages/market-data:
     dependencies:
-      '@signal/shared':
+      '@wealthos/shared':
         specifier: workspace:*
         version: link:../shared
 
   packages/providers-fyers:
     dependencies:
-      '@signal/fyers':
+      '@wealthos/fyers':
         specifier: workspace:*
         version: link:../fyers
-      '@signal/market-data':
+      '@wealthos/market-data':
         specifier: workspace:*
         version: link:../market-data
-      '@signal/shared':
+      '@wealthos/shared':
         specifier: workspace:*
         version: link:../shared
 

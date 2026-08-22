@@ -1,5 +1,5 @@
 import 'server-only';
-import { createDatabase, type Database, type DatabaseHandle } from '@signal/db';
+import { createDatabase, type Database, type DatabaseHandle } from '@wealthos/db';
 
 /**
  * The web app's database handle.

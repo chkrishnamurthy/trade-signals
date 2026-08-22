@@ -1,6 +1,6 @@
 import 'server-only';
-import { type PaperTrade, summarisePaperTrades } from '@signal/core';
-import { getPaperTrades } from '@signal/db';
+import { type PaperTrade, summarisePaperTrades } from '@wealthos/core';
+import { getPaperTrades } from '@wealthos/db';
 import { getDatabase, isDatabaseConfigured } from './db';
 
 /**

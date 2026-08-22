@@ -67,7 +67,7 @@ export interface Quote {
 /**
  * One OHLCV bar. `timestamp` is the instant the bar OPENS, epoch milliseconds.
  *
- * Structurally identical to `@signal/core`'s `Bar` so the engine consumes
+ * Structurally identical to `@wealthos/core`'s `Bar` so the engine consumes
  * provider output with no adaptation step.
  */
 export interface Bar {

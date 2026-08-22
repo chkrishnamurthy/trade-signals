@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
  * Architecture guard.
  *
  * Broker independence is a property nothing enforces at runtime — it decays
- * the moment someone reaches for `@signal/fyers` because it is right there and
+ * the moment someone reaches for `@wealthos/fyers` because it is right there and
  * already has the function they want. This test is the enforcement.
  *
  * If it fails, the fix is to widen `MarketDataProvider`, not to add an
@@ -64,7 +64,7 @@ function offenders(pattern: string): string[] {
 
 describe('provider boundary', () => {
   it('nothing outside the adapter imports the Fyers package', () => {
-    expect(offenders("from '@signal/fyers'")).toEqual([]);
+    expect(offenders("from '@wealthos/fyers'")).toEqual([]);
   });
 
   it('no provider symbol format leaks into product code', () => {

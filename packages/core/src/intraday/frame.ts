@@ -1,4 +1,4 @@
-import { istDateKey } from '@signal/shared';
+import { istDateKey } from '@wealthos/shared';
 import {
   adx as computeAdx,
   atr as computeAtr,

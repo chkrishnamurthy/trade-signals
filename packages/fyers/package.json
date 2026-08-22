@@ -1,5 +1,5 @@
 {
-  "name": "@signal/fyers",
+  "name": "@wealthos/fyers",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -21,7 +21,7 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
-    "@signal/shared": "workspace:*",
+    "@wealthos/shared": "workspace:*",
     "zod": "^3.25.76"
   }
 }

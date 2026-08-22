@@ -6,7 +6,7 @@ import {
   REGIME_LABEL,
   sessionRegime,
   vwap,
-} from '@signal/core';
+} from '@wealthos/core';
 import {
   getIntradayEventsFor,
   getIntradayFactorsFor,
@@ -19,8 +19,8 @@ import {
   latestIntradaySignalDate,
   resolveInstrumentIds,
   type StoredIntradaySignal,
-} from '@signal/db';
-import { isRegularSession, istDateKey } from '@signal/shared';
+} from '@wealthos/db';
+import { isRegularSession, istDateKey } from '@wealthos/shared';
 import { z } from 'zod';
 import type {
   IntradayEventDto,
@@ -417,7 +417,7 @@ function noticeFor(input: {
       : `The market is closed. These are the setups recorded during the ${input.tradingDate} session — history, not live opportunities.`;
   }
   if (run === null) {
-    return 'The signal engine has not run for this session yet. Start the worker with `pnpm --filter @signal/worker dev`.';
+    return 'The signal engine has not run for this session yet. Start the worker with `pnpm --filter @wealthos/worker dev`.';
   }
   if (stale) {
     return 'The signal engine has not completed a pass recently. These setups may no longer be valid.';
@@ -525,7 +525,7 @@ export interface SignalChartDto {
  *
  * Bars come from stored 1m candles and are bucketed with the SAME pure
  * function the engine uses, so the chart cannot show a candle the engine never
- * saw. The overlays are computed server-side from `@signal/core` for the same
+ * saw. The overlays are computed server-side from `@wealthos/core` for the same
  * reason — a VWAP re-derived in the browser could differ from the VWAP the
  * signal was scored against, and the user would have no way of knowing which
  * one was real.

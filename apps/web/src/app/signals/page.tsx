@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { SignalsPage } from '@/components/signals/signals-page';
 
 export const metadata: Metadata = {
-  title: 'Intraday trade signals — NSE Signal Platform',
+  title: 'Intraday trade signals — WealthOS',
   description:
     'Same-day intraday technical setups across the NIFTY 50, scored on confluence and explained factor by factor. Decision support, not advice.',
 };

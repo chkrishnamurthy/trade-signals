@@ -1,4 +1,4 @@
-# NSE Signal Platform
+# WealthOS
 
 Single-user personal tool for **tracking, analysing and screening NSE equities** to
 surface technical setups worth attention — bullish/bearish setups, breakouts,
@@ -150,7 +150,7 @@ separately, against the tape.
 - Do not use `technicalindicators` or similar npm packages for the core indicator
   set; they are hand-written for auditability
 - Do not put Fyers-specific types outside `packages/fyers` and its adapter. Nothing
-  in `apps/*`, `packages/core`, or any DTO may import `@signal/fyers` or name a
+  in `apps/*`, `packages/core`, or any DTO may import `@wealthos/fyers` or name a
   Fyers symbol, resolution, or field
 - Do not use floating point for money
 - **Do not build order execution of any kind** — no place/modify/cancel order, order

@@ -1,6 +1,6 @@
-import { createDatabase, type Database, type DatabaseHandle } from '@signal/db';
-import type { MarketDataProvider } from '@signal/market-data';
-import { createFyersProvider } from '@signal/providers-fyers';
+import { createDatabase, type Database, type DatabaseHandle } from '@wealthos/db';
+import type { MarketDataProvider } from '@wealthos/market-data';
+import { createFyersProvider } from '@wealthos/providers-fyers';
 
 /**
  * Worker composition root.

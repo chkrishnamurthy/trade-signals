@@ -4,8 +4,8 @@ import {
   exchangeAuthCode,
   FyersHttpClient,
   writeCachedToken,
-} from '@signal/fyers';
-import { MarketDataProviderError } from '@signal/market-data';
+} from '@wealthos/fyers';
+import { MarketDataProviderError } from '@wealthos/market-data';
 import { PROVIDER_ID, toProviderError } from './errors.js';
 
 /**
@@ -13,7 +13,7 @@ import { PROVIDER_ID, toProviderError } from './errors.js';
  *
  * The OAuth dance is entirely provider-specific, so it lives here with the rest
  * of the Fyers knowledge. The web app's /login and /callback routes drive it
- * without importing `@signal/fyers` — which keeps the boundary test honest and
+ * without importing `@wealthos/fyers` — which keeps the boundary test honest and
  * means a second provider's auth flow slots in the same way.
  */
 

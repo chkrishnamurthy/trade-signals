@@ -1,4 +1,4 @@
-import { formatPaise } from '@signal/shared';
+import { formatPaise } from '@wealthos/shared';
 import type { EvaluationFrame } from '../frame.js';
 import {
   brokenAbove,

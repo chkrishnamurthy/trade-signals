@@ -1,5 +1,5 @@
 import 'server-only';
-import type { MarketStatus } from '@signal/market-data';
+import type { MarketStatus } from '@wealthos/market-data';
 import { getProvider } from './provider';
 
 /**

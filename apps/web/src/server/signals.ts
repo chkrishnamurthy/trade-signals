@@ -1,6 +1,11 @@
 import 'server-only';
-import { DEFAULT_STRATEGY, evaluateSignals, type IndicatorSnapshot, scanSwing } from '@signal/core';
-import { istDateKey } from '@signal/shared';
+import {
+  DEFAULT_STRATEGY,
+  evaluateSignals,
+  type IndicatorSnapshot,
+  scanSwing,
+} from '@wealthos/core';
+import { istDateKey } from '@wealthos/shared';
 import type {
   ActivityEventDto,
   SignalsDto,

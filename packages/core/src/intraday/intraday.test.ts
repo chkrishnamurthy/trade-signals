@@ -1,4 +1,4 @@
-import { fromIstParts } from '@signal/shared';
+import { fromIstParts } from '@wealthos/shared';
 import { describe, expect, it } from 'vitest';
 import type { Bar } from '../types.js';
 import { bucketBars, bucketStart, openingRange, sessionSlot } from './bars.js';

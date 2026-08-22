@@ -1,4 +1,4 @@
-import { istDateKey } from '@signal/shared';
+import { istDateKey } from '@wealthos/shared';
 import type { Bar, Series } from '../types.js';
 
 /**

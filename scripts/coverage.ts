@@ -6,7 +6,7 @@
  *
  *   pnpm data:coverage
  */
-import { createDatabase, minuteCandleCoverage } from '@signal/db';
+import { createDatabase, minuteCandleCoverage } from '@wealthos/db';
 import { config as loadEnv } from 'dotenv';
 
 loadEnv({ path: new URL('../.env', import.meta.url).pathname });

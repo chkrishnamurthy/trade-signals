@@ -54,7 +54,7 @@ const CLERK_APPEARANCE: ClerkAppearance = {
 };
 
 export const metadata: Metadata = {
-  title: 'Signal — NSE market analysis',
+  title: 'WealthOS — NSE market analysis',
   description: 'Track, screen and analyse NSE equities. Technical decision support, not execution.',
 };
 

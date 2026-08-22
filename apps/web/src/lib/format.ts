@@ -1,4 +1,4 @@
-import { formatPaise } from '@signal/shared';
+import { formatPaise } from '@wealthos/shared';
 
 /**
  * Display formatting for the market UI.

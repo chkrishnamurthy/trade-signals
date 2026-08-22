@@ -90,7 +90,7 @@ export function AppShell({
                 <Brand />
               </SheetTitle>
               <SheetDescription className="sr-only">
-                Sections of the Signal application
+                Sections of the WealthOS application
               </SheetDescription>
             </SheetHeader>
             <Sidebar collapsed={false} onNavigate={() => setDrawerOpen(false)} />

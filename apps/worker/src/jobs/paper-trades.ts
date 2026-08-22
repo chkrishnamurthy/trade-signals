@@ -1,11 +1,11 @@
-import { type IntradayConfig, resolvePaperTrade } from '@signal/core';
+import { type IntradayConfig, resolvePaperTrade } from '@wealthos/core';
 import {
   getMinuteBarsForInstruments,
   getTriggeredSignals,
   recordPaperTrade,
   settledSignalIds,
-} from '@signal/db';
-import { istDateKey, sessionClose, sessionOpen } from '@signal/shared';
+} from '@wealthos/db';
+import { istDateKey, sessionClose, sessionOpen } from '@wealthos/shared';
 import type { WorkerContext } from '../context.js';
 import { errorFields, type Logger } from '../log.js';
 
@@ -21,7 +21,7 @@ import { errorFields, type Logger } from '../log.js';
  * paise. The application still does not know the user's capital, position size
  * or risk tolerance, and nothing here lets it infer them (CLAUDE.md).
  *
- * Resolution uses `resolvePaperTrade` from `@signal/core` — the same pure
+ * Resolution uses `resolvePaperTrade` from `@wealthos/core` — the same pure
  * function the backtester calls — so a live paper result and a backtested one
  * are produced by identical logic and may legitimately be compared. It runs on
  * every cycle rather than once at the close, so an in-flight trade is visible

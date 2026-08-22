@@ -175,8 +175,8 @@ export function SignalsPage() {
                         hour12: false,
                       })}{' '}
                   and may no longer be valid. Start the worker with{' '}
-                  <code className="font-mono">pnpm --filter @signal/worker dev</code> to resume live
-                  evaluation.
+                  <code className="font-mono">pnpm --filter @wealthos/worker dev</code> to resume
+                  live evaluation.
                 </AlertDescription>
               </Alert>
             )}

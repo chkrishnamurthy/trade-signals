@@ -16,8 +16,8 @@
  *   pnpm replay:session 2026-08-21 --cycle 5
  */
 
-import { minutesToClose, REGIME_LABEL, sessionRegime } from '@signal/core';
-import { istDateKey, sessionOpen, toIstIsoString } from '@signal/shared';
+import { minutesToClose, REGIME_LABEL, sessionRegime } from '@wealthos/core';
+import { istDateKey, sessionOpen, toIstIsoString } from '@wealthos/shared';
 import { config as loadEnv } from 'dotenv';
 
 loadEnv({ path: new URL('../.env', import.meta.url).pathname });

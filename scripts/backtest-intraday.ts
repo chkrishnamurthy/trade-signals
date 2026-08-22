@@ -36,15 +36,15 @@ import {
   type SessionRegime,
   sessionRegime,
   summarisePaperTrades,
-} from '@signal/core';
+} from '@wealthos/core';
 import {
   createDatabase,
   getDailyBarsForInstruments,
   getMinuteBarsForInstruments,
   resolveInstrumentIds,
   type StoredBar,
-} from '@signal/db';
-import { istDateKey, sessionClose, sessionOpen } from '@signal/shared';
+} from '@wealthos/db';
+import { istDateKey, sessionClose, sessionOpen } from '@wealthos/shared';
 import { config as loadEnv } from 'dotenv';
 
 loadEnv({ path: new URL('../.env', import.meta.url).pathname });

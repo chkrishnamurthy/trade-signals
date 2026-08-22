@@ -1,5 +1,5 @@
-import { expireOpenSignals, withRetry } from '@signal/db';
-import { istDateKey } from '@signal/shared';
+import { expireOpenSignals, withRetry } from '@wealthos/db';
+import { istDateKey } from '@wealthos/shared';
 import { config as loadEnv } from 'dotenv';
 import { createContext, type WorkerContext } from './context.js';
 import { loadIntradaySettings } from './intraday-config.js';
@@ -24,10 +24,10 @@ loadEnv({ path: new URL('../../../.env', import.meta.url).pathname });
  * Neon's compute is suspended (CLAUDE.md).
  *
  * Usage:
- *   pnpm --filter @signal/worker dev              schedule and stay running
- *   pnpm --filter @signal/worker dev -- --once ingest-daily    run one job now
- *   pnpm --filter @signal/worker dev -- --backfill             deep history pull
- *   pnpm --filter @signal/worker dev -- --once intraday-cycle  one signal pass
+ *   pnpm --filter @wealthos/worker dev              schedule and stay running
+ *   pnpm --filter @wealthos/worker dev -- --once ingest-daily    run one job now
+ *   pnpm --filter @wealthos/worker dev -- --backfill             deep history pull
+ *   pnpm --filter @wealthos/worker dev -- --once intraday-cycle  one signal pass
  */
 
 const log = createLogger('worker');

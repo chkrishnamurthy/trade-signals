@@ -3,9 +3,9 @@ import {
   insertMinuteCandles,
   latestMinuteBarPerInstrument,
   listActiveInstruments,
-} from '@signal/db';
-import type { InstrumentRef, MarketDataProvider } from '@signal/market-data';
-import { istDateKey, sessionOpen, startOfIstDay } from '@signal/shared';
+} from '@wealthos/db';
+import type { InstrumentRef, MarketDataProvider } from '@wealthos/market-data';
+import { istDateKey, sessionOpen, startOfIstDay } from '@wealthos/shared';
 import type { WorkerContext } from '../context.js';
 import { errorFields, type Logger } from '../log.js';
 

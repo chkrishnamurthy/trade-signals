@@ -1,7 +1,7 @@
 import 'server-only';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { InstrumentRef } from '@signal/market-data';
+import type { InstrumentRef } from '@wealthos/market-data';
 import { parse } from 'yaml';
 import { z } from 'zod';
 

@@ -1,4 +1,4 @@
-import { formatPaise } from '@signal/shared';
+import { formatPaise } from '@wealthos/shared';
 import { describe, expect, it } from 'vitest';
 import {
   appIdHash,

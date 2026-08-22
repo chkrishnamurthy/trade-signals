@@ -27,9 +27,15 @@ import {
   evaluateIntraday,
   REGIME_LABEL,
   sessionRegime,
-} from '@signal/core';
-import { createDatabase, getDailyBars, getMinuteBars, resolveInstrumentIds } from '@signal/db';
-import { formatPaise, fromIstParts, istDateKey, sessionOpen, toIstIsoString } from '@signal/shared';
+} from '@wealthos/core';
+import { createDatabase, getDailyBars, getMinuteBars, resolveInstrumentIds } from '@wealthos/db';
+import {
+  formatPaise,
+  fromIstParts,
+  istDateKey,
+  sessionOpen,
+  toIstIsoString,
+} from '@wealthos/shared';
 import { config as loadEnv } from 'dotenv';
 
 loadEnv({ path: new URL('../.env', import.meta.url).pathname });

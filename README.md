@@ -1,4 +1,4 @@
-# NSE Signal Platform
+# WealthOS
 
 Technical analysis and decision support for NSE equities. It answers what the
 market is doing, which stocks deserve attention, and why — and it never places,
@@ -33,8 +33,8 @@ The engine (`packages/core/src/intraday`) is pure. The worker runs it every few
 minutes while the market is open and stores the results; the web app only reads.
 
 ```bash
-pnpm --filter @signal/worker dev              # schedule everything, incl. the intraday loop
-pnpm --filter @signal/worker dev -- --once intraday-cycle   # one pass, now
+pnpm --filter @wealthos/worker dev              # schedule everything, incl. the intraday loop
+pnpm --filter @wealthos/worker dev -- --once intraday-cycle   # one pass, now
 pnpm verify:intraday --at "2026-08-21 13:30"  # replay any instant through the real engine
 pnpm verify:intraday --scan                   # score every symbol, write nothing
 pnpm verify:intraday --symbol RELIANCE        # full evidence for one symbol
@@ -49,7 +49,7 @@ Signals are technical observations, not advice, and the score is setup strength
 pnpm install
 cp .env.example .env     # then fill in both Neon connection strings
 pnpm build
-pnpm --filter @signal/worker dev   # connects to Neon, prints the server version
+pnpm --filter @wealthos/worker dev   # connects to Neon, prints the server version
 ```
 
 `.env.example` documents which Neon endpoint goes in which variable and where

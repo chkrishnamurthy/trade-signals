@@ -1,4 +1,4 @@
-import { istDateKey, MARKET_OPEN_MINUTES, sessionOpen } from '@signal/shared';
+import { istDateKey, MARKET_OPEN_MINUTES, sessionOpen } from '@wealthos/shared';
 import type { Bar } from '../types.js';
 
 /**

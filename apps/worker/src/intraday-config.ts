@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { DEFAULT_INTRADAY_CONFIG, type IntradayConfig } from '@signal/core';
+import { DEFAULT_INTRADAY_CONFIG, type IntradayConfig } from '@wealthos/core';
 import { parse } from 'yaml';
 import { z } from 'zod';
 

@@ -7,7 +7,7 @@ import {
   completeAuthorization,
   persistCredential,
   readAuthConfig,
-} from '@signal/providers-fyers';
+} from '@wealthos/providers-fyers';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { toMarketError } from '@/server/errors';

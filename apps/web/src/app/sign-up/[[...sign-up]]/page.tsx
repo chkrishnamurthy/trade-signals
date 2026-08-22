@@ -2,8 +2,8 @@ import { SignUp } from '@clerk/nextjs';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Create account — Signal',
-  description: 'Create a Signal account.',
+  title: 'Create account — WealthOS',
+  description: 'Create a WealthOS account.',
 };
 
 /** Account creation. Same frame as sign-in, so the two read as one surface. */
@@ -16,9 +16,9 @@ export default function SignUpPage() {
             className="grid size-9 place-items-center rounded-lg bg-primary font-semibold text-primary-foreground text-sm"
             aria-hidden
           >
-            S
+            W
           </span>
-          <h1 className="font-semibold text-base tracking-tight">Signal</h1>
+          <h1 className="font-semibold text-base tracking-tight">WealthOS</h1>
           <p className="text-muted-foreground text-sm">NSE market analysis</p>
         </div>
         <SignUp fallbackRedirectUrl="/dashboard" />
