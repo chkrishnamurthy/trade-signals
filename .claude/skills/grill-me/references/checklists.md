@@ -7,13 +7,14 @@ points, not proof — read the surrounding code before asserting anything.
 
 ## 1. Architecture
 
-- Separation of concerns: does `packages/core` stay pure? Any DB, network,
-  `Date.now()`, `process.env`, module-level mutable state, or randomness in it is a
-  🔴 violation of the project's own rule 1 — it means the backtester and the live
-  path are no longer running identical code.
-  `grep -rnE "Date\.now|new Date\(\)|process\.env|fetch\(|Math\.random|let [a-z]" packages/core/src --include='*.ts' | grep -v test`
-- Are Fyers-specific types leaking outside `packages/fyers`?
-  `grep -rn "fyers" apps packages --include='*.ts*' -il | grep -v packages/fyers`
+- Purity of `packages/core` (rule 1). Nothing enforces it, so check it every time:
+  `git grep -nE "Date\.now|new Date\(|process\.env|fetch\(|Math\.random" -- 'packages/core/src/*.ts' ':!*.test.ts'`
+  plus module-level mutable state. A violation means the backtester and the live path have
+  stopped running identical code, which makes every backtest unfalsifiable.
+- Broker independence is owned by a dedicated skill and by a real test. Call the Skill tool
+  with "provider-boundary", and run
+  `pnpm vitest run packages/market-data/src/__tests__/boundary.test.ts`. A file added to that
+  test's `ALLOWED` list rather than resolved by widening `MarketDataProvider` is a finding.
 - Dependency direction: does anything low-level import from a higher layer? Does
   `packages/shared` import `packages/db`? Circular imports?
 - Service boundaries: what does `apps/worker` own vs `apps/web/src/server`? Is the
@@ -141,64 +142,34 @@ did this come from, and when.
 
 ## 6. Technical indicators
 
-**Read the math. Do not trust the docstring, the function name, or the test.**
+Owned by a dedicated skill. Call the Skill tool with "indicator-math" before judging any
+indicator, then report against its checks: warm-up index, Wilder versus `2/(period+1)`,
+null propagation, and fixture provenance.
 
-For each indicator, verify:
-
-- **Warm-up / seeding**: does it emit values before it has enough data? SMA(20) with
-  15 candles must be `null`, not an average of 15. Off-by-one in the first emitted
-  index is the most common indicator bug.
-- **EMA**: seeded with an SMA of the first `period` values (standard) or with the
-  first close (drifts)? Multiplier `2/(period+1)`?
-- **Wilder's smoothing** (RSI, ATR, ADX) uses `1/period`, NOT `2/(period+1)`. Mixing
-  them is a classic error. Check `moving-average.ts` for which is which.
-- **RSI**: Wilder smoothing on both gain and loss; `avgLoss === 0` → 100; index
-  alignment (first change is at index 1, so RSI is offset by one).
-- **MACD**: `EMA(12) - EMA(26)`, signal is `EMA(9)` **of the MACD line**, and the
-  signal EMA's own warm-up must be respected — it cannot start before the MACD line
-  has 9 real values. Histogram = macd − signal.
-- **ATR**: True Range = `max(h-l, |h-prevClose|, |l-prevClose|)`. The first bar has
-  no prevClose. Then Wilder-smoothed, not simple-averaged.
-- **`null` handling**: does a `null` in the middle of a series propagate, get treated
-  as 0, or get skipped (silently shifting every later index)? Treating `null` as 0
-  in a price series is 🔴.
-- **Integer paise**: indicators on paise integers are fine and preferred; ratios
-  (RSI) are floats by nature. Any indicator returning a rupee float is a bug.
-- **Test quality**: open the test file. Were expected values **hand-computed or taken
-  from an independent source**, or were they produced by running this implementation
-  and pasting the output? The latter tests nothing but stability, and the project
-  explicitly requires hand-computed fixtures. Say so if you find it.
-- Cross-check at least one indicator by hand on a short series and show your
-  arithmetic in the report.
+The finding that matters most in this category: a test whose expected values came from the
+implementation under test. Say so explicitly in the report and count the category as untested.
 
 ## 7. Trading signals
 
-- **Look-ahead bias** — the highest-value thing to hunt in this whole review.
-  Rule 2: signals on CLOSED candles only, entry at the NEXT candle's open. Check:
-  does the engine receive an array that includes the forming candle? Does any
-  indicator index reach `i` when the decision is made at `i`? Does the backtest use
-  `close[i]` as the fill price for a signal generated at `i`? Does a "confirmation"
-  check peek at a later bar?
-- **Insufficient history**: what does the engine do with 30 candles when the config
-  needs 200? Does it emit HOLD, throw, or emit a confident BUY off a warm-up value?
-- **Thresholds**: hardcoded in code vs versioned in config. Are they per-symbol or
-  global? A single RSI threshold across a 2% daily-range stock and a 15% one is not
-  meaningful — say so.
-- **Conflicting indicators**: what happens when RSI says oversold and MACD says
-  bearish? Is the resolution principled (weights) or accidental (order of `if`s)?
-- **Signal strength**: is "strength" derived from anything statistical, or is it a
-  weighted sum of factors scaled to 0–100 to look precise? **Explicitly call out any
-  signal presented with more confidence than the data justifies** — a "87% confidence
-  BUY" from a weighted sum of three indicators on 60 candles is a fabricated number,
-  and displaying it is a 🔴 trust problem.
-- **Factor breakdown persisted** (rule 8): does `signal_factors` get written, and
-  does the "Why this signal?" UI read it rather than recomputing? Recomputing means
-  the explanation can disagree with the signal.
+Lookahead is owned by a dedicated skill. Call the Skill tool with "closed-candles" before
+judging the engine, a backtest, or a bar fetch.
+
+The rest of the category, which that skill does not cover:
+
+- **Thresholds**: hardcoded in code or versioned in `config/*.yaml`? Global or per-symbol?
+  One RSI threshold across a 2% daily-range stock and a 15% one carries different meaning
+  in each; say so.
+- **Conflicting indicators**: RSI oversold against a bearish MACD. Is the resolution
+  principled (weights) or accidental (the order of the `if`s)?
+- **Signal strength**: `SignalReport.strength` is a weighted sum mapped to 0-100. Whatever
+  it is derived from, the number renders with its factor breakdown or it does not render.
+  A strength presented with more precision than the inputs support is a trust defect.
+- **Factor breakdown persisted** (rule 8): does the "why?" UI read `signal_factors`, or
+  recompute? Recomputing lets the explanation disagree with the signal it explains.
 - **Strategy versioning** (rule 7): can a weight change without minting a new
-  `strategy_versions` row? Is `strategy_version_id` stamped on each signal?
-- **False positives/negatives**: is there ANY measurement — a backtest, a hit rate,
-  a baseline? If not, the honest score for this category is low regardless of code
-  quality, because nothing has been validated.
+  `strategy_versions` row? Is the version id stamped on each signal?
+- **Validation**: is there any backtest, hit rate, or baseline? Where nothing has been
+  measured, the honest score is low regardless of code quality.
 - Survivorship bias in the constituent list; index rebalancing.
 
 ## 8. Security

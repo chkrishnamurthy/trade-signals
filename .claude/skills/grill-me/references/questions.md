@@ -118,6 +118,24 @@ Escalation pattern: **fact → failure → combined failure → detection → pr
    permanently unrecoverable?
 6. Missing env var. Do you find out at boot, or at 09:15?
 
-## The closer (use at Principal/Staff, or to end any session)
+---
+
+## The core set
+
+Work these in wherever the code makes them concrete. Each one is a doorway; the value is in
+the follow-up, so never ask two in a row without scoring the answer to the first.
+
+1. Why did you implement it this way, and what did you reject?
+2. What happens when the provider stops responding?
+3. What happens when the WebSocket disconnects, and what is on screen during the gap?
+4. What happens when the access token expires mid-session?
+5. What happens when the same event arrives twice?
+6. What happens when the market is closed, and on a holiday?
+7. What happens when a stock has missing data?
+8. What happens with two dashboards open at once?
+9. What happens at 1,000 price updates per second?
+10. Can this calculation be trusted, and what would prove it?
+
+## The closer (Principal and Staff, or to end any session)
 > "You're going to put real money behind a signal this app produces. What is the one
 > thing in this codebase you'd have to verify by hand first — and why haven't you?"

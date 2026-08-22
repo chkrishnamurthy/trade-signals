@@ -1,7 +1,18 @@
 # Scoring rubric
 
 Score honestly. Inflated scores make the whole review worthless. Most real
-codebases at this stage land 4–6 in most categories, and that is not an insult.
+codebases at this stage land 4-6 in most categories, and that is not an insult.
+
+## Severity bands
+
+Every finding carries one. These are the definitions the report and the caps below both use.
+
+| | Band | Meaning |
+|---|---|---|
+| 🔴 | CRITICAL | Loses money, renders a wrong price as if it were right, exposes a credential, corrupts data, produces a signal from lookahead, or crashes on a normal market event. |
+| 🟠 | HIGH | Wrong under a common condition (token expiry, disconnect, holiday, halt, missing candle), or a security gap one step from exposure. |
+| 🟡 | MEDIUM | A real bug or real debt with a bounded blast radius. |
+| 🔵 | LOW | Hygiene, naming, minor duplication, a missing test on a low-risk path. |
 
 ## The 0–10 scale
 

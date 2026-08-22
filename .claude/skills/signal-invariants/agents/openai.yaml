@@ -1,0 +1,3 @@
+interface:
+  display_name: "Signal Invariants"
+  short_description: "The repo's eight hard rules and what enforces each"
