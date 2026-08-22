@@ -58,6 +58,46 @@ host (`-pooler` in the hostname), `DATABASE_URL_DIRECT` is the **direct** host.
 Migrations run against the direct one — `drizzle.config.ts` refuses to start if
 it is handed a pooled URL.
 
+## Deploying apps/web
+
+`netlify.toml` at the repo root configures the Netlify build: base stays at the
+workspace root so pnpm can link `@wealthos/*`, the command is
+`pnpm --filter @wealthos/web build`, and `publish = "apps/web/.next"` is how the
+Next runtime locates the app. Settings in the toml override the Netlify UI, so
+clear any base or package directory set there.
+
+**`.env` is gitignored and never reaches Netlify.** `next.config.ts` dotenv-loads
+it from the repo root, which on a build machine is a no-op. Set the values in
+*Site configuration → Environment variables* instead, leaving the scope at **all
+scopes**. The Clerk publishable key is needed at both ends — the build bakes it
+into the prerendered pages, the middleware reads it on every request — and
+everything else is read at request time, so a variable scoped to "Builds" only
+still produces a dead site:
+
+| Variable | Missing it means |
+| --- | --- |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | `clerkMiddleware` throws on **every** request — the whole site 500s, including `/sign-in` |
+| `CLERK_SECRET_KEY` | the same, one step later: sessions cannot be verified |
+| `DATABASE_URL` | pages render, no data |
+| `FYERS_APP_ID`, `FYERS_ACCESS_TOKEN` | live quotes fail; stored signals still work |
+
+`next build` succeeds without any of them — the missing key is not a build error,
+which is why a green deploy can still serve nothing but 500s. And because the
+publishable key ends up inside the deploy output, Netlify's secrets scanner
+would fail the build on finding it; `netlify.toml` exempts that one key by name.
+Nothing else is exempted, so a scanner hit on `CLERK_SECRET_KEY`, `DATABASE_URL`
+or any `FYERS_*` value is a real leak to fix, never a setting to add.
+
+Nothing else belongs there — not `DATABASE_URL_DIRECT`, not `FYERS_SECRET_KEY`,
+not `FYERS_TOTP_SECRET`, not `NEON_API_KEY`. Migrations, the OAuth handshake and
+the schema tests all run from a developer machine.
+
+Two limits are inherent to the platform rather than the configuration: `/login`
+and `/callback` write the refreshed Fyers token to disk, which a read-only
+serverless filesystem cannot do — re-authorise locally and paste the new
+`FYERS_ACCESS_TOKEN` into Netlify each day. And `apps/worker` does not run on
+Netlify at all, so the deployed site shows whatever the worker last stored.
+
 ## Scripts
 
 | Command | What it does |
