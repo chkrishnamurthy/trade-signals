@@ -1,6 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { SearchInput } from '@/components/forms/filter-bar';
+import { StockIdentity } from '@/components/market/stock-identity';
+import { Badge } from '@/components/ui/badge';
+import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
 
 interface SearchHit {
   readonly symbol: string;
@@ -15,6 +19,10 @@ interface SearchHit {
  * Debounced at 250ms and aborting the previous request on each keystroke — the
  * symbol master has ~10,000 rows and an un-debounced search fires a request per
  * character.
+ *
+ * The results panel is a Radix Popover anchored to the field, which handles
+ * outside-click, Escape and focus containment. The field keeps focus while the
+ * list is open, so typing continues to narrow the results.
  */
 export function StockSearch({ onSelect }: { onSelect: (symbol: string) => void }) {
   const [query, setQuery] = useState('');
@@ -22,7 +30,6 @@ export function StockSearch({ onSelect }: { onSelect: (symbol: string) => void }
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const abort = useRef<AbortController | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (query.trim().length < 1) {
@@ -52,17 +59,6 @@ export function StockSearch({ onSelect }: { onSelect: (symbol: string) => void }
     return () => clearTimeout(timer);
   }, [query]);
 
-  // Close on an outside click, the way a combobox is expected to behave.
-  useEffect(() => {
-    const onClick = (event: MouseEvent): void => {
-      if (containerRef.current !== null && !containerRef.current.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', onClick);
-    return () => document.removeEventListener('mousedown', onClick);
-  }, []);
-
   const choose = useCallback(
     (symbol: string) => {
       onSelect(symbol);
@@ -73,62 +69,57 @@ export function StockSearch({ onSelect }: { onSelect: (symbol: string) => void }
     [onSelect],
   );
 
-  return (
-    <div ref={containerRef} className="relative w-full max-w-xs">
-      <input
-        type="search"
-        value={query}
-        onChange={(event) => {
-          setQuery(event.target.value);
-          setOpen(true);
-        }}
-        onFocus={() => setOpen(true)}
-        onKeyDown={(event) => {
-          if (event.key === 'Escape') setOpen(false);
-          if (event.key === 'Enter' && results[0] !== undefined) choose(results[0].symbol);
-        }}
-        placeholder="Search stocks…"
-        aria-label="Search stocks"
-        role="combobox"
-        aria-expanded={open && results.length > 0}
-        aria-controls="stock-search-results"
-        className="w-full rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm placeholder:text-slate-400 focus:border-slate-400 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:placeholder:text-slate-500"
-      />
+  const showPanel = open && (query.trim().length > 0 || loading);
 
-      {open && (query.trim().length > 0 || loading) && (
-        <div
-          id="stock-search-results"
-          className="absolute z-50 mt-1 max-h-80 w-full overflow-y-auto rounded-md border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900"
-        >
-          {loading && results.length === 0 ? (
-            <p className="px-3 py-2 text-xs text-slate-500">Searching…</p>
-          ) : results.length === 0 ? (
-            <p className="px-3 py-2 text-xs text-slate-500">No matches</p>
-          ) : (
-            <ul>
-              {results.map((hit) => (
-                <li key={hit.symbol}>
-                  <button
-                    type="button"
-                    onClick={() => choose(hit.symbol)}
-                    className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left hover:bg-slate-50 focus:outline-none focus-visible:bg-slate-50 dark:hover:bg-slate-800 dark:focus-visible:bg-slate-800"
-                  >
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-medium">{hit.symbol}</span>
-                      <span className="block truncate text-xs text-slate-500 dark:text-slate-400">
-                        {hit.name}
-                      </span>
-                    </span>
-                    <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] uppercase text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-                      {hit.kind === 'index' ? 'Index' : hit.exchange}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
-    </div>
+  return (
+    <Popover open={showPanel} onOpenChange={setOpen}>
+      <PopoverAnchor asChild>
+        <SearchInput
+          value={query}
+          onValueChange={(next) => {
+            setQuery(next);
+            setOpen(true);
+          }}
+          onFocus={() => setOpen(true)}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') setOpen(false);
+            if (event.key === 'Enter' && results[0] !== undefined) choose(results[0].symbol);
+          }}
+          placeholder="Search stocks…"
+          aria-label="Search stocks"
+          className="w-40 sm:w-56 lg:w-72"
+        />
+      </PopoverAnchor>
+
+      <PopoverContent
+        align="end"
+        className="max-h-80 w-(--radix-popover-trigger-width) min-w-64 overflow-y-auto p-1"
+        // Keeps the caret in the field so typing continues to filter.
+        onOpenAutoFocus={(event) => event.preventDefault()}
+      >
+        {loading && results.length === 0 ? (
+          <p className="px-2 py-1.5 text-xs text-muted-foreground">Searching…</p>
+        ) : results.length === 0 ? (
+          <p className="px-2 py-1.5 text-xs text-muted-foreground">No matches</p>
+        ) : (
+          <ul>
+            {results.map((hit) => (
+              <li key={hit.symbol}>
+                <button
+                  type="button"
+                  onClick={() => choose(hit.symbol)}
+                  className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-accent focus-visible:bg-accent"
+                >
+                  <StockIdentity symbol={hit.symbol} name={hit.name} />
+                  <Badge variant="secondary" size="sm" className="shrink-0 uppercase">
+                    {hit.kind === 'index' ? 'Index' : hit.exchange}
+                  </Badge>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </PopoverContent>
+    </Popover>
   );
 }

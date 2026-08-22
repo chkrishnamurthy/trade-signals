@@ -1,69 +1,109 @@
-import type { ReactNode } from 'react';
+import type * as React from 'react';
+import { cn } from '@/lib/utils';
 
-/** The dashboard's one card shell — every panel uses it, so density stays even. */
-export function Card({
-  title,
-  subtitle,
-  action,
-  children,
-  className = '',
-  bodyClassName = '',
-}: {
-  // `| undefined` throughout: with exactOptionalPropertyTypes, an optional prop
-  // will not accept an explicitly-undefined value, and callers routinely pass
-  // one through from optional data.
-  title?: string | undefined;
-  subtitle?: string | undefined;
-  action?: ReactNode | undefined;
-  children: ReactNode;
-  className?: string | undefined;
-  bodyClassName?: string | undefined;
-}) {
+/**
+ * Card — the one panel shell in the product.
+ *
+ * Compositional rather than prop-driven (`<Card><CardHeader>…`), so a panel
+ * that needs a toolbar, a footer or a bare body composes rather than adding a
+ * boolean. `CardToolbar` is the slot every header action belongs in.
+ */
+function Card({ className, ...props }: React.ComponentProps<'section'>) {
   return (
     <section
-      className={`flex flex-col rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/50 ${className}`}
-    >
-      {title !== undefined && (
-        <header className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-3 dark:border-slate-800">
-          <div className="min-w-0">
-            <h2 className="text-sm font-semibold tracking-tight">{title}</h2>
-            {subtitle !== undefined && (
-              <p className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">
-                {subtitle}
-              </p>
-            )}
-          </div>
-          {action}
-        </header>
+      data-slot="card"
+      className={cn(
+        'flex min-w-0 flex-col rounded-lg border border-border bg-surface text-surface-foreground shadow-subtle',
+        className,
       )}
-      <div className={`min-h-0 flex-1 ${bodyClassName || 'p-4'}`}>{children}</div>
-    </section>
+      {...props}
+    />
   );
 }
 
-/** Uniform skeleton so loading states look deliberate rather than broken. */
-export function SkeletonRows({ rows = 5, className = '' }: { rows?: number; className?: string }) {
+function CardHeader({ className, ...props }: React.ComponentProps<'header'>) {
   return (
-    <div className={`space-y-2 ${className}`} aria-busy="true">
-      {Array.from({ length: rows }, (_, i) => (
-        <div
-          // biome-ignore lint/suspicious/noArrayIndexKey: fixed-length skeleton, never reordered
-          key={i}
-          className="h-8 animate-pulse rounded bg-slate-100 dark:bg-slate-800/70"
-        />
-      ))}
-      <span className="sr-only">Loading</span>
-    </div>
+    <header
+      data-slot="card-header"
+      className={cn(
+        'flex items-start justify-between gap-3 border-b border-border px-4 py-3',
+        className,
+      )}
+      {...props}
+    />
   );
 }
 
-export function EmptyState({ title, detail }: { title: string; detail?: string | undefined }) {
+function CardHeading({ className, ...props }: React.ComponentProps<'div'>) {
+  return <div data-slot="card-heading" className={cn('min-w-0', className)} {...props} />;
+}
+
+function CardTitle({ className, ...props }: React.ComponentProps<'h2'>) {
   return (
-    <div className="flex h-full min-h-24 flex-col items-center justify-center px-4 py-8 text-center">
-      <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{title}</p>
-      {detail !== undefined && (
-        <p className="mt-1 max-w-xs text-xs text-slate-500 dark:text-slate-400">{detail}</p>
-      )}
-    </div>
+    <h2
+      data-slot="card-title"
+      className={cn('truncate text-sm font-semibold tracking-tight', className)}
+      {...props}
+    />
   );
 }
+
+function CardDescription({ className, ...props }: React.ComponentProps<'p'>) {
+  return (
+    <p
+      data-slot="card-description"
+      className={cn('mt-0.5 truncate text-xs text-muted-foreground', className)}
+      {...props}
+    />
+  );
+}
+
+/** Header-right slot: filters, sort toggles, "view all" links. */
+function CardToolbar({ className, ...props }: React.ComponentProps<'div'>) {
+  return (
+    <div
+      data-slot="card-toolbar"
+      className={cn('flex shrink-0 items-center gap-1', className)}
+      {...props}
+    />
+  );
+}
+
+interface CardContentProps extends React.ComponentProps<'div'> {
+  /** Drops the padding for cards whose body is a list or a table. */
+  flush?: boolean | undefined;
+}
+
+function CardContent({ className, flush = false, ...props }: CardContentProps) {
+  return (
+    <div
+      data-slot="card-content"
+      className={cn('min-h-0 flex-1', flush ? '' : 'p-4', className)}
+      {...props}
+    />
+  );
+}
+
+function CardFooter({ className, ...props }: React.ComponentProps<'footer'>) {
+  return (
+    <footer
+      data-slot="card-footer"
+      className={cn(
+        'flex items-center justify-between gap-2 border-t border-border px-4 py-2.5 text-xs text-muted-foreground',
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+export {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardHeading,
+  CardTitle,
+  CardToolbar,
+};

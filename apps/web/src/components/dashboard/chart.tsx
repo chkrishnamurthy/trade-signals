@@ -1,9 +1,16 @@
 'use client';
 
-import { formatPaise } from '@signal/shared';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { Card, EmptyState, SkeletonRows } from '@/components/ui/card';
-import { level } from '@/lib/dashboard-format';
+import {
+  ChartContainer,
+  ChartLegend,
+  ChartLegendItem,
+  ChartToolbar,
+} from '@/components/charts/chart-container';
+import { ChartSkeleton, DataUnavailable, ErrorState } from '@/components/data-display/states';
+import { IndexLevel } from '@/components/market/numeric';
+import { indexLevel } from '@/lib/format';
+import { toneOf } from '@/lib/tone';
 
 /**
  * Price chart.
@@ -11,6 +18,10 @@ import { level } from '@/lib/dashboard-format';
  * Inline SVG rather than a charting library: it keeps the bundle small, avoids
  * a third-party dependency in the render path, and there is nothing here a
  * library would do better at this scale. Reusable for any symbol.
+ *
+ * Every colour is a design token read through `currentColor` or a `--chart-*`
+ * / tone custom property, so the chart follows the theme like the rest of the
+ * application. It previously hardcoded `rgb(16 185 129)`.
  */
 
 export const TIMEFRAMES = ['1D', '5D', '1M', '3M', '6M', '1Y', '5Y'] as const;
@@ -43,8 +54,8 @@ export function MarketChart({
 }: {
   symbol: string;
   title?: string | undefined;
-  previousClose?: number | null;
-  compact?: boolean;
+  previousClose?: number | null | undefined;
+  compact?: boolean | undefined;
 }) {
   const [timeframe, setTimeframe] = useState<Timeframe>('1D');
   const [data, setData] = useState<ChartResponse | null>(null);
@@ -52,7 +63,7 @@ export function MarketChart({
   const [error, setError] = useState<string | null>(null);
   const [hover, setHover] = useState<number | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
-  const clipId = useId();
+  const gradientId = useId();
 
   useEffect(() => {
     let cancelled = false;
@@ -105,6 +116,8 @@ export function MarketChart({
 
     const y = (price: number): number => PRICE_HEIGHT - ((price - min) / span) * PRICE_HEIGHT;
 
+    const points = bars.map((b, i) => `${(i * step).toFixed(2)},${y(b.c).toFixed(2)}`).join(' ');
+
     return {
       bars,
       closes,
@@ -113,53 +126,66 @@ export function MarketChart({
       step,
       maxVolume,
       y,
-      points: bars.map((b, i) => `${(i * step).toFixed(2)},${y(b.c).toFixed(2)}`).join(' '),
-      area: `${bars.map((b, i) => `${(i * step).toFixed(2)},${y(b.c).toFixed(2)}`).join(' ')} ${WIDTH},${PRICE_HEIGHT} 0,${PRICE_HEIGHT}`,
+      points,
+      area: `${points} ${WIDTH},${PRICE_HEIGHT} 0,${PRICE_HEIGHT}`,
     };
   }, [data, previousClose]);
 
-  const rising =
+  // Toned against the previous close, which is the reference a trader reads the
+  // session against — not against the first candle drawn.
+  const tone =
     geometry === null
-      ? true
-      : (geometry.closes.at(-1) ?? 0) >= (previousClose ?? geometry.closes[0] ?? 0);
+      ? 'neutral'
+      : toneOf((geometry.closes.at(-1) ?? 0) - (previousClose ?? geometry.closes[0] ?? 0));
+
+  const strokeClass = {
+    bullish: 'stroke-bullish',
+    bearish: 'stroke-bearish',
+    neutral: 'stroke-neutral',
+  }[tone];
 
   const hoverBar = geometry !== null && hover !== null ? geometry.bars[hover] : undefined;
 
   return (
-    <Card
+    <ChartContainer
       title={title ?? symbol}
       subtitle={data?.name}
-      action={
-        <fieldset className="flex flex-wrap gap-0.5 border-0 p-0">
-          <legend className="sr-only">Chart timeframe</legend>
-          {TIMEFRAMES.map((tf) => (
-            <button
-              key={tf}
-              type="button"
-              onClick={() => setTimeframe(tf)}
-              aria-pressed={timeframe === tf}
-              className={`rounded px-1.5 py-1 text-xs font-medium ${
-                timeframe === tf
-                  ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
-                  : 'text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
-              }`}
-            >
-              {tf}
-            </button>
-          ))}
-        </fieldset>
+      toolbar={
+        <ChartToolbar
+          options={TIMEFRAMES}
+          value={timeframe}
+          onChange={setTimeframe}
+          label="Chart timeframe"
+        />
+      }
+      legend={
+        geometry === null ? undefined : (
+          <>
+            <ChartLegendItem tone={tone}>Close</ChartLegendItem>
+            <ChartLegendItem swatch="var(--chart-axis)">Volume</ChartLegendItem>
+            {previousClose !== null && (
+              <ChartLegendItem swatch="var(--chart-axis)">
+                Previous close {indexLevel(previousClose)}
+              </ChartLegendItem>
+            )}
+          </>
+        )
       }
     >
       {loading ? (
-        <SkeletonRows rows={compact ? 3 : 6} />
+        <ChartSkeleton className={compact ? 'h-40' : 'h-64'} />
       ) : error !== null ? (
-        <EmptyState title="Chart unavailable" detail={error} />
+        <ErrorState title="Chart unavailable" detail={error} />
       ) : geometry === null ? (
-        <EmptyState title="Not enough data" detail="Fyers returned too few candles to plot." />
+        <DataUnavailable
+          what="Price history"
+          reason="The data source returned too few candles to plot."
+        />
       ) : (
         <div>
-          <div className="flex h-6 items-center justify-between text-xs">
-            <span className="font-mono tabular-nums text-slate-500 dark:text-slate-400">
+          {/* Hover readout. Reserves its height so the chart never shifts. */}
+          <div className="flex h-6 items-center justify-between gap-3 text-xs">
+            <span className="figure font-mono text-muted-foreground">
               {hoverBar === undefined
                 ? `${geometry.bars.length} candles`
                 : new Date(hoverBar.t).toLocaleString('en-IN', {
@@ -172,11 +198,19 @@ export function MarketChart({
                   })}
             </span>
             {hoverBar !== undefined && (
-              <span className="flex gap-3 font-mono tabular-nums">
-                <span>O {level(hoverBar.o)}</span>
-                <span>H {level(hoverBar.h)}</span>
-                <span>L {level(hoverBar.l)}</span>
-                <span className="font-semibold">C {level(hoverBar.c)}</span>
+              <span className="figure flex gap-3 font-mono">
+                <span className="text-muted-foreground">
+                  O <span className="text-foreground">{indexLevel(hoverBar.o)}</span>
+                </span>
+                <span className="text-muted-foreground">
+                  H <span className="text-foreground">{indexLevel(hoverBar.h)}</span>
+                </span>
+                <span className="text-muted-foreground">
+                  L <span className="text-foreground">{indexLevel(hoverBar.l)}</span>
+                </span>
+                <span className="text-muted-foreground">
+                  C <span className="font-semibold text-foreground">{indexLevel(hoverBar.c)}</span>
+                </span>
               </span>
             )}
           </div>
@@ -204,17 +238,9 @@ export function MarketChart({
             onMouseLeave={() => setHover(null)}
           >
             <defs>
-              <linearGradient id={clipId} x1="0" y1="0" x2="0" y2="1">
-                <stop
-                  offset="0%"
-                  stopColor={rising ? 'rgb(16 185 129)' : 'rgb(244 63 94)'}
-                  stopOpacity="0.18"
-                />
-                <stop
-                  offset="100%"
-                  stopColor={rising ? 'rgb(16 185 129)' : 'rgb(244 63 94)'}
-                  stopOpacity="0"
-                />
+              <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={`var(--${tone})`} stopOpacity="0.18" />
+                <stop offset="100%" stopColor={`var(--${tone})`} stopOpacity="0" />
               </linearGradient>
             </defs>
 
@@ -227,17 +253,17 @@ export function MarketChart({
                 strokeDasharray="4 4"
                 strokeWidth={1}
                 vectorEffect="non-scaling-stroke"
-                className="stroke-slate-400 dark:stroke-slate-500"
+                stroke="var(--chart-axis)"
               />
             )}
 
-            <polygon points={geometry.area} fill={`url(#${clipId})`} />
+            <polygon points={geometry.area} fill={`url(#${gradientId})`} />
             <polyline
               points={geometry.points}
               fill="none"
               strokeWidth={1.5}
               vectorEffect="non-scaling-stroke"
-              className={rising ? 'stroke-emerald-500' : 'stroke-rose-500'}
+              className={strokeClass}
               strokeLinejoin="round"
             />
 
@@ -248,7 +274,7 @@ export function MarketChart({
                 width={Math.max(0.5, geometry.step * 0.7)}
                 y={PRICE_HEIGHT + 8 + VOLUME_HEIGHT - (bar.v / geometry.maxVolume) * VOLUME_HEIGHT}
                 height={(bar.v / geometry.maxVolume) * VOLUME_HEIGHT}
-                className="fill-slate-300 dark:fill-slate-700"
+                fill="var(--chart-grid)"
               />
             ))}
 
@@ -260,17 +286,17 @@ export function MarketChart({
                 y2={PRICE_HEIGHT}
                 strokeWidth={1}
                 vectorEffect="non-scaling-stroke"
-                className="stroke-slate-400 dark:stroke-slate-500"
+                stroke="var(--chart-axis)"
               />
             )}
           </svg>
 
-          <div className="mt-1 flex justify-between font-mono text-[10px] tabular-nums text-slate-400">
-            <span>{formatPaise(geometry.min, { withSymbol: false })}</span>
-            <span>{formatPaise(geometry.max, { withSymbol: false })}</span>
-          </div>
+          <ChartLegend className="mt-1 justify-between">
+            <IndexLevel paise={geometry.min} size="xs" className="text-subtle-foreground" />
+            <IndexLevel paise={geometry.max} size="xs" className="text-subtle-foreground" />
+          </ChartLegend>
         </div>
       )}
-    </Card>
+    </ChartContainer>
   );
 }

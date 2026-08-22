@@ -1,10 +1,21 @@
 'use client';
 
+import { ChevronDownIcon, ChevronUpIcon, ListPlusIcon, XIcon } from 'lucide-react';
 import { useMemo } from 'react';
-import { Card } from '@/components/ui/card';
-import { SignalBadge } from '@/components/ui/signal-badge';
+import { EmptyState, SkeletonRows } from '@/components/data-display/states';
+import { PercentChange, Price, Volume } from '@/components/market/numeric';
+import { SignalBadge } from '@/components/market/signal';
+import { StockIdentity } from '@/components/market/stock-identity';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardHeading,
+  CardTitle,
+} from '@/components/ui/card';
 import type { MoverDto, StockSignalDto } from '@/lib/dashboard-types';
-import { priceCompact, signedPercent, toneFor, volume } from '@/lib/format';
 import { useWatchlist } from '@/lib/watchlist';
 
 /**
@@ -30,104 +41,93 @@ export function Watchlist({
   const quoteBySymbol = useMemo(() => new Map(quotes.map((q) => [q.symbol, q])), [quotes]);
   const signalBySymbol = useMemo(() => new Map(signals.map((s) => [s.symbol, s])), [signals]);
 
-  if (!hydrated) {
-    return (
-      <Card title="My watchlist">
-        <div className="h-24 animate-pulse rounded bg-slate-100 dark:bg-slate-800/70" />
-      </Card>
-    );
-  }
-
-  if (symbols.length === 0) {
-    return (
-      <Card title="My watchlist">
-        <div className="flex flex-col items-center justify-center px-4 py-8 text-center">
-          <p className="text-sm font-medium">Your watchlist is empty</p>
-          <p className="mt-1 max-w-xs text-xs text-slate-500 dark:text-slate-400">
-            Add stocks to track them across every session.
-          </p>
-          <button
-            type="button"
-            onClick={onBrowse}
-            className="mt-4 rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
-          >
-            Add stocks
-          </button>
-        </div>
-      </Card>
-    );
-  }
-
   return (
-    <Card title="My watchlist" subtitle={`${symbols.length} tracked`} bodyClassName="p-0">
-      <ul className="divide-y divide-slate-100 dark:divide-slate-800">
-        {symbols.map((symbol, position) => {
-          const quote = quoteBySymbol.get(symbol);
-          const signal = signalBySymbol.get(symbol);
-          return (
-            <li key={symbol} className="flex items-center gap-2 px-3 py-2">
-              <button
-                type="button"
-                onClick={() => onSelect(symbol)}
-                className="min-w-0 flex-1 text-left focus:outline-none focus-visible:underline"
-              >
-                <span className="flex items-center gap-2">
-                  <span className="truncate text-sm font-medium">{symbol}</span>
-                  {signal !== undefined && <SignalBadge direction={signal.direction} compact />}
-                </span>
-                <span className="block truncate text-xs text-slate-500 dark:text-slate-400">
-                  {quote?.name ?? 'Not in the current index'}
-                </span>
-              </button>
+    <Card>
+      <CardHeader>
+        <CardHeading>
+          <CardTitle>My watchlist</CardTitle>
+          <CardDescription>
+            {hydrated ? `${symbols.length} tracked` : 'Loading your list'}
+          </CardDescription>
+        </CardHeading>
+      </CardHeader>
 
-              <span className="shrink-0 text-right">
-                <span className="block font-mono text-sm tabular-nums">
-                  {quote === undefined ? '—' : priceCompact(quote.ltp)}
-                </span>
-                <span
-                  className={`block font-mono text-xs tabular-nums ${toneFor(quote?.changePercent ?? null)}`}
-                >
-                  {quote === undefined ? '' : signedPercent(quote.changePercent)}
-                </span>
-              </span>
+      <CardContent flush>
+        {!hydrated ? (
+          <SkeletonRows rows={3} className="p-4" />
+        ) : symbols.length === 0 ? (
+          <EmptyState
+            icon={<ListPlusIcon />}
+            title="Your watchlist is empty"
+            description="Add stocks to track them across every session."
+            action={
+              <Button size="sm" onClick={onBrowse}>
+                Add stocks
+              </Button>
+            }
+          />
+        ) : (
+          <ul className="divide-y divide-border">
+            {symbols.map((symbol, position) => {
+              const quote = quoteBySymbol.get(symbol);
+              const signal = signalBySymbol.get(symbol);
+              return (
+                <li key={symbol} className="flex items-center gap-2 px-3 py-2">
+                  <button
+                    type="button"
+                    onClick={() => onSelect(symbol)}
+                    className="min-w-0 flex-1 text-left focus-visible:underline"
+                  >
+                    <StockIdentity symbol={symbol} name={quote?.name ?? 'Not in the current index'}>
+                      {signal !== undefined && <SignalBadge direction={signal.direction} compact />}
+                    </StockIdentity>
+                  </button>
 
-              <span className="hidden w-16 shrink-0 text-right font-mono text-xs tabular-nums text-slate-500 sm:block dark:text-slate-400">
-                {quote === undefined ? '—' : volume(quote.volume)}
-              </span>
+                  <span className="flex shrink-0 flex-col items-end">
+                    <Price paise={quote?.ltp} bare size="sm" />
+                    <PercentChange value={quote?.changePercent} size="xs" />
+                  </span>
 
-              <span className="flex shrink-0 flex-col">
-                <button
-                  type="button"
-                  onClick={() => move(symbol, position - 1)}
-                  disabled={position === 0}
-                  aria-label={`Move ${symbol} up`}
-                  className="px-1 text-[10px] text-slate-400 hover:text-slate-700 disabled:opacity-30 dark:hover:text-slate-200"
-                >
-                  ▲
-                </button>
-                <button
-                  type="button"
-                  onClick={() => move(symbol, position + 1)}
-                  disabled={position === symbols.length - 1}
-                  aria-label={`Move ${symbol} down`}
-                  className="px-1 text-[10px] text-slate-400 hover:text-slate-700 disabled:opacity-30 dark:hover:text-slate-200"
-                >
-                  ▼
-                </button>
-              </span>
+                  <span className="hidden w-16 shrink-0 text-right sm:block">
+                    <Volume shares={quote?.volume} size="xs" className="text-muted-foreground" />
+                  </span>
 
-              <button
-                type="button"
-                onClick={() => remove(symbol)}
-                aria-label={`Remove ${symbol} from watchlist`}
-                className="shrink-0 rounded px-1.5 py-1 text-slate-400 hover:bg-slate-100 hover:text-rose-600 dark:hover:bg-slate-800"
-              >
-                ✕
-              </button>
-            </li>
-          );
-        })}
-      </ul>
+                  <span className="flex shrink-0 flex-col">
+                    <button
+                      type="button"
+                      onClick={() => move(symbol, position - 1)}
+                      disabled={position === 0}
+                      aria-label={`Move ${symbol} up`}
+                      className="rounded-sm px-0.5 text-subtle-foreground transition-colors hover:text-foreground disabled:opacity-30"
+                    >
+                      <ChevronUpIcon className="size-3" aria-hidden />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => move(symbol, position + 1)}
+                      disabled={position === symbols.length - 1}
+                      aria-label={`Move ${symbol} down`}
+                      className="rounded-sm px-0.5 text-subtle-foreground transition-colors hover:text-foreground disabled:opacity-30"
+                    >
+                      <ChevronDownIcon className="size-3" aria-hidden />
+                    </button>
+                  </span>
+
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => remove(symbol)}
+                    aria-label={`Remove ${symbol} from watchlist`}
+                    className="shrink-0 text-subtle-foreground hover:text-destructive"
+                  >
+                    <XIcon />
+                  </Button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </CardContent>
     </Card>
   );
 }

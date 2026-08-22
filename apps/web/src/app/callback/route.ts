@@ -45,12 +45,49 @@ function escapeHtml(value: string): string {
     .replace(/"/g, '&quot;');
 }
 
+/**
+ * The OAuth callback page.
+ *
+ * A standalone HTML document returned by a route handler, so it cannot import
+ * the application stylesheet. The design tokens are therefore declared inline —
+ * the same values as `globals.css`, kept deliberately minimal: canvas, surface,
+ * border, text and one accent per outcome. If the palette changes there, these
+ * five lines change too.
+ */
 function page(title: string, body: string, ok: boolean): NextResponse {
-  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
-<style>body{font:16px/1.6 -apple-system,system-ui,sans-serif;display:grid;place-items:center;min-height:100vh;margin:0;background:${ok ? '#f0fdf4' : '#fef2f2'};color:#0f172a}
-.card{max-width:34rem;padding:2.5rem;background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.1);text-align:center}
-h1{margin:0 0 .5rem;font-size:1.25rem}p{margin:.25rem 0;color:#475569}
-a{display:inline-block;margin-top:1.25rem;padding:.5rem 1rem;background:#0f172a;color:#fff;border-radius:6px;text-decoration:none}</style>
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${escapeHtml(title)}</title>
+<style>
+:root{
+  color-scheme:light dark;
+  --background:oklch(0.978 0.004 253);--surface:oklch(1 0 0);
+  --foreground:oklch(0.21 0.021 258);--muted-foreground:oklch(0.502 0.018 257);
+  --border:oklch(0.916 0.008 253);--primary:oklch(0.412 0.098 255);
+  --primary-foreground:oklch(0.985 0.003 253);
+  --accent:${ok ? 'oklch(0.552 0.126 157)' : 'oklch(0.552 0.186 22)'};
+  --radius:0.5rem;
+}
+@media (prefers-color-scheme:dark){:root{
+  --background:oklch(0.163 0.012 259);--surface:oklch(0.201 0.013 259);
+  --foreground:oklch(0.951 0.005 253);--muted-foreground:oklch(0.688 0.014 257);
+  --border:oklch(0.298 0.013 259);--primary:oklch(0.732 0.104 250);
+  --primary-foreground:oklch(0.172 0.021 259);
+  --accent:${ok ? 'oklch(0.712 0.138 158)' : 'oklch(0.668 0.172 22)'};
+}}
+body{font:16px/1.6 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  display:grid;place-items:center;min-height:100dvh;margin:0;padding:1.5rem;
+  background:var(--background);color:var(--foreground);-webkit-font-smoothing:antialiased}
+.card{max-width:34rem;padding:2rem;background:var(--surface);
+  border:1px solid var(--border);border-top:3px solid var(--accent);
+  border-radius:calc(var(--radius) + 4px);text-align:center}
+h1{margin:0 0 .5rem;font-size:1.125rem;font-weight:600;letter-spacing:-0.01em}
+p{margin:.25rem 0;font-size:.875rem;color:var(--muted-foreground)}
+code{font-family:ui-monospace,"SF Mono",monospace;font-size:.8125rem}
+a{display:inline-block;margin-top:1.25rem;padding:.5rem 1rem;
+  background:var(--primary);color:var(--primary-foreground);
+  border-radius:var(--radius);font-size:.875rem;font-weight:500;text-decoration:none}
+</style>
 </head><body><div class="card"><h1>${escapeHtml(title)}</h1>${body}</div></body></html>`;
   return new NextResponse(html, {
     status: ok ? 200 : 400,
