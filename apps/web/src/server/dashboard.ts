@@ -67,7 +67,7 @@ function headlineDto(
 }
 
 async function build(index: ResolvedIndex): Promise<DashboardDto> {
-  const provider = getProvider();
+  const provider = await getProvider();
   const headlines = await getHeadlineIndices();
   const refs = [...headlines, ...index.constituents];
 

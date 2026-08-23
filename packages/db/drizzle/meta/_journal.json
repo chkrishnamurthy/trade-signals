@@ -57,6 +57,13 @@
       "when": 1787406389113,
       "tag": "0007_narrow_ego",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1787465163433,
+      "tag": "0008_sweet_chamber",
+      "breakpoints": true
     }
   ]
 }

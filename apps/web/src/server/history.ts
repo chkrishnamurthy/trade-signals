@@ -59,7 +59,8 @@ export async function getBars(request: HistoryRequest, now = new Date()): Promis
   if (pending !== undefined) return pending;
 
   const task = (async () => {
-    const bars = await getProvider().fetchBars({
+    const provider = await getProvider();
+    const bars = await provider.fetchBars({
       ref,
       resolution,
       range: { from, to },

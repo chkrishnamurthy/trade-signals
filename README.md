@@ -35,6 +35,7 @@ minutes while the market is open and stores the results; the web app only reads.
 ```bash
 pnpm --filter @wealthos/worker dev              # schedule everything, incl. the intraday loop
 pnpm --filter @wealthos/worker dev -- --once intraday-cycle   # one pass, now
+pnpm --filter @wealthos/worker dev -- --once refresh-credential  # mint a token now
 pnpm verify:intraday --at "2026-08-21 13:30"  # replay any instant through the real engine
 pnpm verify:intraday --scan                   # score every symbol, write nothing
 pnpm verify:intraday --symbol RELIANCE        # full evidence for one symbol
@@ -79,7 +80,7 @@ still produces a dead site:
 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | `clerkMiddleware` throws on **every** request — the whole site 500s, including `/sign-in` |
 | `CLERK_SECRET_KEY` | the same, one step later: sessions cannot be verified |
 | `DATABASE_URL` | pages render, no data |
-| `FYERS_APP_ID`, `FYERS_ACCESS_TOKEN` | live quotes fail; stored signals still work |
+| `FYERS_APP_ID` | live quotes fail; stored signals still work |
 
 `next build` succeeds without any of them — the missing key is not a build error,
 which is why a green deploy can still serve nothing but 500s. And because the
@@ -91,6 +92,53 @@ or any `FYERS_*` value is a real leak to fix, never a setting to add.
 Nothing else belongs there — not `DATABASE_URL_DIRECT`, not `FYERS_SECRET_KEY`,
 not `FYERS_TOTP_SECRET`, not `NEON_API_KEY`. Migrations, the OAuth handshake and
 the schema tests all run from a developer machine.
+
+`FYERS_ACCESS_TOKEN` is absent from that table on purpose: the deployed app
+reads its credential from the database, not the environment. See below.
+
+### On Vercel
+
+The same four variables, set under *Project settings → Environment Variables*.
+Set **Root Directory** to `apps/web`; pnpm still installs from the workspace root
+so `@wealthos/*` link correctly, and the default install and build commands are
+right as they are. Vercel has no Builds/Functions scope split, so a variable set
+for an environment reaches both. There is no secrets scanner to appease, so
+nothing corresponds to `SECRETS_SCAN_OMIT_KEYS`.
+
+## The daily credential
+
+Market-data tokens expire every morning, and since the refresh-token flow was
+withdrawn on 1 April 2026 each new one starts from a 2FA login. Nobody does that
+by hand here.
+
+The **worker** holds `FYERS_ID`, `FYERS_TOTP_SECRET` and `FYERS_PIN`, mints a
+token at 08:30 IST on weekdays and at every startup, and writes it to
+`provider_credentials`. The **web app** reads that row and never mints anything.
+
+That split is the security boundary, not an implementation detail. The TOTP seed
+is the same 2FA secret that protects the brokerage login, including the
+order-placing side this app deliberately has nothing to do with. It stays on a
+host you control. What reaches a deployed web app is a token that dies within the
+day and can only read market data — so a compromise of the deploy costs a day of
+quote access, not the account.
+
+Set the three values in the worker's environment and the refresh runs on its own.
+Setting only some of them is reported at startup rather than silently never
+refreshing. Leave all three blank and the old manual path still works: run
+`pnpm fyers:login`, which writes `FYERS_ACCESS_TOKEN` into `.env`.
+
+`pnpm --filter @wealthos/worker dev -- --once refresh-credential` mints one now.
+A refresh failure is logged loudly and does **not** fall back to the stale token,
+because a request sent with an expired credential fails upstream as an opaque
+authorisation error that hides the real cause.
+
+### Deploying apps/worker
+
+The worker is a long-running `croner` process, so it cannot live on Vercel or
+Netlify — any host that runs a Node process and stays up will do. It needs
+`DATABASE_URL`, `FYERS_APP_ID`, `FYERS_SECRET_KEY` and the three login factors
+above. Without it deployed, nothing refreshes the token and nothing writes new
+candles, signals or paper trades; the site serves whatever it last stored.
 
 ### Clerk instance
 
@@ -121,11 +169,11 @@ exactly one user and that user already created, `restricted` is strictly
 stronger and needs no list. The allowlist entry for the owner's address is left
 in place, inert, so switching modes later does not lock anyone out.
 
-Two limits are inherent to the platform rather than the configuration: `/login`
+One limit is inherent to the platform rather than the configuration: `/login`
 and `/callback` write the refreshed Fyers token to disk, which a read-only
-serverless filesystem cannot do — re-authorise locally and paste the new
-`FYERS_ACCESS_TOKEN` into Netlify each day. And `apps/worker` does not run on
-Netlify at all, so the deployed site shows whatever the worker last stored.
+serverless filesystem cannot do. That path is only for a manual login, which the
+worker's daily refresh removes the need for; the deployed app reads its
+credential from the database instead.
 
 ## Scripts
 

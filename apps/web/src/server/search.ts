@@ -27,7 +27,8 @@ async function load(): Promise<Loaded> {
   if (loading !== null) return loading;
 
   loading = (async () => {
-    const instruments = await getProvider().listInstruments();
+    const provider = await getProvider();
+    const instruments = await provider.listInstruments();
     const result: Loaded = {
       instruments,
       bySymbol: new Map(instruments.map((i: Instrument) => [i.symbol.toUpperCase(), i])),

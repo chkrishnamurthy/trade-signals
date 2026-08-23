@@ -13,6 +13,7 @@
  *   - Every signal writes its factor breakdown (rule 8)
  */
 export { dailyCandles, minuteCandles } from './candles.js';
+export { providerCredentials } from './credentials.js';
 export { dailyIndicators } from './indicators.js';
 export { corporateActions, ingestionRuns, instruments } from './instruments.js';
 export {

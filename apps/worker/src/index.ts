@@ -7,6 +7,7 @@ import { computeIndicators } from './jobs/compute-indicators.js';
 import { ingestDailyCandles } from './jobs/ingest-daily.js';
 import { runIntradayCycle } from './jobs/intraday-signals.js';
 import { recordPaperTrades } from './jobs/paper-trades.js';
+import { refreshProviderCredential } from './jobs/refresh-credential.js';
 import { createLogger, errorFields } from './log.js';
 import { createScheduler, type Scheduler } from './scheduler.js';
 
@@ -40,6 +41,13 @@ const log = createLogger('worker');
  * that may still be revised.
  */
 const SCHEDULES = {
+  /**
+   * Credential refresh at 08:30 — after the previous token expires at 07:00
+   * IST, and comfortably before the 09:00 pre-open. Weekdays only: a token
+   * that lapses over the weekend is refreshed on Monday before anything needs
+   * it.
+   */
+  refreshCredential: '30 8 * * 1-5',
   ingestDaily: '15 16 * * 1-5',
   computeIndicators: '45 16 * * 1-5',
   /** A second attempt, in case the first ran while the credential was stale. */
@@ -69,6 +77,13 @@ function intradaySchedule(cycleMinutes: number): string {
 function buildScheduler(context: WorkerContext, cycleMinutes: number): Scheduler {
   return createScheduler(
     [
+      {
+        name: 'refresh-credential',
+        schedule: SCHEDULES.refreshCredential,
+        run: async () => {
+          await refreshProviderCredential(context, log.child('refresh-credential'));
+        },
+      },
       {
         name: 'ingest-daily',
         schedule: SCHEDULES.ingestDaily,
@@ -199,12 +214,23 @@ async function main(): Promise<void> {
   await waitForDatabase(context);
   log.info('database ready');
 
+  // Before any job runs: a worker started after 07:00 IST has an expired token
+  // in its environment, and every fetch would fail upstream until 08:30.
+  // Failure is logged rather than fatal — the schedule below will try again,
+  // and an operator can still paste a token by hand meanwhile.
+  try {
+    await refreshProviderCredential(context, log.child('refresh-credential'));
+  } catch {
+    log.warn('starting without a verified credential; jobs may fail until it refreshes');
+  }
+
   const onceIndex = args.indexOf('--once');
   if (onceIndex !== -1) {
     const jobName = args[onceIndex + 1];
     if (jobName === undefined) {
       log.error('--once requires a job name', {
         available: [
+          'refresh-credential',
           'ingest-daily',
           'compute-indicators',
           'ingest-retry',

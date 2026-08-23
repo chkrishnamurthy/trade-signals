@@ -24,7 +24,7 @@ export async function getMarketStatus(): Promise<MarketStatus | null> {
   if (cache !== null && cache.expiresAt > now) return cache.status;
 
   const status = await getProvider()
-    .fetchMarketStatus()
+    .then((provider) => provider.fetchMarketStatus())
     .catch(() => null);
   cache = { status, expiresAt: now + TTL_MS };
   return status;

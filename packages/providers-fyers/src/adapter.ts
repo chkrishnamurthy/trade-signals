@@ -42,7 +42,15 @@ import { SUPPORTED_RESOLUTIONS, toFyersResolution } from './resolution.js';
 
 export interface FyersProviderOptions {
   readonly appId: string;
-  readonly accessToken: string;
+  /**
+   * The bearer credential, or a function returning the current one.
+   *
+   * Pass a function when the credential rotates underneath a long-lived process
+   * — the worker's daily refresh. The provider then reads it per request rather
+   * than capturing it, so rotation does not require rebuilding the provider and
+   * with it the limiter and breaker below, whose state must outlive a rotation.
+   */
+  readonly accessToken: string | (() => string);
   /**
    * Shared across every request on purpose.
    *
@@ -68,9 +76,15 @@ const CAPABILITIES_BASE = {
 } as const;
 
 export function createFyersProvider(options: FyersProviderOptions): MarketDataProvider {
+  const { accessToken } = options;
+  const readToken = typeof accessToken === 'function' ? accessToken : (): string => accessToken;
+
   const missing: string[] = [];
   if (options.appId === '') missing.push('FYERS_APP_ID');
-  if (options.accessToken === '') missing.push('FYERS_ACCESS_TOKEN');
+  // Only a literal empty token is a configuration error at construction. A
+  // getter is legitimately empty until the first refresh lands, so it is
+  // checked per request instead — see the getter below.
+  if (typeof accessToken === 'string' && accessToken === '') missing.push('FYERS_ACCESS_TOKEN');
   if (missing.length > 0) throw toProviderError(new FyersNotConfiguredError(missing));
 
   const http = new FyersHttpClient({
@@ -79,7 +93,21 @@ export function createFyersProvider(options: FyersProviderOptions): MarketDataPr
     backoff: { attempts: options.attempts ?? 3, baseDelayMs: 800, maxDelayMs: 5_000 },
     timeoutMs: options.timeoutMs ?? 12_000,
   });
-  const fetcher = { http, authorization: `${options.appId}:${options.accessToken}` };
+  const fetcher = {
+    http,
+    /**
+     * Resolved per request, so a rotated credential takes effect immediately.
+     *
+     * An empty token fails here rather than upstream: a request sent with no
+     * credential comes back as an opaque authorisation error that gives no hint
+     * the real cause was a refresh that never completed.
+     */
+    get authorization(): string {
+      const token = readToken();
+      if (token === '') throw toProviderError(new FyersNotConfiguredError(['FYERS_ACCESS_TOKEN']));
+      return `${options.appId}:${token}`;
+    },
+  };
 
   const capabilities: ProviderCapabilities = {
     ...CAPABILITIES_BASE,

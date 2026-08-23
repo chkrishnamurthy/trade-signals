@@ -12,6 +12,8 @@ export {
   latestMinuteBarPerInstrument,
   minuteCandleCoverage,
 } from './candles.js';
+export type { CredentialInput, StoredCredential } from './credentials.js';
+export { getProviderCredential, saveProviderCredential } from './credentials.js';
 export type {
   IndicatorUpsert,
   ScreenerFilter,

@@ -14,6 +14,17 @@ export interface WorkerContext {
   readonly db: Database;
   readonly provider: MarketDataProvider;
   readonly providerId: string;
+  /**
+   * Swaps in a newly minted credential.
+   *
+   * The provider reads the token per request, so this takes effect on the next
+   * call without rebuilding anything. That matters: the rate limiter and
+   * circuit breaker live inside the provider and track per-ACCOUNT budgets and
+   * edge bans, neither of which is reset by a new credential. Rebuilding on
+   * each daily refresh would hand the replacement a budget the account does not
+   * have, or walk straight back into a live ban.
+   */
+  setAccessToken(accessToken: string): void;
   close(): Promise<void>;
 }
 
@@ -35,9 +46,14 @@ export function createContext(): WorkerContext {
       );
     },
   });
+
+  // Starts as whatever the environment holds — possibly empty, possibly
+  // yesterday's — and is replaced by the credential refresh at startup.
+  let accessToken = process.env.FYERS_ACCESS_TOKEN ?? '';
+
   const provider = createFyersProvider({
     appId: process.env.FYERS_APP_ID ?? '',
-    accessToken: process.env.FYERS_ACCESS_TOKEN ?? '',
+    accessToken: () => accessToken,
     // The worker is a long-lived process doing bulk history pulls. A wider
     // retry budget than the web app's is right: nobody is waiting on a page.
     attempts: 5,
@@ -48,6 +64,9 @@ export function createContext(): WorkerContext {
     db: handle.db,
     provider,
     providerId: provider.id,
+    setAccessToken(next: string): void {
+      accessToken = next;
+    },
     close: () => handle.close(),
   };
 }
