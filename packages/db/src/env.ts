@@ -8,8 +8,19 @@ import { z } from 'zod';
 const envSchema = z.object({
   /** Pooled (PgBouncer, host contains `-pooler`). The application query path. */
   DATABASE_URL: z.string().url().startsWith('postgres'),
-  /** Direct. Migrations, studio, COPY, extensions — anything needing session state. */
-  DATABASE_URL_DIRECT: z.string().url().startsWith('postgres'),
+  /**
+   * Direct. Migrations, studio, COPY, extensions — anything needing session state.
+   *
+   * OPTIONAL, and deliberately so: nothing that reaches this validator ever reads
+   * it. `createDatabase` takes the pooled string only, so requiring it here broke
+   * every serverless deploy of `apps/web`, which is documented in `.env.example`
+   * as the one place that must NOT carry the direct credential.
+   *
+   * The migration path does not lose a guard by this being optional —
+   * `drizzle.config.ts` reads `process.env.DATABASE_URL_DIRECT` itself and
+   * throws both when it is absent and when it points at a pooled endpoint.
+   */
+  DATABASE_URL_DIRECT: z.string().url().startsWith('postgres').optional(),
 });
 
 export type DatabaseEnv = z.infer<typeof envSchema>;

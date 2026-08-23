@@ -18,8 +18,18 @@ describe('readDatabaseEnv', () => {
     expect(readDatabaseEnv({ DATABASE_URL: url, DATABASE_URL_DIRECT: url }).DATABASE_URL).toBe(url);
   });
 
-  it('names every missing variable at once', () => {
-    expect(() => readDatabaseEnv({})).toThrow(/DATABASE_URL[\s\S]*DATABASE_URL_DIRECT/);
+  it('accepts the pooled string alone, as a serverless deploy supplies it', () => {
+    expect(readDatabaseEnv({ DATABASE_URL: POOLED })).toEqual({ DATABASE_URL: POOLED });
+  });
+
+  it('still rejects a missing pooled string', () => {
+    expect(() => readDatabaseEnv({ DATABASE_URL_DIRECT: DIRECT })).toThrow(/DATABASE_URL/);
+  });
+
+  it('validates the direct string when one is supplied', () => {
+    expect(() =>
+      readDatabaseEnv({ DATABASE_URL: POOLED, DATABASE_URL_DIRECT: 'mysql://u:p@host/db' }),
+    ).toThrow(/DATABASE_URL_DIRECT/);
   });
 
   it('points at .env.example in the message', () => {
