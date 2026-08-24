@@ -69,6 +69,19 @@ export interface PaperResultsDto {
   readonly byScore: readonly PaperBucket[];
   readonly byStrategy: readonly PaperBucket[];
   readonly byExit: readonly PaperBucket[];
+  /** Which part of the session the signal triggered in. */
+  readonly byRegime: readonly PaperBucket[];
+  /** Long versus short. */
+  readonly byDirection: readonly PaperBucket[];
+  /**
+   * One bucket per trading session, oldest first.
+   *
+   * Summarised here rather than in the browser so a session's expectancy is
+   * produced by the same `bucket()` as every other figure on the page. A
+   * component computing its own mean would eventually disagree with the
+   * headline number, and the page's whole purpose is to be trustworthy.
+   */
+  readonly bySession: readonly PaperBucket[];
   /**
    * Margin of error on the hit rate, in percentage points.
    *
@@ -99,6 +112,9 @@ const EMPTY: PaperResultsDto = {
   byScore: [],
   byStrategy: [],
   byExit: [],
+  byRegime: [],
+  byDirection: [],
+  bySession: [],
   marginOfErrorPoints: null,
 };
 
@@ -212,6 +228,12 @@ export async function getPaperResults(): Promise<PaperResultsDto> {
     ),
     byStrategy: group(resolved, (row) => row.strategy),
     byExit: group(resolved, (row) => row.exitReason),
+    byRegime: group(resolved, (row) => row.regime),
+    byDirection: group(resolved, (row) => row.direction),
+    // Chronological, not by size: this series is read as a timeline.
+    bySession: group(resolved, (row) => row.tradingDate).sort((a, b) =>
+      a.label.localeCompare(b.label),
+    ),
     // Standard error of a proportion at p = 0.5, the widest case, doubled for
     // a roughly 95% interval. Deliberately the pessimistic form: this number
     // exists to restrain conclusions, not to flatter them.
