@@ -10,12 +10,11 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { applyNavState, currentNavState, writeStoredNavState } from '@/lib/nav-rail';
 import { cn } from '@/lib/utils';
 import { Brand } from './brand';
 import { Sidebar } from './sidebar';
 import { Topbar } from './topbar';
-
-const COLLAPSE_KEY = 'signal.nav.collapsed';
 
 /**
  * The application frame.
@@ -26,6 +25,11 @@ const COLLAPSE_KEY = 'signal.nav.collapsed';
  * On `lg` and up the sidebar is a permanent column; below that it becomes a
  * Sheet, which gives it a focus trap and Escape-to-close for free rather than
  * a hand-rolled overlay.
+ *
+ * The column's open/closed state lives on <html>, not in React — the blocking
+ * script in the layout has already restored it by the time this mounts, and
+ * writing it back here would repaint a frame late. What React keeps is a copy
+ * for the toggle's accessible name, synced after mount.
  */
 export function AppShell({
   children,
@@ -40,47 +44,64 @@ export function AppShell({
   const [collapsed, setCollapsed] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  // Read after mount: the server has no access to this preference, and
-  // rendering a guess would produce a hydration mismatch on every load.
+  // The attribute is the truth. Read it once, so `aria-expanded` agrees with
+  // what is on screen; the server rendered the optimistic value because it has
+  // no way to know, and correcting it in an effect avoids a hydration error.
   useEffect(() => {
-    try {
-      setCollapsed(window.localStorage.getItem(COLLAPSE_KEY) === '1');
-    } catch {
-      // Storage can be unavailable (private mode, blocked cookies). Expanded
-      // is the safe default — the labels are the discoverable state.
-    }
+    setCollapsed(currentNavState() === 'collapsed');
   }, []);
 
   const toggleCollapsed = useCallback(() => {
-    setCollapsed((current) => {
-      const next = !current;
-      try {
-        window.localStorage.setItem(COLLAPSE_KEY, next ? '1' : '0');
-      } catch {
-        // Preference simply does not persist; the session still works.
-      }
-      return next;
-    });
+    const next = currentNavState() === 'collapsed' ? 'expanded' : 'collapsed';
+    applyNavState(next);
+    writeStoredNavState(next);
+    setCollapsed(next === 'collapsed');
   }, []);
+
+  // Ctrl/⌘ B, the shortcut every editor with a side panel uses. Ignored while
+  // the caret is in a field, so it never eats a keystroke meant for a search
+  // box or a note.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'b' && event.key !== 'B') return;
+      if (!event.metaKey && !event.ctrlKey) return;
+      if (event.altKey || event.shiftKey) return;
+
+      const target = event.target;
+      if (target instanceof HTMLElement) {
+        if (target.isContentEditable) return;
+        if (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return;
+      }
+
+      event.preventDefault();
+      toggleCollapsed();
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [toggleCollapsed]);
 
   return (
     <TooltipProvider>
       <div className={cn('flex min-h-dvh bg-background', className)}>
+        {/* `data-nav-rail` is what scopes the collapse styling to this column:
+            the same Sidebar inside the mobile Sheet is outside it and stays
+            expanded whatever the rail is doing. */}
         <aside
-          className={cn(
-            'sticky top-0 hidden h-dvh shrink-0 flex-col border-r border-border bg-surface transition-[width] lg:flex',
-            collapsed ? 'w-14' : 'w-56',
-          )}
+          data-nav-rail
+          className="sticky top-0 hidden h-dvh shrink-0 flex-col overflow-x-clip border-r border-border bg-surface lg:flex"
         >
-          <div
-            className={cn(
-              'flex h-12 shrink-0 items-center border-b border-border px-3',
-              collapsed && 'justify-center px-0',
-            )}
-          >
-            <Brand showWordmark={!collapsed} />
+          {/* pl-4 is not arbitrary: it centres the 24px monogram on 28px,
+              exactly where the 40px icon slots below centre their icons, so
+              the whole left column reads as one line in the collapsed rail. */}
+          <div className="flex h-12 shrink-0 items-center border-b border-border pl-4">
+            <Brand />
           </div>
-          <Sidebar collapsed={collapsed} onToggleCollapsed={toggleCollapsed} />
+          <Sidebar
+            id="primary-navigation"
+            collapsed={collapsed}
+            onToggleCollapsed={toggleCollapsed}
+          />
         </aside>
 
         <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
@@ -93,7 +114,7 @@ export function AppShell({
                 Sections of the WealthOS application
               </SheetDescription>
             </SheetHeader>
-            <Sidebar collapsed={false} onNavigate={() => setDrawerOpen(false)} />
+            <Sidebar onNavigate={() => setDrawerOpen(false)} />
           </SheetContent>
         </Sheet>
 

@@ -331,6 +331,122 @@
 }
 
 /* ---------------------------------------------------------------------------
+ * NAVIGATION RAIL
+ *
+ * Open or closed is ONE attribute on <html>, written before the first paint by
+ * the script in the layout (see `lib/nav-rail.ts`). Everything below reads it.
+ * React renders the same markup either way — the labels are always in the DOM
+ * — which is what lets a restored preference paint correctly on load instead
+ * of snapping to width a frame after hydration.
+ *
+ * The motion is a decision, not decoration:
+ *
+ *   THE ICONS NEVER MOVE. Both states put the icon in a 40px slot centred in
+ *   the 56px rail, so opening reads as text arriving beside fixed icons rather
+ *   than the whole navigation sliding sideways. The eye keeps its place.
+ *
+ *   OPENING CASCADES. Each row carries its index in `--nav-i`, so the labels
+ *   arrive top to bottom, a beat behind the widening panel. It looks like the
+ *   panel is being filled rather than revealed.
+ *
+ *   CLOSING DOES NOT. Every label leaves at once, in a third of the time and
+ *   with no stagger. Generous to open, immediate to dismiss — a deliberate
+ *   asymmetry, because dismissing is the impatient gesture.
+ *
+ *   THE GROUP HEADINGS BECOME THE DIVIDERS. Closed, "Market" and "Analysis"
+ *   have no room, but the grouping still matters; the heading fades out as a
+ *   hairline grows from its centre, so the structure survives the collapse.
+ *
+ * Anyone who has asked the OS to stop moving things gets the instant swap.
+ * -------------------------------------------------------------------------*/
+@layer components {
+  :root {
+    --nav-width: 14rem;
+    --nav-width-rail: 3.5rem;
+    /* A hard ease-out: most of the distance is covered early, so the panel
+       feels pulled open rather than played back. */
+    --nav-ease: cubic-bezier(0.32, 0.72, 0, 1);
+    --nav-duration: 380ms;
+    --nav-stagger-step: 26ms;
+  }
+
+  :root[data-nav="collapsed"] {
+    --nav-width: var(--nav-width-rail);
+  }
+
+  [data-nav-rail] {
+    width: var(--nav-width);
+    transition: width var(--nav-duration) var(--nav-ease);
+  }
+
+  /* Anything that only exists when there is room for words. */
+  [data-nav-rail] [data-nav-label] {
+    white-space: nowrap;
+    opacity: 1;
+    transform: translateX(0);
+    transition:
+      opacity 240ms var(--nav-ease) calc(var(--nav-i, 0) * var(--nav-stagger-step) + 110ms),
+      transform 300ms var(--nav-ease) calc(var(--nav-i, 0) * var(--nav-stagger-step) + 110ms);
+  }
+
+  :root[data-nav="collapsed"] [data-nav-rail] [data-nav-label] {
+    opacity: 0;
+    transform: translateX(-0.375rem);
+    pointer-events: none;
+    transition-duration: 110ms;
+    transition-delay: 0ms;
+  }
+
+  [data-nav-rail] [data-nav-heading] {
+    opacity: 1;
+    transition: opacity 200ms var(--nav-ease)
+      calc(var(--nav-i, 0) * var(--nav-stagger-step) + 110ms);
+  }
+
+  :root[data-nav="collapsed"] [data-nav-rail] [data-nav-heading] {
+    opacity: 0;
+    transition-duration: 100ms;
+    transition-delay: 0ms;
+  }
+
+  /* Unscoped, unlike the rest: the divider is the COLLAPSED form of a heading,
+     so it must stay hidden everywhere else — including the mobile drawer,
+     which renders this same markup outside the rail. */
+  [data-nav-divider] {
+    opacity: 0;
+    transform: scaleX(0);
+    transition:
+      opacity 140ms var(--nav-ease),
+      transform 240ms var(--nav-ease);
+  }
+
+  :root[data-nav="collapsed"] [data-nav-rail] [data-nav-divider] {
+    opacity: 1;
+    transform: scaleX(1);
+    transition-delay: 90ms;
+  }
+
+  /* Points at what the click will do: left while open, right while closed. */
+  [data-nav-rail] [data-nav-chevron] {
+    transition: transform var(--nav-duration) var(--nav-ease);
+  }
+
+  :root[data-nav="collapsed"] [data-nav-rail] [data-nav-chevron] {
+    transform: rotate(180deg);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-nav-rail],
+    [data-nav-rail] [data-nav-label],
+    [data-nav-rail] [data-nav-heading],
+    [data-nav-rail] [data-nav-divider],
+    [data-nav-rail] [data-nav-chevron] {
+      transition: none;
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------------
  * UTILITIES
  * -------------------------------------------------------------------------*/
 

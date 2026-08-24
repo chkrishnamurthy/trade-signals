@@ -26,7 +26,13 @@ export function Brand({
       >
         W
       </span>
-      {showWordmark && <span className="text-sm">WealthOS</span>}
+      {/* Inside the navigation rail this fades with the rest of the labels;
+          everywhere else the attribute is inert. See `globals.css`. */}
+      {showWordmark && (
+        <span data-nav-label className="text-sm">
+          WealthOS
+        </span>
+      )}
       <span className="sr-only">WealthOS — NSE market analysis, home</span>
     </Link>
   );
