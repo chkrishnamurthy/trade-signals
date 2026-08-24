@@ -27,6 +27,22 @@ const PHASE_LABEL: Record<MarketPhase, string> = {
   unknown: 'Session state unavailable',
 };
 
+/**
+ * Labels for the global header, where the badge stands next to index names.
+ *
+ * "Open" on its own is ambiguous in that company — open what? Everywhere else
+ * the badge sits inside a market-data context that already supplies the noun,
+ * so the short labels stay the default.
+ */
+const PHASE_LABEL_VERBOSE: Record<MarketPhase, string> = {
+  pre_open: 'Pre-market',
+  open: 'Market open',
+  closed: 'Market closed',
+  post_close: 'Post-close',
+  closing_auction: 'Closing auction',
+  unknown: 'Session unavailable',
+};
+
 const statusVariants = cva(
   'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset',
   {
@@ -57,10 +73,13 @@ const PHASE_STATE: Record<MarketPhase, StatusState> = {
 export function MarketStatus({
   phase,
   isOpen,
+  verbose = false,
   className,
 }: {
   phase: MarketPhase;
   isOpen: boolean;
+  /** Say "Market open" rather than "Open" — see {@link PHASE_LABEL_VERBOSE}. */
+  verbose?: boolean | undefined;
   className?: string | undefined;
 }) {
   const state = PHASE_STATE[phase];
@@ -69,12 +88,12 @@ export function MarketStatus({
     <span className={cn(statusVariants({ state }), className)}>
       <span
         className={cn(
-          'size-1.5 rounded-full',
+          'size-1.5 shrink-0 rounded-full',
           live ? 'animate-pulse bg-market-open' : 'bg-current opacity-60',
         )}
         aria-hidden
       />
-      {PHASE_LABEL[phase]}
+      {(verbose ? PHASE_LABEL_VERBOSE : PHASE_LABEL)[phase]}
     </span>
   );
 }

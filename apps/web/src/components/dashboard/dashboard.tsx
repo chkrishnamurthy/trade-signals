@@ -10,7 +10,6 @@ import {
 import { AppShell } from '@/components/layout/app-shell';
 import { ContentGrid, GridMain, GridRail } from '@/components/layout/grid';
 import {
-  PageActions,
   PageContainer,
   PageContent,
   PageDescription,
@@ -19,7 +18,6 @@ import {
   PageHeading,
   PageTitle,
 } from '@/components/layout/page';
-import { LastUpdated, MarketStatus } from '@/components/market/market-status';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Card, CardContent, CardHeader, CardHeading, CardTitle } from '@/components/ui/card';
 import { istTime } from '@/lib/format';
@@ -29,7 +27,6 @@ import { MarketBreadth } from './breadth';
 import { MarketChart } from './chart';
 import { IndexCards } from './index-cards';
 import { MoversCard } from './movers';
-import { StockSearch } from './search';
 import { SectorHeatmap, SectorPerformance } from './sectors';
 import { MarketSentiment } from './sentiment';
 import { SwingOpportunities, TradingSignals } from './signals';
@@ -82,19 +79,6 @@ export function Dashboard({ indexKey = 'nifty50' }: { indexKey?: string }) {
     };
   }, [data, signalData]);
 
-  const topbar = (
-    <>
-      <StockSearch onSelect={onSelect} />
-      <div className="hidden items-center gap-2 sm:flex">
-        <MarketStatus
-          phase={data?.market.phase ?? 'unknown'}
-          isOpen={data?.market.isOpen ?? false}
-        />
-        <LastUpdated at={data?.fetchedAt ?? null} />
-      </div>
-    </>
-  );
-
   // Built once and rendered in both branches. When the feed is down the user
   // still needs to know which page failed, so the error state keeps its header
   // rather than dropping the user onto an unlabelled screen.
@@ -106,18 +90,12 @@ export function Dashboard({ indexKey = 'nifty50' }: { indexKey?: string }) {
           How the market is trading today — indices, breadth, sector strength and the biggest moves.
         </PageDescription>
       </PageHeading>
-      <PageActions className="sm:hidden">
-        <MarketStatus
-          phase={data?.market.phase ?? 'unknown'}
-          isOpen={data?.market.isOpen ?? false}
-        />
-      </PageActions>
     </PageHeader>
   );
 
   if (dashboard.status === 'error') {
     return (
-      <AppShell topbar={topbar}>
+      <AppShell onSearchSelect={onSelect}>
         <PageContainer width="narrow">
           {header}
           <ConnectionError
@@ -130,7 +108,7 @@ export function Dashboard({ indexKey = 'nifty50' }: { indexKey?: string }) {
   }
 
   return (
-    <AppShell topbar={topbar}>
+    <AppShell onSearchSelect={onSelect}>
       <PageContainer>
         {header}
 

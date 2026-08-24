@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 
@@ -20,12 +21,18 @@ export function Brand({
       href="/dashboard"
       className={cn('flex items-center gap-2 rounded-md font-semibold tracking-tight', className)}
     >
-      <span
-        className="grid size-6 shrink-0 place-items-center rounded-md bg-primary text-xs text-primary-foreground"
+      {/* The tile carries its own corner radius in the alpha channel, so it
+          needs no rounding here. `priority` because it sits in the header of
+          every route and would otherwise pop in after first paint. */}
+      <Image
+        src="/brand-mark.png"
+        alt=""
+        width={24}
+        height={24}
+        priority
+        className="size-6 shrink-0"
         aria-hidden
-      >
-        W
-      </span>
+      />
       {/* Inside the navigation rail this fades with the rest of the labels;
           everywhere else the attribute is inert. See `globals.css`. */}
       {showWordmark && (

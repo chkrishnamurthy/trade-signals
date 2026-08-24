@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { StockDetailDrawer } from '@/components/dashboard/stock-drawer';
 import { ErrorState, SkeletonRows } from '@/components/data-display/states';
 import { ActiveFilters, FilterBar, FilterGroup, SearchInput } from '@/components/forms/filter-bar';
@@ -15,7 +16,6 @@ import {
   PageHeading,
   PageTitle,
 } from '@/components/layout/page';
-import { LastUpdated, MarketStatus } from '@/components/market/market-status';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -50,6 +50,15 @@ export function StocksPage() {
   const { stocks, technicals, refresh, isRefreshing } = useStocks();
   const [filters, setFilters] = useState<StockFilterState>(DEFAULT_STOCK_FILTERS);
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
+
+  // Where a hit from the header's search lands when the user was not already on
+  // a page that can show the stock in place. Read as an effect rather than as
+  // initial state so a second search, from this page, still opens the drawer.
+  const searchParams = useSearchParams();
+  const requestedSymbol = searchParams.get('symbol');
+  useEffect(() => {
+    if (requestedSymbol !== null && requestedSymbol !== '') setSelectedSymbol(requestedSymbol);
+  }, [requestedSymbol]);
 
   const data = stocks.status === 'ready' ? stocks.data : null;
   const technicalData = technicals.status === 'ready' ? technicals.data : null;
@@ -86,13 +95,6 @@ export function StocksPage() {
 
   const resetFilters = useCallback(() => setFilters(DEFAULT_STOCK_FILTERS), []);
 
-  const topbar = (
-    <div className="ml-auto hidden items-center gap-2 sm:flex">
-      <MarketStatus phase={data?.market.phase ?? 'unknown'} isOpen={data?.market.isOpen ?? false} />
-      <LastUpdated at={data?.fetchedAt ?? null} />
-    </div>
-  );
-
   // Built once and rendered in both branches, so a failed load still says which
   // page the user is on.
   const header = (
@@ -114,7 +116,7 @@ export function StocksPage() {
 
   if (stocks.status === 'error') {
     return (
-      <AppShell topbar={topbar}>
+      <AppShell onSearchSelect={setSelectedSymbol}>
         <PageContainer width="narrow">
           {header}
           <ErrorState
@@ -131,7 +133,7 @@ export function StocksPage() {
   const hasFilters = chips.length > 0;
 
   return (
-    <AppShell topbar={topbar}>
+    <AppShell onSearchSelect={setSelectedSymbol}>
       <PageContainer>
         {header}
 

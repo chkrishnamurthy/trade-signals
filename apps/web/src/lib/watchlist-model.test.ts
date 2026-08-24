@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { RETURN_WINDOWS, returnAnchors } from './return-windows';
 import {
   DEFAULT_COLUMN_IDS,
   getColumn,
@@ -60,6 +61,33 @@ function row(overrides: Partial<WatchlistRowDto> = {}): WatchlistRowDto {
     low52w: 200000,
     averageVolume: 3_000_000,
     relativeVolume: 1.33,
+    previousVolume: 3_200_000,
+    returnCloses: {
+      return1w: 245000,
+      return1m: 240000,
+      return3m: 220000,
+      return6m: 200000,
+      returnYtd: 210000,
+      return1y: 190000,
+    },
+    signal: {
+      direction: 'bullish',
+      strength: 68,
+      setups: ['Golden cross'],
+      tradingDate: '2026-08-23',
+    },
+    setup: {
+      kind: 'breakout',
+      direction: 'long',
+      state: 'active',
+      score: 74,
+      quality: 'strong',
+      entryLow: 250000,
+      entryHigh: 250500,
+      invalidationLevel: 247000,
+      target1: 256000,
+      netRiskReward: 1.8,
+    },
     ...overrides,
   };
 }
@@ -84,13 +112,66 @@ describe('column registry', () => {
   });
 
   it('declares the fundamentals columns as having no source, and returns null for them', () => {
-    for (const id of ['marketCap', 'peRatio', 'pbRatio', 'eps', 'dividendYield']) {
+    for (const id of [
+      'marketCap',
+      'peRatio',
+      'forwardPeRatio',
+      'pbRatio',
+      'pegRatio',
+      'evEbitda',
+      'eps',
+      'revenue',
+      'roe',
+      'promoterPledge',
+      'dividendYield',
+    ]) {
       const column = getColumn(id);
       expect(column).not.toBeNull();
       expect(column!.source).toBeNull();
       // The load-bearing half: an unavailable column must never invent a number.
       expect(column!.value(row())).toBeNull();
     }
+  });
+
+  it('gives every unavailable column a reason, and no available one a reason', () => {
+    for (const column of WATCHLIST_COLUMNS) {
+      if (column.source === null) {
+        expect(column.unavailableReason, `${column.id} is unavailable with no reason`).toBeTruthy();
+      } else {
+        expect(column.unavailableReason, `${column.id} has a source and a reason`).toBeUndefined();
+      }
+    }
+  });
+
+  it('never invents a value for a column with no source', () => {
+    const populated = row();
+    for (const column of WATCHLIST_COLUMNS) {
+      if (column.source !== null) continue;
+      expect(column.value(populated), `${column.id} produced a value`).toBeNull();
+    }
+  });
+
+  it('groups every column under a group the panel actually lists', () => {
+    const listed = new Set(groupedColumns().flatMap((group) => group.columns.map((c) => c.id)));
+    for (const column of WATCHLIST_COLUMNS) {
+      if (column.pinned === true) continue;
+      expect(listed.has(column.id), `${column.id} is in no listed group`).toBe(true);
+    }
+  });
+
+  it('offers each of the eight advertised groups', () => {
+    const labels = groupedColumns().map((group) => group.label);
+    expect(labels).toEqual([
+      'Price',
+      'Performance',
+      'Volume & Liquidity',
+      'Valuation',
+      'Fundamentals',
+      '52-Week Position',
+      'Technical Indicators',
+      'Trading Signals',
+      'Market Information',
+    ]);
   });
 
   it('forces the pinned column to the front even when a stored layout omits it', () => {
@@ -157,17 +238,97 @@ describe('derived column values', () => {
   });
 
   it('places the day range position between the low and the high', () => {
-    const value = getColumn('dayRangePosition')!.value(
+    const value = getColumn('dayRange')!.value(
       row({ dayLow: 100000, dayHigh: 200000, ltp: 175000 }),
     );
     expect(value).toBe(75);
   });
 
   it('returns null for a day range with no width rather than dividing by zero', () => {
-    const value = getColumn('dayRangePosition')!.value(
+    const value = getColumn('dayRange')!.value(
       row({ dayLow: 100000, dayHigh: 100000, ltp: 100000 }),
     );
     expect(value).toBeNull();
+  });
+
+  it('places the 52-week position between the two extremes', () => {
+    const value = getColumn('range52w')!.value(
+      row({ low52w: 200000, high52w: 300000, ltp: 275000 }),
+    );
+    expect(value).toBe(75);
+  });
+
+  it('computes each trailing return against its own anchor close', () => {
+    const fixture = row({ ltp: 250000 });
+    // 250000 against the 1M anchor of 240000 is +4.166…%.
+    expect(getColumn('return1m')!.value(fixture)).toBeCloseTo(4.1667, 3);
+    expect(getColumn('return1y')!.value(fixture)).toBeCloseTo(31.579, 3);
+  });
+
+  it('reports a return with no anchor session as absent, not as zero', () => {
+    // 3Y and 5Y are missing from the fixture — history does not reach.
+    expect(getColumn('return3y')!.value(row())).toBeNull();
+    expect(getColumn('return5y')!.value(row())).toBeNull();
+    // And an unquoted row cannot have a return at all.
+    expect(getColumn('return1m')!.value(row({ ltp: null }))).toBeNull();
+  });
+
+  it('registers one column per declared return window', () => {
+    for (const window of RETURN_WINDOWS) {
+      expect(getColumn(window.id), `no column for ${window.id}`).not.toBeNull();
+    }
+  });
+
+  it('compares session volume against the previous session, not the average', () => {
+    const value = getColumn('volumeChangePercent')!.value(
+      row({ volume: 4_000_000, previousVolume: 3_200_000 }),
+    );
+    expect(value).toBeCloseTo(25, 5);
+    expect(
+      getColumn('volumeChangePercent')!.value(row({ volume: 4_000_000, previousVolume: null })),
+    ).toBeNull();
+  });
+
+  it('flags a name inside the 5% band at either 52-week extreme', () => {
+    const nearHigh = getColumn('near52wHigh')!;
+    expect(nearHigh.value(row({ ltp: 275000, high52w: 280000 }))).toBe(1);
+    expect(nearHigh.value(row({ ltp: 200000, high52w: 280000 }))).toBe(0);
+    // No 52-week high is not "not near it".
+    expect(nearHigh.value(row({ high52w: null }))).toBeNull();
+
+    const nearLow = getColumn('near52wLow')!;
+    expect(nearLow.value(row({ ltp: 204000, low52w: 200000 }))).toBe(1);
+    expect(nearLow.value(row({ ltp: 260000, low52w: 200000 }))).toBe(0);
+  });
+
+  it('ranks the signal column by direction rather than alphabetically', () => {
+    const signal = getColumn('signal')!;
+    const at = (direction: string): number | string | null =>
+      signal.value(
+        row({
+          signal: {
+            direction: direction as never,
+            strength: 50,
+            setups: [],
+            tradingDate: '2026-08-23',
+          },
+        }),
+      );
+    expect(at('strong_bullish')).toBeGreaterThan(at('bullish') as number);
+    expect(at('bearish')).toBeLessThan(at('neutral') as number);
+    expect(signal.value(row({ signal: null }))).toBeNull();
+  });
+
+  it('reads the live setup levels straight off the row', () => {
+    const fixture = row();
+    expect(getColumn('entryZone')!.value(fixture)).toBe(250000);
+    expect(getColumn('setupTarget')!.value(fixture)).toBe(256000);
+    expect(getColumn('setupInvalidation')!.value(fixture)).toBe(247000);
+    expect(getColumn('setupRiskReward')!.value(fixture)).toBe(1.8);
+    // No live setup: every level column is absent, never a stale one.
+    for (const id of ['entryZone', 'setupTarget', 'setupInvalidation', 'setupRiskReward']) {
+      expect(getColumn(id)!.value(row({ setup: null })), id).toBeNull();
+    }
   });
 
   it('counts EMAs the price is above', () => {
@@ -496,6 +657,9 @@ describe('quick views', () => {
       'strong_momentum',
       'oversold',
       'volatility',
+      'performance',
+      'live_setups',
+      'daily_signals',
     ]) {
       const view = QUICK_VIEWS.find((entry) => entry.id === id)!;
       expect(isQuickViewAvailable(view), `${id}: ${missingSourcesFor(view).join(', ')}`).toBe(true);
@@ -509,6 +673,45 @@ describe('quick views', () => {
       row({ symbol: 'DOWN', changePercent: -2 }),
     ];
     expect(applyWatchlistFilters(rows, gainers.filters).map((r) => r.symbol)).toEqual(['UP']);
+  });
+});
+
+describe('return windows', () => {
+  const NOON_IST = new Date('2026-08-24T06:30:00.000Z');
+
+  it('anchors each window on the right calendar date, in IST', () => {
+    const anchors = new Map(returnAnchors(NOON_IST).map((a) => [a.key, a.at.toISOString()]));
+    expect(anchors.get('return1w')).toBe('2026-08-17T23:59:59.999Z');
+    expect(anchors.get('return1m')).toBe('2026-07-24T23:59:59.999Z');
+    expect(anchors.get('return6m')).toBe('2026-02-24T23:59:59.999Z');
+    expect(anchors.get('return1y')).toBe('2025-08-24T23:59:59.999Z');
+    expect(anchors.get('return5y')).toBe('2021-08-24T23:59:59.999Z');
+  });
+
+  it('anchors YTD on the last day of the previous calendar year', () => {
+    const anchors = new Map(returnAnchors(NOON_IST).map((a) => [a.key, a.at.toISOString()]));
+    expect(anchors.get('returnYtd')).toBe('2025-12-31T23:59:59.999Z');
+  });
+
+  it('clamps a month-end shift instead of rolling into the next month', () => {
+    // 31 March minus one month is February, not 3 March.
+    const anchors = new Map(
+      returnAnchors(new Date('2026-03-31T06:30:00.000Z')).map((a) => [a.key, a.at.toISOString()]),
+    );
+    expect(anchors.get('return1m')).toBe('2026-02-28T23:59:59.999Z');
+  });
+
+  it('uses the IST date, not the UTC one, after 18:30 UTC', () => {
+    // 19:00 UTC on the 24th is already the 25th in IST.
+    const anchors = new Map(
+      returnAnchors(new Date('2026-08-24T19:00:00.000Z')).map((a) => [a.key, a.at.toISOString()]),
+    );
+    expect(anchors.get('return1w')).toBe('2026-08-18T23:59:59.999Z');
+  });
+
+  it('keeps a tolerance tight enough that a stale bar cannot answer a week', () => {
+    const week = RETURN_WINDOWS.find((window) => window.id === 'return1w');
+    expect(week?.toleranceDays).toBeLessThan(14);
   });
 });
 

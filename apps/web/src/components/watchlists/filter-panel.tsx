@@ -46,6 +46,9 @@ const RANGE_COLUMNS: readonly string[] = [
   'rsi14',
   'atrPercent',
   'from52wHigh',
+  'return1m',
+  'return1y',
+  'signalStrength',
   'turnover',
   'marketCap',
   'peRatio',
@@ -194,7 +197,11 @@ export function FilterPanel({
                   >
                     <Label
                       className="flex min-w-0 items-center gap-1 text-xs"
-                      title={available ? column.description : 'No data source for this field'}
+                      title={
+                        available
+                          ? column.description
+                          : (column.unavailableReason ?? 'No data source for this field')
+                      }
                     >
                       <span className="truncate">{column.label}</span>
                       {hint !== '' && (

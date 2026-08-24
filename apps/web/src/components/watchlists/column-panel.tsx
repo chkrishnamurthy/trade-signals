@@ -169,8 +169,12 @@ export function ColumnPanel({
                                   {available ? (
                                     column.description
                                   ) : (
+                                    /* The column's own reason, not one blanket
+                                       sentence: "no fundamentals feed" is wrong
+                                       for a circuit limit and useless for an
+                                       indicator the daily pass never computes. */
                                     <span className="text-warning-foreground">
-                                      No data source — this app has no fundamentals feed
+                                      {column.unavailableReason ?? 'No data source in this app'}
                                     </span>
                                   )}
                                 </p>

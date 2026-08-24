@@ -1,15 +1,20 @@
 import 'server-only';
 import {
   addWatchlistItems,
+  closesAsOf,
   createWatchlist,
   deleteWatchlist,
   deleteWatchlistView,
   ensureInstruments,
   getWatchlistLayout,
   getWatchlistMembers,
+  type InstrumentSetup,
+  type InstrumentSignal,
   latestIndicatorsForInstruments,
+  latestSignalsForInstruments,
   listWatchlists,
   listWatchlistViews,
+  liveSetupsForInstruments,
   removeWatchlistItems,
   renameWatchlist,
   reorderWatchlistItems,
@@ -19,7 +24,12 @@ import {
   setDefaultWatchlist,
 } from '@wealthos/db';
 import type { InstrumentRef, Quote, QuotesResult } from '@wealthos/market-data';
+import { istDateKey } from '@wealthos/shared';
+import type { SignalDirection } from '@/lib/dashboard-types';
+import { type ReturnCloses, returnAnchors } from '@/lib/return-windows';
 import type {
+  RowSetupDto,
+  RowSignalDto,
   SavedViewDto,
   WatchlistDetailDto,
   WatchlistFilterStateDto,
@@ -37,10 +47,13 @@ import { resolveSymbol } from './search';
 /**
  * Watchlist reads and writes for the web app.
  *
- * Composes two sources that are deliberately NOT fetched together:
+ * Composes sources that are deliberately NOT fetched together:
  *
  *   quotes      the provider, live, one batched call for the whole list
  *   indicators  `daily_indicators`, written by the worker's end-of-day pass
+ *   signals     the daily engine's stored verdict, read never recomputed
+ *   setups      today's live intraday signals, for the level columns
+ *   returns     anchor closes from `daily_candles`, for the trailing windows
  *
  * The indicator half costs one indexed query rather than one history call per
  * symbol, which is the only reason a watchlist can show RSI and 52-week extremes
@@ -118,7 +131,20 @@ export async function getWatchlistDetail(id: number): Promise<WatchlistDetailDto
   ]);
 
   const instrumentIds = members.map((member) => member.instrumentId);
-  const indicators = await latestIndicatorsForInstruments(db, instrumentIds);
+  const now = new Date();
+
+  // The indicator read still decides whether this call succeeds, as it always
+  // has. The three added sources only enrich a column group each — no signals
+  // written yet, a candle table not backfilled that far — so each degrades to
+  // an empty map rather than taking a working watchlist down with it.
+  const [indicators, signals, setups, returnCloses] = await Promise.all([
+    latestIndicatorsForInstruments(db, instrumentIds),
+    latestSignalsForInstruments(db, instrumentIds).catch(() => new Map<number, InstrumentSignal>()),
+    liveSetupsFor(db, instrumentIds, now),
+    closesAsOf(db, { instrumentIds, anchors: returnAnchors(now) }).catch(
+      () => new Map<number, Map<string, number>>(),
+    ),
+  ]);
 
   let quotes: ReadonlyMap<string, Quote> = new Map();
   let missingQuotes: readonly string[] = [];
@@ -173,6 +199,11 @@ export async function getWatchlistDetail(id: number): Promise<WatchlistDetailDto
       low52w: daily?.low52w ?? null,
       averageVolume: daily?.averageVolume ?? null,
       relativeVolume: daily?.relativeVolume ?? null,
+      previousVolume: daily?.volume ?? null,
+
+      returnCloses: toReturnCloses(returnCloses.get(member.instrumentId)),
+      signal: toRowSignal(signals.get(member.instrumentId)),
+      setup: toRowSetup(setups.get(member.instrumentId)),
     };
   });
 
@@ -192,11 +223,83 @@ export async function getWatchlistDetail(id: number): Promise<WatchlistDetailDto
     layout,
     savedViews: storedViews.map(toSavedViewDto),
     market: { isOpen: market?.isOpen ?? false, phase: market?.phase ?? 'unknown' },
-    fetchedAt: new Date().toISOString(),
+    fetchedAt: now.toISOString(),
     missingQuotes,
     quotesStale,
     refreshAfterSeconds: market?.isOpen === true ? REFRESH_OPEN_SECONDS : REFRESH_CLOSED_SECONDS,
   };
+}
+
+/**
+ * Today's live intraday setups, keyed by instrument.
+ *
+ * Only TODAY's, and only non-terminal ones: a setup that ended on Friday is not
+ * a level worth showing beside Monday's price.
+ *
+ * The intraday tables may be empty, or the engine may never have run for this
+ * name; that is an absent setup, not an error, and it must not fail the whole
+ * watchlist.
+ */
+async function liveSetupsFor(
+  db: ReturnType<typeof getDatabase>,
+  instrumentIds: readonly number[],
+  now: Date,
+): Promise<Map<number, InstrumentSetup>> {
+  try {
+    return await liveSetupsForInstruments(db, istDateKey(now), instrumentIds);
+  } catch {
+    return new Map();
+  }
+}
+
+const SIGNAL_DIRECTIONS: readonly SignalDirection[] = [
+  'strong_bullish',
+  'bullish',
+  'neutral',
+  'bearish',
+  'strong_bearish',
+];
+
+/**
+ * Narrows the stored direction string to the UI's closed set.
+ *
+ * The column is a badge with five states; a sixth value from a future engine
+ * would render as an unstyled string rather than as a signal, so an
+ * unrecognised direction is treated as no signal at all.
+ */
+function toRowSignal(stored: InstrumentSignal | undefined): RowSignalDto | null {
+  if (stored === undefined) return null;
+  const direction = SIGNAL_DIRECTIONS.find((entry) => entry === stored.direction);
+  if (direction === undefined) return null;
+
+  return {
+    direction,
+    strength: stored.strength,
+    setups: stored.setups,
+    tradingDate: stored.tradingDate,
+  };
+}
+
+/** The level columns of a live setup. Levels only — never an order. */
+function toRowSetup(stored: InstrumentSetup | undefined): RowSetupDto | null {
+  if (stored === undefined) return null;
+  return {
+    kind: stored.kind,
+    direction: stored.direction,
+    state: stored.state,
+    score: stored.score,
+    quality: stored.quality,
+    entryLow: stored.entryLow,
+    entryHigh: stored.entryHigh,
+    invalidationLevel: stored.invalidationLevel,
+    target1: stored.target1,
+    // NET of the modelled round trip: the gross figure must never be published.
+    netRiskReward: stored.netRiskReward,
+  };
+}
+
+function toReturnCloses(closes: Map<string, number> | undefined): ReturnCloses {
+  return closes === undefined ? {} : Object.fromEntries(closes);
 }
 
 async function fetchQuotesFor(

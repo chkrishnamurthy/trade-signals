@@ -18,13 +18,11 @@ import {
   PageHeading,
   PageTitle,
 } from '@/components/layout/page';
-import { LastUpdated, MarketStatus } from '@/components/market/market-status';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/typography';
 import type { MoverDto } from '@/lib/dashboard-types';
-import type { MarketPhase } from '@/lib/market-types';
 import { useWatchlists } from '@/lib/use-watchlists';
 import { DEFAULT_COLUMN_IDS } from '@/lib/watchlist-columns';
 import {
@@ -150,28 +148,9 @@ export function WatchlistsPage() {
 
   // --- Chrome ---------------------------------------------------------------
 
-  const topbar = (
-    <div className="ml-auto hidden items-center gap-2 sm:flex">
-      <MarketStatus
-        phase={(data?.market.phase ?? 'unknown') as MarketPhase}
-        isOpen={data?.market.isOpen ?? false}
-      />
-      <LastUpdated at={data?.fetchedAt ?? null} />
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        onClick={refresh}
-        disabled={isRefreshing}
-        aria-label="Refresh prices"
-      >
-        <RefreshCwIcon className={isRefreshing ? 'animate-spin' : undefined} />
-      </Button>
-    </div>
-  );
-
   if (lists.status === 'error') {
     return (
-      <AppShell topbar={topbar}>
+      <AppShell>
         <PageContainer width="narrow">
           <PageHeader>
             <PageHeading>
@@ -196,7 +175,7 @@ export function WatchlistsPage() {
   const hasList = activeId !== null && data !== null && data.watchlist.id !== 0;
 
   return (
-    <AppShell topbar={topbar}>
+    <AppShell>
       <PageContainer>
         {/* With a list open its NAME is the title, because that is what the user
             navigated to. The breadcrumb above it is then the only thing saying
@@ -216,6 +195,18 @@ export function WatchlistsPage() {
 
           {hasList && (
             <PageActions>
+              {/* Refreshing THIS list's prices is page functionality, so it sits
+                  with the page's own actions. The header bar owns market state,
+                  not per-page reloads. */}
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={refresh}
+                disabled={isRefreshing}
+                aria-label="Refresh prices"
+              >
+                <RefreshCwIcon className={isRefreshing ? 'animate-spin' : undefined} />
+              </Button>
               <AddStocks
                 existingSymbols={allRows.map((row) => row.symbol)}
                 onAdd={async (symbols) => {

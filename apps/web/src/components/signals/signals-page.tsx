@@ -18,7 +18,7 @@ import {
   SectionHeader,
   SectionTitle,
 } from '@/components/layout/page';
-import { LastUpdated, MarketStatus } from '@/components/market/market-status';
+import { LastUpdated } from '@/components/market/market-status';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -75,27 +75,9 @@ export function SignalsPage() {
 
   const openSignal = useCallback((signal: IntradaySignalDto) => setSelected(signal), []);
 
-  const topbar = (
-    <div className="flex flex-1 items-center justify-end gap-2">
-      <Badge variant="outline" size="sm">
-        Intraday only
-      </Badge>
-      <div className="hidden items-center gap-2 sm:flex">
-        <MarketStatus
-          phase={data?.market.phase ?? 'unknown'}
-          isOpen={data?.market.isOpen ?? false}
-        />
-        <LastUpdated
-          at={data?.run?.finishedAt ?? data?.fetchedAt ?? null}
-          staleAfterSeconds={600}
-        />
-      </div>
-    </div>
-  );
-
   if (feed.status === 'error') {
     return (
-      <AppShell topbar={topbar}>
+      <AppShell>
         <PageContainer width="narrow">
           <PageHeader>
             <PageHeading>
@@ -118,7 +100,7 @@ export function SignalsPage() {
   }
 
   return (
-    <AppShell topbar={topbar}>
+    <AppShell>
       <PageContainer>
         {/* One sentence. The full "what confluence means, and that these are
             intraday only" explanation used to live here and wrapped to three
@@ -133,12 +115,17 @@ export function SignalsPage() {
             </PageDescription>
           </PageHeading>
           <PageActions>
-            <div className="flex items-center gap-2 sm:hidden">
-              <MarketStatus
-                phase={data?.market.phase ?? 'unknown'}
-                isOpen={data?.market.isOpen ?? false}
+            {/* When the ENGINE last scanned, which is not when quotes were last
+                fetched — the header's stamp answers that. Two clocks meaning
+                different things must not sit side by side, so this one is
+                labelled and lives with the page's own actions. */}
+            <span className="hidden items-center gap-1.5 text-muted-foreground text-xs sm:inline-flex">
+              Scanned
+              <LastUpdated
+                at={data?.run?.finishedAt ?? data?.fetchedAt ?? null}
+                staleAfterSeconds={600}
               />
-            </div>
+            </span>
             <ToggleGroup
               type="single"
               value={density}

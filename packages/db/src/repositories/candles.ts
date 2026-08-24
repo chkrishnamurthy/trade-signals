@@ -570,3 +570,105 @@ export async function minuteCandleCoverage(db: Database): Promise<SessionCoverag
     instruments: Number(row.syms),
   }));
 }
+
+/**
+ * One anchor for {@link closesAsOf}: a cutoff instant and the key to file the
+ * close it resolves to under.
+ */
+export interface CloseAnchor {
+  readonly key: string;
+  /** The close taken is the last session at or before this instant. */
+  readonly at: Date;
+  /**
+   * How stale a bar may be and still answer for this anchor, in calendar days.
+   *
+   * A delisted or thinly-ingested name would otherwise answer every anchor
+   * with the same ancient close and report a 0% return over five years, which
+   * reads as "flat" rather than "we have no history here". Default is generous
+   * enough for an Indian holiday cluster and nothing more.
+   */
+  readonly toleranceDays?: number;
+}
+
+const DEFAULT_ANCHOR_TOLERANCE_DAYS = 21;
+
+/**
+ * The close on or before each anchor instant, for many instruments at once.
+ *
+ * The watchlist's return columns need eight closes per name and nothing else.
+ * Pulling five years of bars to read eight of them would be tens of thousands
+ * of rows per refresh; a LATERAL lookup per (instrument, anchor) is eight index
+ * seeks straight off `(instrument_id, ts DESC)` and returns exactly the rows
+ * asked for.
+ *
+ * Closes are corporate-action adjusted to today's basis, like every other read
+ * in this file (hard rule 5) — an unadjusted close before a split turns a flat
+ * year into a 400% gain.
+ *
+ * A missing key means the instrument has no usable session that far back. It is
+ * never zero and never the nearest bar we happen to hold.
+ */
+export async function closesAsOf(
+  db: Database,
+  query: { instrumentIds: readonly number[]; anchors: readonly CloseAnchor[] },
+): Promise<Map<number, Map<string, number>>> {
+  const { instrumentIds, anchors } = query;
+  const result = new Map<number, Map<string, number>>();
+  if (instrumentIds.length === 0 || anchors.length === 0) return result;
+
+  const ids = sql.join(
+    instrumentIds.map((id) => sql`(${id}::int)`),
+    sql`, `,
+  );
+  const cutoffs = sql.join(
+    anchors.map((anchor) => sql`(${anchor.key}::text, ${anchor.at}::timestamptz)`),
+    sql`, `,
+  );
+
+  const rows = await db.execute<{
+    instrument_id: number;
+    key: string;
+    ts: Date;
+    close: number;
+  }>(sql`
+    SELECT ids.instrument_id, anchors.key, bar.ts, bar.close
+    FROM (VALUES ${ids}) AS ids(instrument_id)
+    CROSS JOIN (VALUES ${cutoffs}) AS anchors(key, cutoff)
+    CROSS JOIN LATERAL (
+      SELECT ts, close
+      FROM daily_candles
+      WHERE daily_candles.instrument_id = ids.instrument_id
+        AND daily_candles.ts <= anchors.cutoff
+      ORDER BY daily_candles.ts DESC
+      LIMIT 1
+    ) AS bar
+  `);
+
+  const toleranceMs = new Map(
+    anchors.map((anchor) => [
+      anchor.key,
+      (anchor.toleranceDays ?? DEFAULT_ANCHOR_TOLERANCE_DAYS) * 86_400_000,
+    ]),
+  );
+  const cutoffMs = new Map(anchors.map((anchor) => [anchor.key, anchor.at.getTime()]));
+  const adjustments = await adjustmentsForMany(db, instrumentIds);
+
+  for (const row of rows.rows) {
+    const timestamp = new Date(row.ts).getTime();
+    const cutoff = cutoffMs.get(row.key);
+    const tolerance = toleranceMs.get(row.key);
+    if (cutoff === undefined || tolerance === undefined) continue;
+    if (cutoff - timestamp > tolerance) continue;
+
+    let factor = 1;
+    for (const adjustment of adjustments.get(row.instrument_id) ?? []) {
+      if (timestamp < adjustment.exDate) factor *= adjustment.ratio;
+    }
+
+    const bucket = result.get(row.instrument_id) ?? new Map<string, number>();
+    bucket.set(row.key, Math.round(row.close * factor));
+    result.set(row.instrument_id, bucket);
+  }
+
+  return result;
+}

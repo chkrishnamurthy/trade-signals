@@ -16,6 +16,10 @@ interface SearchHit {
 /**
  * Global symbol search.
  *
+ * Lives in the application header, so it is reachable from every route. Where a
+ * hit goes is the caller's decision — the dashboard and the stocks page each
+ * open their own detail drawer rather than navigating.
+ *
  * Debounced at 250ms and aborting the previous request on each keystroke — the
  * symbol master has ~10,000 rows and an un-debounced search fires a request per
  * character.
@@ -87,12 +91,14 @@ export function StockSearch({ onSelect }: { onSelect: (symbol: string) => void }
           }}
           placeholder="Search stocks…"
           aria-label="Search stocks"
-          className="w-40 sm:w-56 lg:w-72"
+          // The header owns the width — this used to hard-code its own, which
+          // fought the bar's layout once it moved out of the dashboard.
+          className="w-full"
         />
       </PopoverAnchor>
 
       <PopoverContent
-        align="end"
+        align="start"
         className="max-h-80 w-(--radix-popover-trigger-width) min-w-64 overflow-y-auto p-1"
         // Keeps the caret in the field so typing continues to filter.
         onOpenAutoFocus={(event) => event.preventDefault()}

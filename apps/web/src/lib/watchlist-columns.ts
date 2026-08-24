@@ -1,3 +1,4 @@
+import { RETURN_WINDOWS } from './return-windows';
 import type { WatchlistRowDto } from './watchlist-types';
 
 /**
@@ -12,22 +13,33 @@ import type { WatchlistRowDto } from './watchlist-types';
  * ordering, default selection, availability and the value accessors are pure
  * functions over data; rendering them is not.
  *
+ * ## Naming
+ *
+ * Headers are written out — "Change %", "Market Cap", "52W High" — rather than
+ * compressed to "Chg", "Mkt Cap", "52W H". Abbreviation is only worth a column
+ * of width where the term is standard financial shorthand (LTP, VWAP, RSI,
+ * P/E, ATR), and nowhere else: a header nobody can read costs more than the
+ * pixels it saves.
+ *
  * ## Columns with no data source
  *
- * Market cap, P/E, P/B, EPS and dividend yield are declared here with
- * `source: null`. This app's market-data provider serves quotes and OHLCV
- * history — it has no fundamentals feed, and neither does anything else in the
- * system. They are declared rather than omitted so that:
+ * Fundamentals, circuit limits, delivery percentages and the indicators the
+ * end-of-day pass does not compute are declared here with `source: null` and a
+ * reason. This app's market-data provider serves quotes and OHLCV history; it
+ * has no fundamentals feed, and neither does anything else in the system.
+ * They are declared rather than omitted so that:
  *
- *   1. the "Customize columns" panel can show them as unavailable with a
- *      reason, instead of the user wondering where P/E went;
+ *   1. the "Customize columns" panel can show them as unavailable with the
+ *      actual reason, instead of the user wondering where P/E went;
  *   2. a quick view that needs them can disable itself automatically;
- *   3. adding a fundamentals source later means filling in one accessor each,
- *      not designing the valuation columns from scratch.
+ *   3. adding a source later means filling in one accessor each, not designing
+ *      the group from scratch.
  *
  * What they must never do is render a number. CLAUDE.md is explicit that this
  * product does not display a figure it cannot substantiate, and a plausible
- * invented P/E is worse than a visible gap.
+ * invented P/E is worse than a visible gap. For the same reason none of them
+ * appears in the default layout: a column that can only ever show an em dash
+ * earns its place in the panel, not in the table.
  */
 
 export type ColumnGroup =
@@ -37,22 +49,22 @@ export type ColumnGroup =
   | 'volume'
   | 'valuation'
   | 'fundamentals'
+  | 'range52w'
   | 'technical'
-  | 'dividend'
-  | 'risk'
+  | 'signals'
   | 'market';
 
 export const COLUMN_GROUP_LABEL: Record<ColumnGroup, string> = {
   identity: 'Identity',
   price: 'Price',
   performance: 'Performance',
-  volume: 'Volume',
+  volume: 'Volume & Liquidity',
   valuation: 'Valuation',
   fundamentals: 'Fundamentals',
-  technical: 'Technical indicators',
-  dividend: 'Dividend',
-  risk: 'Risk',
-  market: 'Market information',
+  range52w: '52-Week Position',
+  technical: 'Technical Indicators',
+  signals: 'Trading Signals',
+  market: 'Market Information',
 };
 
 /** Display order of the groups in the customize panel. */
@@ -61,25 +73,31 @@ export const COLUMN_GROUP_ORDER: readonly ColumnGroup[] = [
   'price',
   'performance',
   'volume',
-  'technical',
-  'risk',
   'valuation',
   'fundamentals',
-  'dividend',
+  'range52w',
+  'technical',
+  'signals',
   'market',
 ];
 
 /** Where a column's number comes from. `null` = this app has no source. */
-export type ColumnSource = 'quote' | 'indicators' | 'instrument' | 'derived' | null;
+export type ColumnSource = 'quote' | 'indicators' | 'instrument' | 'signals' | 'derived' | null;
 
 export interface WatchlistColumn {
   readonly id: string;
-  /** Table header. Kept short — the panel carries the long form. */
+  /** Table header. Written out, not abbreviated — see the module comment. */
   readonly label: string;
   /** Long form, shown in the customize panel and the header tooltip. */
   readonly description: string;
   readonly group: ColumnGroup;
   readonly source: ColumnSource;
+  /**
+   * Why this application cannot supply the column. Set only when `source` is
+   * null, and shown verbatim in the customize panel — "no data source" without
+   * a reason just moves the user's question one step along.
+   */
+  readonly unavailableReason?: string;
   /** Right-aligns and applies tabular figures. */
   readonly numeric: boolean;
   /**
@@ -106,11 +124,59 @@ function percentFrom(value: number | null, reference: number | null): number | n
   return ((value - reference) / reference) * 100;
 }
 
+/** Where `value` sits between `low` and `high`, as 0-100. Null-safe. */
+function positionIn(value: number | null, low: number | null, high: number | null): number | null {
+  if (value === null || low === null || high === null || high === low) return null;
+  return ((value - low) / (high - low)) * 100;
+}
+
+// --- Reasons a column cannot be supplied ------------------------------------
+
+const NO_FUNDAMENTALS =
+  'No fundamentals feed — this application’s data provider serves quotes and OHLCV history only';
+const NO_CIRCUITS = 'The quote feed does not carry the exchange’s circuit limits';
+const NO_DELIVERY =
+  'Delivery figures come from the exchange’s end-of-day bhavcopy, which this application does not ingest';
+const NOT_COMPUTED = 'Not part of the stored end-of-day indicator set';
+const PER_SIGNAL_ONLY =
+  'The intraday engine publishes levels per signal, not per stock — open the signal for them';
+
+/** Sort order for the five signal directions: bearish low, bullish high. */
+const DIRECTION_RANK: Record<string, number> = {
+  strong_bearish: -2,
+  bearish: -1,
+  neutral: 0,
+  bullish: 1,
+  strong_bullish: 2,
+};
+
+/** Distance within which a name counts as sitting at its 52-week extreme. */
+const NEAR_52W_BAND = 0.05;
+
+/**
+ * The trailing-return columns, one per declared window.
+ *
+ * Generated rather than written out eight times: every one of them is the same
+ * percentage from the same kind of anchor close, and eight hand-copied blocks
+ * is eight chances for 3M to quietly read the 6M field.
+ */
+const RETURN_COLUMNS: readonly WatchlistColumn[] = RETURN_WINDOWS.map((window, index) => ({
+  id: window.id,
+  label: window.label,
+  description: `${window.description}, measured from that session’s close`,
+  group: 'performance' as const,
+  source: 'derived' as const,
+  numeric: true,
+  unit: 'percent' as const,
+  hideBelow: index < 2 ? ('lg' as const) : ('xl' as const),
+  value: (row: WatchlistRowDto) => percentFrom(row.ltp, row.returnCloses[window.id] ?? null),
+}));
+
 const COLUMNS: readonly WatchlistColumn[] = [
   {
     id: 'symbol',
     label: 'Stock',
-    description: 'Ticker and company name',
+    description: 'Company name, ticker and listing venue',
     group: 'identity',
     source: 'instrument',
     numeric: false,
@@ -143,7 +209,7 @@ const COLUMNS: readonly WatchlistColumn[] = [
   {
     id: 'changePercent',
     label: 'Change %',
-    description: 'Percentage change against the previous close',
+    description: 'Percentage change against the previous close — today’s 1D move',
     group: 'price',
     source: 'quote',
     numeric: true,
@@ -151,19 +217,8 @@ const COLUMNS: readonly WatchlistColumn[] = [
     value: (row) => row.changePercent,
   },
   {
-    id: 'open',
-    label: 'Open',
-    description: "The session's opening price",
-    group: 'price',
-    source: 'quote',
-    numeric: true,
-    unit: 'paise',
-    hideBelow: 'lg',
-    value: (row) => row.open,
-  },
-  {
     id: 'previousClose',
-    label: 'Prev Close',
+    label: 'Previous Close',
     description: 'Close of the previous session',
     group: 'price',
     source: 'quote',
@@ -171,6 +226,17 @@ const COLUMNS: readonly WatchlistColumn[] = [
     unit: 'paise',
     hideBelow: 'lg',
     value: (row) => row.previousClose,
+  },
+  {
+    id: 'open',
+    label: 'Open',
+    description: 'The session’s opening price',
+    group: 'price',
+    source: 'quote',
+    numeric: true,
+    unit: 'paise',
+    hideBelow: 'lg',
+    value: (row) => row.open,
   },
   {
     id: 'dayHigh',
@@ -195,8 +261,20 @@ const COLUMNS: readonly WatchlistColumn[] = [
     value: (row) => row.dayLow,
   },
   {
+    id: 'dayRange',
+    label: 'Day Range',
+    description:
+      'The session’s low and high, with where the last price sits between them. Sorts by that position',
+    group: 'price',
+    source: 'derived',
+    numeric: true,
+    unit: 'percent',
+    hideBelow: 'md',
+    value: (row) => positionIn(row.ltp, row.dayLow, row.dayHigh),
+  },
+  {
     id: 'averagePrice',
-    label: 'Avg Price',
+    label: 'VWAP',
     description: 'Volume-weighted average price for the session',
     group: 'price',
     source: 'quote',
@@ -206,68 +284,32 @@ const COLUMNS: readonly WatchlistColumn[] = [
     value: (row) => row.averagePrice,
   },
   {
-    id: 'dayRangePosition',
-    label: 'Day Range',
-    description: "Where the last price sits between the day's low and high",
+    id: 'upperCircuit',
+    label: 'Upper Circuit',
+    description: 'Highest price the exchange will accept today',
     group: 'price',
-    source: 'derived',
+    source: null,
+    unavailableReason: NO_CIRCUITS,
     numeric: true,
-    unit: 'percent',
-    hideBelow: 'lg',
-    value: (row) => {
-      const { dayLow: low, dayHigh: high, ltp } = row;
-      if (low === null || high === null || ltp === null || high === low) return null;
-      return ((ltp - low) / (high - low)) * 100;
-    },
+    unit: 'paise',
+    value: () => null,
+  },
+  {
+    id: 'lowerCircuit',
+    label: 'Lower Circuit',
+    description: 'Lowest price the exchange will accept today',
+    group: 'price',
+    source: null,
+    unavailableReason: NO_CIRCUITS,
+    numeric: true,
+    unit: 'paise',
+    value: () => null,
   },
 
   // --- Performance ----------------------------------------------------------
-  {
-    id: 'high52w',
-    label: '52W High',
-    description: 'Highest close over the last 52 weeks',
-    group: 'performance',
-    source: 'indicators',
-    numeric: true,
-    unit: 'paise',
-    hideBelow: 'lg',
-    value: (row) => row.high52w,
-  },
-  {
-    id: 'low52w',
-    label: '52W Low',
-    description: 'Lowest close over the last 52 weeks',
-    group: 'performance',
-    source: 'indicators',
-    numeric: true,
-    unit: 'paise',
-    hideBelow: 'lg',
-    value: (row) => row.low52w,
-  },
-  {
-    id: 'from52wHigh',
-    label: 'From 52W H',
-    description: 'Distance below the 52-week high, as a percentage',
-    group: 'performance',
-    source: 'derived',
-    numeric: true,
-    unit: 'percent',
-    hideBelow: 'md',
-    value: (row) => percentFrom(row.ltp, row.high52w),
-  },
-  {
-    id: 'from52wLow',
-    label: 'From 52W L',
-    description: 'Distance above the 52-week low, as a percentage',
-    group: 'performance',
-    source: 'derived',
-    numeric: true,
-    unit: 'percent',
-    hideBelow: 'xl',
-    value: (row) => percentFrom(row.ltp, row.low52w),
-  },
+  ...RETURN_COLUMNS,
 
-  // --- Volume ---------------------------------------------------------------
+  // --- Volume & liquidity ---------------------------------------------------
   {
     id: 'volume',
     label: 'Volume',
@@ -287,12 +329,24 @@ const COLUMNS: readonly WatchlistColumn[] = [
     source: 'indicators',
     numeric: true,
     unit: 'shares',
-    hideBelow: 'xl',
+    hideBelow: 'lg',
     value: (row) => row.averageVolume,
   },
   {
+    id: 'volumeChangePercent',
+    label: 'Volume Change %',
+    description:
+      'Session volume against the previous session’s total. Partial, and so negative, until the close',
+    group: 'volume',
+    source: 'derived',
+    numeric: true,
+    unit: 'percent',
+    hideBelow: 'xl',
+    value: (row) => percentFrom(row.volume, row.previousVolume),
+  },
+  {
     id: 'relativeVolume',
-    label: 'Rel Vol',
+    label: 'Relative Volume',
     description: 'Session volume as a multiple of the average',
     group: 'volume',
     source: 'indicators',
@@ -312,8 +366,296 @@ const COLUMNS: readonly WatchlistColumn[] = [
     hideBelow: 'xl',
     value: (row) => (row.ltp === null || row.volume === null ? null : row.ltp * row.volume),
   },
+  {
+    id: 'deliveryPercent',
+    label: 'Delivery %',
+    description: 'Share of traded volume that settled as delivery rather than intraday',
+    group: 'volume',
+    source: null,
+    unavailableReason: NO_DELIVERY,
+    numeric: true,
+    unit: 'percent',
+    value: () => null,
+  },
 
-  // --- Technical ------------------------------------------------------------
+  // --- Valuation (no source — see the module comment) ------------------------
+  {
+    id: 'marketCap',
+    label: 'Market Cap',
+    description: 'Shares outstanding × price',
+    group: 'valuation',
+    source: null,
+    unavailableReason: NO_FUNDAMENTALS,
+    numeric: true,
+    unit: 'paise',
+    value: () => null,
+  },
+  {
+    id: 'peRatio',
+    label: 'P/E',
+    description: 'Price to trailing earnings',
+    group: 'valuation',
+    source: null,
+    unavailableReason: NO_FUNDAMENTALS,
+    numeric: true,
+    unit: 'ratio',
+    value: () => null,
+  },
+  {
+    id: 'forwardPeRatio',
+    label: 'Forward P/E',
+    description: 'Price to forecast earnings',
+    group: 'valuation',
+    source: null,
+    unavailableReason: NO_FUNDAMENTALS,
+    numeric: true,
+    unit: 'ratio',
+    value: () => null,
+  },
+  {
+    id: 'pbRatio',
+    label: 'P/B',
+    description: 'Price to book value',
+    group: 'valuation',
+    source: null,
+    unavailableReason: NO_FUNDAMENTALS,
+    numeric: true,
+    unit: 'ratio',
+    value: () => null,
+  },
+  {
+    id: 'pegRatio',
+    label: 'PEG',
+    description: 'Price/earnings against the earnings growth rate',
+    group: 'valuation',
+    source: null,
+    unavailableReason: NO_FUNDAMENTALS,
+    numeric: true,
+    unit: 'ratio',
+    value: () => null,
+  },
+  {
+    id: 'evEbitda',
+    label: 'EV/EBITDA',
+    description: 'Enterprise value against operating earnings',
+    group: 'valuation',
+    source: null,
+    unavailableReason: NO_FUNDAMENTALS,
+    numeric: true,
+    unit: 'ratio',
+    value: () => null,
+  },
+  {
+    id: 'dividendYield',
+    label: 'Dividend Yield',
+    description: 'Trailing dividend as a percentage of price',
+    group: 'valuation',
+    source: null,
+    unavailableReason: NO_FUNDAMENTALS,
+    numeric: true,
+    unit: 'percent',
+    value: () => null,
+  },
+
+  // --- Fundamentals (no source) ---------------------------------------------
+  {
+    id: 'eps',
+    label: 'EPS',
+    description: 'Trailing earnings per share',
+    group: 'fundamentals',
+    source: null,
+    unavailableReason: NO_FUNDAMENTALS,
+    numeric: true,
+    unit: 'paise',
+    value: () => null,
+  },
+  {
+    id: 'epsGrowth',
+    label: 'EPS Growth',
+    description: 'Year-on-year growth in earnings per share',
+    group: 'fundamentals',
+    source: null,
+    unavailableReason: NO_FUNDAMENTALS,
+    numeric: true,
+    unit: 'percent',
+    value: () => null,
+  },
+  {
+    id: 'revenue',
+    label: 'Revenue',
+    description: 'Trailing twelve-month revenue',
+    group: 'fundamentals',
+    source: null,
+    unavailableReason: NO_FUNDAMENTALS,
+    numeric: true,
+    unit: 'paise',
+    value: () => null,
+  },
+  {
+    id: 'revenueGrowth',
+    label: 'Revenue Growth',
+    description: 'Year-on-year growth in revenue',
+    group: 'fundamentals',
+    source: null,
+    unavailableReason: NO_FUNDAMENTALS,
+    numeric: true,
+    unit: 'percent',
+    value: () => null,
+  },
+  {
+    id: 'profitGrowth',
+    label: 'Profit Growth',
+    description: 'Year-on-year growth in net profit',
+    group: 'fundamentals',
+    source: null,
+    unavailableReason: NO_FUNDAMENTALS,
+    numeric: true,
+    unit: 'percent',
+    value: () => null,
+  },
+  {
+    id: 'roe',
+    label: 'ROE',
+    description: 'Return on equity',
+    group: 'fundamentals',
+    source: null,
+    unavailableReason: NO_FUNDAMENTALS,
+    numeric: true,
+    unit: 'percent',
+    value: () => null,
+  },
+  {
+    id: 'roce',
+    label: 'ROCE',
+    description: 'Return on capital employed',
+    group: 'fundamentals',
+    source: null,
+    unavailableReason: NO_FUNDAMENTALS,
+    numeric: true,
+    unit: 'percent',
+    value: () => null,
+  },
+  {
+    id: 'debtToEquity',
+    label: 'Debt/Equity',
+    description: 'Borrowings against shareholders’ funds',
+    group: 'fundamentals',
+    source: null,
+    unavailableReason: NO_FUNDAMENTALS,
+    numeric: true,
+    unit: 'ratio',
+    value: () => null,
+  },
+  {
+    id: 'promoterHolding',
+    label: 'Promoter Holding',
+    description: 'Share of equity held by the promoter group',
+    group: 'fundamentals',
+    source: null,
+    unavailableReason: NO_FUNDAMENTALS,
+    numeric: true,
+    unit: 'percent',
+    value: () => null,
+  },
+  {
+    id: 'promoterPledge',
+    label: 'Promoter Pledge',
+    description: 'Share of the promoter holding pledged against borrowing',
+    group: 'fundamentals',
+    source: null,
+    unavailableReason: NO_FUNDAMENTALS,
+    numeric: true,
+    unit: 'percent',
+    value: () => null,
+  },
+
+  // --- 52-week position -----------------------------------------------------
+  {
+    id: 'range52w',
+    label: '52W Range',
+    description:
+      'The 52-week low and high, with where the last price sits between them. Sorts by that position',
+    group: 'range52w',
+    source: 'derived',
+    numeric: true,
+    unit: 'percent',
+    hideBelow: 'lg',
+    value: (row) => positionIn(row.ltp, row.low52w, row.high52w),
+  },
+  {
+    id: 'high52w',
+    label: '52W High',
+    description: 'Highest close over the last 52 weeks',
+    group: 'range52w',
+    source: 'indicators',
+    numeric: true,
+    unit: 'paise',
+    hideBelow: 'lg',
+    value: (row) => row.high52w,
+  },
+  {
+    id: 'low52w',
+    label: '52W Low',
+    description: 'Lowest close over the last 52 weeks',
+    group: 'range52w',
+    source: 'indicators',
+    numeric: true,
+    unit: 'paise',
+    hideBelow: 'lg',
+    value: (row) => row.low52w,
+  },
+  {
+    id: 'from52wHigh',
+    label: '% From 52W High',
+    description: 'Distance below the 52-week high, as a percentage',
+    group: 'range52w',
+    source: 'derived',
+    numeric: true,
+    unit: 'percent',
+    hideBelow: 'md',
+    value: (row) => percentFrom(row.ltp, row.high52w),
+  },
+  {
+    id: 'from52wLow',
+    label: '% From 52W Low',
+    description: 'Distance above the 52-week low, as a percentage',
+    group: 'range52w',
+    source: 'derived',
+    numeric: true,
+    unit: 'percent',
+    hideBelow: 'xl',
+    value: (row) => percentFrom(row.ltp, row.low52w),
+  },
+  {
+    id: 'near52wHigh',
+    label: 'Near 52W High',
+    description: 'Whether the price is within 5% of the 52-week high',
+    group: 'range52w',
+    source: 'derived',
+    numeric: false,
+    hideBelow: 'xl',
+    // 1 / 0 rather than a boolean so the column sorts, and null when there is
+    // no 52-week high at all — "not near it" and "we do not know" differ.
+    value: (row) => {
+      const distance = percentFrom(row.ltp, row.high52w);
+      return distance === null ? null : distance >= -NEAR_52W_BAND * 100 ? 1 : 0;
+    },
+  },
+  {
+    id: 'near52wLow',
+    label: 'Near 52W Low',
+    description: 'Whether the price is within 5% of the 52-week low',
+    group: 'range52w',
+    source: 'derived',
+    numeric: false,
+    hideBelow: 'xl',
+    value: (row) => {
+      const distance = percentFrom(row.ltp, row.low52w);
+      return distance === null ? null : distance <= NEAR_52W_BAND * 100 ? 1 : 0;
+    },
+  },
+
+  // --- Technical indicators -------------------------------------------------
   {
     id: 'rsi14',
     label: 'RSI',
@@ -324,6 +666,61 @@ const COLUMNS: readonly WatchlistColumn[] = [
     unit: 'points',
     hideBelow: 'md',
     value: (row) => row.rsi14,
+  },
+  {
+    id: 'macdHistogram',
+    label: 'MACD',
+    description: 'MACD histogram — the gap between the MACD line and its signal',
+    group: 'technical',
+    source: 'indicators',
+    numeric: true,
+    unit: 'paise',
+    hideBelow: 'xl',
+    value: (row) => row.macdHistogram,
+  },
+  {
+    id: 'sma20',
+    label: 'SMA 20',
+    description: '20-period simple moving average',
+    group: 'technical',
+    source: 'indicators',
+    numeric: true,
+    unit: 'paise',
+    hideBelow: 'xl',
+    value: (row) => row.sma20,
+  },
+  {
+    id: 'sma50',
+    label: 'SMA 50',
+    description: '50-period simple moving average',
+    group: 'technical',
+    source: 'indicators',
+    numeric: true,
+    unit: 'paise',
+    hideBelow: 'xl',
+    value: (row) => row.sma50,
+  },
+  {
+    id: 'sma100',
+    label: 'SMA 100',
+    description: '100-period simple moving average',
+    group: 'technical',
+    source: null,
+    unavailableReason: NOT_COMPUTED,
+    numeric: true,
+    unit: 'paise',
+    value: () => null,
+  },
+  {
+    id: 'sma200',
+    label: 'SMA 200',
+    description: '200-period simple moving average',
+    group: 'technical',
+    source: null,
+    unavailableReason: `${NOT_COMPUTED} — the 200-period EMA is stored instead`,
+    numeric: true,
+    unit: 'paise',
+    value: () => null,
   },
   {
     id: 'ema20',
@@ -359,43 +756,103 @@ const COLUMNS: readonly WatchlistColumn[] = [
     value: (row) => row.ema200,
   },
   {
-    id: 'sma20',
-    label: 'SMA 20',
-    description: '20-period simple moving average',
+    id: 'atr14',
+    label: 'ATR',
+    description: '14-period average true range — typical daily movement',
     group: 'technical',
     source: 'indicators',
     numeric: true,
     unit: 'paise',
     hideBelow: 'xl',
-    value: (row) => row.sma20,
+    value: (row) => row.atr14,
   },
   {
-    id: 'sma50',
-    label: 'SMA 50',
-    description: '50-period simple moving average',
+    id: 'atrPercent',
+    label: 'ATR %',
+    description: 'Average true range as a percentage of price — comparable across names',
     group: 'technical',
-    source: 'indicators',
+    source: 'derived',
     numeric: true,
-    unit: 'paise',
+    unit: 'percent',
     hideBelow: 'xl',
-    value: (row) => row.sma50,
+    value: (row) =>
+      row.atr14 === null || row.ltp === null || row.ltp === 0 ? null : (row.atr14 / row.ltp) * 100,
   },
   {
-    id: 'macdHistogram',
-    label: 'MACD',
-    description: 'MACD histogram — the gap between the MACD line and its signal',
+    id: 'adx14',
+    label: 'ADX',
+    description: '14-period average directional index — trend strength',
     group: 'technical',
-    source: 'indicators',
+    source: null,
+    unavailableReason: NOT_COMPUTED,
     numeric: true,
-    unit: 'paise',
+    unit: 'points',
+    value: () => null,
+  },
+  {
+    id: 'stochastic',
+    label: 'Stochastic',
+    description: 'Stochastic oscillator %K',
+    group: 'technical',
+    source: null,
+    unavailableReason: NOT_COMPUTED,
+    numeric: true,
+    unit: 'points',
+    value: () => null,
+  },
+  {
+    id: 'bollingerBands',
+    label: 'Bollinger Bands',
+    description: 'Position between the upper and lower Bollinger bands',
+    group: 'technical',
+    source: null,
+    unavailableReason: NOT_COMPUTED,
+    numeric: true,
+    unit: 'percent',
+    value: () => null,
+  },
+
+  // --- Trading signals ------------------------------------------------------
+  {
+    id: 'signal',
+    label: 'Signal',
+    description: 'The daily engine’s latest direction for this name',
+    group: 'signals',
+    source: 'signals',
+    numeric: false,
+    // Ranked rather than alphabetical: sorting a signal column by the word
+    // "bearish" first is not what anyone means by sorting it.
+    value: (row) => (row.signal === null ? null : (DIRECTION_RANK[row.signal.direction] ?? null)),
+  },
+  {
+    id: 'signalStrength',
+    label: 'Signal Strength',
+    description: 'Conviction behind the daily signal, 0-100 with 50 neutral',
+    group: 'signals',
+    source: 'signals',
+    numeric: true,
+    unit: 'points',
+    hideBelow: 'lg',
+    value: (row) => row.signal?.strength ?? null,
+  },
+  {
+    id: 'signalSetups',
+    label: 'Setups',
+    description: 'Named daily setups behind the signal, such as a golden cross',
+    group: 'signals',
+    source: 'signals',
+    numeric: false,
     hideBelow: 'xl',
-    value: (row) => row.macdHistogram,
+    value: (row) => {
+      const setups = row.signal?.setups ?? [];
+      return setups.length === 0 ? null : setups.join(', ');
+    },
   },
   {
     id: 'trend',
     label: 'Trend',
     description: 'How many of the 20, 50 and 200 EMAs the price is above',
-    group: 'technical',
+    group: 'signals',
     source: 'derived',
     numeric: true,
     hideBelow: 'lg',
@@ -410,81 +867,105 @@ const COLUMNS: readonly WatchlistColumn[] = [
       return emas.filter((ema) => ema !== null && ltp > ema).length;
     },
   },
-
-  // --- Risk -----------------------------------------------------------------
   {
-    id: 'atr14',
-    label: 'ATR',
-    description: '14-period average true range — typical daily movement',
-    group: 'risk',
-    source: 'indicators',
+    id: 'momentum',
+    label: 'Momentum',
+    description: 'Rate of change in price over a trailing window',
+    group: 'signals',
+    source: null,
+    unavailableReason:
+      'Needs a momentum series across sessions, which the watchlist does not load — RSI and the MACD histogram are the stored readings',
+    numeric: true,
+    unit: 'points',
+    value: () => null,
+  },
+  {
+    id: 'setupState',
+    label: 'Setup',
+    description:
+      'Today’s live intraday setup and its state — breakout, VWAP reclaim, momentum and the rest',
+    group: 'signals',
+    source: 'signals',
+    numeric: false,
+    hideBelow: 'lg',
+    value: (row) => (row.setup === null ? null : `${row.setup.kind} ${row.setup.state}`),
+  },
+  {
+    id: 'setupScore',
+    label: 'Setup Score',
+    description: 'Confluence score of today’s live intraday setup, 0-100',
+    group: 'signals',
+    source: 'signals',
+    numeric: true,
+    unit: 'points',
+    hideBelow: 'xl',
+    value: (row) => row.setup?.score ?? null,
+  },
+  {
+    id: 'entryZone',
+    label: 'Entry Zone',
+    description: 'Technical entry zone of the live setup, as a price band',
+    group: 'signals',
+    source: 'signals',
     numeric: true,
     unit: 'paise',
     hideBelow: 'xl',
-    value: (row) => row.atr14,
+    value: (row) => row.setup?.entryLow ?? null,
   },
   {
-    id: 'atrPercent',
-    label: 'ATR %',
-    description: 'Average true range as a percentage of price — comparable across names',
-    group: 'risk',
-    source: 'derived',
+    id: 'setupTarget',
+    label: 'Target',
+    description: 'First target level of the live setup',
+    group: 'signals',
+    source: 'signals',
     numeric: true,
-    unit: 'percent',
+    unit: 'paise',
     hideBelow: 'xl',
-    value: (row) =>
-      row.atr14 === null || row.ltp === null || row.ltp === 0 ? null : (row.atr14 / row.ltp) * 100,
+    value: (row) => row.setup?.target1 ?? null,
   },
-
-  // --- No data source (see the module comment) -------------------------------
   {
-    id: 'marketCap',
-    label: 'Mkt Cap',
-    description: 'Shares outstanding × price',
-    group: 'valuation',
+    id: 'setupInvalidation',
+    label: 'Invalidation',
+    description: 'The level at which the live setup stops being valid',
+    group: 'signals',
+    source: 'signals',
+    numeric: true,
+    unit: 'paise',
+    hideBelow: 'xl',
+    value: (row) => row.setup?.invalidationLevel ?? null,
+  },
+  {
+    id: 'setupRiskReward',
+    label: 'Net R:R',
+    description:
+      'Reward-to-risk of the live setup, NET of the modelled round-trip transaction cost',
+    group: 'signals',
+    source: 'signals',
+    numeric: true,
+    unit: 'ratio',
+    hideBelow: 'xl',
+    value: (row) => row.setup?.netRiskReward ?? null,
+  },
+  {
+    id: 'support',
+    label: 'Support',
+    description: 'Nearest support level below the price',
+    group: 'signals',
     source: null,
+    unavailableReason: PER_SIGNAL_ONLY,
     numeric: true,
     unit: 'paise',
     value: () => null,
   },
   {
-    id: 'peRatio',
-    label: 'P/E',
-    description: 'Price to trailing earnings',
-    group: 'valuation',
+    id: 'resistance',
+    label: 'Resistance',
+    description: 'Nearest resistance level above the price',
+    group: 'signals',
     source: null,
-    numeric: true,
-    unit: 'ratio',
-    value: () => null,
-  },
-  {
-    id: 'pbRatio',
-    label: 'P/B',
-    description: 'Price to book value',
-    group: 'valuation',
-    source: null,
-    numeric: true,
-    unit: 'ratio',
-    value: () => null,
-  },
-  {
-    id: 'eps',
-    label: 'EPS',
-    description: 'Trailing earnings per share',
-    group: 'fundamentals',
-    source: null,
+    unavailableReason: PER_SIGNAL_ONLY,
     numeric: true,
     unit: 'paise',
-    value: () => null,
-  },
-  {
-    id: 'dividendYield',
-    label: 'Div Yield',
-    description: 'Trailing dividend as a percentage of price',
-    group: 'dividend',
-    source: null,
-    numeric: true,
-    unit: 'percent',
     value: () => null,
   },
 
@@ -555,22 +1036,26 @@ export const PINNED_COLUMN_ID = 'symbol';
 /**
  * The default view: dense enough to be useful, short enough to scan.
  *
- * Deliberately eleven columns rather than everything available. A default that
- * shows twenty-four is not a more powerful product, it is one where the user's
- * first action is always to turn things off.
+ * Nine columns rather than the sixty available, and every one of them backed by
+ * a real source. A default that shows everything is not a more powerful
+ * product, it is one where the user's first action is always to turn things
+ * off; a default that shows a column this app cannot fill is worse still.
+ *
+ * Market Cap and P/E belong in this list on merit and are deliberately absent:
+ * there is no fundamentals feed, so both would be a column of em dashes. They
+ * are one click away in the customize panel, and they will join the default the
+ * day a source exists.
  */
 export const DEFAULT_COLUMN_IDS: readonly string[] = [
   'symbol',
   'ltp',
-  'change',
   'changePercent',
-  'dayHigh',
-  'dayLow',
+  'dayRange',
   'volume',
-  'relativeVolume',
+  'averageVolume',
+  'range52w',
   'rsi14',
-  'from52wHigh',
-  'sector',
+  'signal',
 ];
 
 /** True when this application has a source for the column at all. */
@@ -616,9 +1101,10 @@ export interface ColumnGroupListing {
  * Every column, grouped for the customize panel.
  *
  * `query` filters by label, description and group name, so searching
- * "dividend" finds the column and searching "moving average" finds all five.
- * Empty groups are dropped — a search that matches nothing in Volume should not
- * render an empty Volume heading.
+ * "dividend" finds the column, "moving average" finds all the averages, and
+ * "stop" finds the invalidation level it was looking for. Empty groups are
+ * dropped — a search that matches nothing in Valuation should not render an
+ * empty Valuation heading.
  */
 export function groupedColumns(query = ''): ColumnGroupListing[] {
   const q = query.trim().toLowerCase();

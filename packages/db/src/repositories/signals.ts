@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import type { Database } from '../client.js';
 import { instruments, signalFactors, signals, strategyVersions } from '../schema/index.js';
 
@@ -218,4 +218,48 @@ export async function getSignalFactors(
     })
     .from(signalFactors)
     .where(eq(signalFactors.signalId, signalId));
+}
+
+export interface InstrumentSignal {
+  readonly instrumentId: number;
+  readonly tradingDate: string;
+  readonly direction: string;
+  readonly strength: number;
+  readonly setups: readonly string[];
+  readonly close: number;
+}
+
+/**
+ * The most recent stored signal for each of a specific set of instruments.
+ *
+ * `getSignalsForDate` answers "what did the engine say on Tuesday?"; this
+ * answers "what is the latest verdict on these names?" — the watchlist's
+ * question, where the set is already chosen and a name the worker covers less
+ * often must still show its own last reading rather than nothing.
+ *
+ * DISTINCT ON therefore keys on the instrument, newest session first, and
+ * breaks a tie on the highest `strategy_version_id`: two strategy versions can
+ * both have written a row for the same session, and the newer config is the one
+ * the rest of the product is running.
+ */
+export async function latestSignalsForInstruments(
+  db: Database,
+  instrumentIds: readonly number[],
+): Promise<Map<number, InstrumentSignal>> {
+  if (instrumentIds.length === 0) return new Map();
+
+  const rows = await db
+    .selectDistinctOn([signals.instrumentId], {
+      instrumentId: signals.instrumentId,
+      tradingDate: signals.tradingDate,
+      direction: signals.direction,
+      strength: signals.strength,
+      setups: signals.setups,
+      close: signals.close,
+    })
+    .from(signals)
+    .where(inArray(signals.instrumentId, [...instrumentIds]))
+    .orderBy(signals.instrumentId, desc(signals.tradingDate), desc(signals.strategyVersionId));
+
+  return new Map(rows.map((row) => [row.instrumentId, row]));
 }

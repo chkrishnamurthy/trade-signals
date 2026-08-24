@@ -13,6 +13,51 @@
  * rest of the list has yesterday's.
  */
 
+import type { SignalDirection } from './dashboard-types';
+import type { ReturnCloses } from './return-windows';
+
+/**
+ * The daily engine's latest verdict on a name.
+ *
+ * Read from stored `signals` rows — the web app never recomputes one (hard
+ * rule 8). `tradingDate` is the CLOSED session it describes, which is not
+ * necessarily the session the indicators on the same row describe.
+ */
+export interface RowSignalDto {
+  readonly direction: SignalDirection;
+  /** 0-100, 50 neutral. Explained by the stored factor breakdown. */
+  readonly strength: number;
+  /** Named setups, e.g. "Golden cross". */
+  readonly setups: readonly string[];
+  readonly tradingDate: string;
+}
+
+/**
+ * Today's live intraday setup for a name, if the worker has one open.
+ *
+ * Every price here is a technical LEVEL on a chart, in paise — never an order,
+ * a position or a quantity (CLAUDE.md). `netRiskReward` is net of the modelled
+ * round-trip cost, which is the only reward-to-risk figure this product is
+ * allowed to publish.
+ */
+export interface RowSetupDto {
+  /** `breakout`, `vwap_reclaim`, … */
+  readonly kind: string;
+  /** `long` or `short`. Rendered as BUY / SELL, and nothing more. */
+  readonly direction: string;
+  /** `watching` | `armed` | `active` … */
+  readonly state: string;
+  /** 0-100 confluence score. */
+  readonly score: number;
+  /** `exceptional` | `strong` | `good` | `watch`. */
+  readonly quality: string;
+  readonly entryLow: number;
+  readonly entryHigh: number;
+  readonly invalidationLevel: number;
+  readonly target1: number;
+  readonly netRiskReward: number | null;
+}
+
 export interface WatchlistRowDto {
   readonly instrumentId: number;
   readonly symbol: string;
@@ -52,6 +97,30 @@ export interface WatchlistRowDto {
   readonly low52w: number | null;
   readonly averageVolume: number | null;
   readonly relativeVolume: number | null;
+  /**
+   * Volume of the session the indicators describe.
+   *
+   * Carried so "Volume Change %" compares today against a real previous total
+   * rather than against the average, which `relativeVolume` already covers.
+   */
+  readonly previousVolume: number | null;
+
+  // --- Trailing returns -----------------------------------------------------
+  /**
+   * Adjusted CLOSES at each return window's anchor session, paise, keyed by
+   * window id.
+   *
+   * Closes rather than percentages, so the percentage is computed against the
+   * same live `ltp` the rest of the row shows. A server-side percentage would
+   * be stale against the price beside it the moment the quote moved.
+   *
+   * A missing key means no session that far back — never zero.
+   */
+  readonly returnCloses: ReturnCloses;
+
+  // --- Signals --------------------------------------------------------------
+  readonly signal: RowSignalDto | null;
+  readonly setup: RowSetupDto | null;
 }
 
 export interface WatchlistSummaryDto {

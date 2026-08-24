@@ -416,6 +416,67 @@ export async function getLiveIntradaySignals(
     .orderBy(desc(intradaySignals.score));
 }
 
+export interface InstrumentSetup {
+  readonly instrumentId: number;
+  readonly kind: string;
+  readonly direction: string;
+  readonly state: string;
+  readonly score: number;
+  readonly quality: string;
+  readonly entryLow: number;
+  readonly entryHigh: number;
+  readonly invalidationLevel: number;
+  readonly target1: number;
+  readonly netRiskReward: number | null;
+}
+
+/**
+ * The strongest live setup for each of a specific set of instruments.
+ *
+ * A narrow projection on purpose. `getLiveIntradaySignals` returns whole
+ * signals, jsonb snapshots included, because the transition step needs them;
+ * the watchlist needs eleven scalars per row and refreshes every fifteen
+ * seconds while the market is open, so pulling the snapshots there would be
+ * megabytes an hour of JSON nothing reads.
+ *
+ * DISTINCT ON keys on the instrument with the highest score first: a name can
+ * legitimately have several setups open at once, and a single column has room
+ * for the best of them.
+ */
+export async function liveSetupsForInstruments(
+  db: Database,
+  tradingDate: string,
+  instrumentIds: readonly number[],
+): Promise<Map<number, InstrumentSetup>> {
+  if (instrumentIds.length === 0) return new Map();
+
+  const rows = await db
+    .selectDistinctOn([intradaySignals.instrumentId], {
+      instrumentId: intradaySignals.instrumentId,
+      kind: intradaySignals.kind,
+      direction: intradaySignals.direction,
+      state: intradaySignals.state,
+      score: intradaySignals.score,
+      quality: intradaySignals.quality,
+      entryLow: intradaySignals.entryLow,
+      entryHigh: intradaySignals.entryHigh,
+      invalidationLevel: intradaySignals.invalidationLevel,
+      target1: intradaySignals.target1,
+      netRiskReward: intradaySignals.netRiskReward,
+    })
+    .from(intradaySignals)
+    .where(
+      and(
+        eq(intradaySignals.tradingDate, tradingDate),
+        isNull(intradaySignals.endedAt),
+        inArray(intradaySignals.instrumentId, [...instrumentIds]),
+      ),
+    )
+    .orderBy(intradaySignals.instrumentId, desc(intradaySignals.score));
+
+  return new Map(rows.map((row) => [row.instrumentId, row]));
+}
+
 /**
  * Setups that ended recently, for the cool-down.
  *
