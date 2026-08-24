@@ -25,4 +25,11 @@ export {
   paperTrades,
 } from './intraday.js';
 export { signalFactors, signals, strategyVersions } from './signals.js';
-export { alertEvents, alerts, watchlistItems, watchlists } from './watchlists.js';
+export {
+  alertEvents,
+  alerts,
+  watchlistItems,
+  watchlistLayouts,
+  watchlists,
+  watchlistViews,
+} from './watchlists.js';

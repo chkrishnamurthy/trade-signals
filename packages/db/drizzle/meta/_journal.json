@@ -64,6 +64,13 @@
       "when": 1787465163433,
       "tag": "0008_sweet_chamber",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1787561029287,
+      "tag": "0009_simple_fat_cobra",
+      "breakpoints": true
     }
   ]
 }
