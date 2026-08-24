@@ -28,6 +28,7 @@ import {
   PageContent,
   PageDescription,
   PageHeader,
+  PageHeading,
   PageTitle,
   Section,
   SectionDescription,
@@ -198,13 +199,13 @@ export function DesignSystem() {
     <AppShell>
       <PageContainer width="narrow">
         <PageHeader>
-          <div className="min-w-0">
+          <PageHeading>
             <PageTitle>Design system</PageTitle>
             <PageDescription>
-              Every token and shared component in the product, rendered from the same imports a
-              feature page uses. Toggle the theme in the topbar to check both palettes.
+              Every token and shared component, rendered from the same imports a feature page uses.
+              Toggle the theme in the topbar to check both palettes.
             </PageDescription>
-          </div>
+          </PageHeading>
         </PageHeader>
 
         <PageContent>

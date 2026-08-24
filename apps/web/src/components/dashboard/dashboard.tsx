@@ -10,10 +10,13 @@ import {
 import { AppShell } from '@/components/layout/app-shell';
 import { ContentGrid, GridMain, GridRail } from '@/components/layout/grid';
 import {
+  PageActions,
   PageContainer,
   PageContent,
   PageDescription,
+  PageDisclaimer,
   PageHeader,
+  PageHeading,
   PageTitle,
 } from '@/components/layout/page';
 import { LastUpdated, MarketStatus } from '@/components/market/market-status';
@@ -92,10 +95,31 @@ export function Dashboard({ indexKey = 'nifty50' }: { indexKey?: string }) {
     </>
   );
 
+  // Built once and rendered in both branches. When the feed is down the user
+  // still needs to know which page failed, so the error state keeps its header
+  // rather than dropping the user onto an unlabelled screen.
+  const header = (
+    <PageHeader>
+      <PageHeading>
+        <PageTitle>Market overview</PageTitle>
+        <PageDescription>
+          How the market is trading today — indices, breadth, sector strength and the biggest moves.
+        </PageDescription>
+      </PageHeading>
+      <PageActions className="sm:hidden">
+        <MarketStatus
+          phase={data?.market.phase ?? 'unknown'}
+          isOpen={data?.market.isOpen ?? false}
+        />
+      </PageActions>
+    </PageHeader>
+  );
+
   if (dashboard.status === 'error') {
     return (
       <AppShell topbar={topbar}>
         <PageContainer width="narrow">
+          {header}
           <ConnectionError
             detail={dashboard.error.remedy ?? dashboard.error.error}
             onRetry={refresh}
@@ -108,21 +132,7 @@ export function Dashboard({ indexKey = 'nifty50' }: { indexKey?: string }) {
   return (
     <AppShell topbar={topbar}>
       <PageContainer>
-        <PageHeader>
-          <div className="min-w-0">
-            <PageTitle>Market dashboard</PageTitle>
-            <PageDescription>
-              Indices, breadth, sectors and technical setups across the NIFTY 50. Decision support
-              only — orders are placed elsewhere.
-            </PageDescription>
-          </div>
-          <div className="flex items-center gap-2 sm:hidden">
-            <MarketStatus
-              phase={data?.market.phase ?? 'unknown'}
-              isOpen={data?.market.isOpen ?? false}
-            />
-          </div>
-        </PageHeader>
+        {header}
 
         {data === null ? (
           <DashboardSkeleton />
@@ -224,18 +234,18 @@ export function Dashboard({ indexKey = 'nifty50' }: { indexKey?: string }) {
               <MarketActivity events={signalData?.activity ?? []} loading={signalsLoading} />
             </ContentGrid>
 
-            <footer className="flex flex-wrap items-center justify-between gap-2 pb-6 text-xs text-muted-foreground">
-              <span>
-                {data.quotes.length} constituents · updated {istTime(data.fetchedAt)} IST
-                {data.cached && ' · cached'}
-                {isRefreshing && ' · refreshing'}
-              </span>
-              <span>
-                Technical analysis only. Not investment advice.
-                {signalData !== null &&
-                  signalData.skipped.length > 0 &&
-                  ` No history for: ${signalData.skipped.join(', ')}`}
-              </span>
+            <footer className="flex flex-col gap-2 pb-6">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-muted-foreground text-xs">
+                <span>
+                  {data.quotes.length} constituents · updated {istTime(data.fetchedAt)} IST
+                  {data.cached && ' · cached'}
+                  {isRefreshing && ' · refreshing'}
+                </span>
+                {signalData !== null && signalData.skipped.length > 0 && (
+                  <span>No history for: {signalData.skipped.join(', ')}</span>
+                )}
+              </div>
+              <PageDisclaimer />
             </footer>
           </PageContent>
         )}

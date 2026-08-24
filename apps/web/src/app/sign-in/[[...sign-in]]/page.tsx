@@ -25,7 +25,7 @@ export default function SignInPage() {
             W
           </span>
           <h1 className="font-semibold text-base tracking-tight">WealthOS</h1>
-          <p className="text-muted-foreground text-sm">NSE market analysis</p>
+          <p className="text-muted-foreground text-sm">Sign in to continue</p>
         </div>
         <SignIn fallbackRedirectUrl="/dashboard" />
       </div>

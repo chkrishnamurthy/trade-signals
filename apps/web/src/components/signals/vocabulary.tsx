@@ -1,4 +1,5 @@
 import type * as React from 'react';
+import { PageDisclaimer } from '@/components/layout/page';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { qualityVariant, stateVariant } from '@/lib/intraday-display';
@@ -123,11 +124,9 @@ export function TimeframeBadge({ signal }: { signal: IntradaySignalDto }) {
  */
 export function SignalsDisclaimer({ className }: { className?: string | undefined }) {
   return (
-    <p className={cn('text-xs text-subtle-foreground', className)}>
-      Technical-analysis decision support, not investment advice. Scores describe how many
-      independent technical conditions align — not a probability of profit. Orders, if any, are
-      placed elsewhere.
-    </p>
+    <PageDisclaimer className={className}>
+      Scores describe how many independent technical conditions align — not a probability of profit.
+    </PageDisclaimer>
   );
 }
 

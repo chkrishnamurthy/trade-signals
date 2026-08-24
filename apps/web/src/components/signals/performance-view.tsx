@@ -14,10 +14,12 @@ import { MetricCard, MetricHint } from '@/components/data-display/metric-card';
 import { AppShell } from '@/components/layout/app-shell';
 import { ContentGrid } from '@/components/layout/grid';
 import {
+  PageBreadcrumb,
   PageContainer,
   PageContent,
   PageDescription,
   PageHeader,
+  PageHeading,
   PageTitle,
   Section,
   SectionDescription,
@@ -338,7 +340,8 @@ function Shell({ children }: { children: React.ReactNode }) {
     <AppShell>
       <PageContainer>
         <PageHeader>
-          <div>
+          <PageHeading>
+            <PageBreadcrumb trail={[{ label: 'Intraday signals', href: '/signals' }]} />
             <div className="flex flex-wrap items-center gap-2">
               <PageTitle>Signal performance</PageTitle>
               <Badge variant="outline" size="sm">
@@ -346,11 +349,10 @@ function Shell({ children }: { children: React.ReactNode }) {
               </Badge>
             </div>
             <PageDescription>
-              What actually happened to every intraday signal that triggered, measured against the
-              tape and charged real transaction costs. A scorecard for the engine, not for your
-              trading.
+              How past signals actually turned out once graded against the tape and charged real
+              transaction costs — a scorecard for the engine, not for your trading.
             </PageDescription>
-          </div>
+          </PageHeading>
         </PageHeader>
         <PageContent>{children}</PageContent>
       </PageContainer>

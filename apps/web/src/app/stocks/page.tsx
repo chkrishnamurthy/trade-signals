@@ -2,9 +2,9 @@ import type { Metadata } from 'next';
 import { StocksPage } from '@/components/stocks/stocks-page';
 
 export const metadata: Metadata = {
-  title: 'Stocks — WealthOS',
+  title: 'All stocks — WealthOS',
   description:
-    'Every NSE constituent we track, with its latest quote and daily indicators, filterable by sector. Decision support, not advice.',
+    "Every NSE name we track, with today's price and its daily technical readings. Filter by sector to compare like with like.",
 };
 
 /** Reads live quotes on every request; never prerender. */

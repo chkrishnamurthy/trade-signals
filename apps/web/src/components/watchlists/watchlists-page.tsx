@@ -8,10 +8,14 @@ import { ErrorState } from '@/components/data-display/states';
 import { ActiveFilters, SearchInput } from '@/components/forms/filter-bar';
 import { AppShell } from '@/components/layout/app-shell';
 import {
+  PageActions,
+  PageBreadcrumb,
   PageContainer,
   PageContent,
   PageDescription,
+  PageDisclaimer,
   PageHeader,
+  PageHeading,
   PageTitle,
 } from '@/components/layout/page';
 import { LastUpdated, MarketStatus } from '@/components/market/market-status';
@@ -169,6 +173,14 @@ export function WatchlistsPage() {
     return (
       <AppShell topbar={topbar}>
         <PageContainer width="narrow">
+          <PageHeader>
+            <PageHeading>
+              <PageTitle>My watchlists</PageTitle>
+              <PageDescription>
+                Live prices and daily technical readings for the names you follow.
+              </PageDescription>
+            </PageHeading>
+          </PageHeader>
           <ErrorState
             title="Could not load your watchlists"
             description={lists.error.remedy ?? 'The database did not respond.'}
@@ -186,17 +198,24 @@ export function WatchlistsPage() {
   return (
     <AppShell topbar={topbar}>
       <PageContainer>
+        {/* With a list open its NAME is the title, because that is what the user
+            navigated to. The breadcrumb above it is then the only thing saying
+            which section they are in, which is exactly what it is for. */}
         <PageHeader>
-          <div className="min-w-0">
-            <PageTitle>{hasList ? data.watchlist.name : 'Watchlists'}</PageTitle>
+          <PageHeading>
+            {hasList && (
+              <PageBreadcrumb trail={[{ label: 'My watchlists', href: '/watchlists' }]} />
+            )}
+            <PageTitle>{hasList ? data.watchlist.name : 'My watchlists'}</PageTitle>
             <PageDescription>
-              The names you follow, with live prices and the daily indicators the worker computed
-              for them. Technical observations, not advice.
+              {hasList
+                ? 'Live prices and daily technical readings for the names on this list.'
+                : 'Group the stocks you follow and track their prices and technical readings side by side.'}
             </PageDescription>
-          </div>
+          </PageHeading>
 
           {hasList && (
-            <div className="flex shrink-0 items-center gap-1.5">
+            <PageActions>
               <AddStocks
                 existingSymbols={allRows.map((row) => row.symbol)}
                 onAdd={async (symbols) => {
@@ -204,7 +223,7 @@ export function WatchlistsPage() {
                   return result.ok ? { ok: true } : { ok: false, error: result.error.error };
                 }}
               />
-            </div>
+            </PageActions>
           )}
         </PageHeader>
 
@@ -363,6 +382,8 @@ export function WatchlistsPage() {
                 />
               </>
             )}
+
+            <PageDisclaimer />
           </PageContent>
         </div>
       </PageContainer>

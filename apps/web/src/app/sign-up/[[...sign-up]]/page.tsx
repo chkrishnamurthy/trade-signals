@@ -19,7 +19,7 @@ export default function SignUpPage() {
             W
           </span>
           <h1 className="font-semibold text-base tracking-tight">WealthOS</h1>
-          <p className="text-muted-foreground text-sm">NSE market analysis</p>
+          <p className="text-muted-foreground text-sm">Create your account</p>
         </div>
         <SignUp fallbackRedirectUrl="/dashboard" />
       </div>

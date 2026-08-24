@@ -3,9 +3,9 @@ import { PerformanceView } from '@/components/signals/performance-view';
 import { getPaperResults } from '@/server/paper-trades';
 
 export const metadata: Metadata = {
-  title: 'Signal accuracy — WealthOS',
+  title: 'Signal performance — WealthOS',
   description:
-    'Paper-traded outcomes of every intraday signal that triggered, charged real transaction costs. Measurement, not advice.',
+    'How past signals actually turned out once graded against the tape and charged real transaction costs.',
 };
 
 /** Reads recorded outcomes on every request; never prerender. */

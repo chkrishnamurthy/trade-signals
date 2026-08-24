@@ -3,7 +3,8 @@ import { DesignSystem } from '@/components/design-system/design-system';
 
 export const metadata: Metadata = {
   title: 'Design system — WealthOS',
-  description: 'Tokens, components and usage rules for the WealthOS interface.',
+  description:
+    'Every token and shared component, rendered from the same imports a feature page uses.',
 };
 
 export default function DesignSystemPage() {

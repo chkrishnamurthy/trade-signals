@@ -21,6 +21,12 @@ import type { Route } from 'next';
  * omitted: the shape of the product should be visible, and a dead link is
  * worse than a disabled one.
  *
+ * `label` is the page's title, verbatim. They drifted apart once — the nav said
+ * "Signal accuracy", the tab said "Signal accuracy" and the heading said
+ * "Signal performance", three names for one screen — so the rule now is that
+ * clicking a nav row lands you on a page whose `<h1>` reads exactly what you
+ * clicked.
+ *
  * `href` is only present on `ready` entries — `typedRoutes` will not accept a
  * link to a route that does not exist, which is exactly the guard we want.
  */
@@ -53,7 +59,7 @@ export const NAVIGATION: readonly NavGroup[] = [
       {
         status: 'ready',
         href: '/dashboard',
-        label: 'Dashboard',
+        label: 'Market overview',
         icon: LayoutDashboardIcon,
         description: 'Indices, breadth, sectors and movers',
       },
@@ -66,9 +72,9 @@ export const NAVIGATION: readonly NavGroup[] = [
       {
         status: 'ready',
         href: '/stocks',
-        label: 'Stocks',
+        label: 'All stocks',
         icon: CandlestickChartIcon,
-        description: 'Every tracked name, by sector',
+        description: 'Every name we track, with its daily readings',
       },
     ],
   },
@@ -78,16 +84,16 @@ export const NAVIGATION: readonly NavGroup[] = [
       {
         status: 'ready',
         href: '/signals',
-        label: 'Trade signals',
+        label: 'Intraday signals',
         icon: ActivityIcon,
-        description: 'Intraday setups, scored and explained',
+        description: "Today's setups, scored and explained",
       },
       {
         status: 'ready',
         href: '/signals/performance',
-        label: 'Signal accuracy',
+        label: 'Signal performance',
         icon: TargetIcon,
-        description: 'Paper outcomes of triggered signals',
+        description: 'How past signals actually turned out',
       },
       {
         status: 'planned',
@@ -109,9 +115,9 @@ export const NAVIGATION: readonly NavGroup[] = [
       {
         status: 'ready',
         href: '/watchlists',
-        label: 'Watchlists',
+        label: 'My watchlists',
         icon: ListIcon,
-        description: 'Instruments you are following',
+        description: 'The names you have chosen to follow',
       },
       {
         status: 'planned',

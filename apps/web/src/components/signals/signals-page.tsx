@@ -6,10 +6,12 @@ import { CardSkeleton, EmptyState, ErrorState } from '@/components/data-display/
 import { AppShell } from '@/components/layout/app-shell';
 import { ContentGrid } from '@/components/layout/grid';
 import {
+  PageActions,
   PageContainer,
   PageContent,
   PageDescription,
   PageHeader,
+  PageHeading,
   PageTitle,
   Section,
   SectionDescription,
@@ -95,6 +97,15 @@ export function SignalsPage() {
     return (
       <AppShell topbar={topbar}>
         <PageContainer width="narrow">
+          <PageHeader>
+            <PageHeading>
+              <PageTitle>Intraday signals</PageTitle>
+              <PageDescription>
+                Technical setups forming in today&rsquo;s session, each scored on how many
+                independent conditions agree.
+              </PageDescription>
+            </PageHeading>
+          </PageHeader>
           <ErrorState
             title="Could not load intraday signals"
             description={feed.error.remedy ?? 'The signals store is unreachable.'}
@@ -109,16 +120,19 @@ export function SignalsPage() {
   return (
     <AppShell topbar={topbar}>
       <PageContainer>
+        {/* One sentence. The full "what confluence means, and that these are
+            intraday only" explanation used to live here and wrapped to three
+            lines above the densest table in the product; it now sits in the
+            footer disclaimer and on the signal cards themselves. */}
         <PageHeader>
-          <div className="min-w-0">
-            <PageTitle>Intraday trade signals</PageTitle>
+          <PageHeading>
+            <PageTitle>Intraday signals</PageTitle>
             <PageDescription>
-              Live technical setups for today&rsquo;s session, scored on confluence across trend,
-              price action, momentum, volume, VWAP and market context. Intraday only — every setup
-              is expected to be exited before the session ends. Orders are placed elsewhere.
+              Technical setups forming in today&rsquo;s session, each scored on how many independent
+              conditions agree.
             </PageDescription>
-          </div>
-          <div className="flex items-center gap-2">
+          </PageHeading>
+          <PageActions>
             <div className="flex items-center gap-2 sm:hidden">
               <MarketStatus
                 phase={data?.market.phase ?? 'unknown'}
@@ -145,7 +159,7 @@ export function SignalsPage() {
               <RefreshCwIcon className={isRefreshing ? 'animate-spin' : undefined} />
               Refresh
             </Button>
-          </div>
+          </PageActions>
         </PageHeader>
 
         {data === null ? (

@@ -2,8 +2,9 @@ import type { Metadata } from 'next';
 import { Dashboard } from '@/components/dashboard/dashboard';
 
 export const metadata: Metadata = {
-  title: 'Market dashboard — WealthOS',
-  description: 'Live NSE market overview, breadth, sectors and technical signals from Fyers.',
+  title: 'Market overview — WealthOS',
+  description:
+    'How the market is trading today — indices, breadth, sector strength and the biggest moves.',
 };
 
 /** Live market data; never prerender. */

@@ -2,9 +2,9 @@ import type { Metadata } from 'next';
 import { SignalsPage } from '@/components/signals/signals-page';
 
 export const metadata: Metadata = {
-  title: 'Intraday trade signals — WealthOS',
+  title: 'Intraday signals — WealthOS',
   description:
-    'Same-day intraday technical setups across the NIFTY 50, scored on confluence and explained factor by factor. Decision support, not advice.',
+    "Technical setups forming in today's session, each scored on how many independent conditions agree.",
 };
 
 /** Reads the live signal store on every request; never prerender. */

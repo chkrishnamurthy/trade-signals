@@ -6,10 +6,13 @@ import { ErrorState, SkeletonRows } from '@/components/data-display/states';
 import { ActiveFilters, FilterBar, FilterGroup, SearchInput } from '@/components/forms/filter-bar';
 import { AppShell } from '@/components/layout/app-shell';
 import {
+  PageActions,
   PageContainer,
   PageContent,
   PageDescription,
+  PageDisclaimer,
   PageHeader,
+  PageHeading,
   PageTitle,
 } from '@/components/layout/page';
 import { LastUpdated, MarketStatus } from '@/components/market/market-status';
@@ -90,10 +93,30 @@ export function StocksPage() {
     </div>
   );
 
+  // Built once and rendered in both branches, so a failed load still says which
+  // page the user is on.
+  const header = (
+    <PageHeader>
+      <PageHeading>
+        <PageTitle>All stocks</PageTitle>
+        <PageDescription>
+          Every NSE name we track, with today&rsquo;s price and its daily technical readings. Filter
+          by sector to compare like with like.
+        </PageDescription>
+      </PageHeading>
+      <PageActions>
+        <Button variant="outline" size="sm" onClick={refresh} disabled={isRefreshing}>
+          {isRefreshing ? 'Refreshing…' : 'Refresh'}
+        </Button>
+      </PageActions>
+    </PageHeader>
+  );
+
   if (stocks.status === 'error') {
     return (
       <AppShell topbar={topbar}>
         <PageContainer width="narrow">
+          {header}
           <ErrorState
             title="Could not load the stock list"
             description={stocks.error.remedy ?? 'The market-data provider did not respond.'}
@@ -110,18 +133,7 @@ export function StocksPage() {
   return (
     <AppShell topbar={topbar}>
       <PageContainer>
-        <PageHeader>
-          <div className="min-w-0">
-            <PageTitle>Stocks</PageTitle>
-            <PageDescription>
-              Every constituent we track, with its latest quote and daily indicators. Filter by
-              sector to compare like with like.
-            </PageDescription>
-          </div>
-          <Button variant="outline" size="sm" onClick={refresh} disabled={isRefreshing}>
-            {isRefreshing ? 'Refreshing…' : 'Refresh'}
-          </Button>
-        </PageHeader>
+        {header}
 
         <PageContent>
           {data !== null && data.missing.length > 0 && (
@@ -221,7 +233,7 @@ export function StocksPage() {
           />
 
           {data !== null && (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-muted-foreground text-xs">
               Showing {rows.length} of {data.rows.length} tracked names
               {technicalData === null && ' · indicators still loading'}
               {technicalData !== null &&
@@ -229,6 +241,8 @@ export function StocksPage() {
                 ` · no daily history for ${technicalData.skipped.join(', ')}`}
             </p>
           )}
+
+          <PageDisclaimer />
         </PageContent>
       </PageContainer>
 
