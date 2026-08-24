@@ -76,6 +76,52 @@ const PAGE = (title: string, body: string, ok: boolean): string => `<!doctype ht
 </style></head>
 <body><div class="card"><h1>${title}</h1>${body}</div></body></html>`;
 
+/**
+ * Persists the freshly minted token where every process actually reads it.
+ *
+ * `.env` and the file cache only reach a process that is started afterwards on
+ * this host. Since the credential table landed, `apps/web` and the worker read
+ * `provider_credentials` first, and a login that skipped it left them running
+ * on yesterday's expired token — every history call failing with "the
+ * market-data credential has expired", no candles ingested, and an intraday
+ * page that looks like a quiet market rather than a dead feed.
+ *
+ * Reached through the worker's own composition root rather than a second
+ * provider id of our own, so there is exactly one place that decides what this
+ * provider is called.
+ */
+async function storeCredential(
+  accessToken: string,
+  appId: string,
+  expiresAt: Date,
+): Promise<boolean> {
+  try {
+    const { saveProviderCredential } = await import('@wealthos/db');
+    const { createContext } = await import('../apps/worker/src/context.js');
+    const context = createContext();
+    try {
+      await saveProviderCredential(context.db, {
+        providerId: context.providerId,
+        appId,
+        accessToken,
+        expiresAt,
+      });
+    } finally {
+      await context.close();
+    }
+    return true;
+  } catch (error) {
+    // Not fatal: the token is already in .env, so a local run still works.
+    console.warn(
+      `\nWarning: could not write the credential to the database — ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+    console.warn('The web app will fall back to FYERS_ACCESS_TOKEN from .env.');
+    return false;
+  }
+}
+
 async function main(): Promise<void> {
   const credentials: FyersCredentials = {
     appId: required('FYERS_APP_ID'),
@@ -179,12 +225,20 @@ async function main(): Promise<void> {
     appId: credentials.appId,
   });
   await updateEnvValue('FYERS_ACCESS_TOKEN', accessToken);
+  const stored = await storeCredential(accessToken, credentials.appId, expiresAt);
 
   console.log('\nAccess token saved.');
   console.log(`  .env                 FYERS_ACCESS_TOKEN`);
   console.log(`  cache                .fyers-token.json (mode 0600)`);
+  console.log(
+    `  credential store     ${stored ? 'provider_credentials (database)' : 'SKIPPED — see the warning above'}`,
+  );
   console.log(`  valid until          ${toIstIsoString(expiresAt)}`);
-  console.log('\nNext:  pnpm verify:adjustment\n');
+  console.log('\nNext:  pnpm verify:intraday --dry\n');
+  if (stored) {
+    console.log('Restart the worker so it picks the new token up immediately:');
+    console.log('  pnpm --filter @wealthos/worker dev\n');
+  }
 }
 
 main().catch((error: unknown) => {

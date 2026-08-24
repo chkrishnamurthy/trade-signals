@@ -65,6 +65,15 @@ const MS_PER_DAY = 86_400_000;
 /** Prior daily sessions read per symbol — enough for liquidity and levels. */
 const DAILY_LOOKBACK = 40;
 
+/**
+ * Minutes after the open before an empty session counts as a fault.
+ *
+ * Long enough that the first closed candles have certainly been written, short
+ * enough that a feed which died overnight is called out on the morning's second
+ * cycle rather than at lunchtime.
+ */
+const EMPTY_SESSION_GRACE_MINUTES = 5;
+
 export interface IntradayCycleResult {
   readonly tradingDate: string;
   readonly regime: string;
@@ -211,10 +220,23 @@ async function execute(
     kind: 'equity' as const,
   }));
   if (ingest) {
-    await ingestIntradayCandles(context, log.child('ingest'), {
+    const ingested = await ingestIntradayCandles(context, log.child('ingest'), {
       now,
       refs: [...contextRefs, ...equityRefs],
     });
+    // A feed that fetched nothing at all is not a quiet market, it is a broken
+    // one — almost always an expired credential — and the two are impossible
+    // to tell apart from the signals page, which simply shows nothing. Say so
+    // here, with the remedy, rather than letting the cycle report "evaluated
+    // 50, created 0" and look healthy.
+    if (ingested.succeeded === 0 && ingested.requested > 0) {
+      log.error('no symbol returned candles; the market-data feed is down', {
+        requested: ingested.requested,
+        failed: ingested.failed.length,
+        remedy:
+          'Check the credential — `pnpm fyers:login` mints a new one. Until it is fixed no signals can be produced.',
+      });
+    }
   }
 
   // --- 2. Resolve instrument ids ------------------------------------------
@@ -255,6 +277,11 @@ async function execute(
   // cache answers — but that first read is fifty symbols × ten sessions, and
   // paying fifty round-trip latencies for it delays the morning's first signals
   // by minutes.
+  // How long the continuous session has been running. In the first minutes
+  // after the open a symbol legitimately has no CLOSED candle yet, so an empty
+  // series only means a broken feed once past that.
+  const sessionElapsedMinutes = Math.floor((now.getTime() - sessionFrom.getTime()) / 60_000);
+
   const readStarted = Date.now();
   await primePriorMinutes(db, sessionCache, instrumentIds, profileFrom, sessionFrom);
   await primeDailyBars(db, sessionCache, instrumentIds, now);
@@ -282,6 +309,15 @@ async function execute(
       const daily = sessionCache.dailyBars.get(instrumentId) ?? [];
       const prior = sessionCache.priorMinutes.get(instrumentId) ?? [];
       const volumeProfile = volumeProfileFor(sessionCache, instrumentId, prior, config);
+
+      // No bars for today means there is nothing to measure. Recorded as a
+      // skip rather than evaluated against an empty session: the engine would
+      // return no candidates either way, but the run row would then claim it
+      // evaluated fifty symbols when it saw no prices at all.
+      if (minute.length === 0 && sessionElapsedMinutes >= EMPTY_SESSION_GRACE_MINUTES) {
+        skipped.push({ symbol: constituent.symbol, reason: 'No candles stored for today' });
+        continue;
+      }
 
       const previousClose = daily.at(-1)?.close ?? null;
       const last = minute.at(-1)?.close ?? null;

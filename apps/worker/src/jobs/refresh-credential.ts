@@ -71,9 +71,24 @@ export async function refreshProviderCredential(
   const config = readRefreshConfig(process.env);
   if (config === null) {
     // A worker with no minting secrets is a valid configuration — the operator
-    // logs in by hand and pastes the token. Say so once rather than failing.
-    log.info('unattended login not configured; using FYERS_ACCESS_TOKEN as given', {
-      remedy: 'Set FYERS_ID, FYERS_TOTP_SECRET and FYERS_PIN to refresh automatically.',
+    // logs in by hand. It must still adopt what that login stored: `pnpm
+    // fyers:login` writes the credential table, and a worker that only ever
+    // trusted its own start-up environment would keep sending the expired
+    // token it booted with until it was restarted, with every history call
+    // failing and the intraday page looking like a quiet market.
+    const stored = await databaseCredentialStore(context).read();
+    if (stored !== null && stored.expiresAt.getTime() > now.getTime()) {
+      context.setAccessToken(stored.accessToken);
+      log.info('using the stored credential; unattended login is not configured', {
+        expiresAt: stored.expiresAt.toISOString(),
+      });
+      return { refreshed: false, skipped: true };
+    }
+
+    log.warn('no usable credential and unattended login is not configured', {
+      stored: stored === null ? 'none' : `expired at ${stored.expiresAt.toISOString()}`,
+      remedy:
+        'Run `pnpm fyers:login`, or set FYERS_ID, FYERS_TOTP_SECRET and FYERS_PIN to refresh automatically.',
     });
     return { refreshed: false, skipped: true };
   }

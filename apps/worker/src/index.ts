@@ -102,6 +102,15 @@ function buildScheduler(context: WorkerContext, cycleMinutes: number): Scheduler
         name: 'intraday-cycle',
         schedule: intradaySchedule(cycleMinutes),
         run: async () => {
+          // Cheap (one indexed read when the held token is still valid) and
+          // self-healing: a credential minted by hand mid-session, or one the
+          // 08:30 refresh failed to get, is adopted on the next cycle instead
+          // of leaving the feed dead until the process is restarted.
+          try {
+            await refreshProviderCredential(context, log.child('refresh-credential'));
+          } catch {
+            log.warn('cycle running without a verified credential');
+          }
           const result = await runIntradayCycle(context, log.child('intraday-cycle'));
           // Recorded in the same job, immediately after: the recorder needs the
           // signals this cycle just wrote and the bars it just ingested, and a
