@@ -19,7 +19,12 @@ packages/
   fyers/          Fyers API v3 client
   providers-fyers/ the adapter — the only place Fyers types and ours co-exist
 config/           versioned YAML: index constituents, intraday strategy config
+docs/             what is built, what is not — see pending-features.md
 ```
+
+[docs/pending-features.md](docs/pending-features.md) is the current backlog:
+which parts of the system are finished, which are built but unwired, and which
+are declared in the sidebar without an implementation behind them.
 
 ## Intraday trade signals
 
