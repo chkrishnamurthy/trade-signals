@@ -80,6 +80,22 @@ export interface DataTableProps<Row> {
   emptyAction?: ReactNode | undefined;
 
   initialSort?: { columnId: string; direction: 'asc' | 'desc' } | undefined;
+  /**
+   * Controlled multi-column sort.
+   *
+   * Supplying this hands sorting to the caller: the table renders the
+   * indicators and reports clicks, and the caller decides what the new order
+   * is. That is what a watchlist needs, because its sort is persisted and has
+   * to survive a reload — state the table cannot own.
+   *
+   * `additive` is true when the click was shift-modified, which is the only
+   * way a second sort column can be reached from the keyboard or the mouse.
+   * Omit both and the table keeps its own single-column sort as before.
+   */
+  sort?: readonly { columnId: string; direction: 'asc' | 'desc' }[] | undefined;
+  onSortChange?: ((columnId: string, additive: boolean) => void) | undefined;
+  /** Trailing per-row cell, pinned to the right. For a row's action menu. */
+  rowActions?: ((row: Row) => ReactNode) | undefined;
   stickyHeader?: boolean | undefined;
   /** Omit for no pagination — the common case for a 50-row index. */
   pageSize?: number | undefined;
@@ -107,6 +123,9 @@ export function DataTable<Row>({
   emptyDescription,
   emptyAction,
   initialSort,
+  sort: controlledSort,
+  onSortChange,
+  rowActions,
   stickyHeader = false,
   pageSize,
   onRowClick,
@@ -115,9 +134,13 @@ export function DataTable<Row>({
   caption,
   className,
 }: DataTableProps<Row>) {
-  const [sort, setSort] = useState(initialSort ?? null);
+  const [internalSort, setSort] = useState(initialSort ?? null);
   const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set());
   const [page, setPage] = useState(0);
+
+  // One shape for both modes, so the header renders from a single source.
+  const isControlled = controlledSort !== undefined;
+  const sortRules = isControlled ? controlledSort : internalSort === null ? [] : [internalSort];
 
   const visibleColumns = useMemo(
     () => columns.filter((column) => !hidden.has(column.id)),
@@ -125,6 +148,10 @@ export function DataTable<Row>({
   );
 
   const sorted = useMemo(() => {
+    // Controlled: the caller sorted before handing the rows over. Re-sorting
+    // here would silently drop every rule after the first.
+    if (isControlled) return data;
+    const sort = internalSort;
     if (sort === null) return data;
     const column = columns.find((c) => c.id === sort.columnId);
     if (column?.sortValue === undefined) return data;
@@ -142,7 +169,7 @@ export function DataTable<Row>({
       }
       return (left - right) * factor;
     });
-  }, [data, columns, sort]);
+  }, [data, columns, internalSort, isControlled]);
 
   const pageCount = pageSize === undefined ? 1 : Math.max(1, Math.ceil(sorted.length / pageSize));
   const safePage = Math.min(page, pageCount - 1);
@@ -154,16 +181,23 @@ export function DataTable<Row>({
     [sorted, pageSize, safePage],
   );
 
-  const toggleSort = useCallback((columnId: string) => {
-    setSort((current) => {
-      if (current === null || current.columnId !== columnId) {
-        return { columnId, direction: 'desc' };
+  const toggleSort = useCallback(
+    (columnId: string, additive: boolean) => {
+      if (onSortChange !== undefined) {
+        onSortChange(columnId, additive);
+        return;
       }
-      // Third click clears the sort and restores the feed's own ordering,
-      // which for movers and signals is itself meaningful.
-      return current.direction === 'desc' ? { columnId, direction: 'asc' } : null;
-    });
-  }, []);
+      setSort((current) => {
+        if (current === null || current.columnId !== columnId) {
+          return { columnId, direction: 'desc' };
+        }
+        // Third click clears the sort and restores the feed's own ordering,
+        // which for movers and signals is itself meaningful.
+        return current.direction === 'desc' ? { columnId, direction: 'asc' } : null;
+      });
+    },
+    [onSortChange],
+  );
 
   const allSelected =
     selection !== undefined &&
@@ -183,7 +217,11 @@ export function DataTable<Row>({
 
   if (status === 'loading') {
     return (
-      <TableSkeleton rows={pageSize ?? 8} columns={visibleColumns.length} className={className} />
+      <TableSkeleton
+        rows={pageSize ?? 8}
+        columns={visibleColumns.length + (rowActions === undefined ? 0 : 1)}
+        className={className}
+      />
     );
   }
 
@@ -233,7 +271,9 @@ export function DataTable<Row>({
               )}
               {visibleColumns.map((column) => {
                 const sortable = column.sortValue !== undefined;
-                const active = sort?.columnId === column.id;
+                const ruleIndex = sortRules.findIndex((rule) => rule.columnId === column.id);
+                const rule = ruleIndex === -1 ? undefined : sortRules[ruleIndex];
+                const active = rule !== undefined;
                 return (
                   <TableHead
                     key={column.id}
@@ -243,13 +283,18 @@ export function DataTable<Row>({
                       column.headerClassName,
                     )}
                     aria-sort={
-                      active ? (sort.direction === 'asc' ? 'ascending' : 'descending') : 'none'
+                      active ? (rule.direction === 'asc' ? 'ascending' : 'descending') : 'none'
                     }
                   >
                     {sortable ? (
                       <button
                         type="button"
-                        onClick={() => toggleSort(column.id)}
+                        onClick={(event) => toggleSort(column.id, event.shiftKey)}
+                        title={
+                          active
+                            ? `Sorted ${rule.direction === 'asc' ? 'ascending' : 'descending'}. Shift-click to add a tie-breaker.`
+                            : 'Sort. Shift-click to add as a tie-breaker.'
+                        }
                         className={cn(
                           'inline-flex items-center gap-1 rounded-sm transition-colors hover:text-foreground',
                           active && 'text-foreground',
@@ -258,13 +303,20 @@ export function DataTable<Row>({
                       >
                         {column.header}
                         {active ? (
-                          sort.direction === 'asc' ? (
+                          rule.direction === 'asc' ? (
                             <ArrowUpIcon className="size-3" aria-hidden />
                           ) : (
                             <ArrowDownIcon className="size-3" aria-hidden />
                           )
                         ) : (
                           <ChevronsUpDownIcon className="size-3 opacity-40" aria-hidden />
+                        )}
+                        {/* Only worth showing once a second rule exists — a lone
+                            "1" next to the arrow is noise. */}
+                        {active && sortRules.length > 1 && (
+                          <span className="text-[0.625rem] tabular-nums text-muted-foreground">
+                            {ruleIndex + 1}
+                          </span>
                         )}
                       </button>
                     ) : (
@@ -273,6 +325,11 @@ export function DataTable<Row>({
                   </TableHead>
                 );
               })}
+              {rowActions !== undefined && (
+                <TableHead className="w-10 pl-0">
+                  <span className="sr-only">Row actions</span>
+                </TableHead>
+              )}
             </TableRow>
           </TableHeader>
 
@@ -313,6 +370,11 @@ export function DataTable<Row>({
                       {column.cell(row)}
                     </TableCell>
                   ))}
+                  {rowActions !== undefined && (
+                    <TableCell className="w-10 pl-0" onClick={(event) => event.stopPropagation()}>
+                      {rowActions(row)}
+                    </TableCell>
+                  )}
                 </TableRow>
               );
             })}

@@ -16,13 +16,19 @@ export type { CredentialInput, StoredCredential } from './credentials.js';
 export { getProviderCredential, saveProviderCredential } from './credentials.js';
 export type {
   IndicatorUpsert,
+  InstrumentIndicators,
   ScreenerFilter,
   ScreenerQuery,
   ScreenerResult,
   ScreenerRow,
   ScreenerSort,
 } from './indicators.js';
-export { latestIndicatorDate, screen, upsertDailyIndicators } from './indicators.js';
+export {
+  latestIndicatorDate,
+  latestIndicatorsForInstruments,
+  screen,
+  upsertDailyIndicators,
+} from './indicators.js';
 export type { InstrumentRow, InstrumentUpsert } from './instruments.js';
 export {
   ensureInstruments,
@@ -77,3 +83,27 @@ export {
   registerStrategy,
   saveSignal,
 } from './signals.js';
+export type {
+  StoredLayout,
+  StoredView,
+  WatchlistMember,
+  WatchlistRow,
+} from './watchlists.js';
+export {
+  addWatchlistItems,
+  createWatchlist,
+  deleteWatchlist,
+  deleteWatchlistView,
+  getWatchlistLayout,
+  getWatchlistMembers,
+  listGlobalWatchlistViews,
+  listWatchlists,
+  listWatchlistViews,
+  removeWatchlistItems,
+  renameWatchlist,
+  reorderWatchlistItems,
+  reorderWatchlists,
+  saveWatchlistLayout,
+  saveWatchlistView,
+  setDefaultWatchlist,
+} from './watchlists.js';

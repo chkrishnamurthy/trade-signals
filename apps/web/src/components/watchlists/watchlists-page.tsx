@@ -1,0 +1,411 @@
+'use client';
+
+import { RefreshCwIcon } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useCallback, useMemo, useState } from 'react';
+import { StockDetailDrawer } from '@/components/dashboard/stock-drawer';
+import { ErrorState } from '@/components/data-display/states';
+import { ActiveFilters, SearchInput } from '@/components/forms/filter-bar';
+import { AppShell } from '@/components/layout/app-shell';
+import {
+  PageContainer,
+  PageContent,
+  PageDescription,
+  PageHeader,
+  PageTitle,
+} from '@/components/layout/page';
+import { LastUpdated, MarketStatus } from '@/components/market/market-status';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Text } from '@/components/ui/typography';
+import type { MoverDto } from '@/lib/dashboard-types';
+import type { MarketPhase } from '@/lib/market-types';
+import { useWatchlists } from '@/lib/use-watchlists';
+import { DEFAULT_COLUMN_IDS } from '@/lib/watchlist-columns';
+import {
+  activeFilterChips,
+  applyWatchlistFilters,
+  removeWatchlistFilter,
+} from '@/lib/watchlist-filters';
+import { exchangesIn, sectorsIn, sortRows, summarise, toggleSort } from '@/lib/watchlist-summary';
+import type { SavedViewDto, WatchlistFilterStateDto, WatchlistRowDto } from '@/lib/watchlist-types';
+import { getQuickView } from '@/lib/watchlist-views';
+import { AddStocks } from './add-stocks';
+import { ColumnPanel } from './column-panel';
+import { FilterPanel } from './filter-panel';
+import { QuickViews } from './quick-views';
+import { SummaryBar } from './summary-bar';
+import { WatchlistSidebar } from './watchlist-sidebar';
+import { WatchlistTable } from './watchlist-table';
+
+/**
+ * The watchlist workspace.
+ *
+ * Composition only — every decision it renders was made in a tested pure
+ * module: `watchlist-filters` decides what is shown, `watchlist-summary`
+ * decides how it is ordered and how it is doing, `watchlist-columns` decides
+ * what a column is. This file wires them to the feed and to each other.
+ *
+ * The one piece of judgement that lives here is the ORDER of operations:
+ * filter, then sort, then summarise the FILTERED rows. Summarising before
+ * filtering would report the advance/decline of stocks the user cannot see,
+ * which is the kind of quietly-wrong number this product exists not to print.
+ */
+export function WatchlistsPage() {
+  const router = useRouter();
+  const {
+    lists,
+    detail,
+    activeId,
+    isRefreshing,
+    setActiveId,
+    refresh,
+    createList,
+    renameList,
+    deleteList,
+    makeDefault,
+    reorderLists,
+    addSymbols,
+    addSymbolsTo,
+    removeSymbols,
+    setLayout,
+    saveView,
+    deleteView,
+  } = useWatchlists();
+
+  const [selected, setSelected] = useState<WatchlistRowDto | null>(null);
+
+  const allLists = lists.status === 'ready' ? lists.data : [];
+  const data = detail.status === 'ready' ? detail.data : null;
+  const layout = data?.layout ?? { columns: [], sort: [], filters: {}, quickView: null };
+
+  // An empty stored layout means "the registry default", not "no columns".
+  const columnIds = layout.columns.length > 0 ? layout.columns : DEFAULT_COLUMN_IDS.slice(1);
+
+  const allRows = data?.rows ?? [];
+  const filtered = useMemo(
+    () => applyWatchlistFilters(allRows, layout.filters),
+    [allRows, layout.filters],
+  );
+  const rows = useMemo(() => sortRows(filtered, layout.sort), [filtered, layout.sort]);
+  const performance = useMemo(() => summarise(rows), [rows]);
+
+  const sectors = useMemo(() => sectorsIn(allRows), [allRows]);
+  const exchanges = useMemo(() => exchangesIn(allRows), [allRows]);
+  const chips = useMemo(() => activeFilterChips(layout.filters), [layout.filters]);
+
+  const otherLists = useMemo(
+    () => allLists.filter((list) => list.id !== activeId),
+    [allLists, activeId],
+  );
+
+  // --- Layout edits ---------------------------------------------------------
+
+  const setFilters = useCallback(
+    (filters: WatchlistFilterStateDto) => {
+      // Editing a filter by hand means the quick view no longer describes what
+      // is on screen, so it stops being shown as active.
+      setLayout({ ...layout, filters, quickView: null });
+    },
+    [layout, setLayout],
+  );
+
+  const applyQuickView = useCallback(
+    (viewId: string) => {
+      const view = getQuickView(viewId);
+      if (view === null) return;
+      setLayout({
+        columns: [...view.columns],
+        sort: [...view.sort],
+        filters: view.filters,
+        quickView: view.id,
+      });
+    },
+    [setLayout],
+  );
+
+  const applySavedView = useCallback(
+    (view: SavedViewDto) => {
+      setLayout({
+        columns: [...view.columns],
+        sort: [...view.sort],
+        filters: view.filters,
+        quickView: null,
+      });
+    },
+    [setLayout],
+  );
+
+  const onSortChange = useCallback(
+    (columnId: string, additive: boolean) => {
+      setLayout({ ...layout, sort: toggleSort(layout.sort, columnId, additive) });
+    },
+    [layout, setLayout],
+  );
+
+  // --- Chrome ---------------------------------------------------------------
+
+  const topbar = (
+    <div className="ml-auto hidden items-center gap-2 sm:flex">
+      <MarketStatus
+        phase={(data?.market.phase ?? 'unknown') as MarketPhase}
+        isOpen={data?.market.isOpen ?? false}
+      />
+      <LastUpdated at={data?.fetchedAt ?? null} />
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        onClick={refresh}
+        disabled={isRefreshing}
+        aria-label="Refresh prices"
+      >
+        <RefreshCwIcon className={isRefreshing ? 'animate-spin' : undefined} />
+      </Button>
+    </div>
+  );
+
+  if (lists.status === 'error') {
+    return (
+      <AppShell topbar={topbar}>
+        <PageContainer width="narrow">
+          <ErrorState
+            title="Could not load your watchlists"
+            description={lists.error.remedy ?? 'The database did not respond.'}
+            detail={lists.error.error}
+            onRetry={refresh}
+          />
+        </PageContainer>
+      </AppShell>
+    );
+  }
+
+  const hasFilters = chips.length > 0;
+  const hasList = activeId !== null && data !== null && data.watchlist.id !== 0;
+
+  return (
+    <AppShell topbar={topbar}>
+      <PageContainer>
+        <PageHeader>
+          <div className="min-w-0">
+            <PageTitle>{hasList ? data.watchlist.name : 'Watchlists'}</PageTitle>
+            <PageDescription>
+              The names you follow, with live prices and the daily indicators the worker computed
+              for them. Technical observations, not advice.
+            </PageDescription>
+          </div>
+
+          {hasList && (
+            <div className="flex shrink-0 items-center gap-1.5">
+              <AddStocks
+                existingSymbols={allRows.map((row) => row.symbol)}
+                onAdd={async (symbols) => {
+                  const result = await addSymbols(symbols);
+                  return result.ok ? { ok: true } : { ok: false, error: result.error.error };
+                }}
+              />
+            </div>
+          )}
+        </PageHeader>
+
+        <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[13rem_minmax(0,1fr)]">
+          {/* Rail. On small screens it sits above the table rather than
+              disappearing — switching lists is the primary navigation here. */}
+          <aside className="min-w-0">
+            <WatchlistSidebar
+              lists={allLists}
+              activeId={activeId}
+              loading={lists.status === 'loading'}
+              onSelect={setActiveId}
+              onCreate={async (name) => {
+                const result = await createList(name);
+                return result.ok ? { ok: true } : { ok: false, error: result.error.error };
+              }}
+              onRename={async (id, name) => {
+                const result = await renameList(id, name);
+                return result.ok ? { ok: true } : { ok: false, error: result.error.error };
+              }}
+              onDelete={(id) => void deleteList(id)}
+              onMakeDefault={(id) => void makeDefault(id)}
+              onReorder={(ids) => void reorderLists(ids)}
+            />
+          </aside>
+
+          <PageContent className="min-w-0">
+            {!hasList && lists.status === 'ready' && allLists.length === 0 && (
+              <Card className="px-4 py-12 text-center">
+                <Text variant="section-title">No watchlists yet</Text>
+                <Text variant="caption" className="mx-auto mt-1 max-w-sm text-balance">
+                  Create a list — a sector, a strategy, a theme — and add the stocks you want to
+                  keep an eye on.
+                </Text>
+              </Card>
+            )}
+
+            {hasList && (
+              <>
+                <SummaryBar performance={performance} filtered={hasFilters} />
+
+                {data.quotesStale && (
+                  <Alert variant="warning">
+                    <AlertTitle>Prices are not live</AlertTitle>
+                    <AlertDescription>
+                      The market-data provider did not answer, so the price columns are empty.
+                      Indicator columns still show the last session the worker computed.
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {!data.quotesStale && data.missingQuotes.length > 0 && (
+                  <Alert variant="warning">
+                    <AlertTitle>No quote for {data.missingQuotes.length} of these</AlertTitle>
+                    <AlertDescription>
+                      {data.missingQuotes.join(', ')} — the exchange returned nothing for them. They
+                      are still on the list and are excluded from the averages above.
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                <QuickViews
+                  activeId={layout.quickView}
+                  savedViews={data.savedViews}
+                  layout={layout}
+                  onApply={applyQuickView}
+                  onApplySaved={applySavedView}
+                  onSave={async ({ name, global }) => {
+                    const result = await saveView({
+                      name,
+                      global,
+                      columns: columnIds,
+                      sort: layout.sort,
+                      filters: layout.filters,
+                    });
+                    return result.ok ? { ok: true } : { ok: false, error: result.error.error };
+                  }}
+                  onDeleteSaved={(id) => void deleteView(id)}
+                />
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <SearchInput
+                    value={layout.filters.query ?? ''}
+                    onValueChange={(query) => setFilters({ ...layout.filters, query })}
+                    placeholder="Filter these stocks…"
+                    aria-label="Filter the watchlist"
+                    className="w-full sm:w-56"
+                  />
+                  <FilterPanel
+                    filters={layout.filters}
+                    sectors={sectors}
+                    exchanges={exchanges}
+                    onChange={setFilters}
+                    onClear={() => setFilters({})}
+                  />
+                  <ColumnPanel
+                    columnIds={columnIds}
+                    onChange={(columns) =>
+                      setLayout({ ...layout, columns: [...columns], quickView: null })
+                    }
+                  />
+                  <span className="ml-auto">
+                    <Text variant="caption">
+                      {rows.length === allRows.length
+                        ? `${allRows.length} stocks`
+                        : `${rows.length} of ${allRows.length}`}
+                    </Text>
+                  </span>
+                </div>
+
+                {hasFilters && (
+                  <ActiveFilters
+                    filters={chips}
+                    onRemove={(id) => setFilters(removeWatchlistFilter(layout.filters, id))}
+                    onClear={() => setFilters({})}
+                  />
+                )}
+
+                <WatchlistTable
+                  rows={rows}
+                  columnIds={columnIds}
+                  sort={layout.sort}
+                  status={
+                    detail.status === 'loading'
+                      ? 'loading'
+                      : detail.status === 'error'
+                        ? 'error'
+                        : 'ready'
+                  }
+                  errorMessage={detail.status === 'error' ? detail.error.error : undefined}
+                  onRetry={refresh}
+                  otherLists={otherLists}
+                  hasFilters={hasFilters}
+                  emptyAction={
+                    hasFilters ? (
+                      <Button variant="outline" size="sm" onClick={() => setFilters({})}>
+                        Clear filters
+                      </Button>
+                    ) : (
+                      <AddStocks
+                        existingSymbols={allRows.map((row) => row.symbol)}
+                        onAdd={async (symbols) => {
+                          const result = await addSymbols(symbols);
+                          return result.ok
+                            ? { ok: true }
+                            : { ok: false, error: result.error.error };
+                        }}
+                      />
+                    )
+                  }
+                  onSortChange={onSortChange}
+                  onRemove={(row) => void removeSymbols([row.instrumentId])}
+                  onOpenDetail={setSelected}
+                  onOpenSignals={(row) => router.push(`/signals?symbol=${row.symbol}`)}
+                  onAddToList={(watchlistId, symbol) => void addSymbolsTo(watchlistId, [symbol])}
+                />
+              </>
+            )}
+          </PageContent>
+        </div>
+      </PageContainer>
+
+      <StockDetailDrawer
+        quote={selected === null ? null : toMoverDto(selected)}
+        signal={null}
+        isLive={data?.market.isOpen ?? false}
+        onClose={() => setSelected(null)}
+      />
+    </AppShell>
+  );
+}
+
+/**
+ * Adapts a watchlist row to the shape the shared detail drawer reads.
+ *
+ * The drawer is the product's one stock-detail surface and already renders the
+ * chart, the day range and the identity block. Reshaping four fields is much
+ * cheaper than a second drawer that would immediately drift from it.
+ *
+ * `ltp` is non-nullable on `MoverDto` because a quote without a last price is
+ * dropped upstream; a watchlist row can legitimately have none, and 0 is the
+ * only representable stand-in. The drawer renders a zero price as a zero, which
+ * is why the row's own "quote only" badge and the missing-quotes alert carry
+ * that information instead.
+ */
+function toMoverDto(row: WatchlistRowDto): MoverDto {
+  return {
+    symbol: row.symbol,
+    name: row.name,
+    ltp: row.ltp ?? 0,
+    change: row.change,
+    changePercent: row.changePercent,
+    open: row.open,
+    high: row.dayHigh,
+    low: row.dayLow,
+    previousClose: row.previousClose,
+    averagePrice: row.averagePrice,
+    volume: row.volume,
+    timestamp: row.quoteAt,
+    sector: row.sector ?? 'Other',
+    relativeVolume: row.relativeVolume,
+    turnover: row.ltp === null || row.volume === null ? null : row.ltp * row.volume,
+  };
+}

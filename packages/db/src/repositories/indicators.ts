@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, isNotNull, lte, type SQL, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, isNotNull, lte, type SQL, sql } from 'drizzle-orm';
 import type { Database } from '../client.js';
 import { dailyIndicators, instruments } from '../schema/index.js';
 
@@ -340,4 +340,80 @@ export async function screen(db: Database, query: ScreenerQuery): Promise<Screen
     tradingDate,
     total: countRow?.total ?? 0,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Direct lookup
+// ---------------------------------------------------------------------------
+
+/**
+ * The latest stored indicator row for each of a specific set of instruments.
+ *
+ * The screener asks "which instruments match?"; this asks "what do we know
+ * about these exact ones?" — the watchlist's question, where membership is
+ * already decided and only the numbers are wanted.
+ *
+ * Uses DISTINCT ON rather than pinning one `trading_date` for the whole batch.
+ * A watchlist can hold a name that ingestion covers less often than the rest —
+ * a recent addition, an instrument outside the worker's universe — and a shared
+ * date would silently blank that row rather than show what is genuinely known
+ * about it. Each row therefore carries its OWN `tradingDate`, and the caller is
+ * expected to surface it: two rows from different sessions in one table is
+ * honest only if the table says so.
+ */
+export interface InstrumentIndicators extends Omit<ScreenerRow, 'sector'> {
+  readonly instrumentId: number;
+  readonly averageVolume: number | null;
+  readonly sma20: number | null;
+  readonly sma50: number | null;
+  readonly high: number;
+  readonly low: number;
+}
+
+export async function latestIndicatorsForInstruments(
+  db: Database,
+  instrumentIds: readonly number[],
+): Promise<Map<number, InstrumentIndicators>> {
+  if (instrumentIds.length === 0) return new Map();
+
+  const rows = await db
+    .selectDistinctOn([dailyIndicators.instrumentId], {
+      instrumentId: dailyIndicators.instrumentId,
+      symbol: instruments.symbol,
+      name: instruments.name,
+      close: dailyIndicators.close,
+      changePercent: dailyIndicators.changePercent,
+      volume: dailyIndicators.volume,
+      averageVolume: dailyIndicators.averageVolume,
+      relativeVolume: dailyIndicators.relativeVolume,
+      rsi14: dailyIndicators.rsi14,
+      ema20: dailyIndicators.ema20,
+      ema50: dailyIndicators.ema50,
+      ema200: dailyIndicators.ema200,
+      sma20: dailyIndicators.sma20,
+      sma50: dailyIndicators.sma50,
+      macdHistogram: dailyIndicators.macdHistogram,
+      atr14: dailyIndicators.atr14,
+      high52w: dailyIndicators.high52w,
+      low52w: dailyIndicators.low52w,
+      high: dailyIndicators.high,
+      low: dailyIndicators.low,
+      tradingDate: dailyIndicators.tradingDate,
+      barCount: dailyIndicators.barCount,
+    })
+    .from(dailyIndicators)
+    .innerJoin(instruments, eq(instruments.id, dailyIndicators.instrumentId))
+    .where(inArray(dailyIndicators.instrumentId, [...instrumentIds]))
+    .orderBy(dailyIndicators.instrumentId, desc(dailyIndicators.tradingDate));
+
+  return new Map(
+    rows.map((row) => [
+      row.instrumentId,
+      { ...row, volume: Number(row.volume), averageVolume: numberOrNull(row.averageVolume) },
+    ]),
+  );
+}
+
+function numberOrNull(value: number | null): number | null {
+  return value === null ? null : Number(value);
 }

@@ -107,7 +107,8 @@ export const NAVIGATION: readonly NavGroup[] = [
     label: 'Tracking',
     items: [
       {
-        status: 'planned',
+        status: 'ready',
+        href: '/watchlists',
         label: 'Watchlists',
         icon: ListIcon,
         description: 'Instruments you are following',
