@@ -4,7 +4,7 @@ import { RefreshCwIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useMemo, useState } from 'react';
 import { StockDetailDrawer } from '@/components/dashboard/stock-drawer';
-import { ErrorState } from '@/components/data-display/states';
+import { CardSkeleton, ErrorState, TableSkeleton } from '@/components/data-display/states';
 import { ActiveFilters, SearchInput } from '@/components/forms/filter-bar';
 import { AppShell } from '@/components/layout/app-shell';
 import {
@@ -173,6 +173,11 @@ export function WatchlistsPage() {
 
   const hasFilters = chips.length > 0;
   const hasList = activeId !== null && data !== null && data.watchlist.id !== 0;
+  // Covers both the very first load (no watchlist chosen yet) and switching
+  // between watchlists (a new `activeId` restarts `detail` at 'loading') —
+  // the two moments this page has no data to show yet but isn't empty either.
+  const loadingList =
+    lists.status === 'loading' || (activeId !== null && detail.status === 'loading');
 
   return (
     <AppShell>
@@ -237,7 +242,9 @@ export function WatchlistsPage() {
         />
 
         <PageContent className="mt-4 min-w-0">
-          {!hasList && lists.status === 'ready' && allLists.length === 0 && (
+          {loadingList && <WatchlistPageSkeleton />}
+
+          {!loadingList && !hasList && lists.status === 'ready' && allLists.length === 0 && (
             <Card className="px-4 py-12 text-center">
               <Text variant="section-title">No watchlists yet</Text>
               <Text variant="caption" className="mx-auto mt-1 max-w-sm text-balance">
@@ -379,6 +386,22 @@ export function WatchlistsPage() {
         onClose={() => setSelected(null)}
       />
     </AppShell>
+  );
+}
+
+/**
+ * Mirrors the real layout so nothing jumps once the list's data lands —
+ * same shape and the same `CardSkeleton`/`TableSkeleton` primitives every
+ * other page's loading state is built from (see `DashboardSkeleton` in
+ * `dashboard.tsx`), not a bespoke skeleton for this one page.
+ */
+function WatchlistPageSkeleton() {
+  return (
+    <div aria-busy="true">
+      <CardSkeleton className="h-20" />
+      <TableSkeleton className="mt-4" />
+      <span className="sr-only">Loading watchlist</span>
+    </div>
   );
 }
 
