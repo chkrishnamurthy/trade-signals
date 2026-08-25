@@ -192,12 +192,19 @@ export interface IntradaySignalDto {
   readonly maxAdverse: number;
 }
 
+/** Mirrors `intraday_runs.status` — see `packages/db/src/schema/intraday.ts`. */
+export type IntradayRunStatus = 'running' | 'ok' | 'partial' | 'failed' | 'skipped';
+
 export interface IntradayRunDto {
   readonly startedAt: string;
   readonly finishedAt: string | null;
-  readonly status: string;
+  readonly status: IntradayRunStatus;
   readonly regime: string | null;
+  readonly symbolsRequested: number;
   readonly symbolsEvaluated: number;
+  readonly signalsCreated: number;
+  readonly signalsUpdated: number;
+  readonly skippedCount: number;
   readonly error: string | null;
 }
 

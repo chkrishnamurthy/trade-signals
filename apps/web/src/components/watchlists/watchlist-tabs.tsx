@@ -1,13 +1,6 @@
 'use client';
 
-import {
-  GripVerticalIcon,
-  MoreHorizontalIcon,
-  PencilIcon,
-  PlusIcon,
-  StarIcon,
-  Trash2Icon,
-} from 'lucide-react';
+import { MoreHorizontalIcon, PencilIcon, PlusIcon, StarIcon, Trash2Icon } from 'lucide-react';
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -34,17 +27,21 @@ import { cn } from '@/lib/utils';
 import type { WatchlistSummaryDto } from '@/lib/watchlist-types';
 
 /**
- * The watchlist rail.
+ * The watchlist selector, as a horizontal strip of tabs.
  *
- * Every list, its size, which one is the default, and the actions that change
- * them. Reordering is a drag, with the keyboard equivalents in the menu — a
- * rearrangement that only a mouse can perform is one a keyboard user cannot do
- * at all.
+ * Replaces the old vertical sidebar so the table beneath gets the full page
+ * width. Every tab is name + count, click to switch — management (rename,
+ * default, reorder, delete) lives behind a small trigger on the ACTIVE tab
+ * only, rather than a hover-menu on every tab: the bar stays exactly as
+ * uncluttered as a plain row of pills, and the actions for the list you're
+ * already looking at are still one click away.
  *
- * Deleting asks first, and names what is being deleted. This is the one
- * irreversible action in the feature, and it takes the stocks with it.
+ * Reordering is a drag (axis is the only thing that changed from the sidebar
+ * this replaced), with "Move left"/"Move right" in the active tab's menu as
+ * the keyboard equivalent — a rearrangement only a mouse can do is one a
+ * keyboard user cannot do at all.
  */
-export function WatchlistSidebar({
+export function WatchlistTabs({
   lists,
   activeId,
   loading,
@@ -84,134 +81,120 @@ export function WatchlistSidebar({
 
   return (
     <>
-      <nav aria-label="Watchlists" className="flex min-h-0 flex-col gap-1">
-        <div className="flex items-center justify-between gap-2 px-1">
-          <Text variant="label" className="text-muted-foreground">
-            Watchlists
-          </Text>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => setDialog({ kind: 'create' })}
-            aria-label="Create a watchlist"
-          >
-            <PlusIcon />
-          </Button>
-        </div>
+      <nav aria-label="Watchlists" className="flex min-w-0 items-center gap-1.5">
+        <ul className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto pb-0.5">
+          {loading &&
+            [0, 1, 2].map((key) => <Skeleton key={key} className="h-7 w-24 shrink-0 rounded-md" />)}
 
-        {loading && (
-          <div className="flex flex-col gap-1 p-1">
-            {[0, 1, 2].map((key) => (
-              <Skeleton key={key} className="h-8 w-full" />
-            ))}
-          </div>
-        )}
-
-        {!loading && lists.length === 0 && (
-          <div className="rounded-md border border-dashed border-border px-3 py-6 text-center">
-            <Text variant="caption" className="text-balance">
-              No watchlists yet. Create one to start tracking a set of stocks.
-            </Text>
-            <Button size="sm" className="mt-3" onClick={() => setDialog({ kind: 'create' })}>
-              <PlusIcon />
-              New watchlist
-            </Button>
-          </div>
-        )}
-
-        <ul className="flex flex-col gap-0.5">
-          {lists.map((list, index) => (
-            <li
-              key={list.id}
-              draggable
-              onDragStart={() => setDragging(list.id)}
-              onDragEnd={() => setDragging(null)}
-              onDragOver={(event) => event.preventDefault()}
-              onDrop={(event) => {
-                event.preventDefault();
-                if (dragging !== null) move(dragging, index);
-                setDragging(null);
-              }}
-              className={cn(
-                'group flex items-center gap-1 rounded-md pr-1 transition-colors',
-                list.id === activeId ? 'bg-accent' : 'hover:bg-muted/60',
-                dragging === list.id && 'opacity-40',
-              )}
-            >
-              <GripVerticalIcon
-                className="ml-1 size-3.5 shrink-0 cursor-grab text-subtle-foreground opacity-0 transition-opacity group-hover:opacity-100"
-                aria-hidden
-              />
-
-              <button
-                type="button"
-                onClick={() => onSelect(list.id)}
-                aria-current={list.id === activeId ? 'true' : undefined}
-                className="flex min-w-0 flex-1 items-center gap-1.5 py-1.5 text-left text-sm"
-              >
-                <span className="min-w-0 flex-1 truncate">{list.name}</span>
-                {list.isDefault && (
-                  <StarIcon
-                    className="size-3 shrink-0 fill-current text-warning-foreground"
-                    aria-label="Default watchlist"
-                  />
-                )}
-                <Badge variant="secondary" size="sm" className="shrink-0 tabular-nums">
-                  {list.count}
-                </Badge>
-              </button>
-
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
+          {!loading &&
+            lists.map((list, index) => {
+              const active = list.id === activeId;
+              return (
+                <li
+                  key={list.id}
+                  draggable
+                  onDragStart={() => setDragging(list.id)}
+                  onDragEnd={() => setDragging(null)}
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    if (dragging !== null) move(dragging, index);
+                    setDragging(null);
+                  }}
+                  className={cn('flex shrink-0 items-center', dragging === list.id && 'opacity-40')}
+                >
                   <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label={`Actions for ${list.name}`}
-                    className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
+                    type="button"
+                    variant={active ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => onSelect(list.id)}
+                    aria-current={active ? 'true' : undefined}
+                    className={cn('gap-1.5', active && 'rounded-r-none')}
                   >
-                    <MoreHorizontalIcon />
+                    <span className="max-w-36 truncate">{list.name}</span>
+                    {list.isDefault && (
+                      <StarIcon
+                        className="size-3 shrink-0 fill-current"
+                        aria-label="Default watchlist"
+                      />
+                    )}
+                    <Badge
+                      variant={active ? 'outline' : 'secondary'}
+                      size="sm"
+                      className={cn(
+                        'shrink-0 tabular-nums',
+                        active &&
+                          'border-primary-foreground/40 bg-transparent text-primary-foreground',
+                      )}
+                    >
+                      {list.count}
+                    </Badge>
                   </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem onSelect={() => setDialog({ kind: 'rename', list })}>
-                    <PencilIcon />
-                    Rename
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    disabled={list.isDefault}
-                    onSelect={() => onMakeDefault(list.id)}
-                  >
-                    <StarIcon />
-                    {list.isDefault ? 'Already default' : 'Set as default'}
-                  </DropdownMenuItem>
 
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    disabled={index === 0}
-                    onSelect={() => move(list.id, index - 1)}
-                  >
-                    Move up
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    disabled={index === lists.length - 1}
-                    onSelect={() => move(list.id, index + 1)}
-                  >
-                    Move down
-                  </DropdownMenuItem>
+                  {active && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="default"
+                          size="sm"
+                          aria-label={`Actions for ${list.name}`}
+                          className="rounded-l-none border-l border-primary-foreground/20 px-1.5"
+                        >
+                          <MoreHorizontalIcon className="size-3.5" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="w-48">
+                        <DropdownMenuItem onSelect={() => setDialog({ kind: 'rename', list })}>
+                          <PencilIcon />
+                          Rename
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          disabled={list.isDefault}
+                          onSelect={() => onMakeDefault(list.id)}
+                        >
+                          <StarIcon />
+                          {list.isDefault ? 'Already default' : 'Set as default'}
+                        </DropdownMenuItem>
 
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    variant="destructive"
-                    onSelect={() => setDialog({ kind: 'delete', list })}
-                  >
-                    <Trash2Icon />
-                    Delete watchlist
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </li>
-          ))}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          disabled={index === 0}
+                          onSelect={() => move(list.id, index - 1)}
+                        >
+                          Move left
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          disabled={index === lists.length - 1}
+                          onSelect={() => move(list.id, index + 1)}
+                        >
+                          Move right
+                        </DropdownMenuItem>
+
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          variant="destructive"
+                          onSelect={() => setDialog({ kind: 'delete', list })}
+                        >
+                          <Trash2Icon />
+                          Delete watchlist
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                </li>
+              );
+            })}
         </ul>
+
+        <Button
+          variant="outline"
+          size="sm"
+          className="shrink-0"
+          onClick={() => setDialog({ kind: 'create' })}
+        >
+          <PlusIcon />
+          <span className="hidden sm:inline">New watchlist</span>
+        </Button>
       </nav>
 
       <NameDialog
@@ -234,7 +217,7 @@ export function WatchlistSidebar({
       <Dialog open={dialog?.kind === 'delete'} onOpenChange={(open) => !open && setDialog(null)}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>Delete “{dialog?.kind === 'delete' ? dialog.list.name : ''}”?</DialogTitle>
+            <DialogTitle>Delete "{dialog?.kind === 'delete' ? dialog.list.name : ''}"?</DialogTitle>
             <DialogDescription>
               {dialog?.kind === 'delete' && dialog.list.count > 0
                 ? `This removes the watchlist and its ${dialog.list.count} ${dialog.list.count === 1 ? 'stock' : 'stocks'}. It cannot be undone.`

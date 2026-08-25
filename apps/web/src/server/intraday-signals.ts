@@ -27,6 +27,7 @@ import type {
   IntradayFactorDto,
   IntradayFeedDto,
   IntradayReasonDto,
+  IntradayRunStatus,
   IntradaySignalDto,
   IntradaySignalKind,
   IntradaySignalState,
@@ -330,9 +331,18 @@ async function build(now: Date): Promise<IntradayFeedDto> {
   // session that does is more useful than a blank page — provided the UI keeps
   // saying which session it is looking at, which `tradingDate` and the
   // market-closed banner both do.
+  //
+  // But only roll back when the market is POSITIVELY known to be closed. A
+  // failed status lookup (`status === null`) is not evidence of anything —
+  // treating it as "closed" would silently swap today's (possibly empty, but
+  // live) feed for yesterday's stale one while telling the user the market is
+  // shut, when the real story is "we couldn't reach the status check."
   const isOpenNow = status?.isOpen ?? false;
+  const marketStatusKnown = status !== null;
   const tradingDate =
-    todaysSignals.length > 0 || isOpenNow ? today : ((await latestIntradaySignalDate(db)) ?? today);
+    todaysSignals.length > 0 || isOpenNow || !marketStatusKnown
+      ? today
+      : ((await latestIntradaySignalDate(db)) ?? today);
 
   const [rows, summary, run] = await Promise.all([
     tradingDate === today ? Promise.resolve(todaysSignals) : getIntradaySignals(db, tradingDate),
@@ -378,9 +388,13 @@ async function build(now: Date): Promise<IntradayFeedDto> {
         : {
             startedAt: run.startedAt.toISOString(),
             finishedAt: run.finishedAt?.toISOString() ?? null,
-            status: run.status,
+            status: isRunStatus(run.status) ? run.status : 'running',
             regime: run.regime,
+            symbolsRequested: run.symbolsRequested,
             symbolsEvaluated: run.symbolsEvaluated,
+            signalsCreated: run.signalsCreated,
+            signalsUpdated: run.signalsUpdated,
+            skippedCount: run.skippedCount,
             error: run.error,
           },
     summary,
@@ -431,6 +445,19 @@ function noticeFor(input: {
       : 'No setups currently meet the quality threshold. Quality is filtered deliberately; a quiet feed is a normal outcome.';
   }
   return null;
+}
+
+const RUN_STATUSES: readonly IntradayRunStatus[] = [
+  'running',
+  'ok',
+  'partial',
+  'failed',
+  'skipped',
+];
+
+/** The DB's `status` column is `text`, not an enum — narrow it at the boundary. */
+function isRunStatus(value: string): value is IntradayRunStatus {
+  return (RUN_STATUSES as readonly string[]).includes(value);
 }
 
 /** The feed, cached briefly and shared between concurrent requests. */

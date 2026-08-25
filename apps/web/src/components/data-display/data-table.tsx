@@ -1,7 +1,14 @@
 'use client';
 
-import { ArrowDownIcon, ArrowUpIcon, ChevronsUpDownIcon, SettingsIcon } from 'lucide-react';
-import { type ReactNode, useCallback, useMemo, useState } from 'react';
+import {
+  ArrowDownIcon,
+  ArrowUpIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
+  ChevronsUpDownIcon,
+  SettingsIcon,
+} from 'lucide-react';
+import { Fragment, type ReactNode, useCallback, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -110,6 +117,24 @@ export interface DataTableProps<Row> {
   columnVisibility?: boolean | undefined;
   caption?: string | undefined;
   className?: string | undefined;
+  /**
+   * Renders a full-width panel directly beneath a row.
+   *
+   * Presence of this prop is what turns the expand/collapse feature on — a
+   * leading chevron column appears, and the row named in `expandedRowIds`
+   * gets an extra sibling `<tr>` holding whatever this returns. Absent, the
+   * table renders exactly as it always has: this is additive, not a mode
+   * switch every caller has to opt out of.
+   */
+  renderExpanded?: ((row: Row) => ReactNode) | undefined;
+  /** Row ids (via `getRowId`) currently showing their `renderExpanded` panel. */
+  expandedRowIds?: ReadonlySet<string> | undefined;
+  /**
+   * Fired by the chevron button and by a row click when `renderExpanded` is
+   * set. A real button (rather than only a row `onClick`) is what makes the
+   * toggle reachable from the keyboard.
+   */
+  onToggleExpand?: ((row: Row) => void) | undefined;
 }
 
 export function DataTable<Row>({
@@ -133,6 +158,9 @@ export function DataTable<Row>({
   columnVisibility = false,
   caption,
   className,
+  renderExpanded,
+  expandedRowIds,
+  onToggleExpand,
 }: DataTableProps<Row>) {
   const [internalSort, setSort] = useState(initialSort ?? null);
   const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set());
@@ -260,6 +288,11 @@ export function DataTable<Row>({
           {caption !== undefined && <caption className="sr-only">{caption}</caption>}
           <TableHeader sticky={stickyHeader}>
             <TableRow className="hover:bg-transparent">
+              {renderExpanded !== undefined && (
+                <TableHead className="w-8 pr-0">
+                  <span className="sr-only">Expand row</span>
+                </TableHead>
+              )}
               {selection !== undefined && (
                 <TableHead className="w-8 pr-0">
                   <Checkbox
@@ -337,45 +370,82 @@ export function DataTable<Row>({
             {rows.map((row) => {
               const id = getRowId(row);
               const isSelected = selection?.selected.has(id) === true;
+              const isExpanded = renderExpanded !== undefined && expandedRowIds?.has(id) === true;
+              const toggleExpand =
+                onToggleExpand === undefined ? undefined : () => onToggleExpand(row);
+              const rowClick = toggleExpand ?? onRowClick;
               return (
-                <TableRow
-                  key={id}
-                  data-state={isSelected ? 'selected' : undefined}
-                  className={onRowClick !== undefined ? 'cursor-pointer' : undefined}
-                  onClick={onRowClick === undefined ? undefined : () => onRowClick(row)}
-                >
-                  {selection !== undefined && (
-                    <TableCell className="w-8 pr-0" onClick={(event) => event.stopPropagation()}>
-                      <Checkbox
-                        checked={isSelected}
-                        onCheckedChange={(checked) => {
-                          const next = new Set(selection.selected);
-                          if (checked === true) next.add(id);
-                          else next.delete(id);
-                          selection.onChange(next);
-                        }}
-                        aria-label={`Select ${id}`}
-                      />
-                    </TableCell>
+                <Fragment key={id}>
+                  <TableRow
+                    data-state={isSelected ? 'selected' : undefined}
+                    className={rowClick !== undefined ? 'cursor-pointer' : undefined}
+                    onClick={rowClick === undefined ? undefined : () => rowClick(row)}
+                  >
+                    {renderExpanded !== undefined && (
+                      <TableCell className="w-8 pr-0" onClick={(event) => event.stopPropagation()}>
+                        <button
+                          type="button"
+                          onClick={() => onToggleExpand?.(row)}
+                          aria-expanded={isExpanded}
+                          aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${id}`}
+                          className="flex size-6 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                        >
+                          {isExpanded ? (
+                            <ChevronDownIcon className="size-4" aria-hidden />
+                          ) : (
+                            <ChevronRightIcon className="size-4" aria-hidden />
+                          )}
+                        </button>
+                      </TableCell>
+                    )}
+                    {selection !== undefined && (
+                      <TableCell className="w-8 pr-0" onClick={(event) => event.stopPropagation()}>
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={(checked) => {
+                            const next = new Set(selection.selected);
+                            if (checked === true) next.add(id);
+                            else next.delete(id);
+                            selection.onChange(next);
+                          }}
+                          aria-label={`Select ${id}`}
+                        />
+                      </TableCell>
+                    )}
+                    {visibleColumns.map((column) => (
+                      <TableCell
+                        key={column.id}
+                        numeric={column.numeric === true}
+                        className={cn(
+                          column.hideBelow !== undefined && HIDE_BELOW_CLASS[column.hideBelow],
+                          column.cellClassName,
+                        )}
+                      >
+                        {column.cell(row)}
+                      </TableCell>
+                    ))}
+                    {rowActions !== undefined && (
+                      <TableCell className="w-10 pl-0" onClick={(event) => event.stopPropagation()}>
+                        {rowActions(row)}
+                      </TableCell>
+                    )}
+                  </TableRow>
+                  {isExpanded && renderExpanded !== undefined && (
+                    <TableRow className="hover:bg-transparent" data-state="expanded">
+                      <TableCell
+                        colSpan={
+                          visibleColumns.length +
+                          (selection === undefined ? 0 : 1) +
+                          (rowActions === undefined ? 0 : 1) +
+                          1
+                        }
+                        className="whitespace-normal p-0"
+                      >
+                        {renderExpanded(row)}
+                      </TableCell>
+                    </TableRow>
                   )}
-                  {visibleColumns.map((column) => (
-                    <TableCell
-                      key={column.id}
-                      numeric={column.numeric === true}
-                      className={cn(
-                        column.hideBelow !== undefined && HIDE_BELOW_CLASS[column.hideBelow],
-                        column.cellClassName,
-                      )}
-                    >
-                      {column.cell(row)}
-                    </TableCell>
-                  ))}
-                  {rowActions !== undefined && (
-                    <TableCell className="w-10 pl-0" onClick={(event) => event.stopPropagation()}>
-                      {rowActions(row)}
-                    </TableCell>
-                  )}
-                </TableRow>
+                </Fragment>
               );
             })}
           </TableBody>

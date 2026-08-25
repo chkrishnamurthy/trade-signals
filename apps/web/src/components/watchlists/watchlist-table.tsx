@@ -2,12 +2,12 @@
 
 import {
   ActivityIcon,
-  BarChart3Icon,
+  ChevronsUpDownIcon,
   ListPlusIcon,
   MoreHorizontalIcon,
   Trash2Icon,
 } from 'lucide-react';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { DataTable, type DataTableColumn } from '@/components/data-display/data-table';
 import { Button } from '@/components/ui/button';
 import {
@@ -24,6 +24,7 @@ import {
 import { resolveColumns } from '@/lib/watchlist-columns';
 import type { SortRuleDto, WatchlistRowDto, WatchlistSummaryDto } from '@/lib/watchlist-types';
 import { cellFor } from './watchlist-cells';
+import { WatchlistRowDetail } from './watchlist-row-detail';
 
 /**
  * The watchlist table.
@@ -51,6 +52,7 @@ export function WatchlistTable({
   otherLists,
   emptyAction,
   hasFilters,
+  isLive,
   onSortChange,
   onRemove,
   onOpenDetail,
@@ -67,8 +69,11 @@ export function WatchlistTable({
   otherLists: readonly WatchlistSummaryDto[];
   emptyAction?: React.ReactNode;
   hasFilters: boolean;
+  /** Whether the market is open — for the expanded row's live/last-traded wording. */
+  isLive: boolean;
   onSortChange: (columnId: string, additive: boolean) => void;
   onRemove: (row: WatchlistRowDto) => void;
+  /** Opens the full chart & analysis drawer. Fired from inside the expanded row. */
   onOpenDetail: (row: WatchlistRowDto) => void;
   onOpenSignals: (row: WatchlistRowDto) => void;
   onAddToList: (watchlistId: number, symbol: string) => void;
@@ -90,6 +95,28 @@ export function WatchlistTable({
     [columnIds],
   );
 
+  // Accordion expansion: expanding a row collapses whatever was open before.
+  // Kept as a set (of at most one id) rather than a bare nullable id so a
+  // future "let several rows stay open" tweak is a one-line change here
+  // rather than a rethink of the wiring below.
+  const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(() => new Set());
+
+  // A sort or filter change can drop the expanded stock off the visible list
+  // entirely — collapse rather than hold onto a row the user can no longer see.
+  useEffect(() => {
+    setExpandedIds((current) => {
+      if (current.size === 0) return current;
+      const visible = new Set(rows.map((row) => String(row.instrumentId)));
+      const next = new Set([...current].filter((id) => visible.has(id)));
+      return next.size === current.size ? current : next;
+    });
+  }, [rows]);
+
+  const toggleExpand = (row: WatchlistRowDto) => {
+    const id = String(row.instrumentId);
+    setExpandedIds((current) => (current.has(id) ? new Set() : new Set([id])));
+  };
+
   return (
     <DataTable
       data={rows}
@@ -101,7 +128,19 @@ export function WatchlistTable({
       stickyHeader
       sort={sort}
       onSortChange={onSortChange}
-      onRowClick={onOpenDetail}
+      expandedRowIds={expandedIds}
+      onToggleExpand={toggleExpand}
+      renderExpanded={(row) => (
+        <WatchlistRowDetail
+          row={row}
+          isLive={isLive}
+          onViewChart={onOpenDetail}
+          onViewSignals={onOpenSignals}
+          otherLists={otherLists}
+          onAddToList={onAddToList}
+          onRemove={onRemove}
+        />
+      )}
       emptyTitle={hasFilters ? 'No stock matches these filters' : 'Nothing on this watchlist yet'}
       emptyDescription={
         hasFilters
@@ -115,7 +154,7 @@ export function WatchlistTable({
           row={row}
           otherLists={otherLists}
           onRemove={onRemove}
-          onOpenDetail={onOpenDetail}
+          onToggleExpand={toggleExpand}
           onOpenSignals={onOpenSignals}
           onAddToList={onAddToList}
         />
@@ -128,14 +167,14 @@ function RowMenu({
   row,
   otherLists,
   onRemove,
-  onOpenDetail,
+  onToggleExpand,
   onOpenSignals,
   onAddToList,
 }: {
   row: WatchlistRowDto;
   otherLists: readonly WatchlistSummaryDto[];
   onRemove: (row: WatchlistRowDto) => void;
-  onOpenDetail: (row: WatchlistRowDto) => void;
+  onToggleExpand: (row: WatchlistRowDto) => void;
   onOpenSignals: (row: WatchlistRowDto) => void;
   onAddToList: (watchlistId: number, symbol: string) => void;
 }) {
@@ -152,13 +191,13 @@ function RowMenu({
         <DropdownMenuSeparator />
 
         {/*
-          One item, not two: the detail panel already contains the chart, and
-          separate "view details" and "open chart" entries that open the same
-          panel is exactly the clutter a row menu exists to avoid.
+          Same target as clicking the row or its chevron — a menu-first way to
+          reach the inline analysis for keyboard/AT users who navigate by menu
+          rather than by clicking the row itself.
         */}
-        <DropdownMenuItem onSelect={() => onOpenDetail(row)}>
-          <BarChart3Icon />
-          Details &amp; chart
+        <DropdownMenuItem onSelect={() => onToggleExpand(row)}>
+          <ChevronsUpDownIcon />
+          View details
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => onOpenSignals(row)}>
           <ActivityIcon />

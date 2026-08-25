@@ -24,6 +24,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { agoLabel, istTime } from '@/lib/format';
 import {
   applyFilters,
   buildSections,
@@ -31,12 +32,25 @@ import {
   type SignalFilterState,
 } from '@/lib/intraday-display';
 import type { IntradaySignalDto } from '@/lib/intraday-types';
+import { derivePipelineStatus, type PipelineState } from '@/lib/pipeline-status';
 import { useIntradaySignals } from '@/lib/use-intraday-signals';
+import { EngineStatus } from './engine-status';
 import { SignalCard, SignalRow } from './signal-card';
 import { SignalDetail } from './signal-detail';
 import { SignalFilters } from './signal-filters';
 import { SignalSummary } from './signal-summary';
 import { SignalsDisclaimer } from './vocabulary';
+
+const PROBLEM_TITLE: Partial<Record<PipelineState, string>> = {
+  unknown: "Can't confirm market status",
+  delayed: 'Scan is running behind',
+  stopped: "Signal engine isn't scanning",
+  error: 'Last scan failed',
+};
+
+function isProblemState(state: PipelineState): boolean {
+  return state in PROBLEM_TITLE;
+}
 
 /**
  * The Trade Signals page.
@@ -74,6 +88,19 @@ export function SignalsPage() {
   const sections = useMemo(() => buildSections(filtered), [filtered]);
 
   const openSignal = useCallback((signal: IntradaySignalDto) => setSelected(signal), []);
+
+  // The single source of truth for "is this thing actually scanning?" — the
+  // header pill and both banners below all read from this one call so they
+  // can never disagree with each other.
+  const pipeline =
+    data === null
+      ? null
+      : derivePipelineStatus({
+          market: data.market,
+          run: data.run,
+          stale: data.stale,
+          now: Date.now(),
+        });
 
   if (feed.status === 'error') {
     return (
@@ -115,6 +142,14 @@ export function SignalsPage() {
             </PageDescription>
           </PageHeading>
           <PageActions>
+            {/* The primary answer to "is this actually scanning right now?" —
+                derived entirely from the run row, market state and staleness
+                the feed already carries; see engine-status.tsx. Replaces the
+                market-phase badge that used to sit here — that badge's own
+                "unknown" reading and this pill's could disagree, and its raw
+                phase label ("Session state unavailable") didn't explain
+                anything a reader could act on. */}
+            {data !== null && <EngineStatus feed={data} />}
             {/* When the ENGINE last scanned, which is not when quotes were last
                 fetched — the header's stamp answers that. Two clocks meaning
                 different things must not sit side by side, so this one is
@@ -164,30 +199,35 @@ export function SignalsPage() {
           </PageContent>
         ) : (
           <PageContent>
-            {data.stale && (
-              <Alert variant="warning">
-                <AlertTitle>The signal engine has not run recently</AlertTitle>
+            {pipeline !== null && isProblemState(pipeline.state) && (
+              <Alert variant={pipeline.tone === 'critical' ? 'destructive' : 'warning'}>
+                <AlertTitle>{PROBLEM_TITLE[pipeline.state]}</AlertTitle>
                 <AlertDescription>
-                  The setups below were last validated at{' '}
-                  {data.run?.finishedAt === null || data.run === null
-                    ? 'an unknown time'
-                    : new Date(data.run.finishedAt).toLocaleTimeString('en-IN', {
-                        timeZone: 'Asia/Kolkata',
-                        hour12: false,
-                      })}{' '}
-                  and may no longer be valid. Start the worker with{' '}
-                  <code className="font-mono">pnpm --filter @wealthos/worker dev</code> to resume
-                  live evaluation.
+                  {pipeline.detail}{' '}
+                  {pipeline.lastActivityAt !== null && (
+                    <>
+                      Last scanned {agoLabel(pipeline.lastActivityAt, Date.now())} (
+                      {istTime(pipeline.lastActivityAt)} IST).
+                    </>
+                  )}
+                  {(pipeline.state === 'stopped' || pipeline.state === 'unknown') && (
+                    <>
+                      {' '}
+                      Start the worker with{' '}
+                      <code className="font-mono">pnpm --filter @wealthos/worker dev</code> if it is
+                      not already running.
+                    </>
+                  )}
                 </AlertDescription>
               </Alert>
             )}
 
-            {!data.market.isOpen && (
+            {pipeline?.state === 'closed' && (
               <Alert>
                 <AlertTitle>Market closed</AlertTitle>
                 <AlertDescription>
-                  These are the setups recorded during the {data.tradingDate} session, shown as
-                  history. They are not live intraday opportunities.
+                  {pipeline.detail} These are the setups recorded during the {data.tradingDate}{' '}
+                  session, shown as history — not live opportunities.
                 </AlertDescription>
               </Alert>
             )}

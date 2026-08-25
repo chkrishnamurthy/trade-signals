@@ -739,7 +739,7 @@ export async function finishIntradayRun(
     .where(eq(intradayRuns.id, id));
 }
 
-/** The most recent run for a session, for the freshness banner. */
+/** The most recent run for a session, for the freshness banner and the live-processing status. */
 export async function latestIntradayRun(
   db: Database,
   tradingDate: string,
@@ -749,7 +749,11 @@ export async function latestIntradayRun(
   finishedAt: Date | null;
   status: string;
   regime: string | null;
+  symbolsRequested: number;
   symbolsEvaluated: number;
+  signalsCreated: number;
+  signalsUpdated: number;
+  skippedCount: number;
   error: string | null;
 } | null> {
   const [row] = await db
@@ -759,7 +763,13 @@ export async function latestIntradayRun(
       finishedAt: intradayRuns.finishedAt,
       status: intradayRuns.status,
       regime: intradayRuns.regime,
+      symbolsRequested: intradayRuns.symbolsRequested,
       symbolsEvaluated: intradayRuns.symbolsEvaluated,
+      signalsCreated: intradayRuns.signalsCreated,
+      signalsUpdated: intradayRuns.signalsUpdated,
+      // The count, not the reasons — the reasons are for a worker-side log, not
+      // a page trying to answer "is this thing running?" in one glance.
+      skippedCount: sql<number>`jsonb_array_length(${intradayRuns.skipped})`,
       error: intradayRuns.error,
     })
     .from(intradayRuns)

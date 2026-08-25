@@ -38,8 +38,8 @@ import { ColumnPanel } from './column-panel';
 import { FilterPanel } from './filter-panel';
 import { QuickViews } from './quick-views';
 import { SummaryBar } from './summary-bar';
-import { WatchlistSidebar } from './watchlist-sidebar';
 import { WatchlistTable } from './watchlist-table';
+import { WatchlistTabs } from './watchlist-tabs';
 
 /**
  * The watchlist workspace.
@@ -218,165 +218,158 @@ export function WatchlistsPage() {
           )}
         </PageHeader>
 
-        <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[13rem_minmax(0,1fr)]">
-          {/* Rail. On small screens it sits above the table rather than
-              disappearing — switching lists is the primary navigation here. */}
-          <aside className="min-w-0">
-            <WatchlistSidebar
-              lists={allLists}
-              activeId={activeId}
-              loading={lists.status === 'loading'}
-              onSelect={setActiveId}
-              onCreate={async (name) => {
-                const result = await createList(name);
-                return result.ok ? { ok: true } : { ok: false, error: result.error.error };
-              }}
-              onRename={async (id, name) => {
-                const result = await renameList(id, name);
-                return result.ok ? { ok: true } : { ok: false, error: result.error.error };
-              }}
-              onDelete={(id) => void deleteList(id)}
-              onMakeDefault={(id) => void makeDefault(id)}
-              onReorder={(ids) => void reorderLists(ids)}
-            />
-          </aside>
+        <WatchlistTabs
+          lists={allLists}
+          activeId={activeId}
+          loading={lists.status === 'loading'}
+          onSelect={setActiveId}
+          onCreate={async (name) => {
+            const result = await createList(name);
+            return result.ok ? { ok: true } : { ok: false, error: result.error.error };
+          }}
+          onRename={async (id, name) => {
+            const result = await renameList(id, name);
+            return result.ok ? { ok: true } : { ok: false, error: result.error.error };
+          }}
+          onDelete={(id) => void deleteList(id)}
+          onMakeDefault={(id) => void makeDefault(id)}
+          onReorder={(ids) => void reorderLists(ids)}
+        />
 
-          <PageContent className="min-w-0">
-            {!hasList && lists.status === 'ready' && allLists.length === 0 && (
-              <Card className="px-4 py-12 text-center">
-                <Text variant="section-title">No watchlists yet</Text>
-                <Text variant="caption" className="mx-auto mt-1 max-w-sm text-balance">
-                  Create a list — a sector, a strategy, a theme — and add the stocks you want to
-                  keep an eye on.
-                </Text>
-              </Card>
-            )}
+        <PageContent className="mt-4 min-w-0">
+          {!hasList && lists.status === 'ready' && allLists.length === 0 && (
+            <Card className="px-4 py-12 text-center">
+              <Text variant="section-title">No watchlists yet</Text>
+              <Text variant="caption" className="mx-auto mt-1 max-w-sm text-balance">
+                Create a list — a sector, a strategy, a theme — and add the stocks you want to keep
+                an eye on.
+              </Text>
+            </Card>
+          )}
 
-            {hasList && (
-              <>
-                <SummaryBar performance={performance} filtered={hasFilters} />
+          {hasList && (
+            <>
+              <SummaryBar performance={performance} filtered={hasFilters} />
 
-                {data.quotesStale && (
-                  <Alert variant="warning">
-                    <AlertTitle>Prices are not live</AlertTitle>
-                    <AlertDescription>
-                      The market-data provider did not answer, so the price columns are empty.
-                      Indicator columns still show the last session the worker computed.
-                    </AlertDescription>
-                  </Alert>
-                )}
+              {data.quotesStale && (
+                <Alert variant="warning">
+                  <AlertTitle>Prices are not live</AlertTitle>
+                  <AlertDescription>
+                    The market-data provider did not answer, so the price columns are empty.
+                    Indicator columns still show the last session the worker computed.
+                  </AlertDescription>
+                </Alert>
+              )}
 
-                {!data.quotesStale && data.missingQuotes.length > 0 && (
-                  <Alert variant="warning">
-                    <AlertTitle>No quote for {data.missingQuotes.length} of these</AlertTitle>
-                    <AlertDescription>
-                      {data.missingQuotes.join(', ')} — the exchange returned nothing for them. They
-                      are still on the list and are excluded from the averages above.
-                    </AlertDescription>
-                  </Alert>
-                )}
+              {!data.quotesStale && data.missingQuotes.length > 0 && (
+                <Alert variant="warning">
+                  <AlertTitle>No quote for {data.missingQuotes.length} of these</AlertTitle>
+                  <AlertDescription>
+                    {data.missingQuotes.join(', ')} — the exchange returned nothing for them. They
+                    are still on the list and are excluded from the averages above.
+                  </AlertDescription>
+                </Alert>
+              )}
 
-                <QuickViews
-                  activeId={layout.quickView}
-                  savedViews={data.savedViews}
-                  layout={layout}
-                  onApply={applyQuickView}
-                  onApplySaved={applySavedView}
-                  onSave={async ({ name, global }) => {
-                    const result = await saveView({
-                      name,
-                      global,
-                      columns: columnIds,
-                      sort: layout.sort,
-                      filters: layout.filters,
-                    });
-                    return result.ok ? { ok: true } : { ok: false, error: result.error.error };
-                  }}
-                  onDeleteSaved={(id) => void deleteView(id)}
+              <QuickViews
+                activeId={layout.quickView}
+                savedViews={data.savedViews}
+                layout={layout}
+                onApply={applyQuickView}
+                onApplySaved={applySavedView}
+                onSave={async ({ name, global }) => {
+                  const result = await saveView({
+                    name,
+                    global,
+                    columns: columnIds,
+                    sort: layout.sort,
+                    filters: layout.filters,
+                  });
+                  return result.ok ? { ok: true } : { ok: false, error: result.error.error };
+                }}
+                onDeleteSaved={(id) => void deleteView(id)}
+              />
+
+              <div className="flex flex-wrap items-center gap-2">
+                <SearchInput
+                  value={layout.filters.query ?? ''}
+                  onValueChange={(query) => setFilters({ ...layout.filters, query })}
+                  placeholder="Filter these stocks…"
+                  aria-label="Filter the watchlist"
+                  className="w-full sm:w-56"
                 />
-
-                <div className="flex flex-wrap items-center gap-2">
-                  <SearchInput
-                    value={layout.filters.query ?? ''}
-                    onValueChange={(query) => setFilters({ ...layout.filters, query })}
-                    placeholder="Filter these stocks…"
-                    aria-label="Filter the watchlist"
-                    className="w-full sm:w-56"
-                  />
-                  <FilterPanel
-                    filters={layout.filters}
-                    sectors={sectors}
-                    exchanges={exchanges}
-                    onChange={setFilters}
-                    onClear={() => setFilters({})}
-                  />
-                  <ColumnPanel
-                    columnIds={columnIds}
-                    onChange={(columns) =>
-                      setLayout({ ...layout, columns: [...columns], quickView: null })
-                    }
-                  />
-                  <span className="ml-auto">
-                    <Text variant="caption">
-                      {rows.length === allRows.length
-                        ? `${allRows.length} stocks`
-                        : `${rows.length} of ${allRows.length}`}
-                    </Text>
-                  </span>
-                </div>
-
-                {hasFilters && (
-                  <ActiveFilters
-                    filters={chips}
-                    onRemove={(id) => setFilters(removeWatchlistFilter(layout.filters, id))}
-                    onClear={() => setFilters({})}
-                  />
-                )}
-
-                <WatchlistTable
-                  rows={rows}
+                <FilterPanel
+                  filters={layout.filters}
+                  sectors={sectors}
+                  exchanges={exchanges}
+                  onChange={setFilters}
+                  onClear={() => setFilters({})}
+                />
+                <ColumnPanel
                   columnIds={columnIds}
-                  sort={layout.sort}
-                  status={
-                    detail.status === 'loading'
-                      ? 'loading'
-                      : detail.status === 'error'
-                        ? 'error'
-                        : 'ready'
+                  onChange={(columns) =>
+                    setLayout({ ...layout, columns: [...columns], quickView: null })
                   }
-                  errorMessage={detail.status === 'error' ? detail.error.error : undefined}
-                  onRetry={refresh}
-                  otherLists={otherLists}
-                  hasFilters={hasFilters}
-                  emptyAction={
-                    hasFilters ? (
-                      <Button variant="outline" size="sm" onClick={() => setFilters({})}>
-                        Clear filters
-                      </Button>
-                    ) : (
-                      <AddStocks
-                        existingSymbols={allRows.map((row) => row.symbol)}
-                        onAdd={async (symbols) => {
-                          const result = await addSymbols(symbols);
-                          return result.ok
-                            ? { ok: true }
-                            : { ok: false, error: result.error.error };
-                        }}
-                      />
-                    )
-                  }
-                  onSortChange={onSortChange}
-                  onRemove={(row) => void removeSymbols([row.instrumentId])}
-                  onOpenDetail={setSelected}
-                  onOpenSignals={(row) => router.push(`/signals?symbol=${row.symbol}`)}
-                  onAddToList={(watchlistId, symbol) => void addSymbolsTo(watchlistId, [symbol])}
                 />
-              </>
-            )}
+                <span className="ml-auto">
+                  <Text variant="caption">
+                    {rows.length === allRows.length
+                      ? `${allRows.length} stocks`
+                      : `${rows.length} of ${allRows.length}`}
+                  </Text>
+                </span>
+              </div>
 
-            <PageDisclaimer />
-          </PageContent>
-        </div>
+              {hasFilters && (
+                <ActiveFilters
+                  filters={chips}
+                  onRemove={(id) => setFilters(removeWatchlistFilter(layout.filters, id))}
+                  onClear={() => setFilters({})}
+                />
+              )}
+
+              <WatchlistTable
+                rows={rows}
+                columnIds={columnIds}
+                sort={layout.sort}
+                isLive={data.market.isOpen}
+                status={
+                  detail.status === 'loading'
+                    ? 'loading'
+                    : detail.status === 'error'
+                      ? 'error'
+                      : 'ready'
+                }
+                errorMessage={detail.status === 'error' ? detail.error.error : undefined}
+                onRetry={refresh}
+                otherLists={otherLists}
+                hasFilters={hasFilters}
+                emptyAction={
+                  hasFilters ? (
+                    <Button variant="outline" size="sm" onClick={() => setFilters({})}>
+                      Clear filters
+                    </Button>
+                  ) : (
+                    <AddStocks
+                      existingSymbols={allRows.map((row) => row.symbol)}
+                      onAdd={async (symbols) => {
+                        const result = await addSymbols(symbols);
+                        return result.ok ? { ok: true } : { ok: false, error: result.error.error };
+                      }}
+                    />
+                  )
+                }
+                onSortChange={onSortChange}
+                onRemove={(row) => void removeSymbols([row.instrumentId])}
+                onOpenDetail={setSelected}
+                onOpenSignals={(row) => router.push(`/signals?symbol=${row.symbol}`)}
+                onAddToList={(watchlistId, symbol) => void addSymbolsTo(watchlistId, [symbol])}
+              />
+            </>
+          )}
+
+          <PageDisclaimer />
+        </PageContent>
       </PageContainer>
 
       <StockDetailDrawer
