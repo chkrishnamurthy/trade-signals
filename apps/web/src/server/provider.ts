@@ -102,7 +102,20 @@ export async function getProvider(): Promise<MarketDataProvider> {
 
   if (cached !== null && cached.credential === credential) return cached.provider;
 
-  const provider = createFyersProvider({ appId, accessToken, rateLimiter, circuitBreaker });
+  const provider = createFyersProvider({
+    appId,
+    accessToken,
+    rateLimiter,
+    circuitBreaker,
+    // A route handler here is answering a page a human is looking at, not
+    // running a background pull — unlike apps/worker (5 attempts, 30s each),
+    // this should fail toward `quotesStale` quickly rather than sit through a
+    // full generic retry budget. One retry survives a single transient blip;
+    // beyond that, the client's own poll (`refreshAfterSeconds`) is what
+    // actually recovers a live price, not a longer wait on this request.
+    attempts: 2,
+    timeoutMs: 6_000,
+  });
   cached = { provider, credential };
   return provider;
 }

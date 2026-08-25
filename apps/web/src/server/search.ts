@@ -43,6 +43,28 @@ async function load(): Promise<Loaded> {
   return loading;
 }
 
+/**
+ * Starts loading the instrument universe without waiting on it.
+ *
+ * `resolveSymbol` and `searchSymbols` fall back to this download for any
+ * symbol outside `config/indices.yaml` — a full NSE symbol-master CSV (tens
+ * of thousands of rows), not a quote. Left lazy, that cost lands on whichever
+ * request happens to ask for such a symbol first — for a watchlist stock
+ * outside the curated index list, that is a user expanding its row and
+ * waiting on the chart. Callers that know a resolution is coming (a
+ * watchlist detail load, moments before the user can click a row) fire this
+ * first so the cache is already warm, or at least already in flight, by the
+ * time `resolveSymbol` actually needs it — `load()`'s own in-flight dedup
+ * means a request that arrives before this finishes joins it rather than
+ * starting a second download.
+ */
+export function warmInstrumentCache(): void {
+  void load().catch(() => {
+    // A failed warm-up is not this call's problem to report — the caller
+    // that actually needs the data will hit the same failure and handle it.
+  });
+}
+
 export interface SearchHit {
   readonly symbol: string;
   readonly name: string;

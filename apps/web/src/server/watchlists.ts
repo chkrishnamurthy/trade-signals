@@ -42,7 +42,7 @@ import { toMarketError } from './errors';
 import { getIndex, listIndexKeys } from './indices';
 import { getMarketStatus } from './market-status';
 import { getProvider } from './provider';
-import { resolveSymbol } from './search';
+import { resolveSymbol, warmInstrumentCache } from './search';
 
 /**
  * Watchlist reads and writes for the web app.
@@ -133,34 +133,55 @@ export async function getWatchlistDetail(id: number): Promise<WatchlistDetailDto
   const instrumentIds = members.map((member) => member.instrumentId);
   const now = new Date();
 
+  // Not awaited: this only shortens the wait for whichever request needs the
+  // instrument universe next — expanding a row's chart, most likely, for any
+  // member outside `config/indices.yaml`. Awaiting it here would trade a slow
+  // chart load for a slow watchlist load; the point is to move the cost off
+  // the interactive path entirely, not just relocate it.
+  warmInstrumentCache();
+
+  // The live quote call is the one network hop in this function — everything
+  // else here is a DB read — so it runs ALONGSIDE the indicator batch below
+  // rather than after it. It used to be a separate, later `await`, which made
+  // this function's total time the SUM of the DB batch and the provider call
+  // instead of the max of the two; a slow or retrying provider call added its
+  // full duration on top of an otherwise-fast DB read for no reason, since
+  // neither side reads the other's result.
+  const quotesPromise: Promise<{
+    quotes: ReadonlyMap<string, Quote>;
+    missingQuotes: readonly string[];
+    quotesStale: boolean;
+  }> =
+    members.length === 0
+      ? Promise.resolve({ quotes: new Map(), missingQuotes: [], quotesStale: false })
+      : fetchQuotesFor(members)
+          .then((result) => ({
+            quotes: result.quotes,
+            missingQuotes: result.missing,
+            quotesStale: false,
+          }))
+          .catch(() => ({
+            // Prices unavailable. The table still renders; the UI labels it.
+            quotes: new Map<string, Quote>(),
+            missingQuotes: members.map((member) => member.symbol),
+            quotesStale: true,
+          }));
+
   // The indicator read still decides whether this call succeeds, as it always
   // has. The three added sources only enrich a column group each — no signals
   // written yet, a candle table not backfilled that far — so each degrades to
   // an empty map rather than taking a working watchlist down with it.
-  const [indicators, signals, setups, returnCloses] = await Promise.all([
+  const [indicators, signals, setups, returnCloses, quoteResult] = await Promise.all([
     latestIndicatorsForInstruments(db, instrumentIds),
     latestSignalsForInstruments(db, instrumentIds).catch(() => new Map<number, InstrumentSignal>()),
     liveSetupsFor(db, instrumentIds, now),
     closesAsOf(db, { instrumentIds, anchors: returnAnchors(now) }).catch(
       () => new Map<number, Map<string, number>>(),
     ),
+    quotesPromise,
   ]);
 
-  let quotes: ReadonlyMap<string, Quote> = new Map();
-  let missingQuotes: readonly string[] = [];
-  let quotesStale = false;
-
-  if (members.length > 0) {
-    try {
-      const result = await fetchQuotesFor(members);
-      quotes = result.quotes;
-      missingQuotes = result.missing;
-    } catch {
-      // Prices unavailable. The table still renders; the UI labels it.
-      quotesStale = true;
-      missingQuotes = members.map((member) => member.symbol);
-    }
-  }
+  const { quotes, missingQuotes, quotesStale } = quoteResult;
 
   const rows: WatchlistRowDto[] = members.map((member) => {
     const quote = quotes.get(member.symbol) ?? null;
