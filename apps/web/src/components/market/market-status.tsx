@@ -128,10 +128,10 @@ export function LiveIndicator({
 /**
  * Last-updated stamp.
  *
- * Renders the absolute IST time — the number a trader cross-references against
- * the exchange — and puts the relative age in a tooltip. The relative age
- * re-renders on its own 30-second tick rather than on the data feed, so a quiet
- * feed still shows an honestly ageing timestamp.
+ * Renders the live wall-clock IST time, ticking every second — an actual
+ * running clock, not a frozen fetch timestamp. Freshness (how long ago the
+ * feed last updated) moves to the tooltip, where the warning colour still
+ * flags staleness.
  */
 export function LastUpdated({
   at,
@@ -146,7 +146,7 @@ export function LastUpdated({
 
   useEffect(() => {
     setNow(Date.now());
-    const timer = setInterval(() => setNow(Date.now()), 30_000);
+    const timer = setInterval(() => setNow(Date.now()), 1_000);
     return () => clearInterval(timer);
   }, []);
 
@@ -158,18 +158,19 @@ export function LastUpdated({
   // and guessing produces a hydration mismatch.
   const ageSeconds = now === null ? 0 : Math.max(0, (now - new Date(at).getTime()) / 1000);
   const stale = now !== null && ageSeconds > staleAfterSeconds;
+  const clockIso = now === null ? at : new Date(now).toISOString();
 
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <span
           className={cn(
-            'figure inline-flex items-center gap-1 font-mono text-xs',
+            'figure inline-flex items-center gap-1 font-mono text-xs tabular-nums',
             stale ? 'text-warning' : 'text-muted-foreground',
             className,
           )}
         >
-          {istTime(at)} IST
+          {istTime(clockIso)} IST
         </span>
       </TooltipTrigger>
       <TooltipContent>
