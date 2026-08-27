@@ -1,5 +1,5 @@
 {
-  "name": "@wealthos/worker",
+  "name": "@equitywise/worker",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -12,11 +12,11 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
-    "@wealthos/core": "workspace:*",
-    "@wealthos/db": "workspace:*",
-    "@wealthos/market-data": "workspace:*",
-    "@wealthos/providers-fyers": "workspace:*",
-    "@wealthos/shared": "workspace:*",
+    "@equitywise/core": "workspace:*",
+    "@equitywise/db": "workspace:*",
+    "@equitywise/market-data": "workspace:*",
+    "@equitywise/providers-fyers": "workspace:*",
+    "@equitywise/shared": "workspace:*",
     "croner": "^9.0.0",
     "dotenv": "^16.6.1",
     "yaml": "^2.8.1",

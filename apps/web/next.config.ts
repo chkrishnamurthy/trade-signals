@@ -15,7 +15,12 @@ const nextConfig: NextConfig = {
   outputFileTracingRoot: fileURLToPath(new URL('../..', import.meta.url)),
   // Workspace packages ship compiled ESM, but routing them through Next's
   // pipeline keeps source maps and tree-shaking consistent across the monorepo.
-  transpilePackages: ['@wealthos/shared', '@wealthos/db', '@wealthos/core', '@wealthos/fyers'],
+  transpilePackages: [
+    '@equitywise/shared',
+    '@equitywise/db',
+    '@equitywise/core',
+    '@equitywise/fyers',
+  ],
   typedRoutes: true,
 };
 

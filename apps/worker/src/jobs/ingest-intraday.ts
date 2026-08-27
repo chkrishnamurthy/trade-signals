@@ -3,9 +3,9 @@ import {
   insertMinuteCandles,
   latestMinuteBarPerInstrument,
   listActiveInstruments,
-} from '@wealthos/db';
-import type { InstrumentRef, MarketDataProvider } from '@wealthos/market-data';
-import { istDateKey, sessionOpen, startOfIstDay } from '@wealthos/shared';
+} from '@equitywise/db';
+import type { InstrumentRef, MarketDataProvider } from '@equitywise/market-data';
+import { istDateKey, sessionOpen, startOfIstDay } from '@equitywise/shared';
 import type { WorkerContext } from '../context.js';
 import { errorFields, type Logger } from '../log.js';
 

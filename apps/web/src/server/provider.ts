@@ -1,8 +1,8 @@
 import 'server-only';
-import { getProviderCredential } from '@wealthos/db';
-import { PathCircuitBreaker, RateLimiter } from '@wealthos/fyers';
-import type { MarketDataProvider } from '@wealthos/market-data';
-import { createFyersProvider, PROVIDER_ID } from '@wealthos/providers-fyers';
+import { getProviderCredential } from '@equitywise/db';
+import { PathCircuitBreaker, RateLimiter } from '@equitywise/fyers';
+import type { MarketDataProvider } from '@equitywise/market-data';
+import { createFyersProvider, PROVIDER_ID } from '@equitywise/providers-fyers';
 import { getDatabase, isDatabaseConfigured } from './db';
 
 /**

@@ -22,9 +22,9 @@ import {
   saveWatchlistLayout,
   saveWatchlistView,
   setDefaultWatchlist,
-} from '@wealthos/db';
-import type { InstrumentRef, Quote, QuotesResult } from '@wealthos/market-data';
-import { istDateKey } from '@wealthos/shared';
+} from '@equitywise/db';
+import type { InstrumentRef, Quote, QuotesResult } from '@equitywise/market-data';
+import { istDateKey } from '@equitywise/shared';
 import type { SignalDirection } from '@/lib/dashboard-types';
 import { type ReturnCloses, returnAnchors } from '@/lib/return-windows';
 import type {

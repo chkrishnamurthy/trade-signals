@@ -4,8 +4,8 @@ import {
   evaluateSignals,
   type IndicatorSnapshot,
   scanSwing,
-} from '@wealthos/core';
-import { istDateKey } from '@wealthos/shared';
+} from '@equitywise/core';
+import { istDateKey } from '@equitywise/shared';
 import type {
   ActivityEventDto,
   SignalsDto,

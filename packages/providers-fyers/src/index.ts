@@ -2,7 +2,7 @@
  * The Fyers adapter.
  *
  * Only the composition root (`apps/web/src/server/provider.ts`, the worker's
- * bootstrap) imports this. Business logic depends on `@wealthos/market-data`.
+ * bootstrap) imports this. Business logic depends on `@equitywise/market-data`.
  */
 export type { FyersProviderOptions } from './adapter.js';
 export { createFyersProvider } from './adapter.js';

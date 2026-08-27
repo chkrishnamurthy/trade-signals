@@ -1,5 +1,5 @@
 import 'server-only';
-import type { Instrument, InstrumentKind } from '@wealthos/market-data';
+import type { Instrument, InstrumentKind } from '@equitywise/market-data';
 import { getIndex, listIndexKeys } from './indices';
 import { getProvider } from './provider';
 

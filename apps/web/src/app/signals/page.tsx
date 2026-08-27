@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { SignalsPage } from '@/components/signals/signals-page';
 
 export const metadata: Metadata = {
-  title: 'Intraday signals — WealthOS',
+  title: 'Intraday signals — EquityWise',
   description:
     "Technical setups forming in today's session, each scored on how many independent conditions agree.",
 };

@@ -3,8 +3,8 @@ import {
   FyersAuthError,
   FyersRateLimitError,
   isTokenExpiryCode,
-} from '@wealthos/fyers';
-import { MarketDataProviderError } from '@wealthos/market-data';
+} from '@equitywise/fyers';
+import { MarketDataProviderError } from '@equitywise/market-data';
 
 export const PROVIDER_ID = 'fyers';
 

@@ -1,5 +1,5 @@
 {
-  "name": "@wealthos/market-data",
+  "name": "@equitywise/market-data",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -21,6 +21,6 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
-    "@wealthos/shared": "workspace:*"
+    "@equitywise/shared": "workspace:*"
   }
 }

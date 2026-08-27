@@ -2,8 +2,8 @@ import { SignIn } from '@clerk/nextjs';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Sign in — WealthOS',
-  description: 'Sign in to WealthOS.',
+  title: 'Sign in — EquityWise',
+  description: 'Sign in to EquityWise.',
 };
 
 /**
@@ -24,7 +24,7 @@ export default function SignInPage() {
           >
             W
           </span>
-          <h1 className="font-semibold text-base tracking-tight">WealthOS</h1>
+          <h1 className="font-semibold text-base tracking-tight">EquityWise</h1>
           <p className="text-muted-foreground text-sm">Sign in to continue</p>
         </div>
         <SignIn fallbackRedirectUrl="/dashboard" />

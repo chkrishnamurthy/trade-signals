@@ -25,8 +25,8 @@ import {
   type FyersCredentials,
   FyersHttpClient,
   writeCachedToken,
-} from '@wealthos/fyers';
-import { toIstIsoString } from '@wealthos/shared';
+} from '@equitywise/fyers';
+import { toIstIsoString } from '@equitywise/shared';
 import { config as loadEnv } from 'dotenv';
 
 const ENV_PATH = new URL('../.env', import.meta.url).pathname;
@@ -96,7 +96,7 @@ async function storeCredential(
   expiresAt: Date,
 ): Promise<boolean> {
   try {
-    const { saveProviderCredential } = await import('@wealthos/db');
+    const { saveProviderCredential } = await import('@equitywise/db');
     const { createContext } = await import('../apps/worker/src/context.js');
     const context = createContext();
     try {
@@ -237,7 +237,7 @@ async function main(): Promise<void> {
   console.log('\nNext:  pnpm verify:intraday --dry\n');
   if (stored) {
     console.log('Restart the worker so it picks the new token up immediately:');
-    console.log('  pnpm --filter @wealthos/worker dev\n');
+    console.log('  pnpm --filter @equitywise/worker dev\n');
   }
 }
 

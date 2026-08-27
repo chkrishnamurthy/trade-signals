@@ -11,16 +11,16 @@ importers:
       '@biomejs/biome':
         specifier: ^2.5.9
         version: 2.5.9
-      '@wealthos/core':
+      '@equitywise/core':
         specifier: workspace:*
         version: link:packages/core
-      '@wealthos/db':
+      '@equitywise/db':
         specifier: workspace:*
         version: link:packages/db
-      '@wealthos/fyers':
+      '@equitywise/fyers':
         specifier: workspace:*
         version: link:packages/fyers
-      '@wealthos/shared':
+      '@equitywise/shared':
         specifier: workspace:*
         version: link:packages/shared
       '@types/node':
@@ -50,6 +50,21 @@ importers:
       '@clerk/ui':
         specifier: ^1.30.6
         version: 1.30.6(@solana/web3.js@1.98.4(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6))(@types/react@19.2.18)(bs58@6.0.0)(bufferutil@4.1.0)(react-dom@19.2.8(react@19.2.8))(react-native@0.87.0(@babel/core@7.29.7)(@types/react@19.2.18)(bufferutil@4.1.0)(react@19.2.8)(utf-8-validate@6.0.6))(react@19.2.8)(typescript@5.9.3)(utf-8-validate@6.0.6)
+      '@equitywise/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@equitywise/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@equitywise/market-data':
+        specifier: workspace:*
+        version: link:../../packages/market-data
+      '@equitywise/providers-fyers':
+        specifier: workspace:*
+        version: link:../../packages/providers-fyers
+      '@equitywise/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@radix-ui/react-checkbox':
         specifier: ^1.3.11
         version: 1.3.11(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -89,21 +104,6 @@ importers:
       '@radix-ui/react-tooltip':
         specifier: ^1.2.16
         version: 1.2.16(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      '@wealthos/core':
-        specifier: workspace:*
-        version: link:../../packages/core
-      '@wealthos/db':
-        specifier: workspace:*
-        version: link:../../packages/db
-      '@wealthos/market-data':
-        specifier: workspace:*
-        version: link:../../packages/market-data
-      '@wealthos/providers-fyers':
-        specifier: workspace:*
-        version: link:../../packages/providers-fyers
-      '@wealthos/shared':
-        specifier: workspace:*
-        version: link:../../packages/shared
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -156,19 +156,19 @@ importers:
 
   apps/worker:
     dependencies:
-      '@wealthos/core':
+      '@equitywise/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@wealthos/db':
+      '@equitywise/db':
         specifier: workspace:*
         version: link:../../packages/db
-      '@wealthos/market-data':
+      '@equitywise/market-data':
         specifier: workspace:*
         version: link:../../packages/market-data
-      '@wealthos/providers-fyers':
+      '@equitywise/providers-fyers':
         specifier: workspace:*
         version: link:../../packages/providers-fyers
-      '@wealthos/shared':
+      '@equitywise/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       croner:
@@ -190,7 +190,7 @@ importers:
 
   packages/core:
     dependencies:
-      '@wealthos/shared':
+      '@equitywise/shared':
         specifier: workspace:*
         version: link:../shared
 
@@ -218,7 +218,7 @@ importers:
 
   packages/fyers:
     dependencies:
-      '@wealthos/shared':
+      '@equitywise/shared':
         specifier: workspace:*
         version: link:../shared
       zod:
@@ -227,19 +227,19 @@ importers:
 
   packages/market-data:
     dependencies:
-      '@wealthos/shared':
+      '@equitywise/shared':
         specifier: workspace:*
         version: link:../shared
 
   packages/providers-fyers:
     dependencies:
-      '@wealthos/fyers':
+      '@equitywise/fyers':
         specifier: workspace:*
         version: link:../fyers
-      '@wealthos/market-data':
+      '@equitywise/market-data':
         specifier: workspace:*
         version: link:../market-data
-      '@wealthos/shared':
+      '@equitywise/shared':
         specifier: workspace:*
         version: link:../shared
 
@@ -7973,7 +7973,7 @@ snapshots:
 
   rpc-websockets@9.3.9:
     dependencies:
-      '@swc/helpers': 0.5.15
+      '@swc/helpers': 0.5.21
       '@types/uuid': 10.0.0
       '@types/ws': 8.18.1
       buffer: 6.0.3

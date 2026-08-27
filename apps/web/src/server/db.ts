@@ -1,5 +1,5 @@
 import 'server-only';
-import { createDatabase, type Database, type DatabaseHandle } from '@wealthos/db';
+import { createDatabase, type Database, type DatabaseHandle } from '@equitywise/db';
 
 /**
  * The web app's database handle.

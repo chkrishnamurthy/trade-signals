@@ -6,14 +6,14 @@
 # run locally). Netlify serves the READ side: apps/web.
 #
 # Base stays at the repo root so pnpm can link the workspace packages the web
-# app depends on (@wealthos/core, /db, /shared, ...). The Next runtime finds the
+# app depends on (@equitywise/core, /db, /shared, ...). The Next runtime finds the
 # app from `publish`, so no "package directory" needs setting in the UI — if one
 # is already set there, clear it, because settings here win.
 # ---------------------------------------------------------------------------
 
 [build]
-  # Builds @wealthos/web's workspace dependencies first, then `next build`.
-  command = "pnpm --filter @wealthos/web build"
+  # Builds @equitywise/web's workspace dependencies first, then `next build`.
+  command = "pnpm --filter @equitywise/web build"
   publish = "apps/web/.next"
 
 [build.environment]

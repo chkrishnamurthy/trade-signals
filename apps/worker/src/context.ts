@@ -1,6 +1,6 @@
-import { createDatabase, type Database, type DatabaseHandle } from '@wealthos/db';
-import type { MarketDataProvider } from '@wealthos/market-data';
-import { createFyersProvider } from '@wealthos/providers-fyers';
+import { createDatabase, type Database, type DatabaseHandle } from '@equitywise/db';
+import type { MarketDataProvider } from '@equitywise/market-data';
+import { createFyersProvider } from '@equitywise/providers-fyers';
 
 /**
  * Worker composition root.

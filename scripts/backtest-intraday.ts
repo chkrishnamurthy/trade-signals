@@ -36,15 +36,15 @@ import {
   type SessionRegime,
   sessionRegime,
   summarisePaperTrades,
-} from '@wealthos/core';
+} from '@equitywise/core';
 import {
   createDatabase,
   getDailyBarsForInstruments,
   getMinuteBarsForInstruments,
   resolveInstrumentIds,
   type StoredBar,
-} from '@wealthos/db';
-import { istDateKey, sessionClose, sessionOpen } from '@wealthos/shared';
+} from '@equitywise/db';
+import { istDateKey, sessionClose, sessionOpen } from '@equitywise/shared';
 import { config as loadEnv } from 'dotenv';
 
 loadEnv({ path: new URL('../.env', import.meta.url).pathname });

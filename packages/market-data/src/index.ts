@@ -1,7 +1,7 @@
 /**
  * The market-data boundary.
  *
- * Business logic imports from here. It must never import `@wealthos/fyers` or any
+ * Business logic imports from here. It must never import `@equitywise/fyers` or any
  * other provider package directly.
  */
 export type { MarketDataFailure } from './errors.js';

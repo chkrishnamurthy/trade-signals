@@ -1,5 +1,5 @@
 {
-  "name": "@wealthos/providers-fyers",
+  "name": "@equitywise/providers-fyers",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -21,8 +21,8 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
-    "@wealthos/fyers": "workspace:*",
-    "@wealthos/market-data": "workspace:*",
-    "@wealthos/shared": "workspace:*"
+    "@equitywise/fyers": "workspace:*",
+    "@equitywise/market-data": "workspace:*",
+    "@equitywise/shared": "workspace:*"
   }
 }

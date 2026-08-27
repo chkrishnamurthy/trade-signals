@@ -1,4 +1,4 @@
-import { fromIstParts } from '@wealthos/shared';
+import { fromIstParts } from '@equitywise/shared';
 import { describe, expect, it } from 'vitest';
 import type { Bar } from '../types.js';
 import { adx } from './adx.js';

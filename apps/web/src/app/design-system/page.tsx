@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { DesignSystem } from '@/components/design-system/design-system';
 
 export const metadata: Metadata = {
-  title: 'Design system — WealthOS',
+  title: 'Design system — EquityWise',
   description:
     'Every token and shared component, rendered from the same imports a feature page uses.',
 };

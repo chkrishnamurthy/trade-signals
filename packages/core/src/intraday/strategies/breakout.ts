@@ -1,4 +1,4 @@
-import { formatPaise } from '@wealthos/shared';
+import { formatPaise } from '@equitywise/shared';
 import type { EvaluationFrame } from '../frame.js';
 import {
   brokenAbove,

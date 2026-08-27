@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { authorizationUrl, readAuthConfig } from '@wealthos/providers-fyers';
+import { authorizationUrl, readAuthConfig } from '@equitywise/providers-fyers';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { toMarketError } from '@/server/errors';

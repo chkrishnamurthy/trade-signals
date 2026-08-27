@@ -214,8 +214,8 @@ export function SignalsPage() {
                     <>
                       {' '}
                       Start the worker with{' '}
-                      <code className="font-mono">pnpm --filter @wealthos/worker dev</code> if it is
-                      not already running.
+                      <code className="font-mono">pnpm --filter @equitywise/worker dev</code> if it
+                      is not already running.
                     </>
                   )}
                 </AlertDescription>

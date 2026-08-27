@@ -1,11 +1,11 @@
-import { getProviderCredential, saveProviderCredential } from '@wealthos/db';
+import { getProviderCredential, saveProviderCredential } from '@equitywise/db';
 import {
   type AuthorizedCredential,
   type CredentialStore,
   ensureCredential,
   PROVIDER_ID,
   readRefreshConfig,
-} from '@wealthos/providers-fyers';
+} from '@equitywise/providers-fyers';
 import type { WorkerContext } from '../context.js';
 import { errorFields, type Logger } from '../log.js';
 

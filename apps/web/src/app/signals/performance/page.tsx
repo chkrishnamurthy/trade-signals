@@ -3,7 +3,7 @@ import { PerformanceView } from '@/components/signals/performance-view';
 import { getPaperResults } from '@/server/paper-trades';
 
 export const metadata: Metadata = {
-  title: 'Signal performance — WealthOS',
+  title: 'Signal performance — EquityWise',
   description:
     'How past signals actually turned out once graded against the tape and charged real transaction costs.',
 };

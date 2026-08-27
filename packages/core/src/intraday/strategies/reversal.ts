@@ -1,4 +1,4 @@
-import { formatPaise } from '@wealthos/shared';
+import { formatPaise } from '@equitywise/shared';
 import type { Series } from '../../types.js';
 import type { EvaluationFrame } from '../frame.js';
 import { trackBreak } from '../levels.js';

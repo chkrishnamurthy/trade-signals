@@ -1,5 +1,5 @@
 import 'server-only';
-import type { Quote } from '@wealthos/market-data';
+import type { Quote } from '@equitywise/market-data';
 import type { BreadthDto, MoverDto, SectorDto, SentimentDto } from '@/lib/dashboard-types';
 import { NEAR_HIGH_POSITION, NEAR_LOW_POSITION, rangePosition } from '@/lib/market-math';
 import type { ResolvedConstituent } from './indices';

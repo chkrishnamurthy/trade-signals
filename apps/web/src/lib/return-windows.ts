@@ -1,4 +1,4 @@
-import { istDateKey } from '@wealthos/shared';
+import { istDateKey } from '@equitywise/shared';
 
 /**
  * The trailing-return windows the watchlist can show.

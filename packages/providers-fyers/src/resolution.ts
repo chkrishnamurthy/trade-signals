@@ -1,5 +1,5 @@
-import type { FyersResolution } from '@wealthos/fyers';
-import type { Resolution } from '@wealthos/market-data';
+import type { FyersResolution } from '@equitywise/fyers';
+import type { Resolution } from '@equitywise/market-data';
 
 /**
  * Our timeframes to Fyers' resolution codes.

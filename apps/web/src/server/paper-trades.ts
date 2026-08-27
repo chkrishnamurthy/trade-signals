@@ -1,6 +1,6 @@
 import 'server-only';
-import { type PaperTrade, summarisePaperTrades } from '@wealthos/core';
-import { getPaperTrades } from '@wealthos/db';
+import { type PaperTrade, summarisePaperTrades } from '@equitywise/core';
+import { getPaperTrades } from '@equitywise/db';
 import { getDatabase, isDatabaseConfigured } from './db';
 
 /**

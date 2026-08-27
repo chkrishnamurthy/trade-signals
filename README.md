@@ -1,4 +1,4 @@
-# WealthOS
+# EquityWise
 
 Technical analysis and decision support for NSE equities. It answers what the
 market is doing, which stocks deserve attention, and why — and it never places,
@@ -38,9 +38,9 @@ The engine (`packages/core/src/intraday`) is pure. The worker runs it every few
 minutes while the market is open and stores the results; the web app only reads.
 
 ```bash
-pnpm --filter @wealthos/worker dev              # schedule everything, incl. the intraday loop
-pnpm --filter @wealthos/worker dev -- --once intraday-cycle   # one pass, now
-pnpm --filter @wealthos/worker dev -- --once refresh-credential  # mint a token now
+pnpm --filter @equitywise/worker dev              # schedule everything, incl. the intraday loop
+pnpm --filter @equitywise/worker dev -- --once intraday-cycle   # one pass, now
+pnpm --filter @equitywise/worker dev -- --once refresh-credential  # mint a token now
 pnpm verify:intraday --at "2026-08-21 13:30"  # replay any instant through the real engine
 pnpm verify:intraday --scan                   # score every symbol, write nothing
 pnpm verify:intraday --symbol RELIANCE        # full evidence for one symbol
@@ -55,7 +55,7 @@ Signals are technical observations, not advice, and the score is setup strength
 pnpm install
 cp .env.example .env     # then fill in both Neon connection strings
 pnpm build
-pnpm --filter @wealthos/worker dev   # connects to Neon, prints the server version
+pnpm --filter @equitywise/worker dev   # connects to Neon, prints the server version
 ```
 
 `.env.example` documents which Neon endpoint goes in which variable and where
@@ -67,8 +67,8 @@ it is handed a pooled URL.
 ## Deploying apps/web
 
 `netlify.toml` at the repo root configures the Netlify build: base stays at the
-workspace root so pnpm can link `@wealthos/*`, the command is
-`pnpm --filter @wealthos/web build`, and `publish = "apps/web/.next"` is how the
+workspace root so pnpm can link `@equitywise/*`, the command is
+`pnpm --filter @equitywise/web build`, and `publish = "apps/web/.next"` is how the
 Next runtime locates the app. Settings in the toml override the Netlify UI, so
 clear any base or package directory set there.
 
@@ -105,7 +105,7 @@ reads its credential from the database, not the environment. See below.
 
 The same four variables, set under *Project settings → Environment Variables*.
 Set **Root Directory** to `apps/web`; pnpm still installs from the workspace root
-so `@wealthos/*` link correctly, and the default install and build commands are
+so `@equitywise/*` link correctly, and the default install and build commands are
 right as they are. Vercel has no Builds/Functions scope split, so a variable set
 for an environment reaches both. There is no secrets scanner to appease, so
 nothing corresponds to `SECRETS_SCAN_OMIT_KEYS`.
@@ -132,7 +132,7 @@ Setting only some of them is reported at startup rather than silently never
 refreshing. Leave all three blank and the old manual path still works: run
 `pnpm fyers:login`, which writes `FYERS_ACCESS_TOKEN` into `.env`.
 
-`pnpm --filter @wealthos/worker dev -- --once refresh-credential` mints one now.
+`pnpm --filter @equitywise/worker dev -- --once refresh-credential` mints one now.
 A refresh failure is logged loudly and does **not** fall back to the stale token,
 because a request sent with an expired credential fails upstream as an opaque
 authorisation error that hides the real cause.
@@ -147,9 +147,10 @@ candles, signals or paper trades; the site serves whatever it last stored.
 
 ### Clerk instance
 
-The site is served from `wealthos-demo.netlify.app`, a Netlify subdomain, so a
-Clerk **production** instance is not an option: production requires a domain you
-own and DNS records you can add, and neither is true of `*.netlify.app`. Clerk
+The site is served from a `*.netlify.app` subdomain (the `equitywise.io` custom
+domain isn't wired up yet), so a Clerk **production** instance is not an option:
+production requires a domain you own and DNS records you can add, and neither
+is true of `*.netlify.app`. Clerk
 documents deploy domains of exactly this shape as running **development** keys,
 so `pk_test_` / `sk_test_` here is the supported configuration rather than a
 shortcut — and moving to `pk_live_` means buying a domain first, not flipping a

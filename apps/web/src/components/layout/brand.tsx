@@ -37,10 +37,10 @@ export function Brand({
           everywhere else the attribute is inert. See `globals.css`. */}
       {showWordmark && (
         <span data-nav-label className="text-sm">
-          WealthOS
+          EquityWise
         </span>
       )}
-      <span className="sr-only">WealthOS — NSE market analysis, home</span>
+      <span className="sr-only">EquityWise — NSE market analysis, home</span>
     </Link>
   );
 }

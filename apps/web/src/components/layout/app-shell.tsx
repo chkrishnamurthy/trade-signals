@@ -138,7 +138,7 @@ export function AppShell({
                   <Brand />
                 </SheetTitle>
                 <SheetDescription className="sr-only">
-                  Sections of the WealthOS application
+                  Sections of the EquityWise application
                 </SheetDescription>
               </SheetHeader>
               <Sidebar onNavigate={() => setDrawerOpen(false)} />

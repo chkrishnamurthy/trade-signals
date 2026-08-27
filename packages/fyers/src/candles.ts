@@ -1,4 +1,4 @@
-import { istDateKey } from '@wealthos/shared';
+import { istDateKey } from '@equitywise/shared';
 import type { FyersHttpClient } from './http.js';
 import { FYERS_DATA_BASE } from './http.js';
 import { type Candle, historyResponseSchema, toCandle } from './types.js';

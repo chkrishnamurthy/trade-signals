@@ -1,5 +1,5 @@
 import 'server-only';
-import { type MarketDataFailure, MarketDataProviderError } from '@wealthos/market-data';
+import { type MarketDataFailure, MarketDataProviderError } from '@equitywise/market-data';
 
 /**
  * A failure shaped for the UI: what happened, and what the operator can do.

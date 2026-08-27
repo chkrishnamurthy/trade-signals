@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { WatchlistsPage } from '@/components/watchlists/watchlists-page';
 
 export const metadata: Metadata = {
-  title: 'My watchlists — WealthOS',
+  title: 'My watchlists — EquityWise',
   description:
     'Group the stocks you follow and track their prices and technical readings side by side.',
 };

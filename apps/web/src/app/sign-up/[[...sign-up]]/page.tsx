@@ -2,8 +2,8 @@ import { SignUp } from '@clerk/nextjs';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Create account — WealthOS',
-  description: 'Create a WealthOS account.',
+  title: 'Create account — EquityWise',
+  description: 'Create a EquityWise account.',
 };
 
 /** Account creation. Same frame as sign-in, so the two read as one surface. */
@@ -18,7 +18,7 @@ export default function SignUpPage() {
           >
             W
           </span>
-          <h1 className="font-semibold text-base tracking-tight">WealthOS</h1>
+          <h1 className="font-semibold text-base tracking-tight">EquityWise</h1>
           <p className="text-muted-foreground text-sm">Create your account</p>
         </div>
         <SignUp fallbackRedirectUrl="/dashboard" />

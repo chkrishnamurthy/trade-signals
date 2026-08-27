@@ -1,4 +1,4 @@
-import { formatPaise } from '@wealthos/shared';
+import { formatPaise } from '@equitywise/shared';
 import type { EvaluationFrame } from '../frame.js';
 import type { InvalidationRule, Reason, StrategyEvidence, TradeDirection } from '../types.js';
 import { breakBuffer, proximity, reason, technicalLevels, volumeEvidence } from './shared.js';

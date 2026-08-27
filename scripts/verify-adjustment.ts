@@ -30,8 +30,8 @@ import {
   type FyersResolution,
   fetchCandles,
   RateLimiter,
-} from '@wealthos/fyers';
-import { formatPaise } from '@wealthos/shared';
+} from '@equitywise/fyers';
+import { formatPaise } from '@equitywise/shared';
 import { config as loadEnv } from 'dotenv';
 
 loadEnv({ path: new URL('../.env', import.meta.url).pathname });

@@ -12,7 +12,7 @@ import {
   streamTicks,
   type TickTransport,
   toFyersSymbol,
-} from '@wealthos/fyers';
+} from '@equitywise/fyers';
 import type {
   Bar,
   BarsRequest,
@@ -26,8 +26,8 @@ import type {
   StreamRequest,
   StreamState,
   TickSubscription,
-} from '@wealthos/market-data';
-import { istDateKey } from '@wealthos/shared';
+} from '@equitywise/market-data';
+import { istDateKey } from '@equitywise/shared';
 import { FyersNotConfiguredError, PROVIDER_ID, toProviderError } from './errors.js';
 import { toBar, toInstrument, toMarketStatus, toQuote, toTick } from './mapping.js';
 import { SUPPORTED_RESOLUTIONS, toFyersResolution } from './resolution.js';

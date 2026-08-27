@@ -1,4 +1,4 @@
-import { formatPaise } from '@wealthos/shared';
+import { formatPaise } from '@equitywise/shared';
 
 /**
  * Display formatting for the market UI.

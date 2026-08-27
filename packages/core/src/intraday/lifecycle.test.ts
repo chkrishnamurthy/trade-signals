@@ -1,4 +1,4 @@
-import { fromIstParts } from '@wealthos/shared';
+import { fromIstParts } from '@equitywise/shared';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_INTRADAY_CONFIG } from './config.js';
 import { type LiveSignal, transition } from './lifecycle.js';

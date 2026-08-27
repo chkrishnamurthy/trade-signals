@@ -1,6 +1,6 @@
 import 'server-only';
-import type { Bar, InstrumentRef, Resolution } from '@wealthos/market-data';
-import { istDateKey } from '@wealthos/shared';
+import type { Bar, InstrumentRef, Resolution } from '@equitywise/market-data';
+import { istDateKey } from '@equitywise/shared';
 import { getProvider } from './provider';
 
 /**

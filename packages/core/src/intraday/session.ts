@@ -5,7 +5,7 @@ import {
   MARKET_CLOSE_MINUTES,
   MARKET_OPEN_MINUTES,
   minutesSinceOpen,
-} from '@wealthos/shared';
+} from '@equitywise/shared';
 import type { IntradayConfig, RegimeProfile } from './config.js';
 import type { SessionRegime } from './types.js';
 

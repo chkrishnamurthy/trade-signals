@@ -1,4 +1,4 @@
-import { istDateKey } from '@wealthos/shared';
+import { istDateKey } from '@equitywise/shared';
 import type { Bar, Series } from '../types.js';
 
 /**

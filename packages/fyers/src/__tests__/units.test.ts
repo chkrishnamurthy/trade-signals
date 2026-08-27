@@ -1,4 +1,4 @@
-import { formatPaise } from '@wealthos/shared';
+import { formatPaise } from '@equitywise/shared';
 import { describe, expect, it } from 'vitest';
 import {
   appIdHash,

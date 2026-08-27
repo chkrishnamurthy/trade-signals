@@ -1,4 +1,4 @@
-import { rupeesToPaise } from '@wealthos/shared';
+import { rupeesToPaise } from '@equitywise/shared';
 import { z } from 'zod';
 import type { FyersHttpClient } from './http.js';
 import { internalSymbolFor, parseFyersSymbol } from './symbols.js';

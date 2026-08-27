@@ -7,7 +7,7 @@ import {
   macd,
   rsi,
   sma,
-} from '@wealthos/core';
+} from '@equitywise/core';
 import {
   getDailyBars,
   type IndicatorUpsert,
@@ -15,8 +15,8 @@ import {
   registerStrategy,
   saveSignal,
   upsertDailyIndicators,
-} from '@wealthos/db';
-import { istDateKey } from '@wealthos/shared';
+} from '@equitywise/db';
+import { istDateKey } from '@equitywise/shared';
 import type { WorkerContext } from '../context.js';
 import { errorFields, type Logger } from '../log.js';
 

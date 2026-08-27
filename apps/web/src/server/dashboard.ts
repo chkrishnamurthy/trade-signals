@@ -1,5 +1,5 @@
 import 'server-only';
-import type { Quote } from '@wealthos/market-data';
+import type { Quote } from '@equitywise/market-data';
 import type { DashboardDto, HeadlineIndexDto, MoverDto } from '@/lib/dashboard-types';
 import {
   computeBreadth,
