@@ -27,6 +27,18 @@ Each one reports and stops on a violation; the fix is the author's call.
   backtests, and bar fetches. Fires on `includeForming`, bar indexing, and fill prices.
 - [provider-boundary](provider-boundary/SKILL.md) — keeps Fyers types behind the adapter.
   Backed by a real test at `packages/market-data/src/__tests__/boundary.test.ts`.
+- [database](database/SKILL.md) — Neon/Drizzle/TimescaleDB conventions: connection
+  strings, append-only triggers, migrations, repository patterns. Fires on
+  `packages/db` and schema/migration work.
+- [worker](worker/SKILL.md) — `apps/worker` job conventions: scheduling, the write
+  boundary with `apps/web`, overlap prevention, shutdown, strategy versioning.
+- [api-boundary](api-boundary/SKILL.md) — `apps/web/src/app/api` route conventions:
+  Zod validation, the `server/` delegation layer, error shape, auth via middleware only.
+- [paper-trading](paper-trading/SKILL.md) — the pessimistic grader's four assumptions,
+  the cost model, R-multiple/margin-of-error reporting, live-vs-backtest identity.
+- [architecture-guardrails](architecture-guardrails/SKILL.md) — the CLAUDE.md "do not
+  build this" list applied product-wide (no RBAC/Redis/Celery/K8s/admin-CRUD/order
+  execution) — the backend half of what `design/exclusions.md` covers for the UI.
 
 ## Conventions
 
