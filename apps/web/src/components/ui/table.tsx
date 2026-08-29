@@ -42,8 +42,8 @@ function TableHeader({ className, sticky = false, ...props }: TableHeaderProps) 
     <thead
       data-slot="table-header"
       className={cn(
-        '[&_tr]:border-b [&_tr]:border-border',
-        sticky && 'sticky top-0 z-10 bg-surface',
+        'bg-surface-sunken [&_tr]:border-b [&_tr]:border-border',
+        sticky && 'sticky top-0 z-10',
         className,
       )}
       {...props}

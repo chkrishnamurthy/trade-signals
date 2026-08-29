@@ -89,7 +89,7 @@ export function WatchlistRowDetail({
       <div className="mt-3 grid grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr]">
         <MarketChart symbol={row.symbol} title="Price" previousClose={row.previousClose} />
 
-        <div className="rounded-lg border border-border bg-surface p-3">
+        <div className="rounded-lg border border-border bg-surface p-3 shadow-subtle">
           <Text as="h5" variant="overline" className="mb-1.5 block">
             Stock snapshot
           </Text>
@@ -166,6 +166,7 @@ export function WatchlistRowDetail({
           ) : (
             <DefinitionGrid columns={1}>
               <DefinitionRow label="Setup" value={cellFor('setupState')(row)} />
+              <DefinitionRow label="Confluence score" value={cellFor('setupScore')(row)} />
               <DefinitionRow label="Technical entry zone" value={cellFor('entryZone')(row)} />
               <DefinitionRow label="Target" value={cellFor('setupTarget')(row)} />
               <DefinitionRow label="Invalidation" value={cellFor('setupInvalidation')(row)} />

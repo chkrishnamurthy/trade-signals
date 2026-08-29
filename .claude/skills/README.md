@@ -9,6 +9,9 @@ You type these. The agent never fires them on its own, so this list is the index
 - [grill-me](grill-me/SKILL.md) — hostile production-readiness review of the whole repo,
   scored across ten categories, followed by a question-by-question interrogation.
   `/grill-me [junior|mid|senior|staff|principal|incident] [area]`
+- [design](design/SKILL.md) — build or restyle an apps/web screen against the product's
+  real tokens, every primitive's actual states, layout patterns, copy conventions, and
+  the brokerage-app patterns that must never appear. `/design [tokens|components|patterns|labels|exclusions]`
 
 ## Model-invoked
 

@@ -3,7 +3,7 @@
 import { PercentChange, Turnover } from '@/components/market/numeric';
 import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/typography';
-import { TONE_GLYPH, toneOf, toneText } from '@/lib/tone';
+import { TONE_GLYPH, toneText } from '@/lib/tone';
 import { cn } from '@/lib/utils';
 import type { WatchlistPerformance } from '@/lib/watchlist-summary';
 
@@ -164,11 +164,7 @@ function Mover({ symbol, percent }: { symbol: string | null; percent: number | n
   return (
     <span className="flex min-w-0 items-baseline gap-1.5">
       <span className="truncate text-sm font-medium">{symbol}</span>
-      <span className={cn('figure text-xs', toneText({ tone: toneOf(percent) }))}>
-        {percent === null
-          ? '—'
-          : `${percent > 0 ? '+' : percent < 0 ? '−' : ''}${Math.abs(percent).toFixed(2)}%`}
-      </span>
+      <PercentChange value={percent} size="sm" />
     </span>
   );
 }

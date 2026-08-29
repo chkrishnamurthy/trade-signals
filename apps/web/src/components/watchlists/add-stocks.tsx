@@ -1,7 +1,8 @@
 'use client';
 
-import { CheckIcon, Loader2Icon, PlusIcon, XIcon } from 'lucide-react';
+import { CheckIcon, PlusIcon, XIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { SkeletonRows } from '@/components/data-display/states';
 import { SearchInput } from '@/components/forms/filter-bar';
 import { StockAvatar } from '@/components/market/stock-identity';
 import { Badge } from '@/components/ui/badge';
@@ -181,7 +182,7 @@ export function AddStocks({
     >
       <DialogTrigger asChild>
         {trigger ?? (
-          <Button size="sm" disabled={disabled}>
+          <Button variant="outline" size="sm" disabled={disabled}>
             <PlusIcon />
             Add stocks
           </Button>
@@ -209,12 +210,7 @@ export function AddStocks({
 
           {/* Results */}
           <div className="min-h-40">
-            {searching && query.trim() !== '' && (
-              <div className="flex items-center gap-2 px-2 py-6 text-muted-foreground">
-                <Loader2Icon className="size-3.5 animate-spin" aria-hidden />
-                <Text variant="caption">Searching…</Text>
-              </div>
-            )}
+            {searching && query.trim() !== '' && <SkeletonRows rows={3} className="px-2 py-1" />}
 
             {!searching && query.trim() !== '' && hits.length === 0 && (
               <div className="px-2 py-6 text-center">
@@ -321,8 +317,7 @@ export function AddStocks({
           <Button variant="ghost" onClick={() => setOpen(false)}>
             Done
           </Button>
-          <Button onClick={() => void commit()} disabled={staged.length === 0 || busy}>
-            {busy && <Loader2Icon className="animate-spin" aria-hidden />}
+          <Button onClick={() => void commit()} disabled={staged.length === 0} loading={busy}>
             Add {staged.length > 0 ? staged.length : ''}
           </Button>
         </DialogFooter>

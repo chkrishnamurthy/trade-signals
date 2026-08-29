@@ -6,11 +6,12 @@ import {
   Percent,
   PercentChange,
   Price,
+  PriceChange,
   Ratio,
   Turnover,
   Volume,
 } from '@/components/market/numeric';
-import { SignalBadge, SignalStrength } from '@/components/market/signal';
+import { SignalBadge, SignalStrength, VolumeIndicator } from '@/components/market/signal';
 import { StockIdentity } from '@/components/market/stock-identity';
 import { Badge } from '@/components/ui/badge';
 import * as fmt from '@/lib/format';
@@ -145,11 +146,7 @@ const CELLS: Record<string, (row: WatchlistRowDto) => ReactNode> = {
 
   // --- Price ----------------------------------------------------------------
   ltp: (row) => <Price paise={row.ltp} bare size="sm" weight="medium" />,
-  change: (row) => (
-    <span className={cn('figure text-xs', toneText({ tone: toneOf(row.change) }))}>
-      {fmt.signedPrice(row.change)}
-    </span>
-  ),
+  change: (row) => <PriceChange paise={row.change} size="sm" />,
   changePercent: (row) => <PercentChange value={row.changePercent} size="sm" />,
   previousClose: (row) => <Price paise={row.previousClose} bare size="sm" />,
   open: (row) => <Price paise={row.open} bare size="sm" />,
@@ -174,18 +171,7 @@ const CELLS: Record<string, (row: WatchlistRowDto) => ReactNode> = {
   volume: (row) => <Volume shares={row.volume} size="sm" />,
   averageVolume: (row) => <Volume shares={row.averageVolume} size="sm" />,
   volumeChangePercent: derivedPercent('volumeChangePercent'),
-  relativeVolume: (row) => {
-    const value = row.relativeVolume;
-    return (
-      <Ratio
-        value={value}
-        size="sm"
-        // Above average is worth seeing; below it is not worth colouring, so the
-        // eye is drawn only to the rows that are actually busy.
-        className={value !== null && value >= 1.5 ? 'font-medium text-warning-foreground' : ''}
-      />
-    );
-  },
+  relativeVolume: (row) => <VolumeIndicator relativeVolume={row.relativeVolume} />,
   turnover: (row) => {
     const value = getColumn('turnover')?.value(row);
     return <Turnover paise={typeof value === 'number' ? value : null} size="sm" />;
@@ -233,21 +219,18 @@ const CELLS: Record<string, (row: WatchlistRowDto) => ReactNode> = {
   // --- Technical indicators -------------------------------------------------
   rsi14: (row) => {
     const value = row.rsi14;
+    const condition =
+      value === null ? undefined : value > 70 ? 'Overbought' : value < 30 ? 'Oversold' : undefined;
     const tone =
-      value === null
-        ? ''
-        : value > 70
-          ? 'text-bearish-strong'
-          : value < 30
-            ? 'text-bullish-strong'
-            : '';
-    return <IndicatorValue value={value} className={tone} />;
+      condition === 'Overbought' ? 'bearish' : condition === 'Oversold' ? 'bullish' : 'neutral';
+    return (
+      <span title={condition}>
+        <IndicatorValue value={value} className={toneText({ tone })} />
+        {condition !== undefined && <span className="sr-only"> {condition}</span>}
+      </span>
+    );
   },
-  macdHistogram: (row) => (
-    <span className={cn('figure text-xs', toneText({ tone: toneOf(row.macdHistogram) }))}>
-      {fmt.signedPrice(row.macdHistogram)}
-    </span>
-  ),
+  macdHistogram: (row) => <PriceChange paise={row.macdHistogram} size="sm" />,
   sma20: (row) => <AgainstLine paise={row.sma20} reference={row.ltp} />,
   sma50: (row) => <AgainstLine paise={row.sma50} reference={row.ltp} />,
   sma100: noSource('sma100'),
@@ -339,11 +322,23 @@ const CELLS: Record<string, (row: WatchlistRowDto) => ReactNode> = {
       </span>
     );
   },
+  /**
+   * The meter treatment, not a bare number — a confluence score is exactly
+   * the "confidence number the factors can't explain" CLAUDE.md bans if it
+   * renders unexplained. `SignalStrength` was built to take this component's
+   * long/short vocabulary via `tone`; the full factor breakdown lives one
+   * click away through "View signals" in the row detail below.
+   */
   setupScore: (row) =>
     row.setup === null ? (
-      <IndicatorValue value={null} />
+      <span className="text-subtle-foreground">—</span>
     ) : (
-      <IndicatorValue value={row.setup.score} decimals={0} />
+      <SignalStrength
+        strength={row.setup.score}
+        tone={row.setup.direction === 'long' ? 'bullish' : 'bearish'}
+        label="Confluence score"
+        className="w-24"
+      />
     ),
   /** A price BAND, because the setup's entry is a zone and not a single price. */
   entryZone: (row) =>

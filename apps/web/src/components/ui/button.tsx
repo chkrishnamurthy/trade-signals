@@ -1,5 +1,6 @@
 import { Slot } from '@radix-ui/react-slot';
 import { cva, type VariantProps } from 'class-variance-authority';
+import { Loader2Icon } from 'lucide-react';
 import type * as React from 'react';
 import { cn } from '@/lib/utils';
 
@@ -10,7 +11,7 @@ import { cn } from '@/lib/utils';
  * page-specific button style anywhere in the product.
  */
 const buttonVariants = cva(
-  'inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md text-sm font-medium transition-colors outline-none disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*=size-])]:size-4',
+  'inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md text-sm font-medium transition-colors outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*=size-])]:size-4',
   {
     variants: {
       variant: {
@@ -36,16 +37,42 @@ const buttonVariants = cva(
 
 interface ButtonProps extends React.ComponentProps<'button'>, VariantProps<typeof buttonVariants> {
   asChild?: boolean | undefined;
+  /** Ignored under `asChild` — `Slot` requires exactly one child element. */
+  loading?: boolean | undefined;
 }
 
-function Button({ className, variant, size, asChild = false, ...props }: ButtonProps) {
-  const Comp = asChild ? Slot : 'button';
+function Button({
+  className,
+  variant,
+  size,
+  asChild = false,
+  loading = false,
+  disabled,
+  children,
+  ...props
+}: ButtonProps) {
+  if (asChild) {
+    return (
+      <Slot
+        data-slot="button"
+        className={cn(buttonVariants({ variant, size }), className)}
+        {...props}
+      >
+        {children}
+      </Slot>
+    );
+  }
   return (
-    <Comp
+    <button
       data-slot="button"
       className={cn(buttonVariants({ variant, size }), className)}
+      disabled={disabled || loading}
+      aria-busy={loading || undefined}
       {...props}
-    />
+    >
+      {loading && <Loader2Icon className="animate-spin" aria-hidden />}
+      {children}
+    </button>
   );
 }
 

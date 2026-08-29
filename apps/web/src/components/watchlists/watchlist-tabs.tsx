@@ -2,7 +2,6 @@
 
 import { MoreHorizontalIcon, PencilIcon, PlusIcon, StarIcon, Trash2Icon } from 'lucide-react';
 import { useState } from 'react';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -81,10 +80,13 @@ export function WatchlistTabs({
 
   return (
     <>
-      <nav aria-label="Watchlists" className="flex min-w-0 items-center gap-1.5">
-        <ul className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto pb-0.5">
+      <nav
+        aria-label="Watchlists"
+        className="flex min-w-0 items-center gap-1.5 border-b border-border"
+      >
+        <ul className="flex min-w-0 flex-1 items-center gap-4 overflow-x-auto">
           {loading &&
-            [0, 1, 2].map((key) => <Skeleton key={key} className="h-7 w-24 shrink-0 rounded-md" />)}
+            [0, 1, 2].map((key) => <Skeleton key={key} className="mb-2 h-5 w-20 shrink-0" />)}
 
           {!loading &&
             lists.map((list, index) => {
@@ -105,40 +107,38 @@ export function WatchlistTabs({
                 >
                   <Button
                     type="button"
-                    variant={active ? 'default' : 'ghost'}
+                    variant="ghost"
                     size="sm"
                     onClick={() => onSelect(list.id)}
                     aria-current={active ? 'true' : undefined}
-                    className={cn('gap-1.5', active && 'rounded-r-none')}
+                    className={cn(
+                      '-mb-px gap-1.5 rounded-none border-b-2 border-transparent px-0.5 hover:bg-transparent',
+                      active
+                        ? 'border-primary font-semibold text-foreground'
+                        : 'font-medium text-muted-foreground hover:text-foreground',
+                    )}
                   >
                     <span className="max-w-36 truncate">{list.name}</span>
                     {list.isDefault && (
                       <StarIcon
-                        className="size-3 shrink-0 fill-current"
+                        className="size-3 shrink-0 fill-current text-primary"
                         aria-label="Default watchlist"
                       />
                     )}
-                    <Badge
-                      variant={active ? 'outline' : 'secondary'}
-                      size="sm"
-                      className={cn(
-                        'shrink-0 tabular-nums',
-                        active &&
-                          'border-primary-foreground/40 bg-transparent text-primary-foreground',
-                      )}
-                    >
+                    <span className="shrink-0 text-xs tabular-nums text-subtle-foreground">
                       {list.count}
-                    </Badge>
+                    </span>
                   </Button>
 
                   {active && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button
-                          variant="default"
-                          size="sm"
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
                           aria-label={`Actions for ${list.name}`}
-                          className="rounded-l-none border-l border-primary-foreground/20 px-1.5"
+                          className="-mb-px ml-0.5"
                         >
                           <MoreHorizontalIcon className="size-3.5" />
                         </Button>
@@ -187,13 +187,14 @@ export function WatchlistTabs({
         </ul>
 
         <Button
-          variant="outline"
+          type="button"
+          variant="ghost"
           size="sm"
-          className="shrink-0"
+          className="-mb-px shrink-0 gap-1 rounded-none border-b-2 border-transparent px-0.5 font-semibold text-primary hover:bg-transparent hover:text-primary"
           onClick={() => setDialog({ kind: 'create' })}
         >
-          <PlusIcon />
-          <span className="hidden sm:inline">New watchlist</span>
+          <PlusIcon className="size-3.5" />
+          <span className="hidden sm:inline">Watchlist</span>
         </Button>
       </nav>
 

@@ -20,7 +20,7 @@ import {
 } from '@/components/layout/page';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardToolbar } from '@/components/ui/card';
 import { Text } from '@/components/ui/typography';
 import type { MoverDto } from '@/lib/dashboard-types';
 import { useWatchlists } from '@/lib/use-watchlists';
@@ -297,81 +297,89 @@ export function WatchlistsPage() {
                 onDeleteSaved={(id) => void deleteView(id)}
               />
 
-              <div className="flex flex-wrap items-center gap-2">
-                <SearchInput
-                  value={layout.filters.query ?? ''}
-                  onValueChange={(query) => setFilters({ ...layout.filters, query })}
-                  placeholder="Filter these stocks…"
-                  aria-label="Filter the watchlist"
-                  className="w-full sm:w-56"
-                />
-                <FilterPanel
-                  filters={layout.filters}
-                  sectors={sectors}
-                  exchanges={exchanges}
-                  onChange={setFilters}
-                  onClear={() => setFilters({})}
-                />
-                <ColumnPanel
-                  columnIds={columnIds}
-                  onChange={(columns) =>
-                    setLayout({ ...layout, columns: [...columns], quickView: null })
-                  }
-                />
-                <span className="ml-auto">
-                  <Text variant="caption">
-                    {rows.length === allRows.length
-                      ? `${allRows.length} stocks`
-                      : `${rows.length} of ${allRows.length}`}
-                  </Text>
-                </span>
-              </div>
-
-              {hasFilters && (
-                <ActiveFilters
-                  filters={chips}
-                  onRemove={(id) => setFilters(removeWatchlistFilter(layout.filters, id))}
-                  onClear={() => setFilters({})}
-                />
-              )}
-
-              <WatchlistTable
-                rows={rows}
-                columnIds={columnIds}
-                sort={layout.sort}
-                isLive={data.market.isOpen}
-                status={
-                  detail.status === 'loading'
-                    ? 'loading'
-                    : detail.status === 'error'
-                      ? 'error'
-                      : 'ready'
-                }
-                errorMessage={detail.status === 'error' ? detail.error.error : undefined}
-                onRetry={refresh}
-                otherLists={otherLists}
-                hasFilters={hasFilters}
-                emptyAction={
-                  hasFilters ? (
-                    <Button variant="outline" size="sm" onClick={() => setFilters({})}>
-                      Clear filters
-                    </Button>
-                  ) : (
-                    <AddStocks
-                      existingSymbols={allRows.map((row) => row.symbol)}
-                      onAdd={async (symbols) => {
-                        const result = await addSymbols(symbols);
-                        return result.ok ? { ok: true } : { ok: false, error: result.error.error };
-                      }}
+              <Card>
+                <CardHeader className="flex-wrap items-center gap-2 py-2.5">
+                  <SearchInput
+                    value={layout.filters.query ?? ''}
+                    onValueChange={(query) => setFilters({ ...layout.filters, query })}
+                    placeholder="Filter these stocks…"
+                    aria-label="Filter the watchlist"
+                    className="w-full sm:w-56"
+                  />
+                  <CardToolbar className="flex-wrap gap-2">
+                    <FilterPanel
+                      filters={layout.filters}
+                      sectors={sectors}
+                      exchanges={exchanges}
+                      onChange={setFilters}
+                      onClear={() => setFilters({})}
                     />
-                  )
-                }
-                onSortChange={onSortChange}
-                onRemove={(row) => void removeSymbols([row.instrumentId])}
-                onOpenDetail={setSelected}
-                onOpenSignals={(row) => router.push(`/signals?symbol=${row.symbol}`)}
-                onAddToList={(watchlistId, symbol) => void addSymbolsTo(watchlistId, [symbol])}
-              />
+                    <ColumnPanel
+                      columnIds={columnIds}
+                      onChange={(columns) =>
+                        setLayout({ ...layout, columns: [...columns], quickView: null })
+                      }
+                    />
+                    <Text variant="caption" className="whitespace-nowrap">
+                      {rows.length === allRows.length
+                        ? `${allRows.length} stocks`
+                        : `${rows.length} of ${allRows.length}`}
+                    </Text>
+                  </CardToolbar>
+                </CardHeader>
+
+                {hasFilters && (
+                  <div className="border-b border-border px-4 py-2">
+                    <ActiveFilters
+                      filters={chips}
+                      onRemove={(id) => setFilters(removeWatchlistFilter(layout.filters, id))}
+                      onClear={() => setFilters({})}
+                    />
+                  </div>
+                )}
+
+                <CardContent flush>
+                  <WatchlistTable
+                    rows={rows}
+                    columnIds={columnIds}
+                    sort={layout.sort}
+                    isLive={data.market.isOpen}
+                    status={
+                      detail.status === 'loading'
+                        ? 'loading'
+                        : detail.status === 'error'
+                          ? 'error'
+                          : 'ready'
+                    }
+                    errorMessage={detail.status === 'error' ? detail.error.error : undefined}
+                    onRetry={refresh}
+                    otherLists={otherLists}
+                    hasFilters={hasFilters}
+                    emptyAction={
+                      hasFilters ? (
+                        <Button variant="outline" size="sm" onClick={() => setFilters({})}>
+                          Clear filters
+                        </Button>
+                      ) : (
+                        <AddStocks
+                          existingSymbols={allRows.map((row) => row.symbol)}
+                          onAdd={async (symbols) => {
+                            const result = await addSymbols(symbols);
+                            return result.ok
+                              ? { ok: true }
+                              : { ok: false, error: result.error.error };
+                          }}
+                        />
+                      )
+                    }
+                    onSortChange={onSortChange}
+                    onRemove={(row) => void removeSymbols([row.instrumentId])}
+                    onOpenDetail={setSelected}
+                    onOpenSignals={(row) => router.push(`/signals?symbol=${row.symbol}`)}
+                    onAddToList={(watchlistId, symbol) => void addSymbolsTo(watchlistId, [symbol])}
+                  />
+                </CardContent>
+              </Card>
             </>
           )}
 
