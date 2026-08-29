@@ -204,11 +204,12 @@ export function SignalRow({
         size="sm"
         className="w-20 shrink-0 justify-end"
       />
-      <span
-        className={cn('figure w-10 shrink-0 text-right text-sm font-semibold', toneText({ tone }))}
-      >
-        {signal.score}
-      </span>
+      <SignalStrength
+        strength={signal.score}
+        tone={tone}
+        label={`${signal.quality} setup strength`}
+        className="w-20 shrink-0"
+      />
       <span className="hidden min-w-0 flex-1 truncate text-xs text-muted-foreground md:inline">
         {topReason?.label ?? signal.strategy}
       </span>

@@ -150,59 +150,63 @@ export function StocksPage() {
             </Alert>
           )}
 
-          <FilterBar>
-            <SearchInput
-              value={filters.query}
-              onValueChange={(query) => setFilters((current) => ({ ...current, query }))}
-              placeholder="Search ticker, company or sector…"
-              className="w-full sm:w-72"
-              aria-label="Search stocks"
-            />
+          <Card>
+            <CardContent className="flex flex-col gap-3">
+              <FilterBar>
+                <SearchInput
+                  value={filters.query}
+                  onValueChange={(query) => setFilters((current) => ({ ...current, query }))}
+                  placeholder="Search ticker, company or sector…"
+                  className="w-full sm:w-72"
+                  aria-label="Search stocks"
+                />
 
-            {(data?.indices.length ?? 0) > 1 && (
-              <FilterGroup label="Index">
-                <ToggleGroup
-                  type="multiple"
-                  value={[...filters.indices]}
-                  onValueChange={(indices: string[]) =>
-                    setFilters((current) => ({ ...current, indices }))
-                  }
-                >
-                  {(data?.indices ?? []).map((index) => (
-                    <ToggleGroupItem key={index.key} value={index.key} aria-label={index.name}>
-                      {index.name}
-                    </ToggleGroupItem>
-                  ))}
-                </ToggleGroup>
-              </FilterGroup>
-            )}
+                {(data?.indices.length ?? 0) > 1 && (
+                  <FilterGroup label="Index">
+                    <ToggleGroup
+                      type="multiple"
+                      value={[...filters.indices]}
+                      onValueChange={(indices: string[]) =>
+                        setFilters((current) => ({ ...current, indices }))
+                      }
+                    >
+                      {(data?.indices ?? []).map((index) => (
+                        <ToggleGroupItem key={index.key} value={index.key} aria-label={index.name}>
+                          {index.name}
+                        </ToggleGroupItem>
+                      ))}
+                    </ToggleGroup>
+                  </FilterGroup>
+                )}
 
-            <FilterGroup label="Direction">
-              <ToggleGroup
-                type="single"
-                value={filters.direction}
-                onValueChange={(direction: string) => {
-                  // Radix emits '' when the active item is clicked again; a
-                  // single-choice filter must not be deselectable into nothing.
-                  if (direction === '') return;
-                  setFilters((current) => ({
-                    ...current,
-                    direction: direction as StockDirectionFilter,
-                  }));
-                }}
-              >
-                <ToggleGroupItem value="all">All</ToggleGroupItem>
-                <ToggleGroupItem value="advancing">Advancing</ToggleGroupItem>
-                <ToggleGroupItem value="declining">Declining</ToggleGroupItem>
-              </ToggleGroup>
-            </FilterGroup>
-          </FilterBar>
+                <FilterGroup label="Direction">
+                  <ToggleGroup
+                    type="single"
+                    value={filters.direction}
+                    onValueChange={(direction: string) => {
+                      // Radix emits '' when the active item is clicked again; a
+                      // single-choice filter must not be deselectable into nothing.
+                      if (direction === '') return;
+                      setFilters((current) => ({
+                        ...current,
+                        direction: direction as StockDirectionFilter,
+                      }));
+                    }}
+                  >
+                    <ToggleGroupItem value="all">All</ToggleGroupItem>
+                    <ToggleGroupItem value="advancing">Advancing</ToggleGroupItem>
+                    <ToggleGroupItem value="declining">Declining</ToggleGroupItem>
+                  </ToggleGroup>
+                </FilterGroup>
+              </FilterBar>
 
-          <ActiveFilters
-            filters={chips}
-            onRemove={(id) => setFilters((current) => removeStockFilter(current, id))}
-            onClear={resetFilters}
-          />
+              <ActiveFilters
+                filters={chips}
+                onRemove={(id) => setFilters((current) => removeStockFilter(current, id))}
+                onClear={resetFilters}
+              />
+            </CardContent>
+          </Card>
 
           {data === null ? (
             <SectorStripSkeleton />

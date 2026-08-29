@@ -15,7 +15,6 @@ import {
 } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { MoverDto, SectorDto } from '@/lib/dashboard-types';
-import { signedPercent } from '@/lib/format';
 import { toneFill, toneOf } from '@/lib/tone';
 import { cn } from '@/lib/utils';
 
@@ -154,15 +153,18 @@ export function SectorHeatmap({
                             className="rounded-md px-1.5 py-1 text-left text-[0.625rem] leading-tight text-foreground transition-transform hover:scale-105"
                           >
                             <span className="block truncate font-medium">{symbol}</span>
-                            <span className="figure block">
-                              {signedPercent(quote.changePercent)}
-                            </span>
+                            <PercentChange
+                              value={quote.changePercent}
+                              size="xs"
+                              className="block"
+                            />
                           </button>
                         </TooltipTrigger>
                         <TooltipContent>
                           <span className="font-medium">{symbol}</span>
                           <span className="block text-muted-foreground">
-                            {signedPercent(quote.changePercent)} · sized by turnover
+                            <PercentChange value={quote.changePercent} size="xs" /> · sized by
+                            turnover
                           </span>
                         </TooltipContent>
                       </Tooltip>

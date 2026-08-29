@@ -144,7 +144,29 @@ export function StocksTable({
         numeric: true,
         hideBelow: 'lg',
         sortValue: (row) => technicals.get(row.symbol)?.rsi ?? null,
-        cell: (row) => <IndicatorValue value={technicals.get(row.symbol)?.rsi ?? null} />,
+        cell: (row) => {
+          const value = technicals.get(row.symbol)?.rsi ?? null;
+          const condition =
+            value === null
+              ? undefined
+              : value > 70
+                ? 'Overbought'
+                : value < 30
+                  ? 'Oversold'
+                  : undefined;
+          const tone =
+            condition === 'Overbought'
+              ? 'bearish'
+              : condition === 'Oversold'
+                ? 'bullish'
+                : 'neutral';
+          return (
+            <span title={condition}>
+              <IndicatorValue value={value} className={toneText({ tone })} />
+              {condition !== undefined && <span className="sr-only"> {condition}</span>}
+            </span>
+          );
+        },
       },
       {
         id: 'trend',
