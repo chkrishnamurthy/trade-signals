@@ -1055,7 +1055,7 @@ scale after Phase 12.
 ### 10.2 The answers to §15
 
 - **Sync or background?** Background, in `apps/worker`. A 15-second request is
-  tolerable; a 5-minute one is not, and Netlify's function timeout would kill it
+  tolerable; a 5-minute one is not, and a request-bound handler would time out
   regardless. `apps/web` writes a `queued` row and polls.
 - **Results in the database?** Yes — trades and signals are small and the value is
   entirely in comparing runs later.
@@ -1295,8 +1295,8 @@ one configured peer. Archive files are treated as **untrusted input**: paths fro
 zip members are sanitised against traversal (`../`), member counts and expanded
 sizes are capped, and a member that fails validation aborts that file rather than
 the run. Backtest routes sit behind the existing Clerk middleware like every other
-route. Netlify's secret scanner already covers `.env` values; `TELEGRAM_*` must
-never be added to `SECRETS_SCAN_OMIT_KEYS`.
+route. `TELEGRAM_*`, like every other secret, stays in the root-owned `.env` on
+the VPS and never in the repo or the web app's environment.
 
 **Error handling.** Follows what the repo already does: one bad symbol never costs
 the other forty-nine (`ingest-intraday.ts`'s per-symbol try/catch); one bad session

@@ -64,21 +64,20 @@ host (`-pooler` in the hostname), `DATABASE_URL_DIRECT` is the **direct** host.
 Migrations run against the direct one — `drizzle.config.ts` refuses to start if
 it is handed a pooled URL.
 
-## Deploying apps/web
+## Deploying (single VPS)
 
-`netlify.toml` at the repo root configures the Netlify build: base stays at the
-workspace root so pnpm can link `@equitywise/*`, the command is
-`pnpm --filter @equitywise/web build`, and `publish = "apps/web/.next"` is how the
-Next runtime locates the app. Settings in the toml override the Netlify UI, so
-clear any base or package directory set there.
+Both processes run on one Ubuntu VPS behind Nginx. Node 24 (see `.nvmrc`), pnpm,
+and PM2 keep the web app (`next start -p 3000`) and the worker alive; Nginx
+terminates SSL and reverse-proxies `:443 → :3000`. The full, phased runbook —
+server hardening, PostgreSQL migration, DNS, SSL and backups — lives in the
+**Production Hosting & VPS Migration Plan**, and this section is only the shape.
 
-**`.env` is gitignored and never reaches Netlify.** `next.config.ts` dotenv-loads
-it from the repo root, which on a build machine is a no-op. Set the values in
-*Site configuration → Environment variables* instead, leaving the scope at **all
-scopes**. The Clerk publishable key is needed at both ends — the build bakes it
-into the prerendered pages, the middleware reads it on every request — and
-everything else is read at request time, so a variable scoped to "Builds" only
-still produces a dead site:
+Build with `pnpm build` (topological `tsc`, then `next build`), then start each
+process under PM2. `.env` is gitignored; on the VPS it lives outside the checkout,
+root-owned and `chmod 600`, and `next.config.ts` dotenv-loads the repo-root file.
+
+The web app reads exactly four values, and missing Clerk keys break every
+request rather than the build:
 
 | Variable | Missing it means |
 | --- | --- |
@@ -87,28 +86,14 @@ still produces a dead site:
 | `DATABASE_URL` | pages render, no data |
 | `FYERS_APP_ID` | live quotes fail; stored signals still work |
 
-`next build` succeeds without any of them — the missing key is not a build error,
-which is why a green deploy can still serve nothing but 500s. And because the
-publishable key ends up inside the deploy output, Netlify's secrets scanner
-would fail the build on finding it; `netlify.toml` exempts that one key by name.
-Nothing else is exempted, so a scanner hit on `CLERK_SECRET_KEY`, `DATABASE_URL`
-or any `FYERS_*` value is a real leak to fix, never a setting to add.
+`next build` succeeds without any of them — a missing key is a runtime 500, not a
+build error. Nothing else belongs in the web app's environment — not
+`DATABASE_URL_DIRECT`, not `FYERS_SECRET_KEY`, not `FYERS_TOTP_SECRET`, not
+`NEON_API_KEY`. Migrations, the OAuth handshake and the schema tests all run from
+the worker or a developer machine.
 
-Nothing else belongs there — not `DATABASE_URL_DIRECT`, not `FYERS_SECRET_KEY`,
-not `FYERS_TOTP_SECRET`, not `NEON_API_KEY`. Migrations, the OAuth handshake and
-the schema tests all run from a developer machine.
-
-`FYERS_ACCESS_TOKEN` is absent from that table on purpose: the deployed app
-reads its credential from the database, not the environment. See below.
-
-### On Vercel
-
-The same four variables, set under *Project settings → Environment Variables*.
-Set **Root Directory** to `apps/web`; pnpm still installs from the workspace root
-so `@equitywise/*` link correctly, and the default install and build commands are
-right as they are. Vercel has no Builds/Functions scope split, so a variable set
-for an environment reaches both. There is no secrets scanner to appease, so
-nothing corresponds to `SECRETS_SCAN_OMIT_KEYS`.
+`FYERS_ACCESS_TOKEN` is absent from that table on purpose: the running app reads
+its credential from the database, not the environment. See below.
 
 ## The daily credential
 
@@ -137,24 +122,21 @@ A refresh failure is logged loudly and does **not** fall back to the stale token
 because a request sent with an expired credential fails upstream as an opaque
 authorisation error that hides the real cause.
 
-### Deploying apps/worker
+### Running apps/worker
 
-The worker is a long-running `croner` process, so it cannot live on Vercel or
-Netlify — any host that runs a Node process and stays up will do. It needs
+The worker is a long-running `croner` process — it needs a host that stays up,
+which is why it runs under PM2 on the VPS alongside the web app. It needs
 `DATABASE_URL`, `FYERS_APP_ID`, `FYERS_SECRET_KEY` and the three login factors
-above. Without it deployed, nothing refreshes the token and nothing writes new
+above. Without it running, nothing refreshes the token and nothing writes new
 candles, signals or paper trades; the site serves whatever it last stored.
 
 ### Clerk instance
 
-The site is served from a `*.netlify.app` subdomain (the `equitywise.io` custom
-domain isn't wired up yet), so a Clerk **production** instance is not an option:
-production requires a domain you own and DNS records you can add, and neither
-is true of `*.netlify.app`. Clerk
-documents deploy domains of exactly this shape as running **development** keys,
-so `pk_test_` / `sk_test_` here is the supported configuration rather than a
-shortcut — and moving to `pk_live_` means buying a domain first, not flipping a
-setting.
+Until `equitywise.io` is pointed at the VPS, Clerk runs a **development**
+instance (`pk_test_` / `sk_test_`): a production instance requires a domain you
+own and DNS records you can add. Once the domain resolves to the VPS you can
+create the production instance, add Clerk's CNAME records, verify it, and swap
+`pk_test_` → `pk_live_` — that sequence, not flipping a setting.
 
 What that costs, and why the allowlist below is not optional: a development
 instance does not carry the session in a same-site cookie. It passes it as a
@@ -175,11 +157,10 @@ exactly one user and that user already created, `restricted` is strictly
 stronger and needs no list. The allowlist entry for the owner's address is left
 in place, inert, so switching modes later does not lock anyone out.
 
-One limit is inherent to the platform rather than the configuration: `/login`
-and `/callback` write the refreshed Fyers token to disk, which a read-only
-serverless filesystem cannot do. That path is only for a manual login, which the
-worker's daily refresh removes the need for; the deployed app reads its
-credential from the database instead.
+`/login` and `/callback` write the refreshed Fyers token to disk — which the
+VPS filesystem allows (a read-only serverless host could not). That path is only
+for a manual login, which the worker's daily refresh removes the need for; the
+running app reads its credential from the database instead.
 
 ## Scripts
 
