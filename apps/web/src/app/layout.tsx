@@ -79,10 +79,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             every page load shows the panel snapping shut after hydration. */}
         <script dangerouslySetInnerHTML={{ __html: NAV_INIT_SCRIPT }} />
       </head>
-      <body
-        className="min-h-dvh bg-background text-foreground"
-        suppressHydrationWarning
-      >
+      <body className="min-h-dvh bg-background text-foreground" suppressHydrationWarning>
         {/* Every route is behind the gate; only /sign-in and /sign-up are open. */}
         <ClerkProvider
           signInUrl="/sign-in"

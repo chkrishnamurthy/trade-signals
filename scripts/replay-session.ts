@@ -11,9 +11,27 @@
  * Candles are NOT re-fetched: they are already stored, and re-requesting them
  * once per cycle would be thousands of upstream calls for data we have.
  *
+ * ## This script WRITES TO THE LIVE TABLES
+ *
+ * That is the entire point of it — it exercises the real persistence path — and
+ * it is also its one hazard. Rows land in `intraday_signals` and `paper_trades`
+ * under the replayed trading date, where `/signals/performance` cannot tell them
+ * apart from signals the worker genuinely produced that day. A replay run out of
+ * curiosity silently becomes part of the record the engine is judged by.
+ *
+ * So it now refuses to run without `--write-live`. For measuring the engine,
+ * reach for the backtester instead, which stores its results in
+ * `backtest_signals` / `backtest_trades` and cannot touch the live tables:
+ *
+ *   pnpm backtest:intraday --from 2026-08-21 --to 2026-08-21
+ *
+ * A properly isolated replay of the database path — same code, backtest tables —
+ * arrives with the sink abstraction in a later phase; see
+ * `docs/backtesting-architecture.md`.
+ *
  * Usage:
- *   pnpm replay:session 2026-08-21
- *   pnpm replay:session 2026-08-21 --cycle 5
+ *   pnpm replay:session 2026-08-21 --write-live
+ *   pnpm replay:session 2026-08-21 --write-live --cycle 5
  */
 
 import { minutesToClose, REGIME_LABEL, sessionRegime } from '@equitywise/core';
@@ -27,7 +45,22 @@ const MS_PER_MINUTE = 60_000;
 async function main(): Promise<void> {
   const argv = process.argv.slice(2);
   const date = argv.find((arg) => /^\d{4}-\d{2}-\d{2}$/.test(arg));
-  if (date === undefined) throw new Error('usage: pnpm replay:session YYYY-MM-DD [--cycle N]');
+  if (date === undefined) {
+    throw new Error('usage: pnpm replay:session YYYY-MM-DD --write-live [--cycle N]');
+  }
+
+  // Opt-in rather than opt-out. The rows this writes are indistinguishable from
+  // genuinely live ones afterwards, and there is no undo — so the destructive
+  // default is the wrong one, however convenient.
+  if (!argv.includes('--write-live')) {
+    throw new Error(
+      `Refusing to run: this writes real rows into intraday_signals and paper_trades for ${date},\n` +
+        '  where /signals/performance cannot tell them apart from genuinely live results.\n\n' +
+        '  To MEASURE the engine, use the backtester — isolated results, live tables untouched:\n' +
+        `    pnpm backtest:intraday --from ${date} --to ${date}\n\n` +
+        '  To exercise the real database write path anyway, pass --write-live.',
+    );
+  }
 
   const cycleIndex = argv.indexOf('--cycle');
   const cycleOverride = cycleIndex === -1 ? null : Number(argv[cycleIndex + 1]);

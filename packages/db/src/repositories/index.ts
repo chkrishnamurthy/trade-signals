@@ -1,3 +1,24 @@
+export type {
+  BacktestFinish,
+  BacktestRunInput,
+  BacktestSessionResult,
+  BacktestSignalInput,
+  BacktestStatus,
+  BacktestTradeInput,
+  StoredBacktestRun,
+  StoredBacktestTrade,
+} from './backtest.js';
+export {
+  createBacktestRun,
+  finishBacktestRun,
+  getBacktestRun,
+  getBacktestTrades,
+  listBacktestRuns,
+  pruneBacktestRuns,
+  recordBacktestSession,
+  sessionsWithStoredSignals,
+  startBacktestRun,
+} from './backtest.js';
 export type { BarQuery, CandleInput, CloseAnchor, SessionCoverage, StoredBar } from './candles.js';
 export {
   applyAdjustments,

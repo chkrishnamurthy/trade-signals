@@ -4,6 +4,7 @@ import {
   BellIcon,
   CandlestickChartIcon,
   FilterIcon,
+  HistoryIcon,
   LayoutDashboardIcon,
   ListIcon,
   RocketIcon,
@@ -94,6 +95,13 @@ export const NAVIGATION: readonly NavGroup[] = [
         label: 'Signal performance',
         icon: TargetIcon,
         description: 'How past signals actually turned out',
+      },
+      {
+        status: 'ready',
+        href: '/backtests',
+        label: 'Backtests',
+        icon: HistoryIcon,
+        description: 'Replay the engine over stored history and grade it',
       },
       {
         status: 'planned',

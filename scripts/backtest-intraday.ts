@@ -4,10 +4,9 @@
  *
  * This is the only honest answer to "is this thing any good". The engine is
  * pure (CLAUDE.md hard rule 1), so this script runs the exact same
- * `evaluateIntraday` the worker runs; nothing is reimplemented for backtesting
- * and the two cannot drift apart. Every fill is the next bar's OPEN after the
- * evaluation instant (rule 2), and every outcome is charged real transaction
- * costs and slippage.
+ * `evaluateIntraday`, the exact same `transition` and the exact same
+ * `resolvePaperTrade` the worker runs; nothing is reimplemented for
+ * backtesting and the two cannot drift apart.
  *
  * Three pessimistic assumptions are baked in, because a backtest that flatters
  * itself is worse than no backtest at all:
@@ -16,33 +15,74 @@
  *   - trades are resolved on 1m bars, so intrabar stop hits are caught;
  *   - positions are force-closed before the bell, never carried.
  *
+ * ## What changed, and why it matters
+ *
+ * Two divergences from the live path used to live in this file, and both made
+ * it measure a DIFFERENT system than the one that actually runs:
+ *
+ *  - **The lifecycle was skipped.** A paper trade was recorded straight off
+ *    `candidate.triggered`. The live path runs `transition()` first, which adds
+ *    confirmation bars, cool-downs, dedup against recently-ended setups and a
+ *    per-symbol cap. Setups the live feed suppresses were being counted here.
+ *  - **Market context was empty.** `buildMarketContext` was called with no
+ *    benchmark bars, no bank index and no VIX, while `marketContext` carries
+ *    weight 0.15 of the confluence score. Backtested scores were structurally
+ *    not live scores.
+ *
+ * Both are now closed: the real lifecycle runs, with live-signal state held in
+ * memory exactly as the worker holds it in Postgres, and the real index series
+ * are loaded and sliced per cycle.
+ *
+ * Results are written to `backtest_runs` / `backtest_signals` /
+ * `backtest_trades` — NEVER to the live tables. A measurement tool that
+ * contaminates what it measures is worse than no tool.
+ *
  * Usage:
  *   pnpm backtest:intraday                          last 10 stored sessions
  *   pnpm backtest:intraday --from 2026-08-01        an explicit window
  *   pnpm backtest:intraday --min-score 75           try a different floor
  *   pnpm backtest:intraday --json out/trades.json   write every trade
+ *   pnpm backtest:intraday --no-store               skip persistence
  *
- * It writes NOTHING to the database. Reads only.
+ * It writes NOTHING to any live table. Reads only, apart from its own
+ * `backtest_*` rows.
  */
 
+import { execFileSync } from 'node:child_process';
 import { writeFile } from 'node:fs/promises';
 import {
   buildMarketContext,
   buildVolumeProfile,
   evaluateIntraday,
   type IntradayConfig,
+  type IntradaySnapshot,
+  type LiveSignal,
   type PaperTrade,
+  type Reason,
   resolvePaperTrade,
+  type ScoreComponent,
   type SessionRegime,
-  sessionRegime,
+  type SignalCandidate,
+  type SignalCreation,
+  type SignalEvent,
+  type SignalUpdate,
   summarisePaperTrades,
+  TERMINAL_STATES,
+  transition,
 } from '@equitywise/core';
 import {
+  type BacktestSignalInput,
+  createBacktestRun,
   createDatabase,
+  type Database,
+  finishBacktestRun,
   getDailyBarsForInstruments,
   getMinuteBarsForInstruments,
+  recordBacktestSession,
+  registerStrategy,
   resolveInstrumentIds,
   type StoredBar,
+  startBacktestRun,
 } from '@equitywise/db';
 import { istDateKey, sessionClose, sessionOpen } from '@equitywise/shared';
 import { config as loadEnv } from 'dotenv';
@@ -53,7 +93,7 @@ const MS_PER_MINUTE = 60_000;
 const MS_PER_DAY = 86_400_000;
 
 /** One recorded paper trade, plus the signal metadata needed to slice results. */
-interface Record {
+interface TradeRecord {
   readonly tradingDate: string;
   readonly symbol: string;
   readonly kind: string;
@@ -73,6 +113,9 @@ interface Args {
   readonly cycle: number | null;
   readonly minScore: number | null;
   readonly json: string | null;
+  readonly label: string | null;
+  /** Skip persistence entirely, for a throwaway experiment. */
+  readonly store: boolean;
   /**
    * Level-geometry overrides, for answering the one question the default
    * configuration cannot: is this design workable at ANY stop and target
@@ -101,6 +144,8 @@ function parseArgs(argv: readonly string[]): Args {
     cycle: number('--cycle'),
     minScore: number('--min-score'),
     json: read('--json'),
+    label: read('--label'),
+    store: !argv.includes('--no-store'),
     stopAtr: number('--stop-atr'),
     targetAtr: number('--target-atr'),
   };
@@ -119,6 +164,21 @@ function upTo(bars: readonly StoredBar[], at: number): readonly StoredBar[] {
     else high = mid;
   }
   return bars.slice(0, low);
+}
+
+/**
+ * The engine revision a result was produced at.
+ *
+ * Recorded on every run because a backtest is only reproducible at one commit:
+ * the same window and the same config over different engine code is a different
+ * experiment wearing the same name.
+ */
+function gitRevision(): string {
+  try {
+    return execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+  } catch {
+    return 'unknown';
+  }
 }
 
 async function main(): Promise<void> {
@@ -165,6 +225,28 @@ async function main(): Promise<void> {
     const instrumentIds = [...symbolById.keys()];
     if (instrumentIds.length === 0) throw new Error('No universe instruments are known');
 
+    // Index instruments for market context. Absent ones contribute nothing
+    // rather than defaulting to neutral-positive — the same rule the engine's
+    // own context module applies.
+    const contextSymbols = [
+      settings.universe.benchmark,
+      settings.universe.bankingIndex,
+      settings.universe.volatilityIndex,
+    ].filter((symbol): symbol is string => symbol !== null && symbol !== '');
+    const contextIds = await resolveInstrumentIds(db, contextSymbols);
+    const contextRefs: ContextRefs = {
+      benchmarkSymbol: settings.universe.benchmark,
+      benchmark: contextIds.get(settings.universe.benchmark) ?? null,
+      banking:
+        settings.universe.bankingIndex === null
+          ? null
+          : (contextIds.get(settings.universe.bankingIndex) ?? null),
+      volatility:
+        settings.universe.volatilityIndex === null
+          ? null
+          : (contextIds.get(settings.universe.volatilityIndex) ?? null),
+    };
+
     const dates = await tradingDates(db, instrumentIds, args);
 
     console.log('='.repeat(78));
@@ -174,6 +256,9 @@ async function main(): Promise<void> {
     console.log(`  universe          ${settings.universe.index}, ${instrumentIds.length} symbols`);
     console.log(`  cycle             every ${cycleMinutes}m`);
     console.log(`  score floor       ${config.minScore}/100`);
+    console.log(
+      `  market context    ${contextRefs.benchmark === null ? 'UNAVAILABLE — benchmark instrument not found' : `${contextRefs.benchmarkSymbol}${contextRefs.banking === null ? '' : ' + banking'}${contextRefs.volatility === null ? '' : ' + VIX'}`}`,
+    );
     console.log(
       `  cost model        ${config.costs.brokeragePercentPerLeg}% brokerage/leg ·` +
         ` ${config.costs.slippagePercentPerLeg}% slippage/leg`,
@@ -188,33 +273,119 @@ async function main(): Promise<void> {
     );
     console.log('');
 
-    const records: Record[] = [];
-    const rejections = new Map<string, number>();
-    for (const date of dates) {
-      const session = await replaySession(db, {
-        date,
-        instrumentIds,
-        symbolById,
-        sectorBySymbol,
+    // --- Open the run -----------------------------------------------------
+    // Registered as a strategy version first, so the overrides applied above
+    // mint their own immutable config row (hard rule 7) rather than being
+    // attributed to the live one.
+    let runId: number | null = null;
+    if (args.store) {
+      const strategyVersionId = await registerStrategy(
+        db,
+        'intraday',
         config,
-        cycleMinutes,
-        benchmarkSymbol: settings.universe.benchmark ?? 'NIFTY50',
-      });
-      records.push(...session.records);
-      for (const [reason, count] of session.rejections) {
-        rejections.set(reason, (rejections.get(reason) ?? 0) + count);
-      }
-      const stats = summarisePaperTrades(session.records.map((r) => r.trade));
-      console.log(
-        `  ${date}  signals ${String(session.records.length).padStart(3)}` +
-          `   hit ${(stats.hitRate * 100).toFixed(0).padStart(3)}%` +
-          `   expectancy ${stats.expectancyR >= 0 ? '+' : ''}${stats.expectancyR.toFixed(3)}R`,
+        'Intraday engine config as backtested',
       );
+      runId = await createBacktestRun(db, {
+        label: args.label,
+        strategyVersionId,
+        barSource: 'stored',
+        datasetId: null,
+        gitRevision: gitRevision(),
+        universe: [...symbolById.values()],
+        // Today's index membership applied to past dates. There is no dated
+        // constituent source, so this is survivorship bias that can only be
+        // labelled — and it is labelled here so the caveat travels with the
+        // result instead of being remembered or forgotten.
+        universeDated: false,
+        fromDate: dates[0] ?? istDateKey(new Date()),
+        toDate: dates.at(-1) ?? istDateKey(new Date()),
+        cycleMinutes,
+        overrides: {
+          ...(args.minScore === null ? {} : { minScore: args.minScore }),
+          ...(args.stopAtr === null ? {} : { stopAtr: args.stopAtr }),
+          ...(args.targetAtr === null ? {} : { target1Atr: args.targetAtr }),
+        },
+      });
+      await startBacktestRun(db, runId, dates.length);
+      console.log(`  run               #${runId} — results stored, live tables untouched`);
+      console.log('');
+    } else {
+      console.log('  run               --no-store: nothing will be persisted');
+      console.log('');
     }
+
+    const records: TradeRecord[] = [];
+    const rejections = new Map<string, number>();
+
+    try {
+      for (const [index, date] of dates.entries()) {
+        const session = await replaySession(db, {
+          date,
+          instrumentIds,
+          symbolById,
+          sectorBySymbol,
+          config,
+          cycleMinutes,
+          contextRefs,
+        });
+        records.push(...session.records);
+        for (const [reason, count] of session.rejections) {
+          rejections.set(reason, (rejections.get(reason) ?? 0) + count);
+        }
+
+        if (runId !== null) {
+          await recordBacktestSession(db, {
+            runId,
+            tradingDate: date,
+            // 1-based ordinal, not a count of sessions that produced rows. A
+            // quiet session legitimately produces no signals, and deriving
+            // progress from stored rows made it look unfinished forever.
+            sessionOrdinal: index + 1,
+            signals: session.rows,
+            symbolsEvaluated: session.symbolsEvaluated,
+            evaluations: session.evaluations,
+          });
+        }
+
+        const stats = summarisePaperTrades(session.records.map((r) => r.trade));
+        console.log(
+          `  ${date}  signals ${String(session.rows.length).padStart(3)}` +
+            `   trades ${String(session.records.length).padStart(3)}` +
+            `   hit ${(stats.hitRate * 100).toFixed(0).padStart(3)}%` +
+            `   expectancy ${stats.expectancyR >= 0 ? '+' : ''}${stats.expectancyR.toFixed(3)}R`,
+        );
+      }
+    } catch (error) {
+      if (runId !== null) {
+        await finishBacktestRun(db, runId, {
+          status: 'failed',
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+      throw error;
+    }
+
     console.log('');
 
-    report(records, config);
+    const overall = summarisePaperTrades(records.map((r) => r.trade));
+    report(records, config, overall);
     reportRejections(rejections);
+
+    if (runId !== null) {
+      await finishBacktestRun(db, runId, {
+        status: 'succeeded',
+        summary: {
+          ...overall,
+          sessions: dates.length,
+          universeDated: false,
+          breakevenHitRate: breakevenRate(overall.averageWinR, overall.averageLossR),
+          marginOfErrorPoints: overall.trades === 0 ? null : 100 / Math.sqrt(overall.trades),
+        },
+        rejections: Object.fromEntries(rejections),
+      });
+      console.log(`  stored as backtest run #${runId}`);
+      console.log('');
+    }
 
     if (args.json !== null) {
       await writeFile(args.json, JSON.stringify(records, null, 2));
@@ -228,14 +399,20 @@ async function main(): Promise<void> {
 
 /** The distinct trading dates that have stored minute candles, newest last. */
 async function tradingDates(
-  db: Parameters<typeof getMinuteBarsForInstruments>[0],
+  db: Database,
   instrumentIds: readonly number[],
   args: Args,
 ): Promise<string[]> {
   const to = args.to === null ? new Date() : new Date(`${args.to}T23:59:59+05:30`);
+  // Calendar days needed to contain `sessions` TRADING days. Five sessions per
+  // seven days, plus slack for public holidays. The old `sessions + 12` was a
+  // near-1:1 assumption and silently capped a `--sessions 73` request at 57 —
+  // the request looked satisfied while a third of the stored history was never
+  // read.
+  const calendarDays = Math.ceil(args.sessions * 1.5) + 14;
   const from =
     args.from === null
-      ? new Date(to.getTime() - (args.sessions + 12) * MS_PER_DAY)
+      ? new Date(to.getTime() - calendarDays * MS_PER_DAY)
       : new Date(`${args.from}T00:00:00+05:30`);
 
   const probe = await getMinuteBarsForInstruments(db, {
@@ -252,9 +429,23 @@ async function tradingDates(
   return args.from === null ? all.slice(-args.sessions) : all;
 }
 
+// ---------------------------------------------------------------------------
+// Session replay
+// ---------------------------------------------------------------------------
+
+interface ContextRefs {
+  readonly benchmarkSymbol: string;
+  readonly benchmark: number | null;
+  readonly banking: number | null;
+  readonly volatility: number | null;
+}
+
 interface SessionResult {
-  readonly records: readonly Record[];
+  readonly records: readonly TradeRecord[];
+  readonly rows: readonly BacktestSignalInput[];
   readonly rejections: ReadonlyMap<string, number>;
+  readonly symbolsEvaluated: number;
+  readonly evaluations: number;
 }
 
 interface ReplayInput {
@@ -264,8 +455,37 @@ interface ReplayInput {
   readonly sectorBySymbol: ReadonlyMap<string, string>;
   readonly config: IntradayConfig;
   readonly cycleMinutes: number;
-  readonly benchmarkSymbol: string;
+  readonly contextRefs: ContextRefs;
 }
+
+/**
+ * A signal as it lives through a replayed session.
+ *
+ * `live` is exactly what the worker keeps in `intraday_signals` and hands to
+ * `transition` on the next cycle — here it is a mutable field on an in-memory
+ * object instead of a row. Everything alongside it is the evidence needed to
+ * persist the signal afterwards, captured at detection so a setup that stops
+ * being produced by its strategy keeps the evidence it triggered on, exactly as
+ * the live updater does.
+ */
+interface ReplaySignal {
+  live: LiveSignal;
+  readonly instrumentId: number;
+  readonly symbol: string;
+  readonly strategy: string;
+  readonly regime: SessionRegime;
+  scoring: unknown;
+  components: readonly ScoreComponent[];
+  reasons: readonly Reason[];
+  readonly snapshot: IntradaySnapshot;
+  readonly events: SignalEvent[];
+  readonly triggerMinutes: number;
+  readonly setupMinutes: number;
+  readonly trendMinutes: number;
+  readonly detectedAt: number;
+}
+
+const isTerminal = (state: LiveSignal['state']): boolean => TERMINAL_STATES.includes(state);
 
 /**
  * Replay one session.
@@ -274,11 +494,12 @@ interface ReplayInput {
  * than re-queried: the slice is what makes this a replay rather than a
  * simulation, since each evaluation sees exactly the closed bars that existed
  * at that instant and not one more.
+ *
+ * Live-signal state carries across cycles in `signalsByInstrument`, which is
+ * the in-memory equivalent of the worker's `getLiveIntradaySignals` read. That
+ * is the whole difference between the two paths.
  */
-async function replaySession(
-  db: Parameters<typeof getMinuteBarsForInstruments>[0],
-  input: ReplayInput,
-): Promise<SessionResult> {
+async function replaySession(db: Database, input: ReplayInput): Promise<SessionResult> {
   const { date, instrumentIds, symbolById, sectorBySymbol, config, cycleMinutes } = input;
 
   const anchor = new Date(`${date}T12:00:00+05:30`);
@@ -286,10 +507,27 @@ async function replaySession(
   const close = sessionClose(anchor);
   const profileFrom = new Date(open.getTime() - (config.volume.profileSessions + 8) * MS_PER_DAY);
 
-  const [today, prior, daily] = await Promise.all([
+  const contextIds = [
+    input.contextRefs.benchmark,
+    input.contextRefs.banking,
+    input.contextRefs.volatility,
+  ].filter((id): id is number => id !== null);
+
+  const [today, prior, daily, contextToday, contextDaily] = await Promise.all([
     getMinuteBarsForInstruments(db, { instrumentIds, from: open, to: close, raw: true }),
     getMinuteBarsForInstruments(db, { instrumentIds, from: profileFrom, to: open, raw: true }),
     getDailyBarsForInstruments(db, { instrumentIds, to: open, limit: 40 }),
+    contextIds.length === 0
+      ? Promise.resolve(new Map<number, StoredBar[]>())
+      : getMinuteBarsForInstruments(db, {
+          instrumentIds: contextIds,
+          from: open,
+          to: close,
+          raw: true,
+        }),
+    contextIds.length === 0
+      ? Promise.resolve(new Map<number, StoredBar[]>())
+      : getDailyBarsForInstruments(db, { instrumentIds: contextIds, to: open, limit: 5 }),
   ]);
 
   const profiles = new Map<number, readonly number[]>();
@@ -305,14 +543,17 @@ async function replaySession(
   const forceExitAt = close.getTime() - config.session.forceExitBeforeCloseMinutes * MS_PER_MINUTE;
   const firstCycle = open.getTime() + config.session.warmupMinutes * MS_PER_MINUTE;
   const lastCycle = close.getTime() - config.session.noNewSignalsBeforeCloseMinutes * MS_PER_MINUTE;
+  const cooldownMs = config.lifecycle.cooldownMinutes * MS_PER_MINUTE;
 
-  const records: Record[] = [];
-  const taken = new Set<string>();
   const rejections = new Map<string, number>();
+  const signalsByInstrument = new Map<number, ReplaySignal[]>();
+  const allSignals: ReplaySignal[] = [];
+  let nextSignalId = 1;
+  let evaluations = 0;
+  const evaluatedInstruments = new Set<number>();
 
   for (let stamp = firstCycle; stamp <= lastCycle; stamp += cycleMinutes * MS_PER_MINUTE) {
     const at = new Date(stamp);
-    const regime = sessionRegime(at, config);
 
     // Breadth is a property of the same universe being evaluated, measured at
     // this instant — not the day's final figure, which would be lookahead.
@@ -337,6 +578,14 @@ async function replaySession(
     }
     const breadth = counted === 0 ? null : advancing / counted;
 
+    // Index context, sliced to this instant exactly like every other series.
+    const market = readMarketContext({
+      refs: input.contextRefs,
+      contextToday,
+      contextDaily,
+      stamp,
+    });
+
     for (const id of instrumentIds) {
       const symbol = symbolById.get(id);
       if (symbol === undefined) continue;
@@ -348,18 +597,18 @@ async function replaySession(
       const moves = sector === null ? undefined : sectorMoves.get(sector);
       const context = buildMarketContext(
         {
-          benchmarkSymbol: input.benchmarkSymbol,
-          benchmarkMinuteBars: [],
-          benchmarkDailyBars: [],
-          bankNiftyChangePercent: null,
+          benchmarkSymbol: input.contextRefs.benchmarkSymbol,
+          benchmarkMinuteBars: market.benchmarkMinute,
+          benchmarkDailyBars: market.benchmarkDaily,
+          bankNiftyChangePercent: market.bankingChangePercent,
           breadth,
           sector,
           sectorChangePercent:
             moves === undefined || moves.length === 0
               ? null
               : moves.reduce((sum, value) => sum + value, 0) / moves.length,
-          volatilityIndex: null,
-          volatilityPreviousClose: null,
+          volatilityIndex: market.volatilityLevel,
+          volatilityPreviousClose: market.volatilityPreviousClose,
           at,
         },
         config,
@@ -379,59 +628,354 @@ async function replaySession(
         },
         config,
       );
+      evaluations += 1;
+      evaluatedInstruments.add(id);
 
       for (const note of evaluation.rejections) {
         const reason = note.replace(/^[a-z_]+: /, '').replace(/[\d.]+/g, 'N');
         rejections.set(reason, (rejections.get(reason) ?? 0) + 1);
       }
-      for (const candidate of evaluation.candidates) {
-        if (!candidate.triggered) {
-          rejections.set(
-            'scored but not triggered',
-            (rejections.get('scored but not triggered') ?? 0) + 1,
-          );
-          continue;
-        }
-        // One paper trade per setup per day: the same deduplication the live
-        // engine applies, so the statistics describe the feed the user sees.
-        const key = `${symbol}:${candidate.setupKey}`;
-        if (taken.has(key)) continue;
 
-        const trade = resolvePaperTrade({
-          direction: candidate.direction,
-          levels: candidate.levels,
-          triggeredAt: stamp,
-          bars: sessionMinutes,
-          forceExitAt,
-          costs: config.costs,
-        });
-        if (trade === null) continue;
+      // --- The lifecycle, exactly as the worker runs it -------------------
+      const forInstrument = signalsByInstrument.get(id) ?? [];
+      const existing = forInstrument.filter((signal) => !isTerminal(signal.live.state));
+      const recentlyEnded = forInstrument.flatMap((signal) => {
+        const endedAt = signal.live.endedAt;
+        if (endedAt === null || endedAt < stamp - cooldownMs) return [];
+        return [{ setupKey: signal.live.setupKey, endedAt }];
+      });
 
-        taken.add(key);
-        records.push({
-          tradingDate: date,
+      const result = transition(
+        {
+          existing: existing.map((signal) => signal.live),
+          evaluation,
+          recentlyEnded,
+          at,
+        },
+        config,
+      );
+
+      const byId = new Map(forInstrument.map((signal) => [signal.live.id, signal]));
+
+      for (const creation of result.created) {
+        const signal = createReplaySignal({
+          id: String(nextSignalId),
+          instrumentId: id,
           symbol,
-          kind: candidate.kind,
-          strategy: candidate.strategy,
-          direction: candidate.direction,
-          score: candidate.score,
-          quality: candidate.quality,
-          regime,
-          signalledAt: stamp,
-          trade,
+          creation,
+          evaluation,
+          at: stamp,
         });
+        nextSignalId += 1;
+        forInstrument.push(signal);
+        byId.set(signal.live.id, signal);
+        allSignals.push(signal);
       }
+
+      for (const change of result.updated) {
+        const signal = byId.get(change.id);
+        if (signal === undefined) continue;
+        signal.live = applyUpdate(signal.live, change, stamp);
+        // Evidence is only refreshed while the strategy still produces the
+        // setup. A signal surviving on its own invalidation conditions keeps
+        // the arithmetic and the reasons it triggered on — same rule as the
+        // live updater, and the reason a stored breakdown always adds up.
+        const candidate = evaluation.candidates.find(
+          (entry) => entry.setupKey === signal.live.setupKey,
+        );
+        if (candidate !== undefined) {
+          signal.scoring = candidate.scoring;
+          signal.components = candidate.components;
+          signal.reasons = candidate.reasons;
+        }
+      }
+
+      for (const event of result.events) {
+        // Newest matching signal: a setup that ended and re-formed after the
+        // cooldown has two rows, and the event belongs to the current one.
+        const target = [...forInstrument]
+          .reverse()
+          .find((signal) => signal.live.setupKey === event.setupKey);
+        if (target !== undefined) target.events.push(event);
+      }
+
+      signalsByInstrument.set(id, forInstrument);
     }
   }
 
-  return { records, rejections };
+  // --- Grade, once the whole session's bars are available ------------------
+  // Deliberately after the cycle loop, mirroring `recordPaperTrades`: the
+  // decision was taken on truncated data, the outcome is resolved forward from
+  // it. Different windows, on purpose.
+  const records: TradeRecord[] = [];
+  const rows: BacktestSignalInput[] = [];
+
+  for (const signal of allSignals) {
+    const { live } = signal;
+    let trade: PaperTrade | null = null;
+
+    if (live.triggeredAt !== null) {
+      const series = today.get(signal.instrumentId) ?? [];
+      if (series.length > 0) {
+        trade = resolvePaperTrade({
+          direction: live.direction,
+          levels: live.levels,
+          triggeredAt: live.triggeredAt,
+          bars: series,
+          forceExitAt,
+          costs: config.costs,
+        });
+      }
+    }
+
+    if (trade !== null) {
+      records.push({
+        tradingDate: date,
+        symbol: signal.symbol,
+        kind: live.kind,
+        strategy: signal.strategy,
+        direction: live.direction,
+        score: live.score,
+        quality: live.quality,
+        regime: signal.regime,
+        signalledAt: live.triggeredAt ?? signal.detectedAt,
+        trade,
+      });
+    }
+
+    rows.push(toRow(signal, trade));
+  }
+
+  return {
+    records,
+    rows,
+    rejections,
+    symbolsEvaluated: evaluatedInstruments.size,
+    evaluations,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Live-signal state, held in memory instead of Postgres
+// ---------------------------------------------------------------------------
+
+function createReplaySignal(input: {
+  readonly id: string;
+  readonly instrumentId: number;
+  readonly symbol: string;
+  readonly creation: SignalCreation;
+  readonly evaluation: ReturnType<typeof evaluateIntraday>;
+  readonly at: number;
+}): ReplaySignal {
+  const { candidate } = input.creation;
+  return {
+    instrumentId: input.instrumentId,
+    symbol: input.symbol,
+    strategy: candidate.strategy,
+    regime: input.evaluation.regime,
+    scoring: candidate.scoring,
+    components: candidate.components,
+    reasons: candidate.reasons,
+    snapshot: input.evaluation.snapshot,
+    events: [],
+    triggerMinutes: candidate.triggerMinutes,
+    setupMinutes: candidate.setupMinutes,
+    trendMinutes: candidate.trendMinutes,
+    detectedAt: input.at,
+    live: toLiveSignal(input.id, input.symbol, input.creation, input.at),
+  };
+}
+
+/** The shape `transition` expects back on the next cycle. */
+function toLiveSignal(
+  id: string,
+  symbol: string,
+  creation: SignalCreation,
+  at: number,
+): LiveSignal {
+  const candidate: SignalCandidate = creation.candidate;
+  return {
+    id,
+    symbol,
+    setupKey: candidate.setupKey,
+    kind: candidate.kind,
+    direction: candidate.direction,
+    state: creation.state,
+    score: candidate.score,
+    quality: candidate.quality,
+    levels: candidate.levels,
+    invalidations: candidate.invalidations,
+    createdAt: at,
+    updatedAt: at,
+    triggeredAt: creation.triggeredAt,
+    referencePrice: creation.referencePrice,
+    holds: 0,
+    maxFavourable: 0,
+    maxAdverse: 0,
+    endedAt: null,
+    endReason: null,
+  };
+}
+
+function applyUpdate(live: LiveSignal, change: SignalUpdate, at: number): LiveSignal {
+  return {
+    ...live,
+    state: change.state,
+    score: change.score,
+    quality: change.quality,
+    holds: change.holds,
+    maxFavourable: change.maxFavourable,
+    maxAdverse: change.maxAdverse,
+    triggeredAt: change.triggeredAt,
+    referencePrice: change.referencePrice,
+    levels: change.levels,
+    endedAt: change.endedAt,
+    endReason: change.endReason,
+    updatedAt: at,
+  };
+}
+
+/** A finished replay signal, as a row for `backtest_signals`. */
+function toRow(signal: ReplaySignal, trade: PaperTrade | null): BacktestSignalInput {
+  const { live } = signal;
+  return {
+    instrumentId: signal.instrumentId,
+    setupKey: live.setupKey,
+    kind: live.kind,
+    direction: live.direction,
+    strategy: signal.strategy,
+    state: live.state,
+    regime: signal.regime,
+    score: live.score,
+    quality: live.quality,
+    scoring: signal.scoring,
+    entryLow: live.levels.entryLow,
+    entryHigh: live.levels.entryHigh,
+    invalidationLevel: live.levels.invalidation,
+    target1: live.levels.target1,
+    target2: live.levels.target2,
+    riskPaise: live.levels.risk,
+    rewardPaise: live.levels.reward,
+    riskReward: live.levels.riskReward,
+    costPaise: Math.round(live.levels.costPaise),
+    netRewardPaise: Math.round(live.levels.netReward),
+    netRiskPaise: Math.round(live.levels.netRisk),
+    netRiskReward: live.levels.netRiskReward,
+    referencePrice: live.referencePrice,
+    triggerMinutes: signal.triggerMinutes,
+    setupMinutes: signal.setupMinutes,
+    trendMinutes: signal.trendMinutes,
+    indicatorSnapshot: signal.snapshot,
+    factors: signal.components.map((component) => ({
+      category: component.category,
+      label: component.label,
+      score: component.score,
+      weight: component.weight,
+      points: component.points,
+      detail: component.detail,
+    })),
+    reasons: signal.reasons.map((reason) => ({
+      key: reason.key,
+      label: reason.label,
+      detail: reason.detail,
+      category: reason.category,
+      polarity: reason.polarity,
+    })),
+    events: signal.events.map((event) => ({
+      at: new Date(event.at).toISOString(),
+      kind: event.kind,
+      message: event.message,
+      detail: event.detail,
+      score: event.score,
+      state: event.state,
+    })),
+    detectedAt: new Date(signal.detectedAt),
+    triggeredAt: live.triggeredAt === null ? null : new Date(live.triggeredAt),
+    endedAt: live.endedAt === null ? null : new Date(live.endedAt),
+    endReason: live.endReason,
+    trade:
+      trade === null
+        ? null
+        : {
+            entryAt: new Date(trade.entryAt),
+            entryPrice: trade.entryPrice,
+            exitAt: new Date(trade.exitAt),
+            exitPrice: trade.exitPrice,
+            exitReason: trade.exitReason,
+            grossPaise: Math.round(trade.grossPaise),
+            costPaise: Math.round(trade.costPaise),
+            netPaise: Math.round(trade.netPaise),
+            rMultiple: trade.rMultiple,
+            maxFavourable: Math.round(trade.maxFavourable),
+            maxAdverse: Math.round(trade.maxAdverse),
+            barsHeld: trade.barsHeld,
+            reachedTarget2: trade.reachedTarget2,
+          },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Market context, sliced per cycle
+// ---------------------------------------------------------------------------
+
+interface MarketRead {
+  readonly benchmarkMinute: readonly StoredBar[];
+  readonly benchmarkDaily: readonly StoredBar[];
+  readonly bankingChangePercent: number | null;
+  readonly volatilityLevel: number | null;
+  readonly volatilityPreviousClose: number | null;
+}
+
+/**
+ * Index series as they stood at `stamp`.
+ *
+ * Every series is truncated the same way the symbol's own bars are. Reading the
+ * benchmark's full session while the symbol sees only part of it would put a
+ * price from the future into the score — the subtlest possible form of
+ * lookahead, because it never touches the symbol's own data.
+ *
+ * Anything unavailable stays `null` rather than defaulting, so partial context
+ * is scaled honestly by `buildMarketContext` instead of being treated as "the
+ * market is fine".
+ */
+function readMarketContext(input: {
+  readonly refs: ContextRefs;
+  readonly contextToday: ReadonlyMap<number, StoredBar[]>;
+  readonly contextDaily: ReadonlyMap<number, StoredBar[]>;
+  readonly stamp: number;
+}): MarketRead {
+  const { refs, contextToday, contextDaily, stamp } = input;
+
+  const minuteFor = (id: number | null): readonly StoredBar[] =>
+    id === null ? [] : upTo(contextToday.get(id) ?? [], stamp);
+  const previousCloseFor = (id: number | null): number | null =>
+    id === null ? null : (contextDaily.get(id)?.at(-1)?.close ?? null);
+
+  const bankingMinute = minuteFor(refs.banking);
+  const bankingLast = bankingMinute.at(-1)?.close ?? null;
+  const bankingPrevious = previousCloseFor(refs.banking);
+
+  const volatilityMinute = minuteFor(refs.volatility);
+
+  return {
+    benchmarkMinute: minuteFor(refs.benchmark),
+    benchmarkDaily: refs.benchmark === null ? [] : (contextDaily.get(refs.benchmark) ?? []),
+    bankingChangePercent:
+      bankingLast === null || bankingPrevious === null || bankingPrevious === 0
+        ? null
+        : ((bankingLast - bankingPrevious) / bankingPrevious) * 100,
+    volatilityLevel: volatilityMinute.at(-1)?.close ?? null,
+    volatilityPreviousClose: previousCloseFor(refs.volatility),
+  };
 }
 
 // --- Reporting ---------------------------------------------------------------
 
-function report(records: readonly Record[], config: IntradayConfig): void {
-  const overall = summarisePaperTrades(records.map((r) => r.trade));
-
+function report(
+  records: readonly TradeRecord[],
+  config: IntradayConfig,
+  overall: ReturnType<typeof summarisePaperTrades>,
+): void {
   line('OVERALL');
   if (overall.trades === 0) {
     console.log('  No trades. Either the filters are too tight or the window has no data.');
@@ -483,6 +1027,10 @@ function report(records: readonly Record[], config: IntradayConfig): void {
   console.log("  taken mechanically, at the next minute's open, exited at the level or");
   console.log('  the bell, with no discretion and no missed fills.');
   console.log('');
+  console.log('  UNIVERSE IS UNDATED: today’s index membership was applied to every past');
+  console.log('  session, so companies dropped from the index since are invisible here.');
+  console.log('  That flatters the result by an unknown amount.');
+  console.log('');
 }
 
 /**
@@ -516,8 +1064,12 @@ function band(score: number, config: IntradayConfig): string {
   return 'below floor';
 }
 
-function bucket(title: string, records: readonly Record[], key: (record: Record) => string): void {
-  const groups = new Map<string, Record[]>();
+function bucket(
+  title: string,
+  records: readonly TradeRecord[],
+  key: (record: TradeRecord) => string,
+): void {
+  const groups = new Map<string, TradeRecord[]>();
   for (const record of records) {
     const name = key(record);
     const list = groups.get(name) ?? [];
@@ -542,10 +1094,16 @@ function bucket(title: string, records: readonly Record[], key: (record: Record)
   console.log('');
 }
 
-function breakeven(averageWinR: number, averageLossR: number): string {
+/** The hit rate this win/loss geometry needs merely to break even, 0-1. */
+function breakevenRate(averageWinR: number, averageLossR: number): number | null {
   const loss = Math.abs(averageLossR);
-  if (averageWinR <= 0 || loss === 0) return 'undefined — there were no winners';
-  return `${((loss / (averageWinR + loss)) * 100).toFixed(1)}%`;
+  if (averageWinR <= 0 || loss === 0) return null;
+  return loss / (averageWinR + loss);
+}
+
+function breakeven(averageWinR: number, averageLossR: number): string {
+  const rate = breakevenRate(averageWinR, averageLossR);
+  return rate === null ? 'undefined — there were no winners' : `${(rate * 100).toFixed(1)}%`;
 }
 
 const signed = (value: number): string => `${value >= 0 ? '+' : ''}${value.toFixed(3)}`;
