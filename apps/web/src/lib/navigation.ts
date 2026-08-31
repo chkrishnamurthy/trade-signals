@@ -8,7 +8,6 @@ import {
   LayoutDashboardIcon,
   ListIcon,
   RocketIcon,
-  SwatchBookIcon,
   TargetIcon,
 } from 'lucide-react';
 import type { Route } from 'next';
@@ -125,18 +124,6 @@ export const NAVIGATION: readonly NavGroup[] = [
         label: 'Alerts',
         icon: BellIcon,
         description: 'Conditions worth being told about',
-      },
-    ],
-  },
-  {
-    label: 'Reference',
-    items: [
-      {
-        status: 'ready',
-        href: '/design-system',
-        label: 'Design system',
-        icon: SwatchBookIcon,
-        description: 'Tokens, components and usage rules',
       },
     ],
   },
