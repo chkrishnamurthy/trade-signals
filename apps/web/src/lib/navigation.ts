@@ -10,7 +10,6 @@ import {
   RocketIcon,
   SwatchBookIcon,
   TargetIcon,
-  TrendingUpIcon,
 } from 'lucide-react';
 import type { Route } from 'next';
 
@@ -63,12 +62,6 @@ export const NAVIGATION: readonly NavGroup[] = [
         label: 'Market overview',
         icon: LayoutDashboardIcon,
         description: 'Indices, breadth, sectors and movers',
-      },
-      {
-        status: 'planned',
-        label: 'NIFTY 50',
-        icon: TrendingUpIcon,
-        description: 'Constituent-level view of the index',
       },
       {
         status: 'ready',

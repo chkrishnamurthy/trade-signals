@@ -27,16 +27,16 @@ export function Brand({
       <Image
         src="/brand-mark.png"
         alt=""
-        width={24}
-        height={24}
+        width={28}
+        height={28}
         priority
-        className="size-6 shrink-0"
+        className="size-7 shrink-0"
         aria-hidden
       />
       {/* Inside the navigation rail this fades with the rest of the labels;
           everywhere else the attribute is inert. See `globals.css`. */}
       {showWordmark && (
-        <span data-nav-label className="text-sm">
+        <span data-nav-label className="text-base">
           EquityWise
         </span>
       )}
