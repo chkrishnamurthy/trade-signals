@@ -118,10 +118,10 @@ export function AppShell({
             data-nav-rail
             className="sticky top-0 hidden h-dvh shrink-0 flex-col overflow-x-clip border-r border-border bg-surface lg:flex"
           >
-            {/* pl-4 is not arbitrary: it centres the 24px monogram on 28px,
+            {/* pl-3.5 is not arbitrary: it centres the 28px monogram on 28px,
               exactly where the 40px icon slots below centre their icons, so
               the whole left column reads as one line in the collapsed rail. */}
-            <div className="flex h-12 shrink-0 items-center border-b border-border pl-4">
+            <div className="flex h-12 shrink-0 items-center border-b border-border pl-3.5">
               <Brand />
             </div>
             <Sidebar
