@@ -23,10 +23,10 @@ import {
   getMinuteBars,
   getMinuteBarsForInstruments,
   getRecentlyEndedSetups,
-  invalidateProviderCredential,
   type IntradayEventInput,
   type IntradayFactorInput,
   type IntradayReasonInput,
+  invalidateProviderCredential,
   listActiveInstruments,
   registerStrategy,
   type StoredBar,
@@ -40,6 +40,8 @@ import { istDateKey, sessionOpen, startOfIstDay } from '@equitywise/shared';
 import type { WorkerContext } from '../context.js';
 import { loadIntradaySettings } from '../intraday-config.js';
 import { errorFields, type Logger } from '../log.js';
+import { loadIndexConstituents, type UniverseConstituent } from '../universe.js';
+import { ingestIntradayCandles } from './ingest-intraday.js';
 
 /**
  * A total ingest failure is almost always a credential the upstream invalidated
@@ -49,8 +51,6 @@ import { errorFields, type Logger } from '../log.js';
  */
 const FORCED_REAUTH_COOLDOWN_MS = 10 * 60_000;
 let lastForcedReauthAt = 0;
-import { loadIndexConstituents, type UniverseConstituent } from '../universe.js';
-import { ingestIntradayCandles } from './ingest-intraday.js';
 
 /**
  * The intraday evaluation cycle.

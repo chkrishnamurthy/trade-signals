@@ -1,0 +1,3 @@
+interface:
+  display_name: "Deployment"
+  short_description: "Self-hosted VPS ops — auto-deploy pipeline, Postgres+TimescaleDB host, Fyers credential self-heal, backups, local-dev safety"

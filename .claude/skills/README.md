@@ -39,6 +39,11 @@ Each one reports and stops on a violation; the fix is the author's call.
 - [architecture-guardrails](architecture-guardrails/SKILL.md) — the CLAUDE.md "do not
   build this" list applied product-wide (no RBAC/Redis/Celery/K8s/admin-CRUD/order
   execution) — the backend half of what `design/exclusions.md` covers for the UI.
+- [deployment](deployment/SKILL.md) — the self-hosted VPS: the auto-deploy pipeline
+  (merge to `main` → GitHub Actions → `deploy.sh`), self-hosted Postgres 17 +
+  TimescaleDB, the Fyers credential self-heal, backups, and local-dev safety. Fires on
+  deploy/CI/server/backup work and on market-data/credential/rate-limit failures.
+  Full reference: `docs/deployment.md`.
 
 ## Conventions
 

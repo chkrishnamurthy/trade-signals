@@ -68,9 +68,11 @@ it is handed a pooled URL.
 
 Both processes run on one Ubuntu VPS behind Nginx. Node 24 (see `.nvmrc`), pnpm,
 and PM2 keep the web app (`next start -p 3000`) and the worker alive; Nginx
-terminates SSL and reverse-proxies `:443 → :3000`. The full, phased runbook —
-server hardening, PostgreSQL migration, DNS, SSL and backups — lives in the
-**Production Hosting & VPS Migration Plan**, and this section is only the shape.
+terminates SSL and reverse-proxies `:443 → :3000`. **Deploys are automatic — merge
+to `main` and GitHub Actions ships it.** The complete as-built reference — server,
+pipeline, self-hosted Postgres, credentials, backups, DNS/SSL, local dev, and
+operations — is **[`docs/deployment.md`](docs/deployment.md)**; this section is only
+the shape.
 
 Build with `pnpm build` (topological `tsc`, then `next build`), then start each
 process under PM2. `.env` is gitignored; on the VPS it lives outside the checkout,

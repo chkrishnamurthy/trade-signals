@@ -9,6 +9,13 @@ description: Neon/Drizzle/TimescaleDB conventions for packages/db — connection
 against the code as of the last audit (2026-08-29) — re-check before trusting a specific
 line number.
 
+> **Production host note (Sep 2026):** production Postgres is now **self-hosted on the
+> VPS** (PostgreSQL 17 + TimescaleDB, localhost, **compression enabled**), not Neon.
+> Both connection strings point at `localhost:5432` there — the pooled/direct split
+> below still exists in the code and matters for Neon, but locally the two are identical.
+> Neon is a retained fallback. For anything about the host, deploys, or the credential
+> lifecycle, see `docs/deployment.md` and the [deployment](../deployment/SKILL.md) skill.
+
 ## Two connection strings, one real guard
 
 `DATABASE_URL` (pooled) and `DATABASE_URL_DIRECT` (unpooled) are not interchangeable.

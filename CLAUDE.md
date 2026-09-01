@@ -123,16 +123,33 @@ separately, against the tape.
 - **Do not tune thresholds on a difference smaller than the sample's margin of
   error.** The report prints it for this reason.
 
-## Neon specifics
+## Production hosting (self-hosted VPS)
 
-- Two connection strings in env: `DATABASE_URL` (pooled, for the app) and
-  `DATABASE_URL_DIRECT` (for migrations and COPY). Use the right one.
-- **timescaledb compression is NOT available on Neon.** Hypertables and `time_bucket`
-  work; `add_compression_policy` fails. Do not try.
-- **Do not use `pg_cron`** — it doesn't fire while compute is suspended. Scheduling
-  lives in `apps/worker`.
-- Scale-to-zero means cold starts. Every scheduled job retries connection failures
-  with backoff before treating it as an error.
+The whole app — web app, worker, and database — runs on a single Hostinger VPS
+(Ubuntu) behind Nginx, under PM2. Deploys are automatic: **merge to `main` →
+GitHub Actions → `deploy.sh` on the VPS** (pull, build, migrate, restart). The
+full as-built reference — server, pipeline, credentials, backups, local dev,
+operations — is **`docs/deployment.md`**. Read it before touching infrastructure.
+
+- **The database is self-hosted PostgreSQL 17 + TimescaleDB on the VPS**, bound to
+  localhost. **TimescaleDB compression IS enabled here** (unlike the old Neon
+  host): `minute_candles`/`daily_candles` compress on a policy, cutting the candle
+  store ~90%. This is what fixed the "database nearly full" problem.
+- **PG 17, not 18** — TimescaleDB has no PG18 apt package. Neon ran PG18; the gap
+  was bridged by rebuilding the schema from the drizzle migrations and copying data
+  logically, never a raw dump/restore (which mishandles hypertables).
+- Both `DATABASE_URL` and `DATABASE_URL_DIRECT` point at `localhost:5432` (no
+  pooler, no SSL on the loopback). The pooled/direct distinction only mattered on
+  Neon; the code still reads both and locally they are identical.
+- **Neon is retained as a read-only fallback** with the migration-time snapshot —
+  do not delete it until the VPS is proven stable for weeks. Its old caveats (no
+  compression, scale-to-zero cold starts, no `pg_cron`) applied to Neon only.
+- **Scheduling still lives in `apps/worker`** (croner), never `pg_cron` — a design
+  rule independent of host. Scheduled jobs still retry connection failures with
+  backoff.
+- The Fyers market-data token is minted by the worker into `provider_credentials`
+  and **self-heals** when invalidated early (Fyers is single-session; a manual
+  trading login kills it). See `docs/deployment.md` §5.
 
 ## Conventions
 
