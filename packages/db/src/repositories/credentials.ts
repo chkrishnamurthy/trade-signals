@@ -76,3 +76,24 @@ export async function saveProviderCredential(
       },
     });
 }
+
+/**
+ * Marks the stored credential expired (without deleting it) so the next refresh
+ * mints a fresh one.
+ *
+ * The refresh path trusts the recorded `expiresAt` and reuses a token whose
+ * expiry is still in the future. But a token can be invalidated UPSTREAM before
+ * that — Fyers is single-session, so a separate login (e.g. the operator logging
+ * in to place a trade) kills it early. The worker then holds a token Fyers
+ * rejects, yet never re-mints because its clock says the token is still good.
+ * Calling this after such a rejection lets the next cycle recover on its own.
+ */
+export async function invalidateProviderCredential(
+  db: Database,
+  providerId: string,
+): Promise<void> {
+  await db
+    .update(providerCredentials)
+    .set({ expiresAt: new Date(0), updatedAt: sql`now()` })
+    .where(eq(providerCredentials.providerId, providerId));
+}

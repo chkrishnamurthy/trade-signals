@@ -23,6 +23,7 @@ import {
   getMinuteBars,
   getMinuteBarsForInstruments,
   getRecentlyEndedSetups,
+  invalidateProviderCredential,
   type IntradayEventInput,
   type IntradayFactorInput,
   type IntradayReasonInput,
@@ -34,10 +35,20 @@ import {
   updateIntradaySignal,
 } from '@equitywise/db';
 import type { InstrumentRef } from '@equitywise/market-data';
+import { PROVIDER_ID } from '@equitywise/providers-fyers';
 import { istDateKey, sessionOpen, startOfIstDay } from '@equitywise/shared';
 import type { WorkerContext } from '../context.js';
 import { loadIntradaySettings } from '../intraday-config.js';
 import { errorFields, type Logger } from '../log.js';
+
+/**
+ * A total ingest failure is almost always a credential the upstream invalidated
+ * early (see `invalidateProviderCredential`). When we see one, we expire the
+ * stored credential so the next cycle re-mints — but at most once per this
+ * window, so a genuine upstream outage cannot trigger a login on every cycle.
+ */
+const FORCED_REAUTH_COOLDOWN_MS = 10 * 60_000;
+let lastForcedReauthAt = 0;
 import { loadIndexConstituents, type UniverseConstituent } from '../universe.js';
 import { ingestIntradayCandles } from './ingest-intraday.js';
 
@@ -236,6 +247,15 @@ async function execute(
         remedy:
           'Check the credential — `pnpm fyers:login` mints a new one. Until it is fixed no signals can be produced.',
       });
+      // Self-heal. This is almost always a credential invalidated upstream before
+      // its recorded expiry, which the per-cycle refresh trusts and so never
+      // re-mints. Expire it here so the NEXT cycle's refresh mints a fresh token.
+      // Cooldown-guarded so a genuine upstream outage cannot mint on every cycle.
+      if (now.getTime() - lastForcedReauthAt > FORCED_REAUTH_COOLDOWN_MS) {
+        lastForcedReauthAt = now.getTime();
+        await invalidateProviderCredential(db, PROVIDER_ID);
+        log.warn('expired the stored credential; the next cycle will mint a fresh one');
+      }
     }
   }
 

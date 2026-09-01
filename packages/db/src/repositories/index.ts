@@ -35,7 +35,11 @@ export {
   minuteCandleCoverage,
 } from './candles.js';
 export type { CredentialInput, StoredCredential } from './credentials.js';
-export { getProviderCredential, saveProviderCredential } from './credentials.js';
+export {
+  getProviderCredential,
+  invalidateProviderCredential,
+  saveProviderCredential,
+} from './credentials.js';
 export type {
   IndicatorUpsert,
   InstrumentIndicators,
