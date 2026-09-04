@@ -46,6 +46,31 @@ interface CacheEntry {
 const cache = new Map<string, CacheEntry>();
 const inFlight = new Map<string, Promise<DashboardDto>>();
 
+/**
+ * How long a FAILED build is remembered before another upstream attempt.
+ *
+ * `inFlight` already coalesces concurrent callers, but a failure it does not
+ * cache: without this, every poll that lands after the previous one settled —
+ * across every open tab and every device, since this cache is module-level —
+ * makes a fresh `/data/quotes` call that fails again. A dead credential
+ * therefore becomes a slow request storm, and that volume is exactly what earns
+ * a Cloudflare edge ban on the quotes path (the "blocked upstream" the whole app
+ * then shows). Remembering the failure briefly means one failed build backs off
+ * the entire app, and the upstream failure rate stays independent of tab count.
+ *
+ * Short on purpose: long enough to collapse a storm, short enough that the app
+ * recovers within seconds of the credential being restored. A real upstream
+ * deadline (a rate-limit ban's `Retry-After`) overrides it — see below.
+ */
+const FAILURE_TTL_MS = 30_000;
+
+interface FailureEntry {
+  readonly error: MarketDataError;
+  readonly expiresAt: number;
+}
+
+const failureCache = new Map<string, FailureEntry>();
+
 function headlineDto(
   meta: { symbol: string; name: string; display: 'index' | 'volatility' },
   quote: Quote,
@@ -169,6 +194,16 @@ export async function getDashboard(indexKey: string): Promise<DashboardDto> {
     return { ...cached.snapshot, cached: true };
   }
 
+  // A recent build failure short-circuits here rather than hitting upstream
+  // again. This is what stops a dead credential (or any upstream fault) from
+  // turning every poll into another failed `/data/quotes` call and earning a
+  // Cloudflare ban. The same MarketDataError is re-thrown, so the route still
+  // serves stale where it can and reports the same remedy and Retry-After.
+  const failed = failureCache.get(index.key);
+  if (failed !== undefined && failed.expiresAt > Date.now()) {
+    throw failed.error;
+  }
+
   const existing = inFlight.get(index.key);
   if (existing !== undefined) return existing;
 
@@ -178,10 +213,23 @@ export async function getDashboard(indexKey: string): Promise<DashboardDto> {
         snapshot,
         expiresAt: Date.now() + (snapshot.market.isOpen ? OPEN_TTL_MS : CLOSED_TTL_MS),
       });
+      // A success clears any remembered failure so recovery is immediate.
+      failureCache.delete(index.key);
       return snapshot;
     })
     .catch((error: unknown) => {
-      throw toMarketError(error);
+      const marketError = toMarketError(error);
+      // Honour a real upstream deadline (a rate-limit ban's Retry-After);
+      // otherwise back off for the short default so the storm cannot re-form.
+      const cooldownMs =
+        marketError.retryAfterSeconds !== undefined
+          ? marketError.retryAfterSeconds * 1_000
+          : FAILURE_TTL_MS;
+      failureCache.set(index.key, {
+        error: marketError,
+        expiresAt: Date.now() + cooldownMs,
+      });
+      throw marketError;
     })
     .finally(() => {
       inFlight.delete(index.key);
@@ -201,6 +249,7 @@ export async function getDashboard(indexKey: string): Promise<DashboardDto> {
  */
 export function invalidateDashboard(indexKey: string): void {
   cache.delete(indexKey.toLowerCase());
+  failureCache.delete(indexKey.toLowerCase());
 }
 
 export function getStaleDashboard(indexKey: string): DashboardDto | null {
