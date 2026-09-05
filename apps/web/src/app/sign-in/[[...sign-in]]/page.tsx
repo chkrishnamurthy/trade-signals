@@ -27,7 +27,7 @@ export default function SignInPage() {
           <h1 className="font-semibold text-base tracking-tight">EquityWise</h1>
           <p className="text-muted-foreground text-sm">Sign in to continue</p>
         </div>
-        <SignIn fallbackRedirectUrl="/dashboard" />
+        <SignIn fallbackRedirectUrl="/watchlists" />
       </div>
     </main>
   );

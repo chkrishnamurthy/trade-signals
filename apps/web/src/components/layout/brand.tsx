@@ -18,7 +18,7 @@ export function Brand({
 }) {
   return (
     <Link
-      href="/dashboard"
+      href="/watchlists"
       className={cn('flex items-center gap-2 rounded-md font-semibold tracking-tight', className)}
     >
       {/* The tile carries its own corner radius in the alpha channel, so it

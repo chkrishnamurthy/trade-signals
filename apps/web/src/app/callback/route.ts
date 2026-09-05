@@ -150,7 +150,7 @@ export async function GET(request: Request): Promise<NextResponse> {
     await persist(credential);
     return page(
       'Data source connected',
-      '<p>Credential saved. It expires tomorrow morning.</p><a href="/dashboard">Open the dashboard</a>',
+      '<p>Credential saved. It expires tomorrow morning.</p><a href="/watchlists">Open your watchlists</a>',
       true,
     );
   } catch (error) {

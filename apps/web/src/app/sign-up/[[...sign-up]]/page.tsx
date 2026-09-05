@@ -21,7 +21,7 @@ export default function SignUpPage() {
           <h1 className="font-semibold text-base tracking-tight">EquityWise</h1>
           <p className="text-muted-foreground text-sm">Create your account</p>
         </div>
-        <SignUp fallbackRedirectUrl="/dashboard" />
+        <SignUp fallbackRedirectUrl="/watchlists" />
       </div>
     </main>
   );
