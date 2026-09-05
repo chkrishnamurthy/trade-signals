@@ -1,6 +1,5 @@
 'use client';
 
-import { UserButton } from '@clerk/nextjs';
 import { MenuIcon } from 'lucide-react';
 import { StockSearch } from '@/components/market/stock-search';
 import { Button } from '@/components/ui/button';
@@ -52,7 +51,6 @@ export function Topbar({
 
       <div className="flex shrink-0 items-center gap-2 sm:gap-3">
         <ThemeToggle />
-        <UserButton appearance={{ elements: { avatarBox: 'size-7' } }} />
       </div>
     </header>
   );

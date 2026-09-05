@@ -11,8 +11,6 @@
     "clean": "rm -rf .next *.tsbuildinfo"
   },
   "dependencies": {
-    "@clerk/nextjs": "^7.8.3",
-    "@clerk/ui": "^1.31.0",
     "@equitywise/core": "workspace:*",
     "@equitywise/db": "workspace:*",
     "@equitywise/market-data": "workspace:*",
