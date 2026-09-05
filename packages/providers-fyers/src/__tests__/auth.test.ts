@@ -22,17 +22,28 @@ const CONFIG = {
   // "SIGNAL" in base32 — valid alphabet, so TOTP generation succeeds.
   totpSecret: 'KNQWY2LO',
   pin: '1234',
+  secretKey: 'secret',
+  redirectUri: 'http://localhost:3000/callback',
 } as const;
 
-/** A transport that walks the three vagator steps and then hands back a token. */
+/**
+ * A transport that walks the full login: the three vagator steps, the
+ * generate-authcode call, and the auth_code exchange that yields the real
+ * data-API token. `accessToken` is what `validate-authcode` returns — the
+ * verify_pin token is only a session token and must NOT be the result.
+ */
 function stubLogin(accessToken: string): { fetchImpl: typeof fetch; calls: () => number } {
   let calls = 0;
   const fetchImpl = vi.fn(async (input: string | URL | Request) => {
     calls += 1;
     const url = String(input);
-    const body = url.includes('verify_pin')
-      ? { data: { access_token: accessToken } }
-      : { request_key: 'rk-1' };
+    const body = url.includes('validate-authcode')
+      ? { s: 'ok', access_token: accessToken }
+      : url.includes('/api/v3/token')
+        ? { Url: 'http://localhost:3000/callback?auth_code=ac-1&state=signal' }
+        : url.includes('verify_pin')
+          ? { data: { access_token: 'session-token' } }
+          : { request_key: 'rk-1' };
     return new Response(JSON.stringify(body), { status: 200 });
   });
   return { fetchImpl: fetchImpl as unknown as typeof fetch, calls: () => calls };
@@ -64,6 +75,8 @@ describe('readRefreshConfig', () => {
         FYERS_ID: 'XK12345',
         FYERS_TOTP_SECRET: 'KNQWY2LO',
         FYERS_PIN: '1234',
+        FYERS_SECRET_KEY: 'secret',
+        FYERS_REDIRECT_URI: 'http://localhost:3000/callback',
       }),
     ).toEqual(CONFIG);
   });
@@ -74,6 +87,19 @@ describe('readRefreshConfig', () => {
     expect(() =>
       readRefreshConfig({ FYERS_APP_ID: 'APP-100', FYERS_ID: 'XK12345', FYERS_PIN: '1234' }),
     ).toThrow(/FYERS_TOTP_SECRET/);
+  });
+
+  it('requires the secret and redirect URI the auth_code exchange needs', () => {
+    // Present before the fix but not read; without them the mint yields a
+    // session token the data API rejects (code -17).
+    expect(() =>
+      readRefreshConfig({
+        FYERS_APP_ID: 'APP-100',
+        FYERS_ID: 'XK12345',
+        FYERS_TOTP_SECRET: 'KNQWY2LO',
+        FYERS_PIN: '1234',
+      }),
+    ).toThrow(/FYERS_SECRET_KEY/);
   });
 });
 

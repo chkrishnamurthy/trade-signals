@@ -236,6 +236,8 @@ export async function exchangeAuthCode(
 const sendOtpSchema = z.object({ request_key: z.string().min(1) });
 const verifyOtpSchema = z.object({ request_key: z.string().min(1) });
 const verifyPinSchema = z.object({ data: z.object({ access_token: z.string().min(1) }) });
+/** The generate-authcode response: a redirect URL carrying `auth_code` in its query. */
+const authCodeUrlSchema = z.object({ Url: z.string().min(1) });
 
 export interface AutoLoginDeps {
   readonly http: FyersHttpClient;
@@ -252,12 +254,27 @@ export interface AutoLoginDeps {
  */
 export async function autoLogin(deps: AutoLoginDeps): Promise<string> {
   const { credentials } = deps;
-  const { fyId, totpSecret, pin } = credentials;
+  const { fyId, totpSecret, pin, secretKey, redirectUri } = credentials;
 
   if (fyId === undefined || totpSecret === undefined || pin === undefined) {
     throw new FyersAuthError(
       'Automated login is not configured.',
       'Set FYERS_ID, FYERS_TOTP_SECRET and FYERS_PIN in .env, or complete the manual OAuth flow.',
+    );
+  }
+
+  // The auth_code exchange (below) needs the app secret and the registered
+  // redirect URI, exactly as the manual OAuth flow does. Without them the login
+  // can reach a session token but not the data-API access token it must return.
+  if (
+    secretKey === undefined ||
+    secretKey === '' ||
+    redirectUri === undefined ||
+    redirectUri === ''
+  ) {
+    throw new FyersAuthError(
+      'Automated login needs the app secret and redirect URI to exchange the auth code.',
+      'Set FYERS_SECRET_KEY and FYERS_REDIRECT_URI in .env.',
     );
   }
 
@@ -323,7 +340,79 @@ export async function autoLogin(deps: AutoLoginDeps): Promise<string> {
     'verify_pin',
   );
 
-  return authenticated.data.access_token;
+  // The verify_pin token authenticates the LOGIN, not the data API — sending it
+  // to a data endpoint fails with code -17. Fyers' own browser login now takes
+  // two more steps after the PIN screen: exchange this session token for an
+  // auth_code, then exchange that for the real access token. An earlier version
+  // of this flow returned the session token directly, which is why every
+  // unattended refresh minted a token the feed rejected.
+  const authCode = await exchangeSessionForAuthCode(
+    fetchImpl,
+    credentials,
+    authenticated.data.access_token,
+  );
+  return exchangeAuthCode(deps.http, credentials, authCode);
+}
+
+/**
+ * Turns the post-PIN session token into a single-use `auth_code`.
+ *
+ * The endpoint answers 200, or a 308 whose redirect target is carried in the
+ * body as `Url` rather than a `Location` header — so `redirect: 'manual'` keeps
+ * fetch from chasing the (non-listening) redirect URI, and a 3xx here is success.
+ */
+async function exchangeSessionForAuthCode(
+  fetchImpl: typeof fetch,
+  credentials: FyersCredentials,
+  sessionToken: string,
+): Promise<string> {
+  // Fyers wants the app id split: the prefix as `app_id`, the suffix as `appType`.
+  const [appPrefix, appType] = credentials.appId.split('-');
+
+  const response = await fetchImpl(`${FYERS_V3_BASE}/token`, {
+    method: 'POST',
+    redirect: 'manual',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionToken}` },
+    body: JSON.stringify({
+      fyers_id: credentials.fyId,
+      app_id: appPrefix,
+      redirect_uri: credentials.redirectUri,
+      appType,
+      code_challenge: '',
+      state: 'signal',
+      scope: '',
+      nonce: '',
+      response_type: 'code',
+      create_cookie: true,
+    }),
+  });
+
+  const text = await response.text();
+  let payload: unknown;
+  try {
+    payload = JSON.parse(text);
+  } catch {
+    throw new FyersAuthError(
+      `Automated login returned non-JSON at generate-authcode (HTTP ${response.status}).`,
+      AUTOMATED_LOGIN_CAVEAT,
+    );
+  }
+  const parsed = authCodeUrlSchema.safeParse(payload);
+  if (!parsed.success) {
+    throw new FyersAuthError(
+      `Automated login could not read the auth_code URL (HTTP ${response.status}).`,
+      `${AUTOMATED_LOGIN_CAVEAT} Re-check the flow against a browser login.`,
+    );
+  }
+
+  const authCode = new URL(parsed.data.Url).searchParams.get('auth_code');
+  if (authCode === null || authCode === '') {
+    throw new FyersAuthError(
+      'Automated login received a redirect without an auth_code.',
+      AUTOMATED_LOGIN_CAVEAT,
+    );
+  }
+  return authCode;
 }
 
 function encodeBase64(value: string): string {

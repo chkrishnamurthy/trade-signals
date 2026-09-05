@@ -113,6 +113,10 @@ export interface RefreshConfig {
   readonly fyId: string;
   readonly totpSecret: string;
   readonly pin: string;
+  /** App secret — needed to exchange the auth_code for the data access token. */
+  readonly secretKey: string;
+  /** Registered redirect URI — required by the auth_code exchange. */
+  readonly redirectUri: string;
 }
 
 /**
@@ -127,6 +131,8 @@ export function readRefreshConfig(env: NodeJS.ProcessEnv): RefreshConfig | null 
   const fyId = env.FYERS_ID ?? '';
   const totpSecret = env.FYERS_TOTP_SECRET ?? '';
   const pin = env.FYERS_PIN ?? '';
+  const secretKey = env.FYERS_SECRET_KEY ?? '';
+  const redirectUri = env.FYERS_REDIRECT_URI ?? '';
 
   if (fyId === '' && totpSecret === '' && pin === '') return null;
 
@@ -135,6 +141,10 @@ export function readRefreshConfig(env: NodeJS.ProcessEnv): RefreshConfig | null 
   if (fyId === '') missing.push('FYERS_ID');
   if (totpSecret === '') missing.push('FYERS_TOTP_SECRET');
   if (pin === '') missing.push('FYERS_PIN');
+  // The auth_code exchange needs these too; a login configured without them
+  // would mint a session token the data API rejects (code -17).
+  if (secretKey === '') missing.push('FYERS_SECRET_KEY');
+  if (redirectUri === '') missing.push('FYERS_REDIRECT_URI');
 
   if (missing.length > 0) {
     throw new MarketDataProviderError(
@@ -142,13 +152,12 @@ export function readRefreshConfig(env: NodeJS.ProcessEnv): RefreshConfig | null 
       {
         failure: 'not_configured',
         providerId: PROVIDER_ID,
-        remedy:
-          'Set all four, or clear FYERS_ID / FYERS_TOTP_SECRET / FYERS_PIN to log in by hand.',
+        remedy: 'Set all six, or clear FYERS_ID / FYERS_TOTP_SECRET / FYERS_PIN to log in by hand.',
       },
     );
   }
 
-  return { appId, fyId, totpSecret, pin };
+  return { appId, fyId, totpSecret, pin, secretKey, redirectUri };
 }
 
 /**
@@ -175,18 +184,23 @@ export async function refreshCredential(deps: RefreshDeps): Promise<AuthorizedCr
   const { config } = deps;
   const now = deps.now ?? new Date();
   try {
+    // One transport for the whole flow: the vagator steps and the auth_code
+    // exchange both run through the injected fetch (real global fetch in prod),
+    // so a test can drive the entire login with a single stub.
+    const httpOptions = deps.fetchImpl === undefined ? {} : { fetchImpl: deps.fetchImpl };
     const accessToken = await autoLogin({
-      http: new FyersHttpClient(),
+      http: new FyersHttpClient(httpOptions),
       // Spread rather than assigned: `exactOptionalPropertyTypes` distinguishes
       // an absent optional property from one explicitly set to undefined.
-      ...(deps.fetchImpl === undefined ? {} : { fetchImpl: deps.fetchImpl }),
-      // `autoLogin` needs only the three login factors; the secret and redirect
-      // URI belong to the browser OAuth flow and are deliberately not required
-      // here, so the worker can refresh without holding the app secret.
+      ...httpOptions,
+      // `autoLogin` now runs the full flow — TOTP login, then the auth_code
+      // exchange — so it needs the app secret and redirect URI as well as the
+      // three login factors. The verify_pin session token alone is not a
+      // data-API credential; exchanging it is what yields one.
       credentials: {
         appId: config.appId,
-        secretKey: '',
-        redirectUri: '',
+        secretKey: config.secretKey,
+        redirectUri: config.redirectUri,
         fyId: config.fyId,
         totpSecret: config.totpSecret,
         pin: config.pin,
