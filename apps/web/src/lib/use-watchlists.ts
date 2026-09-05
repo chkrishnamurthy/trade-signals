@@ -1,8 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { Feed } from './feed';
 import type { MarketErrorDto } from './market-types';
-import type { Feed } from './use-dashboard';
 import type {
   SavedViewDto,
   WatchlistDetailDto,

@@ -12,7 +12,6 @@ import {
 } from '@/components/ui/sheet';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { applyNavState, currentNavState, writeStoredNavState } from '@/lib/nav-rail';
-import { MarketTickerProvider } from '@/lib/use-market-ticker';
 import { cn } from '@/lib/utils';
 import { Brand } from './brand';
 import { Sidebar } from './sidebar';
@@ -22,12 +21,7 @@ import { Topbar } from './topbar';
  * The application frame.
  *
  * Sidebar, topbar and main region. Every route renders inside this, so a new
- * page inherits navigation, session state, theming and the market ticker
- * without wiring anything.
- *
- * The ticker feed is provided HERE rather than by the topbar, so that there is
- * one poller per tab and a page can read the same snapshot the header is
- * showing instead of opening a second one.
+ * page inherits navigation, session state and theming without wiring anything.
  *
  * On `lg` and up the sidebar is a permanent column; below that it becomes a
  * Sheet, which gives it a focus trap and Escape-to-close for free rather than
@@ -45,12 +39,9 @@ export function AppShell({
 }: {
   children: React.ReactNode;
   /**
-   * Where a header search hit goes.
-   *
-   * Defaults to the stocks page, which already has a detail drawer and now
-   * opens it from `?symbol=`. Pages that can show the stock without navigating
-   * — the dashboard has the same drawer in place — pass their own handler so
-   * searching does not bounce the user off the screen they are on.
+   * Where a header search hit goes. Defaults to the watchlists page; a page
+   * with its own detail surface passes a handler so searching does not bounce
+   * the user off the screen they are on.
    */
   onSearchSelect?: ((symbol: string) => void) | undefined;
   className?: string | undefined;
@@ -65,7 +56,7 @@ export function AppShell({
         onSearchSelect(symbol);
         return;
       }
-      router.push(`/stocks?symbol=${encodeURIComponent(symbol)}`);
+      router.push(`/watchlists?symbol=${encodeURIComponent(symbol)}`);
     },
     [onSearchSelect, router],
   );
@@ -109,51 +100,49 @@ export function AppShell({
 
   return (
     <TooltipProvider>
-      <MarketTickerProvider>
-        <div className={cn('flex min-h-dvh bg-background', className)}>
-          {/* `data-nav-rail` is what scopes the collapse styling to this column:
+      <div className={cn('flex min-h-dvh bg-background', className)}>
+        {/* `data-nav-rail` is what scopes the collapse styling to this column:
             the same Sidebar inside the mobile Sheet is outside it and stays
             expanded whatever the rail is doing. */}
-          <aside
-            data-nav-rail
-            className="sticky top-0 hidden h-dvh shrink-0 flex-col overflow-x-clip border-r border-border bg-surface lg:flex"
-          >
-            {/* pl-3.5 is not arbitrary: it centres the 28px monogram on 28px,
+        <aside
+          data-nav-rail
+          className="sticky top-0 hidden h-dvh shrink-0 flex-col overflow-x-clip border-r border-border bg-surface lg:flex"
+        >
+          {/* pl-3.5 is not arbitrary: it centres the 28px monogram on 28px,
               exactly where the 40px icon slots below centre their icons, so
               the whole left column reads as one line in the collapsed rail. */}
-            <div className="flex h-12 shrink-0 items-center border-b border-border pl-3.5">
-              <Brand />
-            </div>
-            <Sidebar
-              id="primary-navigation"
-              collapsed={collapsed}
-              onToggleCollapsed={toggleCollapsed}
-            />
-          </aside>
-
-          <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
-            <SheetContent side="left" className="w-64 p-0">
-              <SheetHeader className="h-12 items-center py-0">
-                <SheetTitle className="text-sm">
-                  <Brand />
-                </SheetTitle>
-                <SheetDescription className="sr-only">
-                  Sections of the EquityWise application
-                </SheetDescription>
-              </SheetHeader>
-              <Sidebar onNavigate={() => setDrawerOpen(false)} />
-            </SheetContent>
-          </Sheet>
-
-          <div className="flex min-w-0 flex-1 flex-col">
-            <Topbar
-              onOpenNavigation={() => setDrawerOpen(true)}
-              onSearchSelect={handleSearchSelect}
-            />
-            <main className="min-w-0 flex-1">{children}</main>
+          <div className="flex h-12 shrink-0 items-center border-b border-border pl-3.5">
+            <Brand />
           </div>
+          <Sidebar
+            id="primary-navigation"
+            collapsed={collapsed}
+            onToggleCollapsed={toggleCollapsed}
+          />
+        </aside>
+
+        <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
+          <SheetContent side="left" className="w-64 p-0">
+            <SheetHeader className="h-12 items-center py-0">
+              <SheetTitle className="text-sm">
+                <Brand />
+              </SheetTitle>
+              <SheetDescription className="sr-only">
+                Sections of the EquityWise application
+              </SheetDescription>
+            </SheetHeader>
+            <Sidebar onNavigate={() => setDrawerOpen(false)} />
+          </SheetContent>
+        </Sheet>
+
+        <div className="flex min-w-0 flex-1 flex-col">
+          <Topbar
+            onOpenNavigation={() => setDrawerOpen(true)}
+            onSearchSelect={handleSearchSelect}
+          />
+          <main className="min-w-0 flex-1">{children}</main>
         </div>
-      </MarketTickerProvider>
+      </div>
     </TooltipProvider>
   );
 }

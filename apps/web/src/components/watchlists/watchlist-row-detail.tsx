@@ -8,7 +8,6 @@ import {
   Trash2Icon,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { MarketChart } from '@/components/dashboard/chart';
 import { DefinitionGrid, DefinitionRow } from '@/components/data-display/metric-card';
 import { LiveIndicator } from '@/components/market/market-status';
 import { Price, PriceChange } from '@/components/market/numeric';
@@ -24,6 +23,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Text } from '@/components/ui/typography';
+import { MarketChart } from '@/components/watchlists/chart';
 import { RETURN_WINDOWS } from '@/lib/return-windows';
 import type { WatchlistRowDto, WatchlistSummaryDto } from '@/lib/watchlist-types';
 import { cellFor } from './watchlist-cells';

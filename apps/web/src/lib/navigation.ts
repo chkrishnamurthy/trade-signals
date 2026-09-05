@@ -1,15 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import {
-  ActivityIcon,
-  BellIcon,
-  CandlestickChartIcon,
-  FilterIcon,
-  HistoryIcon,
-  LayoutDashboardIcon,
-  ListIcon,
-  RocketIcon,
-  TargetIcon,
-} from 'lucide-react';
+import { ListIcon } from 'lucide-react';
 import type { Route } from 'next';
 
 /**
@@ -53,63 +43,6 @@ export interface NavGroup {
 
 export const NAVIGATION: readonly NavGroup[] = [
   {
-    label: 'Market',
-    items: [
-      {
-        status: 'ready',
-        href: '/dashboard',
-        label: 'Market overview',
-        icon: LayoutDashboardIcon,
-        description: 'Indices, breadth, sectors and movers',
-      },
-      {
-        status: 'ready',
-        href: '/stocks',
-        label: 'All stocks',
-        icon: CandlestickChartIcon,
-        description: 'Every name we track, with its daily readings',
-      },
-    ],
-  },
-  {
-    label: 'Analysis',
-    items: [
-      {
-        status: 'ready',
-        href: '/signals',
-        label: 'Intraday signals',
-        icon: ActivityIcon,
-        description: "Today's setups, scored and explained",
-      },
-      {
-        status: 'ready',
-        href: '/signals/performance',
-        label: 'Signal performance',
-        icon: TargetIcon,
-        description: 'How past signals actually turned out',
-      },
-      {
-        status: 'ready',
-        href: '/backtests',
-        label: 'Backtests',
-        icon: HistoryIcon,
-        description: 'Replay the engine over stored history and grade it',
-      },
-      {
-        status: 'planned',
-        label: 'Screener',
-        icon: FilterIcon,
-        description: 'Multi-condition technical filters',
-      },
-      {
-        status: 'planned',
-        label: 'IPOs',
-        icon: RocketIcon,
-        description: 'Upcoming and listed issues',
-      },
-    ],
-  },
-  {
     label: 'Tracking',
     items: [
       {
@@ -118,12 +51,6 @@ export const NAVIGATION: readonly NavGroup[] = [
         label: 'My watchlists',
         icon: ListIcon,
         description: 'The names you have chosen to follow',
-      },
-      {
-        status: 'planned',
-        label: 'Alerts',
-        icon: BellIcon,
-        description: 'Conditions worth being told about',
       },
     ],
   },

@@ -3,7 +3,6 @@
 import { RefreshCwIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useMemo, useState } from 'react';
-import { StockDetailDrawer } from '@/components/dashboard/stock-drawer';
 import { CardSkeleton, ErrorState, TableSkeleton } from '@/components/data-display/states';
 import { ActiveFilters, SearchInput } from '@/components/forms/filter-bar';
 import { AppShell } from '@/components/layout/app-shell';
@@ -22,6 +21,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardToolbar } from '@/components/ui/card';
 import { Text } from '@/components/ui/typography';
+import { StockDetailDrawer } from '@/components/watchlists/stock-drawer';
 import type { MoverDto } from '@/lib/dashboard-types';
 import { useWatchlists } from '@/lib/use-watchlists';
 import { DEFAULT_COLUMN_IDS } from '@/lib/watchlist-columns';
