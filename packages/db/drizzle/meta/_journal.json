@@ -85,6 +85,13 @@
       "when": 1788608352800,
       "tag": "0011_long_turbo",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1788609211134,
+      "tag": "0012_wide_secret_warriors",
+      "breakpoints": true
     }
   ]
 }

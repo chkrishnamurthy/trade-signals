@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 import type { Database } from '../client.js';
-import { corporateActions, dailyCandles, minuteCandles } from '../schema/index.js';
+import { corporateActions, dailyCandles } from '../schema/index.js';
 
 /**
  * Candle persistence and adjusted reads.
@@ -38,17 +38,6 @@ export interface CandleInput {
 const INSERT_CHUNK = 2_000;
 
 /**
- * Instruments per batched minute-bar read.
- *
- * One query for fifty symbols × ten sessions is roughly 190,000 rows, and
- * parsing them blocks the event loop long enough that other pooled connections
- * time out mid-handshake — the read succeeds and everything around it fails.
- * Ten at a time is still five round trips instead of fifty, without ever
- * holding the loop for seconds at a stretch.
- */
-const READ_CHUNK = 10;
-
-/**
  * Appends daily candles, skipping any already present.
  *
  * `ON CONFLICT DO NOTHING` rather than `DO UPDATE`: if a provider sends a
@@ -65,17 +54,9 @@ export async function insertDailyCandles(
   return insertCandles(db, dailyCandles, providerId, rows);
 }
 
-export async function insertMinuteCandles(
-  db: Database,
-  providerId: string,
-  rows: readonly CandleInput[],
-): Promise<number> {
-  return insertCandles(db, minuteCandles, providerId, rows);
-}
-
 async function insertCandles(
   db: Database,
-  table: typeof dailyCandles | typeof minuteCandles,
+  table: typeof dailyCandles,
   providerId: string,
   rows: readonly CandleInput[],
 ): Promise<number> {
@@ -296,216 +277,6 @@ export async function getDailyBarsForInstruments(
 }
 
 /**
- * Intraday bars at a derived timeframe.
- *
- * Derived on read with `time_bucket`, never persisted (hard rule 4). The origin
- * is pinned to 09:15 IST so a 15-minute bucket starts with the session rather
- * than with midnight UTC — an unaligned origin silently shifts every intraday
- * candle in the app.
- */
-export async function getIntradayBars(
-  db: Database,
-  query: { instrumentId: number; minutes: number; from: Date; to: Date },
-): Promise<StoredBar[]> {
-  const { instrumentId, minutes, from, to } = query;
-  if (!Number.isInteger(minutes) || minutes < 1) {
-    throw new RangeError(`getIntradayBars: minutes must be a positive integer, got ${minutes}`);
-  }
-
-  // 09:15 IST == 03:45 UTC. Any date works as an origin; only the offset within
-  // the bucket interval matters.
-  const rows = await db.execute<{
-    bucket: Date;
-    open: number;
-    high: number;
-    low: number;
-    close: number;
-    volume: string;
-  }>(sql`
-    SELECT
-      time_bucket(
-        ${`${minutes} minutes`}::interval,
-        ts,
-        TIMESTAMPTZ '2000-01-03 03:45:00+00'
-      ) AS bucket,
-      (array_agg(open ORDER BY ts ASC))[1]  AS open,
-      MAX(high)                             AS high,
-      MIN(low)                              AS low,
-      (array_agg(close ORDER BY ts DESC))[1] AS close,
-      SUM(volume)                           AS volume
-    FROM minute_candles
-    WHERE instrument_id = ${instrumentId}
-      AND ts >= ${from}
-      AND ts <= ${to}
-    GROUP BY bucket
-    ORDER BY bucket ASC
-  `);
-
-  const bars: StoredBar[] = rows.rows.map((row) => ({
-    timestamp: new Date(row.bucket).getTime(),
-    open: row.open,
-    high: row.high,
-    low: row.low,
-    close: row.close,
-    volume: Number(row.volume),
-  }));
-
-  return applyAdjustments(bars, await adjustmentsFor(db, instrumentId));
-}
-
-/**
- * Raw 1m bars for an instrument, ascending, adjusted on read.
- *
- * The intraday engine consumes these directly rather than going through
- * `getIntradayBars`: it derives 3m/5m/15m itself, in pure code, so that a
- * backtest bucketing a historical series and the live path bucketing today's
- * series execute the same function. Routing the live path through SQL and the
- * backtest through TypeScript would be two implementations of one rule.
- */
-export async function getMinuteBars(
-  db: Database,
-  query: { instrumentId: number; from: Date; to: Date; raw?: boolean },
-): Promise<StoredBar[]> {
-  const { instrumentId, from, to, raw = false } = query;
-
-  const rows = await db
-    .select({
-      ts: minuteCandles.ts,
-      open: minuteCandles.open,
-      high: minuteCandles.high,
-      low: minuteCandles.low,
-      close: minuteCandles.close,
-      volume: minuteCandles.volume,
-    })
-    .from(minuteCandles)
-    .where(
-      and(
-        eq(minuteCandles.instrumentId, instrumentId),
-        gte(minuteCandles.ts, from),
-        lte(minuteCandles.ts, to),
-      ),
-    )
-    .orderBy(asc(minuteCandles.ts));
-
-  const bars: StoredBar[] = rows.map((row) => ({
-    timestamp: row.ts.getTime(),
-    open: row.open,
-    high: row.high,
-    low: row.low,
-    close: row.close,
-    volume: row.volume,
-  }));
-
-  return raw ? bars : applyAdjustments(bars, await adjustmentsFor(db, instrumentId));
-}
-
-/**
- * 1m bars for MANY instruments in one round trip.
- *
- * The intraday cycle needs prior-session candles for every symbol in the
- * universe to warm its indicators and build its volume profiles. Fifty separate
- * queries against a Neon endpoint is fifty round trips for data that fits in
- * one; the per-request latency, not the row count, is what makes the first
- * cycle of the day slow.
- */
-export async function getMinuteBarsForInstruments(
-  db: Database,
-  query: {
-    instrumentIds: readonly number[];
-    from: Date;
-    to: Date;
-    raw?: boolean;
-    /** Instruments per query. See {@link READ_CHUNK}. */
-    chunk?: number;
-  },
-): Promise<Map<number, StoredBar[]>> {
-  const { instrumentIds, from, to, raw = false, chunk = READ_CHUNK } = query;
-  const result = new Map<number, StoredBar[]>();
-  if (instrumentIds.length === 0) return result;
-
-  for (let offset = 0; offset < instrumentIds.length; offset += chunk) {
-    const batch = instrumentIds.slice(offset, offset + chunk);
-    if (batch.length === 0) continue;
-
-    const rows = await db
-      .select({
-        instrumentId: minuteCandles.instrumentId,
-        ts: minuteCandles.ts,
-        open: minuteCandles.open,
-        high: minuteCandles.high,
-        low: minuteCandles.low,
-        close: minuteCandles.close,
-        volume: minuteCandles.volume,
-      })
-      .from(minuteCandles)
-      .where(
-        and(
-          inArray(minuteCandles.instrumentId, [...batch]),
-          gte(minuteCandles.ts, from),
-          lte(minuteCandles.ts, to),
-        ),
-      )
-      .orderBy(asc(minuteCandles.instrumentId), asc(minuteCandles.ts));
-
-    for (const row of rows) {
-      const bar: StoredBar = {
-        timestamp: row.ts.getTime(),
-        open: row.open,
-        high: row.high,
-        low: row.low,
-        close: row.close,
-        volume: row.volume,
-      };
-      const bucket = result.get(row.instrumentId);
-      if (bucket === undefined) result.set(row.instrumentId, [bar]);
-      else bucket.push(bar);
-    }
-  }
-
-  // Every instrument gets an entry, so a caller can tell "no bars stored" from
-  // "instrument not requested" without a second lookup.
-  for (const instrumentId of instrumentIds) {
-    if (!result.has(instrumentId)) result.set(instrumentId, []);
-  }
-
-  if (raw) return result;
-
-  const adjustments = await adjustmentsForMany(db, instrumentIds);
-  for (const [instrumentId, bars] of result) {
-    result.set(instrumentId, applyAdjustments(bars, adjustments.get(instrumentId) ?? []));
-  }
-  return result;
-}
-
-/**
- * The latest stored 1m bar per instrument.
- *
- * The incremental-ingestion cursor: without it every cycle would refetch the
- * whole session, which at fifty symbols is fifty full-day requests every few
- * minutes against an account-wide rate limit.
- */
-export async function latestMinuteBarPerInstrument(
-  db: Database,
-  instrumentIds: readonly number[],
-  from: Date,
-): Promise<Map<number, Date>> {
-  if (instrumentIds.length === 0) return new Map();
-
-  const rows = await db
-    .select({
-      instrumentId: minuteCandles.instrumentId,
-      ts: sql<Date>`max(${minuteCandles.ts})`,
-    })
-    .from(minuteCandles)
-    .where(
-      and(inArray(minuteCandles.instrumentId, [...instrumentIds]), gte(minuteCandles.ts, from)),
-    )
-    .groupBy(minuteCandles.instrumentId);
-
-  return new Map(rows.map((row) => [row.instrumentId, new Date(row.ts)]));
-}
-
-/**
  * Sessions actually present for an instrument in a range.
  *
  * The gap detector. A worker outage leaves a hole that indicators would compute
@@ -538,37 +309,6 @@ export async function getStoredSessionDates(
     byInstrument.set(row.instrumentId, set);
   }
   return byInstrument;
-}
-
-/** One stored session's minute-candle coverage. */
-export interface SessionCoverage {
-  /** IST trading date, `YYYY-MM-DD`. */
-  readonly tradingDate: string;
-  readonly bars: number;
-  readonly instruments: number;
-}
-
-/**
- * What minute-candle history actually exists, by IST trading date.
- *
- * The first question any backtest has to answer before its results mean
- * anything: a strong number over four sessions and a strong number over eighty
- * are different claims, and only this tells them apart.
- */
-export async function minuteCandleCoverage(db: Database): Promise<SessionCoverage[]> {
-  const rows = await db.execute<{ d: string; n: string; syms: string }>(sql`
-    SELECT (${minuteCandles.ts} AT TIME ZONE 'Asia/Kolkata')::date AS d,
-           count(*) AS n,
-           count(DISTINCT ${minuteCandles.instrumentId}) AS syms
-    FROM ${minuteCandles}
-    GROUP BY 1
-    ORDER BY 1`);
-
-  return rows.rows.map((row) => ({
-    tradingDate: String(row.d).slice(0, 10),
-    bars: Number(row.n),
-    instruments: Number(row.syms),
-  }));
 }
 
 /**

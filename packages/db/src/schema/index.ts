@@ -12,17 +12,11 @@
  *   - strategy_versions rows are immutable (rule 7)
  *   - Every signal writes its factor breakdown (rule 8)
  */
-export { dailyCandles, minuteCandles } from './candles.js';
+export { dailyCandles } from './candles.js';
 export { providerCredentials } from './credentials.js';
 export { dailyIndicators } from './indicators.js';
 export { corporateActions, ingestionRuns, instruments } from './instruments.js';
-export {
-  intradayRuns,
-  intradaySignalEvents,
-  intradaySignalFactors,
-  intradaySignalReasons,
-  intradaySignals,
-} from './intraday.js';
+export { intradaySignals } from './intraday.js';
 export { signalFactors, signals, strategyVersions } from './signals.js';
 export {
   watchlistItems,
