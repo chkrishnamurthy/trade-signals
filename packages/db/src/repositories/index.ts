@@ -1,24 +1,3 @@
-export type {
-  BacktestFinish,
-  BacktestRunInput,
-  BacktestSessionResult,
-  BacktestSignalInput,
-  BacktestStatus,
-  BacktestTradeInput,
-  StoredBacktestRun,
-  StoredBacktestTrade,
-} from './backtest.js';
-export {
-  createBacktestRun,
-  finishBacktestRun,
-  getBacktestRun,
-  getBacktestTrades,
-  listBacktestRuns,
-  pruneBacktestRuns,
-  recordBacktestSession,
-  sessionsWithStoredSignals,
-  startBacktestRun,
-} from './backtest.js';
 export type { BarQuery, CandleInput, CloseAnchor, SessionCoverage, StoredBar } from './candles.js';
 export {
   applyAdjustments,
@@ -92,17 +71,6 @@ export {
   TERMINAL_SIGNAL_STATES,
   updateIntradaySignal,
 } from './intraday-signals.js';
-export type {
-  PaperTradeInput,
-  StoredPaperTrade,
-  TriggeredSignal,
-} from './paper-trades.js';
-export {
-  getPaperTrades,
-  getTriggeredSignals,
-  recordPaperTrade,
-  settledSignalIds,
-} from './paper-trades.js';
 export type {
   InstrumentSignal,
   SignalFactorInput,
