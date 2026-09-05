@@ -42,12 +42,17 @@ const log = createLogger('worker');
  */
 const SCHEDULES = {
   /**
-   * Credential refresh at 08:30 — after the previous token expires at 07:00
-   * IST, and comfortably before the 09:00 pre-open. Weekdays only: a token
-   * that lapses over the weekend is refreshed on Monday before anything needs
-   * it.
+   * Credential refresh at 07:05 — as soon as possible after the previous token
+   * expires at 07:00 IST. It must run AFTER 07:00: `defaultExpiry` rounds to the
+   * next 01:30 UTC (07:00 IST), so a token minted before 07:00 is dated to
+   * expire the same morning and lasts only minutes. Minting at 07:05 dates it to
+   * the following 07:00 IST — a full day — and shrinks the pre-refresh window in
+   * which the dashboard reports the feed unavailable from ~90 min (the old
+   * 08:30) to ~5 min, all of it pre-open. Weekdays only: a token that lapses
+   * over the weekend is refreshed on Monday before anything needs it, and the
+   * dashboard shows a "market closed" state meanwhile (see MarketClosed).
    */
-  refreshCredential: '30 8 * * 1-5',
+  refreshCredential: '5 7 * * 1-5',
   ingestDaily: '15 16 * * 1-5',
   computeIndicators: '45 16 * * 1-5',
   /** A second attempt, in case the first ran while the credential was stale. */

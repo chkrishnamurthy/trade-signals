@@ -1,4 +1,10 @@
-import { AlertTriangleIcon, InboxIcon, RefreshCwIcon, WifiOffIcon } from 'lucide-react';
+import {
+  AlertTriangleIcon,
+  CalendarClockIcon,
+  InboxIcon,
+  RefreshCwIcon,
+  WifiOffIcon,
+} from 'lucide-react';
 import type * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -134,6 +140,43 @@ export function ConnectionError({
       description="Nothing is being shown rather than something possibly wrong."
       detail={detail}
       onRetry={onRetry}
+    />
+  );
+}
+
+/**
+ * The feed is down but only because the market is closed.
+ *
+ * Outside trading hours the live token is deliberately expired and no quotes
+ * flow, so a provider call fails exactly as it would in a real outage. Showing
+ * the red "source unreachable" error then is misleading — nothing is wrong, the
+ * market is simply shut. This is the calm counterpart: an informational empty
+ * state, not an alert. The caller decides it is outside hours; this only renders
+ * the message.
+ */
+export function MarketClosed({
+  description,
+  onRetry,
+  className,
+}: {
+  description: string;
+  onRetry?: (() => void) | undefined;
+  className?: string | undefined;
+}) {
+  return (
+    <EmptyState
+      className={className}
+      icon={<CalendarClockIcon />}
+      title="Market closed"
+      description={description}
+      action={
+        onRetry !== undefined ? (
+          <Button variant="outline" size="sm" onClick={onRetry}>
+            <RefreshCwIcon />
+            Refresh
+          </Button>
+        ) : undefined
+      }
     />
   );
 }

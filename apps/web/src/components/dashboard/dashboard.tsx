@@ -5,6 +5,7 @@ import {
   CardSkeleton,
   ChartSkeleton,
   ConnectionError,
+  MarketClosed,
   SkeletonRows,
 } from '@/components/data-display/states';
 import { AppShell } from '@/components/layout/app-shell';
@@ -21,6 +22,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Card, CardContent, CardHeader, CardHeading, CardTitle } from '@/components/ui/card';
 import { istTime } from '@/lib/format';
+import { closedMarketMessage, isFeedDownCode } from '@/lib/market-hours';
 import { useDashboard } from '@/lib/use-dashboard';
 import { MarketActivity, QuickStats } from './activity';
 import { MarketBreadth } from './breadth';
@@ -94,14 +96,26 @@ export function Dashboard({ indexKey = 'nifty50' }: { indexKey?: string }) {
   );
 
   if (dashboard.status === 'error') {
+    // Outside trading hours the live token is deliberately expired and the feed
+    // is down by design, not by fault. Reinterpret a feed-level failure as the
+    // honest "market closed" state so the dashboard does not cry outage when the
+    // market is simply shut. A NETWORK/UNKNOWN error is a real problem the user
+    // should still see, and holidays are not detected here (no client-side
+    // trading calendar), so a weekday holiday still shows the connection error.
+    const closed = closedMarketMessage(new Date());
+    const feedDown = isFeedDownCode(dashboard.error.code);
     return (
       <AppShell onSearchSelect={onSelect}>
         <PageContainer width="narrow">
           {header}
-          <ConnectionError
-            detail={dashboard.error.remedy ?? dashboard.error.error}
-            onRetry={refresh}
-          />
+          {closed !== null && feedDown ? (
+            <MarketClosed description={closed} onRetry={refresh} />
+          ) : (
+            <ConnectionError
+              detail={dashboard.error.remedy ?? dashboard.error.error}
+              onRetry={refresh}
+            />
+          )}
         </PageContainer>
       </AppShell>
     );
