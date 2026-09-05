@@ -24,11 +24,6 @@
     "verify:adjustment": "tsx scripts/verify-adjustment.ts",
     "fyers:login": "tsx scripts/fyers-login.ts",
     "clean": "pnpm -r clean && rm -rf apps/web/.next",
-    "verify:intraday": "tsx scripts/verify-intraday.ts",
-    "backtest:intraday": "tsx scripts/backtest-intraday.ts",
-    "backtest:prune": "tsx scripts/prune-backtests.ts",
-    "backfill:minutes": "tsx scripts/backfill-minutes.ts",
-    "replay:session": "tsx scripts/replay-session.ts",
     "data:coverage": "tsx scripts/coverage.ts"
   },
   "devDependencies": {
