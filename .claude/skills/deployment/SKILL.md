@@ -7,10 +7,10 @@ description: Production infrastructure and operations for the self-hosted Hostin
 
 The whole app runs on one Hostinger VPS (Ubuntu): the Next.js web app, the croner
 worker, and PostgreSQL, behind Nginx under PM2. Only Clerk and Fyers are external.
-The authoritative, as-built reference is **`docs/deployment.md`** — read it before
+The authoritative, as-built reference is **`docs/operations/deployment.md`** — read it before
 acting; this skill is the short "don't get this wrong" list.
 
-Verified as of the Aug–Sep 2026 migration off Vercel + Neon. Re-check `docs/deployment.md`
+Verified as of the Aug–Sep 2026 migration off Vercel + Neon. Re-check `docs/operations/deployment.md`
 and the VPS before trusting a specific value.
 
 ## Deploys are automatic — never hand-edit the server
@@ -53,7 +53,7 @@ and the VPS before trusting a specific value.
 
 - **Do not run `pnpm run dev` against production** — it starts the worker, which
   writes to the live DB and invalidates the live Fyers token. Run web-only through an
-  SSH tunnel (`docs/deployment.md` §8), or use `pnpm typecheck` / `lint` / `test`.
+  SSH tunnel (`docs/operations/deployment.md` §8), or use `pnpm typecheck` / `lint` / `test`.
 
 ## Backups
 

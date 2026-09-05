@@ -27,8 +27,9 @@ intraday cycle, and the backtest scripts). New feature pages will be built on th
 base later. The design docs above still describe the fuller original product as
 historical intent; that intraday code no longer exists in the tree.
 
-Design docs: `docs/nse-signals-technical-plan.md` (§1, §3, §5–§8 authoritative)
-and `docs/nse-signals-prompt-pack-v2.md` (§2–§3 authoritative for stack and schema).
+Design & architecture docs: `docs/README.md`, `docs/architecture.md` (topology & stack),
+`docs/domain-and-contracts.md` (schema, indicators & invariants), `docs/api-reference.md`,
+`docs/operations-runbook.md`, and `docs/planning/storybook-plan.md`.
 
 ## Stack
 
@@ -74,7 +75,7 @@ The whole app — web app, worker, and database — runs on a single Hostinger V
 (Ubuntu) behind Nginx, under PM2. Deploys are automatic: **merge to `main` →
 GitHub Actions → `deploy.sh` on the VPS** (pull, build, migrate, restart). The
 full as-built reference — server, pipeline, credentials, backups, local dev,
-operations — is **`docs/deployment.md`**. Read it before touching infrastructure.
+operations — is **`docs/operations/deployment.md`**. Read it before touching infrastructure.
 
 - **The database is self-hosted PostgreSQL 17 + TimescaleDB on the VPS**, bound to
   localhost. **TimescaleDB compression IS enabled here** (unlike the old Neon
@@ -94,7 +95,7 @@ operations — is **`docs/deployment.md`**. Read it before touching infrastructu
   backoff.
 - The Fyers market-data token is minted by the worker into `provider_credentials`
   and **self-heals** when invalidated early (Fyers is single-session; a manual
-  trading login kills it). See `docs/deployment.md` §5.
+  trading login kills it). See `docs/operations/deployment.md` §5.
 
 ## Conventions
 

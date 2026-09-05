@@ -67,7 +67,7 @@ sub-two-minute loop **today**.
 | G5 | **History depth is bounded by the provider.** `backfill:minutes` is the only source of 1m bars, and it is rate-limited and reaches back only as far as Fyers serves. This is exactly what the Telegram archive fixes. | `apps/worker/src/jobs/ingest-intraday.ts` |
 | G6 | **No UI.** | `apps/web/src/lib/navigation.ts` has no backtest entry |
 | G7 | **Survivorship bias is live.** The universe is read from `config/indices.yaml` — today's NIFTY 50 — and applied to every historical date. | `apps/worker/src/universe.ts` |
-| G8 | **No trading calendar.** Every offline path treats an exchange holiday as a session with missing data. Already recorded in `docs/pending-features.md` §2.3. | `packages/shared/src/time.ts` |
+| G8 | **No trading calendar.** Every offline path treats an exchange holiday as a session with missing data. Already recorded in `docs/planning/pending-features.md` §2.3. | `packages/shared/src/time.ts` |
 
 The proposal therefore is **not** "build a backtesting engine". It is: close G1–G4
 first (a week of work, no new data source, no new dependency), then build the

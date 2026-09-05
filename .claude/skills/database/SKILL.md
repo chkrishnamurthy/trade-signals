@@ -14,7 +14,7 @@ line number.
 > Both connection strings point at `localhost:5432` there — the pooled/direct split
 > below still exists in the code and matters for Neon, but locally the two are identical.
 > Neon is a retained fallback. For anything about the host, deploys, or the credential
-> lifecycle, see `docs/deployment.md` and the [deployment](../deployment/SKILL.md) skill.
+> lifecycle, see `docs/operations/deployment.md` and the [deployment](../deployment/SKILL.md) skill.
 
 ## Two connection strings, one real guard
 

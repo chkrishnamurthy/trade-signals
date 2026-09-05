@@ -293,7 +293,7 @@ explicit choice before coding.
 (`FYERS_ID` + `FYERS_TOTP_SECRET` + `FYERS_PIN`) and `refreshCredential`
 performs an **unattended TOTP auto-login** every morning, writing a fresh token
 into `provider_credentials`. The web app only ever *reads* that token. This is
-what makes the feed self-healing (see `docs/deployment.md` §5 and
+what makes the feed self-healing (see `docs/operations/deployment.md` §5 and
 `providers-fyers/src/auth.ts`).
 
 **Upstox:** the standard OAuth flow needs an **interactive** login and 2FA to
@@ -460,5 +460,5 @@ operational.
 - Existing repo: `packages/market-data/src/provider.ts` (the contract),
   `packages/providers-fyers/src/{adapter,auth,resolution}.ts` (the pattern to
   mirror), `apps/web/src/server/provider.ts` and `apps/worker/src/context.ts`
-  (the two composition roots), `docs/deployment.md` §5 (Fyers credential
+  (the two composition roots), `docs/operations/deployment.md` §5 (Fyers credential
   self-heal).

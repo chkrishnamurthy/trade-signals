@@ -22,7 +22,7 @@ config/           versioned YAML: index constituents, intraday strategy config
 docs/             what is built, what is not — see pending-features.md
 ```
 
-[docs/pending-features.md](docs/pending-features.md) is the current backlog:
+[docs/planning/pending-features.md](docs/planning/pending-features.md) is the current backlog:
 which parts of the system are finished, which are built but unwired, and which
 are declared in the sidebar without an implementation behind them.
 
@@ -71,7 +71,7 @@ and PM2 keep the web app (`next start -p 3000`) and the worker alive; Nginx
 terminates SSL and reverse-proxies `:443 → :3000`. **Deploys are automatic — merge
 to `main` and GitHub Actions ships it.** The complete as-built reference — server,
 pipeline, self-hosted Postgres, credentials, backups, DNS/SSL, local dev, and
-operations — is **[`docs/deployment.md`](docs/deployment.md)**; this section is only
+operations — is **[`docs/operations/deployment.md`](docs/operations/deployment.md)**; this section is only
 the shape.
 
 Build with `pnpm build` (topological `tsc`, then `next build`), then start each

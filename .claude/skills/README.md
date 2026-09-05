@@ -43,7 +43,7 @@ Each one reports and stops on a violation; the fix is the author's call.
   (merge to `main` → GitHub Actions → `deploy.sh`), self-hosted Postgres 17 +
   TimescaleDB, the Fyers credential self-heal, backups, and local-dev safety. Fires on
   deploy/CI/server/backup work and on market-data/credential/rate-limit failures.
-  Full reference: `docs/deployment.md`.
+  Full reference: `docs/operations/deployment.md`.
 
 ## Conventions
 
