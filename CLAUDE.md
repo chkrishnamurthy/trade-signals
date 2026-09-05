@@ -17,6 +17,16 @@ answers three questions and nothing else:
 business logic consumes a normalised `MarketDataProvider`, never a Fyers type. The
 UI never presents itself as a Fyers client.
 
+**Current scope: watchlists only.** The app has been stripped to the watchlists
+surface (`/watchlists`) plus its data spine — the Fyers provider for live quotes,
+`/api/search` to add names, and the daily end-of-day pass that feeds the watchlist's
+indicator/return/signal columns. The dashboard, all-stocks, intraday-signals,
+signal-performance and backtests pages and APIs were removed, along with the whole
+intraday/backtest/paper-trading engine (`packages/core/src/intraday`, the worker's
+intraday cycle, and the backtest scripts). New feature pages will be built on this
+base later. The design docs above still describe the fuller original product as
+historical intent; that intraday code no longer exists in the tree.
+
 Design docs: `docs/nse-signals-technical-plan.md` (§1, §3, §5–§8 authoritative)
 and `docs/nse-signals-prompt-pack-v2.md` (§2–§3 authoritative for stack and schema).
 
@@ -57,71 +67,6 @@ Fyers API v3 for market data. No Redis. No Celery. No Python in the app.
 
 8. **Every signal writes its factor breakdown and indicator snapshot.** The
    "Why this signal?" UI reads `signal_factors`; it never recomputes.
-
-## Intraday trade signals
-
-Second engine, alongside the daily one, and deliberately separate from it.
-
-- `packages/core/src/intraday` is the whole analysis: bucketing, indicators,
-  structure, patterns, levels, five strategies, the confluence scorer and the
-  lifecycle state machine. Pure, like the rest of core (rule 1).
-- `apps/worker` owns the loop: it pulls closed 1m candles into `minute_candles`
-  every few minutes while the market is open, runs the engine, and persists
-  signals with their factor breakdown, their evidence and their timeline.
-- `apps/web` only READS. `/signals` and `/api/intraday-signals` serve what the
-  worker stored; the web app never runs the engine and never calls the provider
-  for bars. Two writers would race on the live-signal unique index.
-- Timeframes 3m/5m/15m are derived from stored 1m bars in pure code, aligned to
-  the 09:15 IST open (rule 4). Prior sessions warm the indicators; VWAP, the
-  day's extremes, the opening range, volume and structure are today-only.
-- Relative volume compares against the same MINUTE OF SESSION in prior
-  sessions, never a full-day average.
-- Config lives in `config/intraday.yaml` and mints a `strategy_versions` row
-  (rule 7). `pnpm verify:intraday` replays any instant through the real engine
-  and prints the evidence and every rejection.
-
-### Costs decide which setups exist
-
-Transaction costs are not a display concern, they are a filter, and getting
-this wrong silently inverts every verdict the engine reaches.
-
-- **Stops and targets are sized off the TREND-timeframe ATR** (`frame.atrLevels`),
-  never the trigger timeframe. The median 3m ATR on a NIFTY 50 name is 0.088%
-  of price, so a 1.6x target sized off it is 0.140% — below the ~0.146%
-  round-trip cost. Every such setup is a structural loser however good the
-  pattern looks. The 15m ATR is 0.246%, putting the same multiple at 0.393%.
-  `frame.atrValue` (trigger) stays correct for break buffers and proximity.
-- `packages/core/src/intraday/costs.ts` models the real NSE intraday schedule —
-  brokerage, STT on the sell leg, exchange, SEBI, stamp on the buy leg, GST,
-  and assumed slippage on both legs. Rates live in `config/intraday.yaml`.
-- Every published reward-to-risk figure is NET of those costs. The binding
-  filters are `minNetRiskReward`, `minTargetPercent` and `minStopPercent`.
-
-### Measuring whether any of it works
-
-The engine scores its own setups. That is not evidence, so it is graded
-separately, against the tape.
-
-- `resolvePaperTrade` in `packages/core/src/intraday/paper.ts` is the single
-  grader, used by BOTH the live recorder and the backtester, so live and
-  backtested results are produced by identical logic and can be compared.
-  It is deliberately pessimistic: the fill is the next bar's OPEN (rule 2), a
-  bar spanning both stop and target counts as a STOP, a fill past the
-  invalidation is no trade at all, and a fill that has already spent half the
-  risk budget is no trade either.
-- `apps/worker/src/jobs/paper-trades.ts` records outcomes into `paper_trades`
-  every cycle and settles them at the close. Per share, in paise. NO money,
-  quantity or position is represented anywhere — that is still forbidden.
-- `/signals/performance` reads them. Every rate is published with its margin of
-  error, open trades are shown but never counted, and results are in R rather
-  than rupees.
-- `pnpm backtest:intraday` replays stored candles through the real engine and
-  reports expectancy by score band, strategy, regime and exit. `pnpm
-  replay:session <date>` does the same through the DATABASE path.
-  `pnpm backfill:minutes --days N` deepens history first — a backtest over
-  eight sessions is an anecdote.
-- **Do not tune thresholds on a difference smaller than the sample's margin of
-  error.** The report prints it for this reason.
 
 ## Production hosting (self-hosted VPS)
 
