@@ -1,6 +1,7 @@
 import { withRetry } from '@equitywise/db';
 import { config as loadEnv } from 'dotenv';
 import { createContext, type WorkerContext } from './context.js';
+import { authMaintenance } from './jobs/auth-maintenance.js';
 import { computeIndicators } from './jobs/compute-indicators.js';
 import { ingestDailyCandles } from './jobs/ingest-daily.js';
 import { refreshProviderCredential } from './jobs/refresh-credential.js';
@@ -49,6 +50,8 @@ const SCHEDULES = {
   computeIndicators: '45 16 * * 1-5',
   /** A second attempt, in case the first ran while the credential was stale. */
   ingestRetry: '30 18 * * 1-5',
+  /** Reap expired auth rows nightly (daily — auth is not market-hours bound). */
+  authMaintenance: '30 3 * * *',
 } as const;
 
 function buildScheduler(context: WorkerContext): Scheduler {
@@ -73,6 +76,13 @@ function buildScheduler(context: WorkerContext): Scheduler {
         schedule: SCHEDULES.computeIndicators,
         run: async () => {
           await computeIndicators(context, log.child('compute-indicators'));
+        },
+      },
+      {
+        name: 'auth-maintenance',
+        schedule: SCHEDULES.authMaintenance,
+        run: async () => {
+          await authMaintenance(context, log.child('auth-maintenance'));
         },
       },
       {

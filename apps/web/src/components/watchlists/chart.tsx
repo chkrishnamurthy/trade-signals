@@ -9,6 +9,7 @@ import {
 } from '@/components/charts/chart-container';
 import { ChartSkeleton, DataUnavailable, ErrorState } from '@/components/data-display/states';
 import { IndexLevel } from '@/components/market/numeric';
+import { API_ROUTES } from '@/lib/api-routes';
 import { indexLevel } from '@/lib/format';
 import { toneOf } from '@/lib/tone';
 
@@ -73,7 +74,7 @@ export function MarketChart({
 
     void (async () => {
       try {
-        const response = await fetch(`/api/history/${encodeURIComponent(symbol)}?tf=${timeframe}`, {
+        const response = await fetch(API_ROUTES.history(symbol, { tf: timeframe }), {
           signal: controller.signal,
           cache: 'no-store',
         });

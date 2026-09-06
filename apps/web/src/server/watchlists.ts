@@ -37,8 +37,9 @@ import type {
   WatchlistRowDto,
   WatchlistSummaryDto,
 } from '@/lib/watchlist-types';
+import { getSessionUser } from './auth/require-user';
 import { getDatabase } from './db';
-import { toMarketError } from './errors';
+import { MarketDataError, toMarketError } from './errors';
 import { getIndex, listIndexKeys } from './indices';
 import { getMarketStatus } from './market-status';
 import { getProvider } from './provider';
@@ -70,8 +71,22 @@ import { resolveSymbol, warmInstrumentCache } from './search';
 const REFRESH_OPEN_SECONDS = 15;
 const REFRESH_CLOSED_SECONDS = 300;
 
+/**
+ * The signed-in user's id — the owner every watchlist read and write is scoped
+ * to. These functions run only from gated routes, so a missing session is a
+ * forged/expired cookie that slipped past the middleware's presence check; it is
+ * rejected here, the authoritative check.
+ */
+async function requireOwnerId(): Promise<number> {
+  const user = await getSessionUser();
+  if (user === null) {
+    throw new MarketDataError('Not signed in.', { code: 'UNAUTHENTICATED', status: 401 });
+  }
+  return user.id;
+}
+
 export async function getWatchlists(): Promise<WatchlistSummaryDto[]> {
-  const rows = await listWatchlists(getDatabase());
+  const rows = await listWatchlists(getDatabase(), await requireOwnerId());
   return rows.map((row) => ({
     id: row.id,
     name: row.name,
@@ -117,15 +132,16 @@ function defaultLayout(): WatchlistLayoutDto {
  */
 export async function getWatchlistDetail(id: number): Promise<WatchlistDetailDto | null> {
   const db = getDatabase();
+  const ownerId = await requireOwnerId();
 
   const summaries = await getWatchlists();
   const watchlist = summaries.find((entry) => entry.id === id);
   if (watchlist === undefined) return null;
 
   const [members, storedLayout, storedViews, market, sectors] = await Promise.all([
-    getWatchlistMembers(db, id),
-    getWatchlistLayout(db, id),
-    listWatchlistViews(db, id),
+    getWatchlistMembers(db, ownerId, id),
+    getWatchlistLayout(db, ownerId, id),
+    listWatchlistViews(db, ownerId, id),
     getMarketStatus(),
     sectorMap(),
   ]);
@@ -367,11 +383,12 @@ export interface DefaultMembersDto {
  */
 export async function getDefaultWatchlistMembers(): Promise<DefaultMembersDto> {
   const db = getDatabase();
-  const all = await listWatchlists(db);
+  const ownerId = await requireOwnerId();
+  const all = await listWatchlists(db, ownerId);
   const target = all.find((entry) => entry.isDefault) ?? all[0];
   if (target === undefined) return { watchlistId: null, members: [] };
 
-  const members = await getWatchlistMembers(db, target.id);
+  const members = await getWatchlistMembers(db, ownerId, target.id);
   return {
     watchlistId: target.id,
     members: members.map((member) => ({
@@ -386,7 +403,7 @@ export async function getDefaultWatchlistMembers(): Promise<DefaultMembersDto> {
 // ---------------------------------------------------------------------------
 
 export async function addWatchlist(name: string): Promise<WatchlistSummaryDto> {
-  const created = await createWatchlist(getDatabase(), { name });
+  const created = await createWatchlist(getDatabase(), await requireOwnerId(), { name });
   return {
     id: created.id,
     name: created.name,
@@ -402,18 +419,21 @@ export async function updateWatchlist(
   patch: { name?: string | undefined; isDefault?: boolean | undefined },
 ): Promise<boolean> {
   const db = getDatabase();
+  const ownerId = await requireOwnerId();
   let touched = false;
-  if (patch.name !== undefined) touched = (await renameWatchlist(db, id, patch.name)) || touched;
-  if (patch.isDefault === true) touched = (await setDefaultWatchlist(db, id)) || touched;
+  if (patch.name !== undefined) {
+    touched = (await renameWatchlist(db, ownerId, id, patch.name)) || touched;
+  }
+  if (patch.isDefault === true) touched = (await setDefaultWatchlist(db, ownerId, id)) || touched;
   return touched;
 }
 
 export async function removeWatchlist(id: number): Promise<boolean> {
-  return deleteWatchlist(getDatabase(), id);
+  return deleteWatchlist(getDatabase(), await requireOwnerId(), id);
 }
 
 export async function reorder(ids: readonly number[]): Promise<void> {
-  await reorderWatchlists(getDatabase(), ids);
+  await reorderWatchlists(getDatabase(), await requireOwnerId(), ids);
 }
 
 export interface AddSymbolsResult {
@@ -438,6 +458,7 @@ export async function addSymbols(
   symbols: readonly string[],
 ): Promise<AddSymbolsResult> {
   const db = getDatabase();
+  const ownerId = await requireOwnerId();
 
   const resolved: { symbol: string; name: string; kind: 'equity' | 'index' }[] = [];
   const unknown: string[] = [];
@@ -467,7 +488,7 @@ export async function addSymbols(
     bySymbol.set(id, entry.symbol);
   }
 
-  const insertedIds = await addWatchlistItems(db, watchlistId, instrumentIds);
+  const insertedIds = await addWatchlistItems(db, ownerId, watchlistId, instrumentIds);
   const inserted = new Set(insertedIds);
 
   return {
@@ -484,18 +505,18 @@ export async function removeSymbols(
   watchlistId: number,
   instrumentIds: readonly number[],
 ): Promise<number> {
-  return removeWatchlistItems(getDatabase(), watchlistId, instrumentIds);
+  return removeWatchlistItems(getDatabase(), await requireOwnerId(), watchlistId, instrumentIds);
 }
 
 export async function reorderSymbols(
   watchlistId: number,
   instrumentIds: readonly number[],
 ): Promise<void> {
-  await reorderWatchlistItems(getDatabase(), watchlistId, instrumentIds);
+  await reorderWatchlistItems(getDatabase(), await requireOwnerId(), watchlistId, instrumentIds);
 }
 
 export async function saveLayout(watchlistId: number, layout: WatchlistLayoutDto): Promise<void> {
-  await saveWatchlistLayout(getDatabase(), watchlistId, {
+  await saveWatchlistLayout(getDatabase(), await requireOwnerId(), watchlistId, {
     columns: layout.columns,
     sort: layout.sort,
     filters: layout.filters,
@@ -510,11 +531,11 @@ export async function saveView(input: {
   sort: WatchlistLayoutDto['sort'];
   filters: WatchlistFilterStateDto;
 }): Promise<SavedViewDto> {
-  return toSavedViewDto(await saveWatchlistView(getDatabase(), input));
+  return toSavedViewDto(await saveWatchlistView(getDatabase(), await requireOwnerId(), input));
 }
 
 export async function removeView(id: number): Promise<boolean> {
-  return deleteWatchlistView(getDatabase(), id);
+  return deleteWatchlistView(getDatabase(), await requireOwnerId(), id);
 }
 
 /** Narrows an unknown failure to the shared market-error shape. */

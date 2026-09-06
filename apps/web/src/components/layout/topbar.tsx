@@ -1,6 +1,7 @@
 'use client';
 
 import { MenuIcon } from 'lucide-react';
+import { UserMenu } from '@/components/auth/user-menu';
 import { StockSearch } from '@/components/market/stock-search';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
@@ -51,6 +52,7 @@ export function Topbar({
 
       <div className="flex shrink-0 items-center gap-2 sm:gap-3">
         <ThemeToggle />
+        <UserMenu />
       </div>
     </header>
   );

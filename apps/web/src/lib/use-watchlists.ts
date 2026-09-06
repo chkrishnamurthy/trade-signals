@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useToast } from '@/components/ui/toast';
 import type { Feed } from './feed';
 import type { MarketErrorDto } from './market-types';
+import { API_ROUTES } from './api-routes';
 import type {
   SavedViewDto,
   WatchlistDetailDto,
@@ -93,7 +94,7 @@ export function useWatchlists() {
   // --- Sidebar --------------------------------------------------------------
 
   const loadLists = useCallback(async (): Promise<readonly WatchlistSummaryDto[] | null> => {
-    const result = await request<{ watchlists: readonly WatchlistSummaryDto[] }>('/api/watchlists');
+    const result = await request<{ watchlists: readonly WatchlistSummaryDto[] }>(API_ROUTES.watchlists);
     if (!mounted.current) return null;
 
     if (!result.ok) {
@@ -113,7 +114,7 @@ export function useWatchlists() {
     if (!quiet) setIsRefreshing(true);
 
     try {
-      const response = await fetch(`/api/watchlists/${id}`, {
+      const response = await fetch(API_ROUTES.watchlist(id), {
         signal: controller.signal,
         cache: 'no-store',
       });
@@ -225,7 +226,7 @@ export function useWatchlists() {
 
   const createList = useCallback(
     async (name: string): Promise<MutationResult<WatchlistSummaryDto>> => {
-      const result = await request<{ watchlist: WatchlistSummaryDto }>('/api/watchlists', {
+      const result = await request<{ watchlist: WatchlistSummaryDto }>(API_ROUTES.watchlists, {
         method: 'POST',
         body: JSON.stringify({ name }),
       });
@@ -239,7 +240,7 @@ export function useWatchlists() {
 
   const renameList = useCallback(
     async (id: number, name: string) => {
-      const result = await request(`/api/watchlists/${id}`, {
+      const result = await request(API_ROUTES.watchlist(id), {
         method: 'PATCH',
         body: JSON.stringify({ name }),
       });
@@ -251,7 +252,7 @@ export function useWatchlists() {
 
   const makeDefault = useCallback(
     async (id: number) => {
-      const result = await request(`/api/watchlists/${id}`, {
+      const result = await request(API_ROUTES.watchlist(id), {
         method: 'PATCH',
         body: JSON.stringify({ isDefault: true }),
       });
@@ -269,7 +270,7 @@ export function useWatchlists() {
 
   const deleteList = useCallback(
     async (id: number) => {
-      const result = await request(`/api/watchlists/${id}`, { method: 'DELETE' });
+      const result = await request(API_ROUTES.watchlist(id), { method: 'DELETE' });
       if (!result.ok) {
         toast({
           variant: 'destructive',
@@ -303,7 +304,7 @@ export function useWatchlists() {
             }
           : current,
       );
-      const result = await request('/api/watchlists/reorder', {
+      const result = await request(API_ROUTES.watchlistReorder, {
         method: 'POST',
         body: JSON.stringify({ ids }),
       });
@@ -332,7 +333,7 @@ export function useWatchlists() {
         added: readonly string[];
         duplicates: readonly string[];
         unknown: readonly string[];
-      }>(`/api/watchlists/${id}/items`, { method: 'POST', body: JSON.stringify({ symbols }) });
+      }>(API_ROUTES.watchlistItems(id), { method: 'POST', body: JSON.stringify({ symbols }) });
       if (result.ok) await reload();
       return result;
     },
@@ -357,7 +358,7 @@ export function useWatchlists() {
             }
           : current,
       );
-      const result = await request(`/api/watchlists/${id}/items`, {
+      const result = await request(API_ROUTES.watchlistItems(id), {
         method: 'DELETE',
         body: JSON.stringify({ instrumentIds }),
       });
@@ -382,7 +383,7 @@ export function useWatchlists() {
   /** Adds to a list that is not the one on screen — the "add to another" action. */
   const addSymbolsTo = useCallback(
     async (watchlistId: number, symbols: readonly string[]) => {
-      const result = await request(`/api/watchlists/${watchlistId}/items`, {
+      const result = await request(API_ROUTES.watchlistItems(watchlistId), {
         method: 'POST',
         body: JSON.stringify({ symbols }),
       });
@@ -426,7 +427,7 @@ export function useWatchlists() {
 
     if (layoutTimer.current !== null) clearTimeout(layoutTimer.current);
     layoutTimer.current = setTimeout(() => {
-      void request(`/api/watchlists/${id}/layout`, {
+      void request(API_ROUTES.watchlistLayout(id), {
         method: 'PUT',
         body: JSON.stringify(layout),
       });
@@ -445,7 +446,7 @@ export function useWatchlists() {
       if (id === null) {
         return { ok: false as const, error: { error: 'No watchlist selected.', code: 'NO_LIST' } };
       }
-      const result = await request<{ view: SavedViewDto }>(`/api/watchlists/${id}/views`, {
+      const result = await request<{ view: SavedViewDto }>(API_ROUTES.watchlistViews(id), {
         method: 'POST',
         body: JSON.stringify(input),
       });
@@ -461,7 +462,7 @@ export function useWatchlists() {
       if (id === null) {
         return { ok: false as const, error: { error: 'No watchlist selected.', code: 'NO_LIST' } };
       }
-      const result = await request(`/api/watchlists/${id}/views/${viewId}`, { method: 'DELETE' });
+      const result = await request(API_ROUTES.watchlistView(id, viewId), { method: 'DELETE' });
       if (result.ok) await loadDetail(id, true);
       else
         toast({

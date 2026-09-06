@@ -1,26 +1,51 @@
 # Authentication — multi-user architecture & implementation plan
 
-Status: **proposal / for review** · Date: 2026-09-06 · Scope: **design only, no auth code written yet**
-Supersedes: [`docs/architecture/auth-system-design.md`](../architecture/auth-system-design.md) (the "Better Auth" plan).
+Status: **implemented (dev) — see status below** · Date: 2026-09-06
 
-> **What this is.** The plan for a **first-party, multi-user** authentication system
-> for EquityWise. Every user signs up, logs in, and owns their own data. All
-> authentication data — accounts, password hashes, sessions — lives **only on our
-> own VPS Postgres**. No external auth product (no Clerk, no Better Auth, no Auth0).
-> The one external service is **Resend**, used solely to *send* verification and
-> password-reset emails; it never sees a password or session.
->
-> **Confirmed decisions (2026-09-06):** ① multi-user product (not single-user);
-> ② build the complete multi-user system, not a single-user phase first;
-> ③ **passwords only** (no passkeys for now); ④ **Resend** for email;
-> ⑤ free `/login` from the Fyers route so user login can use it; ⑥ clean install —
-> there is **no legacy auth data to migrate**; ⑦ update all "single-user" wording.
+> A **first-party, multi-user** authentication system for EquityWise. Every user
+> signs up, logs in, and owns their own data. All authentication data — accounts,
+> password hashes, sessions — lives **only on our own VPS Postgres**. Email
+> (verification and password reset) is sent through **Resend**, which never sees a
+> password or session.
+
+---
+
+## Implementation status
+
+**Built, tested, and working on the dev database (branch `feat/auth-system`):**
+
+| Area | Status |
+| --- | --- |
+| Sign-up, log in, log out, closed-by-default route gate | ✅ |
+| Argon2id password hashing + breached-password check | ✅ |
+| Sessions — `__Host-` cookie, HMAC-signed, DB-backed, revocable, idle+absolute expiry | ✅ |
+| CSRF (Origin check) · rate-limit + progressive lockout | ✅ |
+| Email verification + password reset via **Resend** (live; sends from `support@equitywise.io`) | ✅ |
+| Roles (user / admin) + admin operator view (list, disable, promote) | ✅ |
+| **Per-user data isolation** — `owner_id` on watchlists + views, every query owner-scoped (migration `0014`) | ✅ verified |
+| Header user menu · worker session-cleanup job · security headers (CSP) · account deletion | ✅ |
+| Profile model (`user_profiles`) + admin-promote script | ✅ |
+
+**Not yet built:**
+
+- **TOTP 2FA** — the `auth_mfa` table exists; enrolment / verify / UI are not done.
+- **Postgres RLS** — app-layer owner-scoping is the primary isolation (done + verified);
+  RLS is a documented defence-in-depth follow-up (it needs a per-request transaction
+  context that the current session-mode pool doesn't provide cleanly).
+
+**Production tasks (owner):**
+
+- Add `AUTH_SESSION_SECRET` and `RESEND_API_KEY` to the VPS `.env`.
+- Deploy (merge to `main`). **Existing watchlists backfill to the admin account** — so the
+  admin (`chalapatikrishnamurthy@gmail.com`) must exist and be promoted **before** the
+  isolation migration (`0014`) runs; the backfill is one-time and never touches later admins.
+- Replace the `/privacy` + `/terms` placeholders with lawyer-reviewed text before public launch.
 
 ---
 
 ## Table of contents
 
-1. [Summary & how we got here](#1-summary--how-we-got-here)
+1. [Overview](#1-overview)
 2. [Security requirements & standards](#2-security-requirements--standards)
 3. [Target architecture](#3-target-architecture)
 4. [Prerequisite work before login (free `/login`; Fyers scaling)](#4-prerequisite-work-before-login)
@@ -45,32 +70,20 @@ Supersedes: [`docs/architecture/auth-system-design.md`](../architecture/auth-sys
 21. [Backup & recovery](#21-backup--recovery)
 22. [Testing & security-testing strategy](#22-testing--security-testing-strategy)
 23. [Privacy & legal (real users = real PII)](#23-privacy--legal)
-24. [Clean install (no legacy migration) & deployment checklist](#24-clean-install--deployment-checklist)
+24. [Clean install & deployment checklist](#24-clean-install--deployment-checklist)
 25. [Roadmap & final technology choices](#25-roadmap--final-technology-choices)
 
 ---
 
-## 1. Summary & how we got here
+## 1. Overview
 
-EquityWise had Clerk removed (commit `a32c3f2`) and is currently **open to the
-public internet with no login**. This plan replaces it with a self-built,
-multi-user login whose data stays entirely on our VPS.
+The app currently has **no login and is open to the public internet.** This is the
+login system that closes it: a self-built, **multi-user** authentication system on
+the existing stack (Next.js, Drizzle, self-hosted Postgres), where every user owns
+their own data and all authentication data stays on our VPS.
 
-Two earlier proposals were wrong and are dropped:
-- The **Better Auth** plan misread "better authentication" as the product *Better
-  Auth* and recommended an external framework. Rejected — we build it ourselves.
-- The **single-user gate** framing (an interim version of this doc) is superseded:
-  the product is now explicitly **multi-user** (`CLAUDE.md` updated 2026-09-06).
-
-The auth *mechanics* (hashing, sessions, cookies, CSRF) are the same regardless of
-user count; what makes this a *multi-user* system is **public self-service
-registration, email verification, per-user data isolation, and abuse controls at
-scale** — all specified below.
-
-**Validation that self-building is the right call:** Lucia, the most popular JS auth
-library, was **deprecated in March 2025**; its author now recommends implementing
-sessions from scratch and republished Lucia as a learning resource. Building auth
-directly on your own stack is the current mainstream position.
+What makes it multi-user: **public self-service registration, optional email
+verification, per-user data isolation, and abuse controls** — all specified below.
 
 ---
 
@@ -438,12 +451,27 @@ Repo conventions: `integer generatedAlwaysAsIdentity()` PKs, snake_case,
 |---|---|---|
 | `id` | integer PK identity | referenced by `owner_id` everywhere |
 | `email` | text, **unique (lower-cased)**, not null | identity |
-| `email_verified_at` | timestamptz, null | null ⇒ unverified, account inert |
-| `display_name` | text, null | |
-| `role` | text, not null, default `'user'` | `'user'` \| `'admin'` (minimal, not full RBAC) |
+| `email_verified_at` | timestamptz, null | null ⇒ not verified (still allowed in) |
+| `role` | text, not null, default `'user'` | `'user'` \| `'admin'` |
 | `status` | text, not null, default `'active'` | `'active'` \| `'disabled'` (admin can disable abusers) |
 | `terms_accepted_at` | timestamptz, null | consent captured at signup (store policy version too) |
 | `created_at` / `updated_at` | timestamptz | |
+
+### `user_profiles` (1:1 — the editable profile, kept separate from security)
+| Column | Type | Notes |
+|---|---|---|
+| `user_id` | integer PK, FK→`auth_users.id` cascade | one profile per user |
+| `display_name` | text | shown in the header / user menu |
+| `avatar_url` | text, null | path to the uploaded picture; null ⇒ generated initials avatar |
+| `bio` | text, null | short "about", ≤ 280 chars |
+| `timezone` | text, not null, default `'Asia/Kolkata'` | NSE runs in IST |
+| `locale` | text, not null, default `'en-IN'` | for future language support |
+| `preferences` | jsonb, not null, default `'{}'` | theme, default watchlist, etc. — grows freely |
+| `created_at` / `updated_at` | timestamptz | |
+
+Profile pictures are stored as **files on the VPS** (served by Nginx), re-encoded to
+a 256×256 WebP on upload (strips metadata, normalizes size); the DB stores only the
+path. The **future profile-edit page** writes only this table — never `auth_users`.
 
 ### `auth_credentials` (1:1 password store, split so a hash never rides a user read)
 | `user_id` PK FK cascade · `password_hash` (Argon2id) · `password_changed_at` · `updated_at` |
@@ -470,6 +498,71 @@ become **per-owner** (e.g. `watchlists_name_idx` → `(owner_id, name)`). Every 
 write already funnels through `repositories/watchlists.ts`, so scoping is one layer.
 See §7.
 
+### Sample records
+
+A normal user and the admin — the **security row** (`auth_users`) and the **profile
+row** (`user_profiles`) side by side, plus the credential/session/2FA rows. Every
+secret is stored **hashed or encrypted, never in the clear**:
+
+```json
+// ── A NORMAL USER (id 42) ──────────────────────────────────────────────
+// auth_users — security & identity
+{ "id": 42, "email": "ravi.kumar@gmail.com", "email_verified_at": null,
+  "role": "user", "status": "active", "terms_accepted_at": "2026-09-06T10:15:30Z",
+  "created_at": "2026-09-06T10:15:30Z", "updated_at": "2026-09-06T10:15:30Z" }
+
+// user_profiles — the editable profile
+{ "user_id": 42, "display_name": "Ravi Kumar",
+  "avatar_url": "/uploads/avatars/42-8f3a1c.webp",   // null → initials avatar
+  "bio": "Swing trader, tracking NSE midcaps.",
+  "timezone": "Asia/Kolkata", "locale": "en-IN",
+  "preferences": { "theme": "dark", "defaultWatchlistId": 7 },
+  "created_at": "2026-09-06T10:15:30Z", "updated_at": "2026-09-06T11:00:00Z" }
+
+// ── THE ADMIN (you, id 1) ──────────────────────────────────────────────
+// auth_users — note role:"admin", verified
+{ "id": 1, "email": "you@equitywise.io", "email_verified_at": "2026-09-06T08:00:00Z",
+  "role": "admin", "status": "active", "terms_accepted_at": "2026-09-06T08:00:00Z",
+  "created_at": "2026-09-06T08:00:00Z", "updated_at": "2026-09-06T09:30:00Z" }
+
+// user_profiles — admin's profile (same shape as any user)
+{ "user_id": 1, "display_name": "Krishna", "avatar_url": null,
+  "bio": null, "timezone": "Asia/Kolkata", "locale": "en-IN",
+  "preferences": { "theme": "light" },
+  "created_at": "2026-09-06T08:00:00Z", "updated_at": "2026-09-06T08:00:00Z" }
+
+// ── SECRETS (separate tables, hashed/encrypted) ────────────────────────
+// auth_credentials — password as an Argon2id hash (NEVER plaintext)
+{ "user_id": 42,
+  "password_hash": "$argon2id$v=19$m=47104,t=1,p=1$c29tZXNhbHQ$b0d3...hash...",
+  "password_changed_at": "2026-09-06T10:15:30Z" }
+
+// auth_sessions — one login; DB holds only the SHA-256 of the cookie token
+{ "id": 1007, "user_id": 42, "token_hash": "9f2c1a…sha256-of-cookie-token…b4",
+  "created_at": "2026-09-06T10:16:00Z", "last_used_at": "2026-09-06T11:42:10Z",
+  "expires_at": "2026-10-06T10:16:00Z",
+  "ip_address": "49.37.x.x", "user_agent": "Mozilla/5.0 (iPhone) Safari/605.1" }
+
+// auth_mfa — admin's TOTP: seed AES-256-GCM encrypted, recovery codes hashed
+{ "user_id": 1, "totp_secret_enc": "<encrypted blob>",
+  "enabled_at": "2026-09-06T08:05:00Z",
+  "recovery_codes": ["sha256:a1b2…", "sha256:c3d4…"] }
+```
+
+**What the browser receives is none of the secrets** — only the safe object from
+`GET /api/auth/session` (identity + profile, no hashes/tokens/seed):
+
+```json
+{ "id": 42, "email": "ravi.kumar@gmail.com", "emailVerified": false, "role": "user",
+  "profile": { "displayName": "Ravi Kumar", "avatarUrl": "/uploads/avatars/42-8f3a1c.webp",
+               "bio": "Swing trader, tracking NSE midcaps.",
+               "timezone": "Asia/Kolkata", "locale": "en-IN",
+               "preferences": { "theme": "dark", "defaultWatchlistId": 7 } } }
+```
+
+The raw session token exists only inside the `__Host-session` cookie; the password
+hash, session-token hash, and TOTP seed never leave the server.
+
 ---
 
 ## 7. Per-user data isolation
@@ -493,8 +586,7 @@ defence-in-depth:**
    application code ever forgets a `WHERE owner_id = …`, RLS returns **nothing**
    rather than leaking.
 
-This is **per-user** isolation (individuals own rows), not per-organisation
-multi-tenancy. Org/team tenancy is a separate `tenant_id` layer, out of scope.
+This is **per-user** isolation — each person owns their rows.
 
 > Reference/global data (instruments, candles, indicator snapshots) is **shared,
 > read-only** and stays un-scoped — it is market data, not user data.
@@ -503,8 +595,7 @@ multi-tenancy. Org/team tenancy is a separate `tenant_id` layer, out of scope.
 
 ## 7A. Roles & authorization
 
-Two roles only — **`user`** (default) and **`admin`** (you) — enforced server-side.
-Deliberately **minimal RBAC** (`CLAUDE.md` forbids a full role/permission system),
+Two roles only — **`user`** (default) and **`admin`** (you) — enforced server-side,
 built on least privilege.
 
 ### Principles (market standard)
@@ -523,16 +614,9 @@ built on least privilege.
 |---|---|---|
 | Own watchlists / data | ✅ read + write own | ✅ own |
 | Own account (email, password, 2FA, sessions) | ✅ | ✅ |
-| See **other users' content** (their watchlists) | ❌ | ❌ *(by design — below)* |
 | Operator view: list users, signups, lockouts, audit | ❌ | ✅ |
 | Disable / re-enable an abusive account | ❌ | ✅ |
 | Promote / demote a user's role | ❌ | ✅ (audited) |
-
-**Admin is operational, not surveillance.** Admin manages **accounts** (email,
-status, role, audit) — not users' **content**. By default admin does **not** read a
-user's watchlists; that's least privilege and respects privacy (§23). Admin queries
-touch `auth_users` (account metadata), which is not `owner_id`-scoped content, so
-admin needs **no RLS bypass** for normal duties.
 
 ### Bootstrapping the first admin
 Signup always creates a `user`. Your account is promoted to `admin` by a **one-off
@@ -550,23 +634,20 @@ Because the admin account guards the operator view, it gets stricter treatment
 ### Enforcement points
 - **`requireAdmin()`** guards every `/api/admin/*` route and `/admin` page — `403
   FORBIDDEN` for a signed-in non-admin, `401` for anonymous.
-- **RLS unaffected:** content isolation stays keyed on `owner_id = current user`.
-  If a future admin feature ever must cross users, it uses an explicit, audited
-  `SECURITY DEFINER` path — never a blanket bypass.
 
-### Not in scope (per `CLAUDE.md`)
-No full RBAC (no permission matrix, no custom roles), no organisation/team roles, no
-per-resource ACLs. Two hardcoded roles. A third role (e.g. "support") would be an
-additive change *if* ever needed — YAGNI now.
+### Scope
+Two roles only — `user` and `admin`. No organisation/team tenancy.
 
 ---
 
 ## 8. Data classification
 
-**1 — MUST be on the VPS (Postgres `auth_*`):** account (id, email, verified flag,
-role, status); **Argon2id hash**; sessions (**hashed** token, expiry, ip, ua);
+**1 — MUST be on the VPS (Postgres `auth_*` + `user_profiles`):** account (id, email,
+verified flag, role, status); **profile** (display name, avatar path, bio, timezone,
+locale, preferences); **Argon2id hash**; sessions (**hashed** token, expiry, ip, ua);
 **encrypted** TOTP seed; **hashed** recovery codes; **hashed** verify/reset tokens;
-rate-limit counters; append-only audit; every user's `owner_id`-scoped data.
+rate-limit counters; append-only audit; every user's `owner_id`-scoped data. Avatar
+**image files** live on the VPS disk (`/uploads/avatars/`); the DB stores only the path.
 
 **2 — MUST NEVER be stored:** plaintext or reversibly-encrypted passwords; the
 **raw** session token server-side (only in the cookie); raw verify/reset tokens; an
@@ -622,7 +703,8 @@ Public self-service, abuse-guarded (this is the multi-user front door):
 1. `POST /api/auth/sign-up` — Origin check; **per-IP signup rate limit**; Zod;
    password policy + **breach check**; **disposable-email screening**; lower-case
    email.
-2. Create `auth_users` (email_verified_at = null) + Argon2id credential.
+2. Create `auth_users` (email_verified_at = null) + `user_profiles` (display_name
+   from the form; `timezone`/`locale` defaulted) + Argon2id credential.
 3. Issue `auth_tokens{email_verify}` (store hash), **send via Resend** a one-shot
    link (~30 min).
 4. **Respond identically whether or not the email already exists** (no enumeration);
@@ -693,8 +775,7 @@ Passwords are the primary factor (your call). TOTP is **offered, not required**:
   `enabled_at`; store secret **encrypted** (`AUTH_ENCRYPTION_KEY`); accept current
   step ±1; reject replay. **Recovery codes:** 8–10 one-time, shown once, stored
   **hashed**.
-- Recommend admin (you) enable it. Passkeys/WebAuthn are a possible future upgrade,
-  deliberately **out of scope now** (passwords are enough per decision ③).
+- Recommend admin (you) enable it.
 
 ---
 
@@ -818,6 +899,7 @@ users).
 | Data | Purpose | Where |
 |---|---|---|
 | Email address | Login identity, verification, password reset | `auth_users` (VPS) |
+| Profile (name, avatar, bio, timezone, locale, preferences) | Display & personalization | `user_profiles` + avatar files on VPS |
 | Password (as an **Argon2id hash**) | Authentication | `auth_credentials` (VPS) |
 | Session records (hashed token, IP, user-agent, times) | Keep you logged in; security | `auth_sessions` (VPS) |
 | The user's own watchlists/notes | The product itself | `owner_id`-scoped tables (VPS) |
@@ -866,16 +948,13 @@ required **before opening to the public**, not on day one of the build.
 
 ## 24. Clean install & deployment checklist
 
-### 24.1 No legacy migration — clean install
-There is **no existing user/auth data to migrate or remove.** Clerk stored accounts
-on **its** servers (now deleted); the database has **no user tables today**. So this
-is a **fresh, additive install**, not a data migration:
-- Migration `0013` **adds** `auth_*` tables + `owner_id` columns + RLS. No drops of
-  real data.
-- Remove leftover **Clerk env references** from `.env.example` (already mostly gone).
-- The Fyers `/login`→`/api/fyers/connect` move (§4.1) is a rename, not a data change.
-- The **first admin account** is created through the normal signup, then promoted to
-  `role='admin'` by a one-off script (there's no data to import).
+### 24.1 Clean install
+There is **no existing user/auth data** — the database has no user tables today, so
+this is a fresh, additive install:
+- Migration `0013` **adds** the `auth_*` tables + `owner_id` columns + RLS. No drops
+  of real data.
+- The **first admin account** is created through normal signup, then promoted to
+  `role='admin'` by a one-off script.
 
 ### 24.2 Deployment checklist
 - [ ] `AUTH_SESSION_SECRET`, `AUTH_ENCRYPTION_KEY`, `RESEND_API_KEY` in VPS `.env`; SPF/DKIM/DMARC set.
@@ -907,22 +986,28 @@ is a **fresh, additive install**, not a data migration:
 | Registration | **Public self-service + email verification** |
 | Email | **Resend** (send-only; verify + reset) |
 | Password reset | **Email, enumeration-safe** |
-| 2FA | **TOTP optional**; passkeys out of scope now |
+| 2FA | **TOTP optional** |
 | Rate limit | Nginx + Postgres counters + fail2ban (no Redis) |
-| Roles | Minimal **user / admin** (no full RBAC, no org tenancy) |
+| Roles | **user / admin** |
 | Data | Self-hosted **PG 17**, migration `0013`, all on VPS |
 
-### Build order (one coherent build — not phased into single-user)
-1. **Prereq:** free `/login` from Fyers (§4.1).
-2. **Schema `0013`:** `auth_*` tables + `owner_id` + RLS + repositories.
+### Build order
+1. **Prereq:** free `/login` from Fyers (§4.1). ✅ **done**
+2. **Schema `0013`:** `auth_*` tables + **`user_profiles`** + `owner_id` + RLS + repositories.
 3. **Core mechanics:** Argon2id, sessions, cookies, `requireUser()`, middleware gate.
-4. **Flows:** signup + Resend verification, login, logout, email reset.
+4. **Flows:** signup (creates profile, display name captured) + Resend verification,
+   login, logout, email reset.
 5. **Isolation:** scope watchlist repos by `owner_id`; enforce RLS.
 6. **Anti-abuse:** rate limits, lockout, disposable-email, Nginx/fail2ban.
 7. **UI:** `/login`, `/signup`, `/verify`, `/reset` pages; header user menu; admin view.
 8. **Hardening:** headers, audit, worker cleanup, monitoring.
 9. **2FA (TOTP):** optional, enrol admin.
 10. **Deploy + verify** (§24.2). **Fyers fan-in (§4.2) lands before public traffic.**
+
+**In this build vs deferred.** This pass ships the full auth system + the
+`user_profiles` **schema** and captures `display_name` at signup; avatars render as
+generated **initials** for now. The **profile-edit page and avatar upload** are a
+**later pass** (the schema already supports them, so it's additive — no rework).
 
 ### Pre-build decisions — all confirmed (2026-09-06)
 
@@ -951,7 +1036,7 @@ account and verify the sending domain (needed only when the email step lands).
 ## References
 - OWASP ASVS 5.0; OWASP Cheat Sheets (Authentication, Session Management, Password
   Storage, Forgot Password). NIST SP 800-63B-4. IETF RFC 6265bis, RFC 6238.
-- Lucia deprecation (build-your-own validation). Postgres RLS multi-tenancy pattern.
+- Postgres RLS multi-tenancy pattern (per-user isolation).
 - Internal: `CLAUDE.md` (now multi-user), `docs/operations/deployment.md`,
   `apps/web/src/app/login/route.ts` + `callback/route.ts` (Fyers routes to move),
   `apps/web/src/server/watchlist-routes.ts` (error shape/plumbing to reuse),

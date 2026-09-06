@@ -9,41 +9,46 @@ import {
   timestamp,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
+import { authUsers } from './auth.js';
 import { instruments } from './instruments.js';
 
 /**
- * Personal watchlists.
+ * Per-user watchlists.
  *
- * Single-user tool: there is no owner column and no tenancy (CLAUDE.md). These
- * tables exist so a watchlist survives clearing browser storage.
- *
- * Should that rule ever be lifted, the change is one `owner_id` column here,
- * on `watchlist_views`, and in the four unique indexes below — every read and
- * write already funnels through `repositories/watchlists.ts`, so no route
- * handler or component would need to know.
+ * The app is multi-user: every watchlist and saved view belongs to one owner
+ * (`owner_id`). Items and layouts have no `owner_id` — they belong to a watchlist,
+ * and that watchlist's owner is authoritative. Every read and write funnels
+ * through `repositories/watchlists.ts`, which scopes by owner, so no route handler
+ * or component sees the ownership.
  */
 
 export const watchlists = pgTable(
   'watchlists',
   {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    /** The user who owns this watchlist. */
+    ownerId: integer()
+      .notNull()
+      .references(() => authUsers.id, { onDelete: 'cascade' }),
     name: text().notNull(),
     /** Manual ordering in the sidebar. */
     position: integer().notNull().default(0),
     /**
-     * The list that opens when no other is named.
+     * The list that opens when no other is named — one per owner.
      *
-     * At most one row may hold this — enforced by a partial unique index rather
-     * than by application code, because "two defaults" is a state the UI has no
-     * sensible way to render and every writer would otherwise have to remember.
+     * At most one row per owner may hold this — enforced by a partial unique index
+     * rather than by application code, because "two defaults" is a state the UI has
+     * no sensible way to render and every writer would otherwise have to remember.
      */
     isDefault: boolean().notNull().default(false),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    uniqueIndex('watchlists_name_idx').on(table.name),
-    uniqueIndex('watchlists_single_default_idx').on(table.isDefault).where(sql`${table.isDefault}`),
+    // Names are unique per owner — two users may each have a "Tech" list.
+    uniqueIndex('watchlists_owner_name_idx').on(table.ownerId, table.name),
+    uniqueIndex('watchlists_owner_default_idx').on(table.ownerId).where(sql`${table.isDefault}`),
+    index('watchlists_owner_idx').on(table.ownerId, table.position),
   ],
 );
 
@@ -91,7 +96,11 @@ export const watchlistViews = pgTable(
   'watchlist_views',
   {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
-    /** Null = available on every watchlist. */
+    /** The user who owns this view. */
+    ownerId: integer()
+      .notNull()
+      .references(() => authUsers.id, { onDelete: 'cascade' }),
+    /** Null = available on every watchlist (of this owner). */
     watchlistId: integer().references(() => watchlists.id, { onDelete: 'cascade' }),
     /**
      * The scope a name must be unique within: the watchlist, or 0 for global.
@@ -121,8 +130,13 @@ export const watchlistViews = pgTable(
     updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    uniqueIndex('watchlist_views_scope_name_idx').on(table.scopeId, table.name),
+    uniqueIndex('watchlist_views_owner_scope_name_idx').on(
+      table.ownerId,
+      table.scopeId,
+      table.name,
+    ),
     index('watchlist_views_watchlist_idx').on(table.watchlistId, table.position),
+    index('watchlist_views_owner_idx').on(table.ownerId, table.position),
   ],
 );
 
