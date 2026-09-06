@@ -25,8 +25,10 @@ Supersedes: [`docs/architecture/auth-system-design.md`](../architecture/auth-sys
 3. [Target architecture](#3-target-architecture)
 4. [Prerequisite work before login (free `/login`; Fyers scaling)](#4-prerequisite-work-before-login)
 5. [Authentication flows (diagrams)](#5-authentication-flows)
+5A. [**Technical walkthrough — click by click**](#5a-technical-walkthrough--click-by-click) ← step-by-step login & logout
 6. [Database / data model (multi-user)](#6-database--data-model-multi-user)
 7. [Per-user data isolation — owner_id + Postgres RLS](#7-per-user-data-isolation)
+7A. [Roles & authorization (user / admin)](#7a-roles--authorization)
 8. [Data classification — what lives where](#8-data-classification)
 9. [Password-storage strategy](#9-password-storage-strategy)
 10. [Session / token strategy](#10-session--token-strategy)
@@ -78,8 +80,10 @@ Grounded in **OWASP ASVS 5.0** (2025), **NIST SP 800-63B-4** (final Sept 2024), 
 OWASP cheat sheets, and IETF RFCs (6265bis cookies, 6238 TOTP).
 
 **Functional**
-1. A visitor can **register** with email + password; the account is inert until the
-   email is **verified**.
+1. A visitor can **register** with email + password and **use the app immediately**.
+   Email verification is **optional**: we send a verification email and record a
+   **`verified` flag** (`email_verified_at`), but unverified users are **not**
+   blocked (sensitive actions can be gated on the flag later if wanted).
 2. A user can **log in**, **stay logged in** across restarts, and **log out** (and
    "log out of all devices").
 3. A user can **reset a forgotten password** by email.
@@ -100,7 +104,9 @@ OWASP cheat sheets, and IETF RFCs (6265bis cookies, 6238 TOTP).
 - **Account enumeration:** identical response + timing for unknown-email vs
   wrong-password; registration and reset never reveal whether an email exists.
 - **Abuse:** per-IP + per-account rate limits, progressive lockout, breached-password
-  rejection, disposable-email screening, email-verification gate on new accounts.
+  rejection, disposable-email screening. (Email verification is **optional**, so the
+  `verified` flag is a signal, not the primary abuse gate — rate-limiting and
+  disposable-email screening carry that load.)
 - **Isolation:** every user-owned row carries `owner_id`; **Postgres RLS** makes a
   missing filter fail closed.
 - **Injection/XSS:** Drizzle parameterises everything; Zod at every boundary; React
@@ -216,9 +222,10 @@ flowchart LR
 - This matches the existing design (worker writes, web reads) and the open issue
   [serve-daily-signals-from-the-database.md](../../issues/serve-daily-signals-from-the-database.md).
 
-**Sequencing:** this is a **separate workstream** from login. It does **not** block
-building auth, but it **must** be solved before real user traffic. It should get its
-own plan. Auth ships independently; the two meet at "open the doors to the public."
+**Sequencing:** this is a **separate workstream** from login, with its own document —
+**[market-data-scaling-plan.md](market-data-scaling-plan.md)** (to be done after auth,
+before public traffic). It does **not** block building auth; the two meet at "open
+the doors to the public."
 
 ---
 
@@ -248,6 +255,178 @@ sequenceDiagram
 
 ---
 
+## 5A. Technical walkthrough — click by click
+
+The deep, step-by-step view of how the system behaves — from the moment the user
+clicks **Log in**, through every request afterward, to exactly how **logout is
+decided**. (These diagrams render as pictures in the tracker web app.)
+
+### 5A.0 The pieces involved
+
+```mermaid
+flowchart LR
+    B["Browser"] -->|HTTPS| N["Nginx<br/>TLS + rate limit"]
+    N --> MW["Next.js middleware<br/>stateless cookie check"]
+    MW --> RH["Route handlers / pages<br/>Node runtime"]
+    RH -->|requireUser| PG[("Postgres<br/>auth_* + user data")]
+    RH -->|verify + reset mail only| RS["Resend"]
+```
+
+The **browser** holds one cookie. **Nginx** terminates TLS and throttles. **Middleware**
+does a cheap check with no database. **Route handlers** do the real work and are the
+only place that touches **Postgres**. **Resend** is contacted only to send mail.
+
+### 5A.1 Login — click by click
+
+What happens from the user clicking "Log in" to landing on their own page:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant U as User
+    participant B as Browser (/login)
+    participant R as POST /api/auth/sign-in
+    participant DB as Postgres
+    U->>B: type email + password, click "Log in"
+    B->>R: POST {email, password} + Origin header
+    R->>R: 1 · Origin header is our site? (CSRF guard)
+    R->>DB: 2 · rate-limit check for this IP + email
+    alt locked out
+        R-->>B: 429 too many attempts (wait Retry-After)
+    else allowed
+        R->>DB: 3 · find account by email (lower-cased)
+        R->>R: 4 · Argon2id verify — constant time, decoy hash if no user
+        alt wrong email or password
+            R->>DB: 5 · record failed attempt + lockout maths
+            R-->>B: 401 "Invalid email or password" (generic)
+        else account disabled
+            R-->>B: 403 account disabled
+        else correct
+            Note over R,DB: if 2FA on: return challenge, create session only after TOTP verify
+            R->>DB: 6 · create session row (store SHA-256 of token, expiry, ip, ua)
+            R->>DB: 7 · reset failed-attempt counter
+            R->>DB: 8 · audit: login_success
+            R-->>B: 9 · Set-Cookie __Host-session (HttpOnly, Secure, SameSite=Lax)
+            B->>U: 10 · redirect to /watchlists (their own data)
+        end
+    end
+```
+
+The password is **never stored or compared in plain text** — only the Argon2id hash
+is checked. The cookie holds a random token; the database stores only its **SHA-256
+hash**, so the raw login token exists in exactly one place: the user's cookie.
+
+### 5A.2 Every request after login — the gate
+
+Once logged in, this runs on **every** page load and API call:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant B as Browser
+    participant MW as Middleware (edge · no DB)
+    participant H as Route / Page (Node)
+    participant DB as Postgres
+    B->>MW: GET /watchlists (cookie __Host-session)
+    MW->>MW: 1 · cookie present AND HMAC signature valid?
+    alt missing / forged
+        MW-->>B: page → 302 /login   ·   /api → 401 UNAUTHENTICATED
+    else looks valid
+        MW->>H: 2 · pass through
+        H->>DB: 3 · requireUser → find session by SHA-256(token)
+        H->>H: 4 · session validity checks (see 5A.3)
+        alt invalid
+            H-->>B: 302 /login   or   401
+        else valid
+            H->>DB: 5 · SET LOCAL app.user_id = this user (turns on RLS)
+            H->>DB: 6 · read ONLY this user's rows
+            H-->>B: 7 · render page / return JSON
+        end
+    end
+```
+
+Two layers on purpose: middleware is **fast and stateless** (rejects anonymous/forged
+traffic with no database hit), and `requireUser()` is the **authoritative** check that
+can revoke a session instantly.
+
+### 5A.3 How each request decides "is this session valid?"
+
+Every check must pass, or the session is rejected and the user is sent to `/login`:
+
+```mermaid
+flowchart TD
+    S["session token from cookie"] --> Q1{"cookie signature valid?"}
+    Q1 -->|no| INV["INVALID → /login (or 401)"]
+    Q1 -->|yes| Q2{"session row exists in DB?"}
+    Q2 -->|no · deleted/revoked| INV
+    Q2 -->|yes| Q3{"idle OK?<br/>used within 7 days"}
+    Q3 -->|no| INV
+    Q3 -->|yes| Q4{"absolute OK?<br/>created within 30 days"}
+    Q4 -->|no| INV
+    Q4 -->|yes| Q5{"created AFTER last password change?"}
+    Q5 -->|no| INV
+    Q5 -->|yes| Q6{"account status active?"}
+    Q6 -->|no · disabled| INV
+    Q6 -->|yes| OK["VALID → refresh last_used, serve this user's data"]
+```
+
+### 5A.4 How logout is decided
+
+A session ends when **any** of these happens — not just the Log-out button:
+
+```mermaid
+flowchart TD
+    T1["User clicks Log out"] --> D1["delete THIS session row + clear cookie"]
+    T2["User picks 'Log out all devices'"] --> D2["delete ALL session rows for the user"]
+    T3["Idle 7 days, no use"] --> D3["rejected at next request, row reaped by cleanup job"]
+    T4["30 days since login (absolute cap)"] --> D3
+    T5["Password reset / change"] --> D4["every session older than the change is invalid"]
+    T6["User revokes it in Active Sessions"] --> D2b["delete the chosen session row(s)"]
+    T7["Admin disables the account"] --> D5["status=disabled → every request rejected"]
+    D1 --> A["audit: logout"]
+    D2 --> A
+    D4 --> A2["audit: password_reset"]
+    D5 --> A3["audit: admin_disable_user"]
+```
+
+The **explicit** Log-out button flow:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant U as User
+    participant B as Browser
+    participant R as POST /api/auth/sign-out
+    participant DB as Postgres
+    U->>B: click "Log out"
+    B->>R: POST (+ Origin header)
+    R->>R: 1 · Origin check (CSRF)
+    R->>DB: 2 · delete session row for this cookie (or ALL if 'all devices')
+    R->>DB: 3 · audit: logout
+    R-->>B: 4 · clear cookie (Max-Age=0)
+    B->>U: 5 · redirect to /login
+```
+
+Logout is **server-side**: the session row is deleted in the database, not just the
+cookie cleared — otherwise a copied cookie would still work. Deleting the row makes
+the session dead **immediately**, everywhere.
+
+### 5A.5 The full life of one session
+
+```mermaid
+stateDiagram-v2
+    [*] --> Active: login (new session row + cookie)
+    Active --> Active: request within limits (refresh last_used)
+    Active --> Ended: user logs out / revokes
+    Active --> Ended: idle > 7 days
+    Active --> Ended: age > 30 days
+    Active --> Ended: password changed
+    Active --> Ended: admin disables account
+    Ended --> [*]: cleanup job deletes the row
+```
+
+---
+
 ## 6. Database / data model (multi-user)
 
 New file `packages/db/src/schema/auth.ts`, migration `0013` (current max `0012`).
@@ -263,6 +442,7 @@ Repo conventions: `integer generatedAlwaysAsIdentity()` PKs, snake_case,
 | `display_name` | text, null | |
 | `role` | text, not null, default `'user'` | `'user'` \| `'admin'` (minimal, not full RBAC) |
 | `status` | text, not null, default `'active'` | `'active'` \| `'disabled'` (admin can disable abusers) |
+| `terms_accepted_at` | timestamptz, null | consent captured at signup (store policy version too) |
 | `created_at` / `updated_at` | timestamptz | |
 
 ### `auth_credentials` (1:1 password store, split so a hash never rides a user read)
@@ -318,6 +498,66 @@ multi-tenancy. Org/team tenancy is a separate `tenant_id` layer, out of scope.
 
 > Reference/global data (instruments, candles, indicator snapshots) is **shared,
 > read-only** and stays un-scoped — it is market data, not user data.
+
+---
+
+## 7A. Roles & authorization
+
+Two roles only — **`user`** (default) and **`admin`** (you) — enforced server-side.
+Deliberately **minimal RBAC** (`CLAUDE.md` forbids a full role/permission system),
+built on least privilege.
+
+### Principles (market standard)
+- **Secure default / least privilege.** Every new account is `role = 'user'`; a user
+  can touch only their **own** data. Elevated ability is the explicit exception,
+  never the default.
+- **Server-side enforcement, always.** Authorization is checked in `requireUser()` /
+  `requireAdmin()` on the server for every protected route. Hiding admin UI from
+  non-admins is UX, **not** security.
+- **No self-escalation.** A user can never set or change their own `role`. There is
+  no "make me admin" endpoint, and `role` is never read from client input.
+- **Fail closed.** Unknown/absent role ⇒ treated as least-privileged.
+
+### The two roles
+| Capability | `user` (default) | `admin` (you) |
+|---|---|---|
+| Own watchlists / data | ✅ read + write own | ✅ own |
+| Own account (email, password, 2FA, sessions) | ✅ | ✅ |
+| See **other users' content** (their watchlists) | ❌ | ❌ *(by design — below)* |
+| Operator view: list users, signups, lockouts, audit | ❌ | ✅ |
+| Disable / re-enable an abusive account | ❌ | ✅ |
+| Promote / demote a user's role | ❌ | ✅ (audited) |
+
+**Admin is operational, not surveillance.** Admin manages **accounts** (email,
+status, role, audit) — not users' **content**. By default admin does **not** read a
+user's watchlists; that's least privilege and respects privacy (§23). Admin queries
+touch `auth_users` (account metadata), which is not `owner_id`-scoped content, so
+admin needs **no RLS bypass** for normal duties.
+
+### Bootstrapping the first admin
+Signup always creates a `user`. Your account is promoted to `admin` by a **one-off
+server script** (`scripts/auth-set-role.ts`, run over SSH) — **never through a UI**,
+so there is no admin-granting surface to attack.
+
+### Privileged-account hardening (admin)
+Because the admin account guards the operator view, it gets stricter treatment
+(standard for privileged accounts):
+- **TOTP 2FA strongly recommended / effectively required** for admin.
+- Optionally a **shorter idle session timeout** for admin sessions.
+- Every admin action (`admin_disable_user`, `role_changed`, listing users) is
+  written to `auth_audit`.
+
+### Enforcement points
+- **`requireAdmin()`** guards every `/api/admin/*` route and `/admin` page — `403
+  FORBIDDEN` for a signed-in non-admin, `401` for anonymous.
+- **RLS unaffected:** content isolation stays keyed on `owner_id = current user`.
+  If a future admin feature ever must cross users, it uses an explicit, audited
+  `SECURITY DEFINER` path — never a blanket bypass.
+
+### Not in scope (per `CLAUDE.md`)
+No full RBAC (no permission matrix, no custom roles), no organisation/team roles, no
+per-resource ACLs. Two hardcoded roles. A third role (e.g. "support") would be an
+additive change *if* ever needed — YAGNI now.
 
 ---
 
@@ -387,9 +627,16 @@ Public self-service, abuse-guarded (this is the multi-user front door):
    link (~30 min).
 4. **Respond identically whether or not the email already exists** (no enumeration);
    if it exists, optionally email "you already have an account" instead.
-5. Account is **inert until verified** — can't log in, owns no data yet. Verifying
-   sets `email_verified_at` and consumes the token.
+5. Account is **usable immediately** — verification is **optional** (your decision).
+   The verification email is still sent; clicking the link sets `email_verified_at`
+   (the **`verified` flag**) and consumes the token. Unverified users can log in and
+   use the app; the flag simply lets us gate sensitive actions later if we choose.
 6. Audit `signup` / `email_verified`.
+
+> **Trade-off (noted):** open signup + optional verification is the lowest-friction
+> onboarding, but it lets bots create *usable* accounts without proving an email. We
+> compensate with the per-IP signup rate limit and disposable-email screening (§16),
+> and the `verified` flag stays available to gate sensitive features later.
 
 ---
 
@@ -401,8 +648,9 @@ Public self-service, abuse-guarded (this is the multi-user front door):
    `Retry-After`.
 3. Look up credential by lower-cased email; **always** run Argon2id verify (decoy
    hash if no user) — same timing.
-4. **Reject if `email_verified_at` is null** ("verify your email first") or `status
-   = 'disabled'`.
+4. **Reject only if `status = 'disabled'`.** Unverified users are allowed in
+   (verification is optional); `email_verified_at` is tracked but is **not** a login
+   gate.
 5. Fail ⇒ increment failures + lockout maths (pure fn), audit `login_failure`
    (user_id null for unknown email), generic `401`.
 6. Success + **2FA on** ⇒ `{mfaRequired, challengeId}`, no session yet; TOTP posted
@@ -458,9 +706,9 @@ Public signup changes the threat model — bots and stuffing now target you. Lay
 2. **Postgres `auth_attempts`** keyed independently by `ip:…` and `email:…`; sliding
    window; the decision is a **pure function** in `packages/core`, unit-tested.
    Progressive: warn → throttle → temporary lockout (exponential backoff).
-3. **Signup-specific:** per-IP signup cap, **disposable-email blocklist**,
-   **email-verification gate** (unverified accounts can't act), optional
-   CAPTCHA/proof-of-work if bot signups appear.
+3. **Signup-specific:** per-IP signup cap, **disposable-email blocklist**, optional
+   CAPTCHA/proof-of-work if bot signups appear. (Verification is optional, so it is
+   not an abuse gate; the `verified` flag can gate sensitive features later.)
 4. **fail2ban** jail on repeated `401`/`429` from `/api/auth/*`.
 5. **Credential stuffing** ⇒ the breached-password check (§9) rejects known creds.
 6. Every lockout writes `auth_audit{lockout}`.
@@ -559,17 +807,60 @@ Optional future hardening: `sops`+`age` or systemd `LoadCredential`.
 
 ---
 
-## 23. Privacy & legal
+## 23. Privacy & legal — the privacy-policy plan
 
-Real users mean real personal data — new obligations that didn't exist for a
-personal tool:
-- **Minimise PII:** email + hash + session metadata only; no more than needed.
-- **Privacy policy + Terms of Service** shown at signup; **consent** captured.
-- **Data export + deletion** on request (cascade delete removes a user's rows via
-  `owner_id` FKs).
-- **Breach-readiness:** the audit log + monitoring support incident response.
-- (India: DPDP-class duties; general: GDPR-class if any EU users.) Not legal advice —
-  flag to get a policy in place before public launch.
+Real users mean real personal data — obligations that didn't exist for a personal
+tool. This is a **plan**, not legal advice; a lawyer should review the final policy
+before public launch (India **DPDP Act**-class duties; **GDPR**-class if any EU
+users).
+
+### 23.1 What personal data we hold (be able to state it exactly)
+| Data | Purpose | Where |
+|---|---|---|
+| Email address | Login identity, verification, password reset | `auth_users` (VPS) |
+| Password (as an **Argon2id hash**) | Authentication | `auth_credentials` (VPS) |
+| Session records (hashed token, IP, user-agent, times) | Keep you logged in; security | `auth_sessions` (VPS) |
+| The user's own watchlists/notes | The product itself | `owner_id`-scoped tables (VPS) |
+| Audit events (login/logout/reset, IP, UA) | Security & abuse detection | `auth_audit` (VPS) |
+| TOTP seed (encrypted) + recovery-code hashes | Optional 2FA | `auth_mfa` (VPS) |
+
+All of it lives **only on our VPS**. The one third party is **Resend**, which
+receives an email address and a link solely to **deliver** verification/reset mail
+(name it as a processor in the policy).
+
+### 23.2 The privacy policy must cover (checklist)
+- **Who** the data controller is and how to contact them.
+- **What** is collected (the table above) and **why** (each purpose).
+- **Legal basis** (contract/consent) and that data stays on our own server.
+- **Sub-processors:** Resend (email delivery) — and Fyers as a market-data source
+  that receives **no** user PII (it only sees instrument symbols).
+- **Retention:** how long accounts, sessions, and audit logs are kept (e.g. audit
+  ~90–180 days; sessions until expiry/logout; account until deletion).
+- **User rights:** access, **export**, **correction**, **deletion**, and how to ask.
+- **Cookies:** the single essential `__Host-session` cookie (no tracking/ads
+  cookies) — a short cookie notice, not a consent wall.
+- **Security:** hashing, encryption, VPS hardening (summarised).
+- **Breach process:** how users are notified.
+- **Changes:** how policy updates are communicated.
+
+### 23.3 Where it lives & how it's shown
+- Two static pages: **`/privacy`** and **`/terms`** (public, outside the gate).
+- **Signup captures consent:** a required "I agree to the Terms & Privacy Policy"
+  checkbox; store `terms_accepted_at` (+ version) on `auth_users`.
+- Footer links on every page.
+
+### 23.4 Data-subject requests (build the mechanics)
+- **Export:** an endpoint/script that returns a user's own data as JSON.
+- **Deletion:** delete the `auth_users` row → `owner_id` cascade removes their
+  watchlists/data; sessions/tokens cascade too. Audit the deletion (keep a minimal
+  tombstone: "user #N deleted at T", no PII).
+- Both are **self-service or admin-assisted**; either way, they must exist before
+  public launch.
+
+### 23.5 Sequencing
+Placeholder `/privacy` + `/terms` pages and the consent checkbox land **with the
+signup UI**; the full lawyer-reviewed text and the export/delete mechanics are
+required **before opening to the public**, not on day one of the build.
 
 ---
 
@@ -633,9 +924,27 @@ is a **fresh, additive install**, not a data migration:
 9. **2FA (TOTP):** optional, enrol admin.
 10. **Deploy + verify** (§24.2). **Fyers fan-in (§4.2) lands before public traffic.**
 
-### Still to confirm before coding
-- Exact Fyers route name (`/api/fyers/connect` proposed).
-- The **Fyers fan-in (§4.2)** gets its own plan — agree it's parallel, not blocking.
+### Pre-build decisions — all confirmed (2026-09-06)
+
+| # | Decision | Confirmed |
+|---|---|---|
+| Approach | First-party, no auth library/vendor; all data on VPS | ✅ |
+| Scope | Multi-user; passwords-only (TOTP after); user/admin roles | ✅ |
+| Isolation | `owner_id` + Postgres RLS (fail-closed) | ✅ |
+| Email | **Resend** — owner creates account + verifies `equitywise.io` (SPF/DKIM/DMARC) | ✅ (owner's task) |
+| `/login` | Freed → `/api/fyers/connect` | ✅ done |
+| Fyers fan-in | Own doc, after auth, before public traffic | ✅ [market-data-scaling-plan.md](market-data-scaling-plan.md) |
+| **1. Signup policy** | **Open to anyone** + email verify + rate-limit | ✅ |
+| **2. Domain/sender** | `equitywise.io`, `no-reply@equitywise.io` (owner sets up Resend) | ✅ |
+| **3. Test database** | **Local Docker Postgres** for dev — never migrate production first | ✅ |
+| **4. Email verification** | **Optional** — users use the app unverified; track a `verified` flag (`email_verified_at`); gate sensitive actions on it later | ✅ |
+| **5. 2FA** | Core login first; **TOTP immediately after**; admin 2FA before public | ✅ |
+| **6. Existing watchlists** | Move current global rows to the **owner/admin account** | ✅ |
+| **7. Session lifetime** | Idle **7 days** / absolute **30 days**, optional "remember me" | ✅ |
+| **8. Privacy/legal** | Privacy-policy **plan added (§23)**; placeholder `/privacy` + `/terms` + consent checkbox with signup UI; full text before public launch | ✅ |
+
+Nothing outstanding blocks the build. Owner-side task in parallel: create the Resend
+account and verify the sending domain (needed only when the email step lands).
 
 ---
 

@@ -742,6 +742,25 @@ button {
   padding: 0;
   font-size: inherit;
 }
+/* Mermaid diagrams (rendered by components/Mermaid.tsx). */
+.markdown .mermaid-diagram {
+  margin: 0 0 18px;
+  padding: 18px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow-x: auto;
+  text-align: center;
+}
+.markdown .mermaid-diagram svg {
+  max-width: 100%;
+  height: auto;
+}
+.markdown .mermaid-error {
+  color: var(--danger, #b4232a);
+  white-space: pre-wrap;
+  font-size: 12px;
+}
 .markdown table {
   border-collapse: collapse;
   width: 100%;

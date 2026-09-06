@@ -4,6 +4,18 @@ import rehypeHighlight from "rehype-highlight";
 import rehypeSlug from "rehype-slug";
 import remarkGfm from "remark-gfm";
 import { extractHeadings } from "../lib/slug";
+import { Mermaid } from "./Mermaid";
+
+/** Recursively collapse a rendered node tree back to its raw text. */
+function textOf(node: unknown): string {
+  if (node == null) return "";
+  if (typeof node === "string") return node;
+  if (Array.isArray(node)) return node.map(textOf).join("");
+  if (typeof node === "object" && "props" in (node as Record<string, unknown>)) {
+    return textOf((node as { props?: { children?: unknown } }).props?.children);
+  }
+  return "";
+}
 
 /** Strip a leading YAML frontmatter block so it isn't rendered as body. */
 export function stripFrontmatter(md: string): string {
@@ -28,6 +40,22 @@ export function MarkdownDoc({
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
           rehypePlugins={[rehypeSlug, [rehypeHighlight, { detect: true, ignoreMissing: true }]]}
+          components={{
+            // Route ```mermaid fences to the diagram renderer; everything else
+            // keeps its normal <pre><code> (highlighted) rendering.
+            pre({ node, children, ...rest }) {
+              const child = Array.isArray(children) ? children[0] : children;
+              const className =
+                (child as { props?: { className?: string } } | undefined)?.props?.className ?? "";
+              if (typeof className === "string" && className.includes("language-mermaid")) {
+                const source = textOf(
+                  (child as { props?: { children?: unknown } }).props?.children,
+                ).replace(/\n$/, "");
+                return <Mermaid chart={source} />;
+              }
+              return <pre {...rest}>{children}</pre>;
+            },
+          }}
         >
           {body}
         </ReactMarkdown>

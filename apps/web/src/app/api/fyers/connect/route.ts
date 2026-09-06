@@ -5,12 +5,22 @@ import { NextResponse } from 'next/server';
 import { toMarketError } from '@/server/errors';
 
 /**
- * GET /login — bounces to the data provider's authorisation page.
+ * GET /api/fyers/connect — bounces to the market-data provider's authorisation page.
+ *
+ * This is the Fyers OAuth handshake initiator, NOT a user-authentication route.
+ * It was previously mounted at `/login`; that path is now reserved for the user
+ * login page, so the provider handshake lives under `/api/fyers/*`. The redirect
+ * target is still `/callback` (the URL registered in the Fyers developer
+ * dashboard), which reads the state cookie set here.
  *
  * The `state` is generated here, stored in an httpOnly cookie, and compared in
  * /callback. Without that comparison the callback would accept any auth_code
  * anyone could get the browser to fetch, which is the whole point of the
  * parameter.
+ *
+ * Normally unused: the worker mints the Fyers token automatically each morning
+ * (docs/operations/deployment.md §5). This browser handshake is the manual
+ * fallback.
  */
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
