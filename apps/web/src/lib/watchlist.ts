@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { API_ROUTES } from './api-routes';
 
 /**
  * The followed-symbols set, backed by the database.
@@ -75,7 +76,7 @@ export function useWatchlist() {
     members: readonly Member[];
   } | null> => {
     try {
-      const response = await fetch('/api/watchlists/default', { cache: 'no-store' });
+      const response = await fetch(API_ROUTES.watchlistDefault, { cache: 'no-store' });
       if (!response.ok) return null;
       const payload = (await response.json()) as {
         watchlistId: number | null;
@@ -102,13 +103,13 @@ export function useWatchlist() {
       if (state !== null && legacy.length > 0) {
         let id = state.id;
         if (id === null) {
-          const created = await post<{ watchlist: { id: number } }>('/api/watchlists', {
+          const created = await post<{ watchlist: { id: number } }>(API_ROUTES.watchlists, {
             name: 'My Watchlist',
           });
           id = created?.watchlist.id ?? null;
         }
         if (id !== null) {
-          await post(`/api/watchlists/${id}/items`, { symbols: legacy });
+          await post(API_ROUTES.watchlistItems(id), { symbols: legacy });
           markMigrated();
           await load();
         }
@@ -127,7 +128,7 @@ export function useWatchlist() {
   /** Creates the default list on demand, so the first star does not fail. */
   const ensureList = useCallback(async (): Promise<number | null> => {
     if (watchlistId !== null) return watchlistId;
-    const created = await post<{ watchlist: { id: number } }>('/api/watchlists', {
+    const created = await post<{ watchlist: { id: number } }>(API_ROUTES.watchlists, {
       name: 'My Watchlist',
     });
     const id = created?.watchlist.id ?? null;
@@ -147,7 +148,7 @@ export function useWatchlist() {
       void (async () => {
         const id = await ensureList();
         if (id === null) return;
-        await post(`/api/watchlists/${id}/items`, { symbols: [symbol] });
+        await post(API_ROUTES.watchlistItems(id), { symbols: [symbol] });
         await load();
       })();
     },
@@ -161,7 +162,7 @@ export function useWatchlist() {
       if (member === undefined || watchlistId === null || member.instrumentId < 0) return;
 
       void (async () => {
-        await fetch(`/api/watchlists/${watchlistId}/items`, {
+        await fetch(API_ROUTES.watchlistItems(watchlistId), {
           method: 'DELETE',
           cache: 'no-store',
           headers: { 'Content-Type': 'application/json' },
@@ -194,7 +195,7 @@ export function useWatchlist() {
       setMembers(next);
 
       if (watchlistId === null || next.some((entry) => entry.instrumentId < 0)) return;
-      void fetch(`/api/watchlists/${watchlistId}/items`, {
+      void fetch(API_ROUTES.watchlistItems(watchlistId), {
         method: 'PUT',
         cache: 'no-store',
         headers: { 'Content-Type': 'application/json' },

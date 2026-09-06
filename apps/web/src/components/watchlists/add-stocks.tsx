@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Text } from '@/components/ui/typography';
+import { API_ROUTES } from '@/lib/api-routes';
 import { cn } from '@/lib/utils';
 
 /**
@@ -94,7 +95,7 @@ export function AddStocks({
 
       void (async () => {
         try {
-          const response = await fetch(`/api/search?q=${encodeURIComponent(q)}`, {
+          const response = await fetch(API_ROUTES.search(q), {
             signal: controller.signal,
             cache: 'no-store',
           });

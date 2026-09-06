@@ -1,0 +1,5 @@
+interface:
+  display_name: "Grill Me"
+  short_description: "Hostile production-readiness review, then an interrogation"
+policy:
+  allow_implicit_invocation: false

@@ -5,6 +5,7 @@ import { SearchInput } from '@/components/forms/filter-bar';
 import { StockIdentity } from '@/components/market/stock-identity';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
+import { API_ROUTES } from '@/lib/api-routes';
 
 interface SearchHit {
   readonly symbol: string;
@@ -47,7 +48,7 @@ export function StockSearch({ onSelect }: { onSelect: (symbol: string) => void }
       abort.current = controller;
       setLoading(true);
       try {
-        const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`, {
+        const response = await fetch(API_ROUTES.search(query), {
           signal: controller.signal,
         });
         if (!response.ok) return;

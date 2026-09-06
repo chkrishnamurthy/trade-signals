@@ -1,0 +1,3 @@
+interface:
+  display_name: "Architecture Guardrails"
+  short_description: "The product-wide 'do not build this' list — no RBAC, Redis, admin CRUD, order execution"

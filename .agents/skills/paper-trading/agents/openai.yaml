@@ -1,0 +1,3 @@
+interface:
+  display_name: "Paper Trading"
+  short_description: "The pessimistic grader, cost model, and R-multiple reporting discipline"

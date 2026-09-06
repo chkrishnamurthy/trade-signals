@@ -1,0 +1,3 @@
+interface:
+  display_name: "Worker"
+  short_description: "apps/worker scheduling, the write boundary with apps/web, shutdown and versioning"

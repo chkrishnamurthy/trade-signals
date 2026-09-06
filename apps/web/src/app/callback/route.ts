@@ -11,6 +11,7 @@ import {
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { toMarketError } from '@/server/errors';
+import { API_ROUTES } from '@/lib/api-routes';
 import { OAUTH_STATE_COOKIE } from '../api/fyers/connect/route';
 
 /**
@@ -131,7 +132,7 @@ export async function GET(request: Request): Promise<NextResponse> {
       'Authorisation rejected',
       '<p>The <code>state</code> did not match the one this browser started with, so the response was discarded.</p>' +
         '<p><small>Start the sign-in from this app rather than following a link.</small></p>' +
-        '<a href="/api/fyers/connect">Start again</a>',
+        `<a href="${API_ROUTES.fyersConnect}">Start again</a>`,
       false,
     );
   }
@@ -139,7 +140,7 @@ export async function GET(request: Request): Promise<NextResponse> {
   if (authCode === null || authCode === '') {
     return page(
       'Authorisation failed',
-      `<p>${escapeHtml(message ?? 'No auth_code was returned.')}</p><a href="/api/fyers/connect">Try again</a>`,
+      `<p>${escapeHtml(message ?? 'No auth_code was returned.')}</p><a href="${API_ROUTES.fyersConnect}">Try again</a>`,
       false,
     );
   }
@@ -159,7 +160,7 @@ export async function GET(request: Request): Promise<NextResponse> {
       'Could not complete authorisation',
       `<p>${escapeHtml(failure.message)}</p>${
         failure.remedy === undefined ? '' : `<p><small>${escapeHtml(failure.remedy)}</small></p>`
-      }<a href="/api/fyers/connect">Try again</a>`,
+      }<a href="${API_ROUTES.fyersConnect}">Try again</a>`,
       false,
     );
   }

@@ -1,0 +1,3 @@
+interface:
+  display_name: "API Boundary"
+  short_description: "apps/web API route conventions — Zod, the server/ layer, error shape, auth"

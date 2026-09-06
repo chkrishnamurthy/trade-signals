@@ -54,6 +54,7 @@ const TEST_TIMEOUT_MS = 30_000;
 suite('watchlist schema', () => {
   let branch: EphemeralBranch;
   let pool: Pool;
+  let ownerId: number;
 
   beforeAll(async () => {
     if (credentials === undefined) return;
@@ -66,6 +67,11 @@ suite('watchlist schema', () => {
     });
 
     pool = new Pool({ connectionString: branch.connectionUri, max: 2 });
+    // Watchlists are per-user; the raw inserts below need an owner.
+    const { rows } = await pool.query<{ id: number }>(
+      "INSERT INTO auth_users (email) VALUES ('watchlist-schema-test@example.com') RETURNING id",
+    );
+    ownerId = rows[0]!.id;
   }, SETUP_TIMEOUT_MS);
 
   afterAll(async () => {
@@ -75,8 +81,8 @@ suite('watchlist schema', () => {
 
   async function freshWatchlist(name: string, isDefault = false): Promise<number> {
     const { rows } = await pool.query<{ id: number }>(
-      'INSERT INTO watchlists (name, is_default) VALUES ($1, $2) RETURNING id',
-      [name, isDefault],
+      'INSERT INTO watchlists (owner_id, name, is_default) VALUES ($1, $2, $3) RETURNING id',
+      [ownerId, name, isDefault],
     );
     return rows[0]!.id;
   }
@@ -153,10 +159,10 @@ suite('watchlist schema', () => {
         [id, instrument],
       );
       await pool.query('INSERT INTO watchlist_layouts (watchlist_id) VALUES ($1)', [id]);
-      await pool.query('INSERT INTO watchlist_views (watchlist_id, name) VALUES ($1, $2)', [
-        id,
-        'Scoped',
-      ]);
+      await pool.query(
+        'INSERT INTO watchlist_views (owner_id, watchlist_id, name) VALUES ($1, $2, $3)',
+        [ownerId, id, 'Scoped'],
+      );
 
       await pool.query('DELETE FROM watchlists WHERE id = $1', [id]);
 
@@ -175,9 +181,10 @@ suite('watchlist schema', () => {
     'refuses two GLOBAL views with the same name',
     async () => {
       const insert = (): Promise<unknown> =>
-        pool.query('INSERT INTO watchlist_views (watchlist_id, name) VALUES (NULL, $1)', [
-          'Momentum',
-        ]);
+        pool.query(
+          'INSERT INTO watchlist_views (owner_id, watchlist_id, name) VALUES ($1, NULL, $2)',
+          [ownerId, 'Momentum'],
+        );
 
       await insert();
       // The whole reason `scope_id` is a generated COALESCE(watchlist_id, 0)
@@ -192,14 +199,15 @@ suite('watchlist schema', () => {
     'allows a scoped view to reuse a global view’s name',
     async () => {
       const id = await freshWatchlist('Scope test');
-      await pool.query('INSERT INTO watchlist_views (watchlist_id, name) VALUES (NULL, $1)', [
-        'Shared name',
-      ]);
+      await pool.query(
+        'INSERT INTO watchlist_views (owner_id, watchlist_id, name) VALUES ($1, NULL, $2)',
+        [ownerId, 'Shared name'],
+      );
       await expect(
-        pool.query('INSERT INTO watchlist_views (watchlist_id, name) VALUES ($1, $2)', [
-          id,
-          'Shared name',
-        ]),
+        pool.query(
+          'INSERT INTO watchlist_views (owner_id, watchlist_id, name) VALUES ($1, $2, $3)',
+          [ownerId, id, 'Shared name'],
+        ),
       ).resolves.toBeDefined();
     },
     TEST_TIMEOUT_MS,
@@ -242,6 +250,7 @@ suite('watchlist repository', () => {
   let branch: EphemeralBranch;
   let handle: DatabaseHandle;
   let db: Database;
+  let ownerId: number;
 
   beforeAll(async () => {
     if (credentials === undefined) return;
@@ -255,6 +264,12 @@ suite('watchlist repository', () => {
 
     handle = createDatabase({ connectionString: branch.connectionUri, max: 3 });
     db = handle.db;
+
+    // Watchlists are per-user now, so every repo call needs an owner.
+    const { rows } = await handle.pool.query<{ id: number }>(
+      "INSERT INTO auth_users (email) VALUES ('watchlist-repo-test@example.com') RETURNING id",
+    );
+    ownerId = rows[0]!.id;
   }, SETUP_TIMEOUT_MS);
 
   afterAll(async () => {
@@ -276,10 +291,10 @@ suite('watchlist repository', () => {
   it(
     'makes the first watchlist the default without being asked',
     async () => {
-      const first = await createWatchlist(db, { name: 'First' });
+      const first = await createWatchlist(db, ownerId, { name: 'First' });
       expect(first.isDefault).toBe(true);
 
-      const second = await createWatchlist(db, { name: 'Second' });
+      const second = await createWatchlist(db, ownerId, { name: 'Second' });
       expect(second.isDefault).toBe(false);
       // Positions increment rather than collide.
       expect(second.position).toBeGreaterThan(first.position);
@@ -290,12 +305,12 @@ suite('watchlist repository', () => {
   it(
     'moves the default flag rather than ending up with two',
     async () => {
-      const lists = await listWatchlists(db);
+      const lists = await listWatchlists(db, ownerId);
       const target = lists.find((list) => !list.isDefault);
       expect(target).toBeDefined();
 
-      await setDefaultWatchlist(db, target!.id);
-      const after = await listWatchlists(db);
+      await setDefaultWatchlist(db, ownerId, target!.id);
+      const after = await listWatchlists(db, ownerId);
       expect(after.filter((list) => list.isDefault).map((l) => l.id)).toEqual([target!.id]);
     },
     TEST_TIMEOUT_MS,
@@ -304,18 +319,20 @@ suite('watchlist repository', () => {
   it(
     'counts members exactly, and keeps an empty watchlist in the listing',
     async () => {
-      const empty = await createWatchlist(db, { name: 'Empty list' });
-      const three = await createWatchlist(db, { name: 'Three stocks' });
-      const one = await createWatchlist(db, { name: 'One stock' });
+      const empty = await createWatchlist(db, ownerId, { name: 'Empty list' });
+      const three = await createWatchlist(db, ownerId, { name: 'Three stocks' });
+      const one = await createWatchlist(db, ownerId, { name: 'One stock' });
 
-      await addWatchlistItems(db, three.id, [
+      await addWatchlistItems(db, ownerId, three.id, [
         await instrument('CNT1'),
         await instrument('CNT2'),
         await instrument('CNT3'),
       ]);
-      await addWatchlistItems(db, one.id, [await instrument('CNT4')]);
+      await addWatchlistItems(db, ownerId, one.id, [await instrument('CNT4')]);
 
-      const byId = new Map((await listWatchlists(db)).map((list) => [list.id, list.count]));
+      const byId = new Map(
+        (await listWatchlists(db, ownerId)).map((list) => [list.id, list.count]),
+      );
 
       // Distinct, non-adjacent counts on purpose. The bug this replaces returned
       // a plausible 1 for EVERY list, which an all-empty or all-single fixture
@@ -333,15 +350,15 @@ suite('watchlist repository', () => {
   it(
     'reports only the items it actually inserted, so duplicates can be named',
     async () => {
-      const list = await createWatchlist(db, { name: 'Adding' });
+      const list = await createWatchlist(db, ownerId, { name: 'Adding' });
       const [a, b] = await Promise.all([instrument('AAA'), instrument('BBB')]);
 
-      expect(await addWatchlistItems(db, list.id, [a, b])).toHaveLength(2);
+      expect(await addWatchlistItems(db, ownerId, list.id, [a, b])).toHaveLength(2);
       // Second time round: one already present, one new.
       const c = await instrument('CCC');
-      expect(await addWatchlistItems(db, list.id, [a, c])).toEqual([c]);
+      expect(await addWatchlistItems(db, ownerId, list.id, [a, c])).toEqual([c]);
 
-      const members = await getWatchlistMembers(db, list.id);
+      const members = await getWatchlistMembers(db, ownerId, list.id);
       expect(members.map((m) => m.symbol).sort()).toEqual(['AAA', 'BBB', 'CCC']);
     },
     TEST_TIMEOUT_MS,
@@ -350,18 +367,18 @@ suite('watchlist repository', () => {
   it(
     'assigns increasing positions and honours an explicit reorder',
     async () => {
-      const list = await createWatchlist(db, { name: 'Ordering' });
+      const list = await createWatchlist(db, ownerId, { name: 'Ordering' });
       const ids = [await instrument('ONE'), await instrument('TWO'), await instrument('THREE')];
-      await addWatchlistItems(db, list.id, ids);
+      await addWatchlistItems(db, ownerId, list.id, ids);
 
-      expect((await getWatchlistMembers(db, list.id)).map((m) => m.symbol)).toEqual([
+      expect((await getWatchlistMembers(db, ownerId, list.id)).map((m) => m.symbol)).toEqual([
         'ONE',
         'TWO',
         'THREE',
       ]);
 
-      await reorderWatchlistItems(db, list.id, [ids[2]!, ids[0]!, ids[1]!]);
-      expect((await getWatchlistMembers(db, list.id)).map((m) => m.symbol)).toEqual([
+      await reorderWatchlistItems(db, ownerId, list.id, [ids[2]!, ids[0]!, ids[1]!]);
+      expect((await getWatchlistMembers(db, ownerId, list.id)).map((m) => m.symbol)).toEqual([
         'THREE',
         'ONE',
         'TWO',
@@ -373,12 +390,14 @@ suite('watchlist repository', () => {
   it(
     'removes only the named items',
     async () => {
-      const list = await createWatchlist(db, { name: 'Removing' });
+      const list = await createWatchlist(db, ownerId, { name: 'Removing' });
       const ids = [await instrument('KEEP'), await instrument('DROP')];
-      await addWatchlistItems(db, list.id, ids);
+      await addWatchlistItems(db, ownerId, list.id, ids);
 
-      expect(await removeWatchlistItems(db, list.id, [ids[1]!])).toBe(1);
-      expect((await getWatchlistMembers(db, list.id)).map((m) => m.symbol)).toEqual(['KEEP']);
+      expect(await removeWatchlistItems(db, ownerId, list.id, [ids[1]!])).toBe(1);
+      expect((await getWatchlistMembers(db, ownerId, list.id)).map((m) => m.symbol)).toEqual([
+        'KEEP',
+      ]);
     },
     TEST_TIMEOUT_MS,
   );
@@ -386,15 +405,15 @@ suite('watchlist repository', () => {
   it(
     'round-trips a layout, overwriting in place',
     async () => {
-      const list = await createWatchlist(db, { name: 'Layout' });
+      const list = await createWatchlist(db, ownerId, { name: 'Layout' });
 
-      await saveWatchlistLayout(db, list.id, {
+      await saveWatchlistLayout(db, ownerId, list.id, {
         columns: ['ltp', 'rsi14'],
         sort: [{ columnId: 'ltp', direction: 'desc' }],
         filters: { direction: 'advancing' },
         quickView: 'overview',
       });
-      expect(await getWatchlistLayout(db, list.id)).toEqual({
+      expect(await getWatchlistLayout(db, ownerId, list.id)).toEqual({
         columns: ['ltp', 'rsi14'],
         sort: [{ columnId: 'ltp', direction: 'desc' }],
         filters: { direction: 'advancing' },
@@ -402,13 +421,13 @@ suite('watchlist repository', () => {
       });
 
       // Second save replaces rather than appending a row.
-      await saveWatchlistLayout(db, list.id, {
+      await saveWatchlistLayout(db, ownerId, list.id, {
         columns: ['volume'],
         sort: [],
         filters: {},
         quickView: null,
       });
-      expect((await getWatchlistLayout(db, list.id))?.columns).toEqual(['volume']);
+      expect((await getWatchlistLayout(db, ownerId, list.id))?.columns).toEqual(['volume']);
     },
     TEST_TIMEOUT_MS,
   );
@@ -416,24 +435,24 @@ suite('watchlist repository', () => {
   it(
     'serves a watchlist its own views plus every global one',
     async () => {
-      const mine = await createWatchlist(db, { name: 'Views mine' });
-      const other = await createWatchlist(db, { name: 'Views other' });
+      const mine = await createWatchlist(db, ownerId, { name: 'Views mine' });
+      const other = await createWatchlist(db, ownerId, { name: 'Views other' });
 
-      await saveWatchlistView(db, {
+      await saveWatchlistView(db, ownerId, {
         watchlistId: mine.id,
         name: 'Scoped',
         columns: ['ltp'],
         sort: [],
         filters: {},
       });
-      await saveWatchlistView(db, {
+      await saveWatchlistView(db, ownerId, {
         watchlistId: other.id,
         name: 'Someone else',
         columns: ['ltp'],
         sort: [],
         filters: {},
       });
-      await saveWatchlistView(db, {
+      await saveWatchlistView(db, ownerId, {
         watchlistId: null,
         name: 'Everywhere',
         columns: ['volume'],
@@ -441,7 +460,9 @@ suite('watchlist repository', () => {
         filters: {},
       });
 
-      const names = (await listWatchlistViews(db, mine.id)).map((view) => view.name).sort();
+      const names = (await listWatchlistViews(db, ownerId, mine.id))
+        .map((view) => view.name)
+        .sort();
       expect(names).toEqual(['Everywhere', 'Scoped']);
     },
     TEST_TIMEOUT_MS,
@@ -450,15 +471,15 @@ suite('watchlist repository', () => {
   it(
     'updates a view in place when the same name is saved again',
     async () => {
-      const list = await createWatchlist(db, { name: 'View upsert' });
-      await saveWatchlistView(db, {
+      const list = await createWatchlist(db, ownerId, { name: 'View upsert' });
+      await saveWatchlistView(db, ownerId, {
         watchlistId: list.id,
         name: 'Same',
         columns: ['ltp'],
         sort: [],
         filters: {},
       });
-      const second = await saveWatchlistView(db, {
+      const second = await saveWatchlistView(db, ownerId, {
         watchlistId: list.id,
         name: 'Same',
         columns: ['rsi14'],
@@ -467,9 +488,9 @@ suite('watchlist repository', () => {
       });
 
       expect(second.columns).toEqual(['rsi14']);
-      expect((await listWatchlistViews(db, list.id)).filter((v) => v.name === 'Same')).toHaveLength(
-        1,
-      );
+      expect(
+        (await listWatchlistViews(db, ownerId, list.id)).filter((v) => v.name === 'Same'),
+      ).toHaveLength(1);
     },
     TEST_TIMEOUT_MS,
   );
@@ -477,13 +498,13 @@ suite('watchlist repository', () => {
   it(
     'promotes a new default when the default watchlist is deleted',
     async () => {
-      const before = await listWatchlists(db);
+      const before = await listWatchlists(db, ownerId);
       const current = before.find((list) => list.isDefault);
       expect(current).toBeDefined();
 
-      await deleteWatchlist(db, current!.id);
+      await deleteWatchlist(db, ownerId, current!.id);
 
-      const after = await listWatchlists(db);
+      const after = await listWatchlists(db, ownerId);
       expect(after.some((list) => list.id === current!.id)).toBe(false);
       // Exactly one default survives, and it is the first in the user's order.
       const defaults = after.filter((list) => list.isDefault);
@@ -496,11 +517,11 @@ suite('watchlist repository', () => {
   it(
     'rewrites sidebar order from a complete id list',
     async () => {
-      const lists = await listWatchlists(db);
+      const lists = await listWatchlists(db, ownerId);
       const reversed = [...lists].reverse().map((list) => list.id);
-      await reorderWatchlists(db, reversed);
+      await reorderWatchlists(db, ownerId, reversed);
 
-      expect((await listWatchlists(db)).map((list) => list.id)).toEqual(reversed);
+      expect((await listWatchlists(db, ownerId)).map((list) => list.id)).toEqual(reversed);
     },
     TEST_TIMEOUT_MS,
   );

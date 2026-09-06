@@ -12,6 +12,16 @@
  *   - strategy_versions rows are immutable (rule 7)
  *   - Every signal writes its factor breakdown (rule 8)
  */
+export {
+  authAttempts,
+  authAudit,
+  authCredentials,
+  authMfa,
+  authSessions,
+  authTokens,
+  authUsers,
+  userProfiles,
+} from './auth.js';
 export { dailyCandles } from './candles.js';
 export { providerCredentials } from './credentials.js';
 export { dailyIndicators } from './indicators.js';

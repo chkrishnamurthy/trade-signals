@@ -1,0 +1,3 @@
+interface:
+  display_name: "Indicator Math"
+  short_description: "Warm-up, smoothing, and fixture-provenance discipline for indicators"
