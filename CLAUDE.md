@@ -1,9 +1,17 @@
 # EquityWise
 
-Single-user personal tool for **tracking, analysing and screening NSE equities** to
+A **multi-user** tool for **tracking, analysing and screening NSE equities** to
 surface technical setups worth attention — bullish/bearish setups, breakouts,
 breakdowns, momentum, trend changes, volume anomalies. Decision support, not
-execution. Not multi-tenant. Never deployed publicly.
+execution. **Deployed publicly, with per-user accounts** — each user signs in and
+owns their own watchlists and data (auth design: `docs/planning/authentication-plan.md`).
+Multi-*user* (individuals), not multi-*tenant* (no organisations/teams).
+
+> **Direction change (2026-09-06):** this was previously a single-user, never-public
+> personal tool. It is being made a multi-user product; the login system and
+> per-user data isolation are being designed in `docs/planning/authentication-plan.md`.
+> Some rules and prose below still reflect the old single-user framing and are being
+> updated as that work lands.
 
 **This is not a broker and not a trading terminal.** It never places, manages, or
 represents an order. Orders are placed by hand on a separate platform. The product
@@ -107,7 +115,10 @@ operations — is **`docs/operations/deployment.md`**. Read it before touching i
 
 ## Do not
 
-- Do not add multi-tenancy, user tables, RBAC, or subscriptions
+- The app is **multi-user**: user / account / session tables and a **minimal
+  user-vs-admin role** ARE in scope (see `docs/planning/authentication-plan.md`).
+  Still out of scope until explicitly planned: **organisation/team multi-tenancy**,
+  a full RBAC role system, and **subscriptions/billing**
 - Do not build an admin CRUD UI — config is versioned YAML
 - Do not add Redis, Celery, Kubernetes, or Terraform
 - Do not use `technicalindicators` or similar npm packages for the core indicator

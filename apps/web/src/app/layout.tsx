@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Inter, JetBrains_Mono } from 'next/font/google';
 import type { ReactNode } from 'react';
+import { ToastProvider } from '@/components/ui/toast';
 import { NAV_INIT_SCRIPT } from '@/lib/nav-rail';
 import { THEME_INIT_SCRIPT } from '@/lib/theme';
 import './globals.css';
@@ -56,7 +57,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         {/* No auth gate at present — every route is open. A future login system
             wraps {children} here for client context, and adds
             apps/web/src/middleware.ts (Next.js convention) to gate routes. */}
-        {children}
+        <ToastProvider>{children}</ToastProvider>
       </body>
     </html>
   );

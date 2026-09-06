@@ -7,7 +7,6 @@ import {
   PercentChange,
   Price,
   PriceChange,
-  Ratio,
   Turnover,
   Volume,
 } from '@/components/market/numeric';
@@ -310,52 +309,14 @@ const CELLS: Record<string, (row: WatchlistRowDto) => ReactNode> = {
   },
   momentum: noSource('momentum'),
 
-  setupState: (row) => {
-    const setup = row.setup;
-    if (setup === null) return <span className="text-subtle-foreground">—</span>;
-    return (
-      <span className="flex items-center gap-1">
-        <Badge variant={setup.direction === 'long' ? 'bullish' : 'bearish'} size="sm">
-          {SETUP_KIND_LABEL[setup.kind] ?? setup.kind}
-        </Badge>
-        <span className="text-[0.6875rem] text-muted-foreground">{setup.state}</span>
-      </span>
-    );
-  },
-  /**
-   * The meter treatment, not a bare number — a confluence score is exactly
-   * the "confidence number the factors can't explain" CLAUDE.md bans if it
-   * renders unexplained. `SignalStrength` was built to take this component's
-   * long/short vocabulary via `tone`; the full factor breakdown lives one
-   * click away through "View signals" in the row detail below.
-   */
-  setupScore: (row) =>
-    row.setup === null ? (
-      <span className="text-subtle-foreground">—</span>
-    ) : (
-      <SignalStrength
-        strength={row.setup.score}
-        tone={row.setup.direction === 'long' ? 'bullish' : 'bearish'}
-        label="Confluence score"
-        className="w-24"
-      />
-    ),
-  /** A price BAND, because the setup's entry is a zone and not a single price. */
-  entryZone: (row) =>
-    row.setup === null ? (
-      <Price paise={null} bare size="sm" />
-    ) : (
-      <span className="figure whitespace-nowrap text-xs">
-        {fmt.priceCompact(row.setup.entryLow)}
-        <span className="px-1 text-subtle-foreground">–</span>
-        {fmt.priceCompact(row.setup.entryHigh)}
-      </span>
-    ),
-  setupTarget: (row) => <Price paise={row.setup?.target1 ?? null} bare size="sm" />,
-  setupInvalidation: (row) => <Price paise={row.setup?.invalidationLevel ?? null} bare size="sm" />,
-  setupRiskReward: (row) => (
-    <Ratio value={row.setup?.netRiskReward ?? null} suffix=":1" size="sm" />
-  ),
+  // The live intraday setup columns render as unavailable — the engine that
+  // wrote them was removed. See the matching note in `watchlist-columns.ts`.
+  setupState: noSource('setupState'),
+  setupScore: noSource('setupScore'),
+  entryZone: noSource('entryZone'),
+  setupTarget: noSource('setupTarget'),
+  setupInvalidation: noSource('setupInvalidation'),
+  setupRiskReward: noSource('setupRiskReward'),
   support: noSource('support'),
   resistance: noSource('resistance'),
 
@@ -371,14 +332,6 @@ const CELLS: Record<string, (row: WatchlistRowDto) => ReactNode> = {
       {row.exchange}
     </Badge>
   ),
-  note: (row) =>
-    row.note === null || row.note === '' ? (
-      <span className="text-subtle-foreground">—</span>
-    ) : (
-      <span className="line-clamp-1 max-w-40 text-xs text-muted-foreground" title={row.note}>
-        {row.note}
-      </span>
-    ),
   indicatorDate: (row) => (
     <span className="figure text-[0.6875rem] text-muted-foreground">
       {row.indicatorDate ?? '—'}
@@ -389,17 +342,6 @@ const CELLS: Record<string, (row: WatchlistRowDto) => ReactNode> = {
       {fmt.istTime(row.quoteAt)}
     </span>
   ),
-};
-
-/** Readable names for the intraday engine's setup kinds. */
-const SETUP_KIND_LABEL: Record<string, string> = {
-  breakout: 'Breakout',
-  breakdown: 'Breakdown',
-  vwap_reclaim: 'VWAP reclaim',
-  momentum_long: 'Momentum',
-  momentum_short: 'Momentum',
-  reversal: 'Reversal',
-  range_break: 'Range break',
 };
 
 // The trailing-return columns render identically, so they are registered from

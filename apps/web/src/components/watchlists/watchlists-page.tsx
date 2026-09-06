@@ -1,7 +1,6 @@
 'use client';
 
 import { RefreshCwIcon } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 import { useCallback, useMemo, useState } from 'react';
 import { CardSkeleton, ErrorState, TableSkeleton } from '@/components/data-display/states';
 import { ActiveFilters, SearchInput } from '@/components/forms/filter-bar';
@@ -55,7 +54,6 @@ import { WatchlistTabs } from './watchlist-tabs';
  * which is the kind of quietly-wrong number this product exists not to print.
  */
 export function WatchlistsPage() {
-  const router = useRouter();
   const {
     lists,
     detail,
@@ -375,7 +373,6 @@ export function WatchlistsPage() {
                     onSortChange={onSortChange}
                     onRemove={(row) => void removeSymbols([row.instrumentId])}
                     onOpenDetail={setSelected}
-                    onOpenSignals={(row) => router.push(`/signals?symbol=${row.symbol}`)}
                     onAddToList={(watchlistId, symbol) => void addSymbolsTo(watchlistId, [symbol])}
                   />
                 </CardContent>

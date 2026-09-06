@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useToast } from '@/components/ui/toast';
 import type { Feed } from './feed';
 import type { MarketErrorDto } from './market-types';
 import type {
@@ -79,6 +80,13 @@ export function useWatchlists() {
   const abort = useRef<AbortController | null>(null);
   const activeIdRef = useRef<number | null>(null);
   activeIdRef.current = activeId;
+
+  // A live mirror of the loaded lists, so a mutation can name a list in a toast
+  // ("Added to Banking") without taking `lists` as a callback dependency.
+  const listsRef = useRef<readonly WatchlistSummaryDto[]>([]);
+  if (lists.status === 'ready') listsRef.current = lists.data;
+
+  const { toast } = useToast();
 
   const isVisible = useCallback(() => typeof document === 'undefined' || !document.hidden, []);
 
@@ -248,15 +256,28 @@ export function useWatchlists() {
         body: JSON.stringify({ isDefault: true }),
       });
       if (result.ok) await loadLists();
+      else
+        toast({
+          variant: 'destructive',
+          title: 'Could not set the default list',
+          description: result.error.error,
+        });
       return result;
     },
-    [loadLists],
+    [loadLists, toast],
   );
 
   const deleteList = useCallback(
     async (id: number) => {
       const result = await request(`/api/watchlists/${id}`, { method: 'DELETE' });
-      if (!result.ok) return result;
+      if (!result.ok) {
+        toast({
+          variant: 'destructive',
+          title: 'Could not delete that watchlist',
+          description: result.error.error,
+        });
+        return result;
+      }
       const remaining = await loadLists();
       if (activeIdRef.current === id) {
         const next = remaining?.find((entry) => entry.isDefault) ?? remaining?.[0] ?? null;
@@ -267,25 +288,39 @@ export function useWatchlists() {
       }
       return result;
     },
-    [loadLists],
+    [loadLists, toast],
   );
 
-  const reorderLists = useCallback(async (ids: readonly number[]) => {
-    // Optimistic: a drag that snaps back while the request flies reads as a
-    // failed drag even when it succeeded.
-    setLists((current) =>
-      current.status === 'ready'
-        ? {
-            ...current,
-            data: [...current.data].sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id)),
-          }
-        : current,
-    );
-    return request('/api/watchlists/reorder', {
-      method: 'POST',
-      body: JSON.stringify({ ids }),
-    });
-  }, []);
+  const reorderLists = useCallback(
+    async (ids: readonly number[]) => {
+      // Optimistic: a drag that snaps back while the request flies reads as a
+      // failed drag even when it succeeded.
+      setLists((current) =>
+        current.status === 'ready'
+          ? {
+              ...current,
+              data: [...current.data].sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id)),
+            }
+          : current,
+      );
+      const result = await request('/api/watchlists/reorder', {
+        method: 'POST',
+        body: JSON.stringify({ ids }),
+      });
+      // Reconcile to the server's order on failure, so the optimistic reorder
+      // cannot linger as a lie — and say what happened.
+      if (!result.ok) {
+        await loadLists();
+        toast({
+          variant: 'destructive',
+          title: 'Could not save the new order',
+          description: result.error.error,
+        });
+      }
+      return result;
+    },
+    [loadLists, toast],
+  );
 
   const addSymbols = useCallback(
     async (symbols: readonly string[]) => {
@@ -326,10 +361,22 @@ export function useWatchlists() {
         method: 'DELETE',
         body: JSON.stringify({ instrumentIds }),
       });
+      // `reload()` restores the optimistically-removed rows on failure; the
+      // toast is the only thing that tells the user the click did not take.
       await reload();
+      if (!result.ok) {
+        toast({
+          variant: 'destructive',
+          title:
+            instrumentIds.length > 1
+              ? 'Could not remove those stocks'
+              : 'Could not remove that stock',
+          description: result.error.error,
+        });
+      }
       return result;
     },
-    [reload],
+    [reload, toast],
   );
 
   /** Adds to a list that is not the one on screen — the "add to another" action. */
@@ -339,10 +386,27 @@ export function useWatchlists() {
         method: 'POST',
         body: JSON.stringify({ symbols }),
       });
-      if (result.ok) await loadLists();
+      // This list is off-screen, so the action is invisible without a toast —
+      // confirm the success by name, and surface a failure the same way.
+      const name = listsRef.current.find((entry) => entry.id === watchlistId)?.name;
+      const target = name === undefined ? 'the list' : `“${name}”`;
+      if (result.ok) {
+        await loadLists();
+        toast({
+          variant: 'success',
+          title: `Added to ${target}`,
+          description: symbols.join(', '),
+        });
+      } else {
+        toast({
+          variant: 'destructive',
+          title: `Could not add to ${target}`,
+          description: result.error.error,
+        });
+      }
       return result;
     },
-    [loadLists],
+    [loadLists, toast],
   );
 
   /**
@@ -399,9 +463,15 @@ export function useWatchlists() {
       }
       const result = await request(`/api/watchlists/${id}/views/${viewId}`, { method: 'DELETE' });
       if (result.ok) await loadDetail(id, true);
+      else
+        toast({
+          variant: 'destructive',
+          title: 'Could not delete that view',
+          description: result.error.error,
+        });
       return result;
     },
-    [loadDetail],
+    [loadDetail, toast],
   );
 
   return {

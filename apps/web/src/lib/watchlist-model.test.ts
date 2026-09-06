@@ -319,15 +319,22 @@ describe('derived column values', () => {
     expect(signal.value(row({ signal: null }))).toBeNull();
   });
 
-  it('reads the live setup levels straight off the row', () => {
-    const fixture = row();
-    expect(getColumn('entryZone')!.value(fixture)).toBe(250000);
-    expect(getColumn('setupTarget')!.value(fixture)).toBe(256000);
-    expect(getColumn('setupInvalidation')!.value(fixture)).toBe(247000);
-    expect(getColumn('setupRiskReward')!.value(fixture)).toBe(1.8);
-    // No live setup: every level column is absent, never a stale one.
-    for (const id of ['entryZone', 'setupTarget', 'setupInvalidation', 'setupRiskReward']) {
-      expect(getColumn(id)!.value(row({ setup: null })), id).toBeNull();
+  it('marks the live intraday setup columns as unavailable, never inventing a level', () => {
+    // The engine that wrote these was removed, so the columns are declared
+    // source-less: even with a fully-populated `setup` on the row, they must
+    // render nothing rather than a stale level.
+    const populated = row();
+    for (const id of [
+      'setupState',
+      'setupScore',
+      'entryZone',
+      'setupTarget',
+      'setupInvalidation',
+      'setupRiskReward',
+    ]) {
+      const column = getColumn(id)!;
+      expect(column.source, id).toBeNull();
+      expect(column.value(populated), id).toBeNull();
     }
   });
 
@@ -638,8 +645,9 @@ describe('quick views', () => {
     }
   });
 
-  it('marks the views that need fundamentals as unavailable, with a reason', () => {
-    for (const id of ['high_dividend', 'valuation']) {
+  it('marks the views whose columns have no source as unavailable, with a reason', () => {
+    // Fundamentals (no feed) and the live intraday setups (engine removed).
+    for (const id of ['high_dividend', 'valuation', 'live_setups']) {
       const view = QUICK_VIEWS.find((entry) => entry.id === id)!;
       expect(isQuickViewAvailable(view)).toBe(false);
       expect(missingSourcesFor(view).length).toBeGreaterThan(0);
@@ -658,7 +666,6 @@ describe('quick views', () => {
       'oversold',
       'volatility',
       'performance',
-      'live_setups',
       'daily_signals',
     ]) {
       const view = QUICK_VIEWS.find((entry) => entry.id === id)!;

@@ -1,12 +1,6 @@
 'use client';
 
-import {
-  ActivityIcon,
-  ChevronsUpDownIcon,
-  ListPlusIcon,
-  MoreHorizontalIcon,
-  Trash2Icon,
-} from 'lucide-react';
+import { ChevronsUpDownIcon, ListPlusIcon, MoreHorizontalIcon, Trash2Icon } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { DataTable, type DataTableColumn } from '@/components/data-display/data-table';
 import { Button } from '@/components/ui/button';
@@ -56,7 +50,6 @@ export function WatchlistTable({
   onSortChange,
   onRemove,
   onOpenDetail,
-  onOpenSignals,
   onAddToList,
   onRetry,
 }: {
@@ -75,7 +68,6 @@ export function WatchlistTable({
   onRemove: (row: WatchlistRowDto) => void;
   /** Opens the full chart & analysis drawer. Fired from inside the expanded row. */
   onOpenDetail: (row: WatchlistRowDto) => void;
-  onOpenSignals: (row: WatchlistRowDto) => void;
   onAddToList: (watchlistId: number, symbol: string) => void;
   onRetry?: (() => void) | undefined;
 }) {
@@ -135,7 +127,6 @@ export function WatchlistTable({
           row={row}
           isLive={isLive}
           onViewChart={onOpenDetail}
-          onViewSignals={onOpenSignals}
           otherLists={otherLists}
           onAddToList={onAddToList}
           onRemove={onRemove}
@@ -155,7 +146,6 @@ export function WatchlistTable({
           otherLists={otherLists}
           onRemove={onRemove}
           onToggleExpand={toggleExpand}
-          onOpenSignals={onOpenSignals}
           onAddToList={onAddToList}
         />
       )}
@@ -168,14 +158,12 @@ function RowMenu({
   otherLists,
   onRemove,
   onToggleExpand,
-  onOpenSignals,
   onAddToList,
 }: {
   row: WatchlistRowDto;
   otherLists: readonly WatchlistSummaryDto[];
   onRemove: (row: WatchlistRowDto) => void;
   onToggleExpand: (row: WatchlistRowDto) => void;
-  onOpenSignals: (row: WatchlistRowDto) => void;
   onAddToList: (watchlistId: number, symbol: string) => void;
 }) {
   return (
@@ -198,10 +186,6 @@ function RowMenu({
         <DropdownMenuItem onSelect={() => onToggleExpand(row)}>
           <ChevronsUpDownIcon />
           View details
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => onOpenSignals(row)}>
-          <ActivityIcon />
-          View signals
         </DropdownMenuItem>
 
         {otherLists.length > 0 && (

@@ -140,6 +140,8 @@ const NO_DELIVERY =
 const NOT_COMPUTED = 'Not part of the stored end-of-day indicator set';
 const PER_SIGNAL_ONLY =
   'The intraday engine publishes levels per signal, not per stock — open the signal for them';
+const NO_INTRADAY_ENGINE =
+  'The intraday engine that published live setups has been removed — no source currently writes these levels';
 
 /** Sort order for the five signal directions: bearish low, bullish high. */
 const DIRECTION_RANK: Record<string, number> = {
@@ -879,60 +881,66 @@ const COLUMNS: readonly WatchlistColumn[] = [
     unit: 'points',
     value: () => null,
   },
+  // The live intraday setup columns. The engine that WROTE these was removed,
+  // so nothing currently populates them — they are declared `source: null` with
+  // a reason (like the fundamentals columns) rather than advertised as available
+  // and then rendering an em dash for every row forever. The row DTO still
+  // carries `setup`, and the read stays wired in the DB layer, so restoring
+  // these is a one-line-each change the day an engine repopulates the table.
   {
     id: 'setupState',
     label: 'Setup',
     description:
       'Today’s live intraday setup and its state — breakout, VWAP reclaim, momentum and the rest',
     group: 'signals',
-    source: 'signals',
+    source: null,
+    unavailableReason: NO_INTRADAY_ENGINE,
     numeric: false,
-    hideBelow: 'lg',
-    value: (row) => (row.setup === null ? null : `${row.setup.kind} ${row.setup.state}`),
+    value: () => null,
   },
   {
     id: 'setupScore',
     label: 'Setup Score',
     description: 'Confluence score of today’s live intraday setup, 0-100',
     group: 'signals',
-    source: 'signals',
+    source: null,
+    unavailableReason: NO_INTRADAY_ENGINE,
     numeric: true,
     unit: 'points',
-    hideBelow: 'xl',
-    value: (row) => row.setup?.score ?? null,
+    value: () => null,
   },
   {
     id: 'entryZone',
     label: 'Entry Zone',
     description: 'Technical entry zone of the live setup, as a price band',
     group: 'signals',
-    source: 'signals',
+    source: null,
+    unavailableReason: NO_INTRADAY_ENGINE,
     numeric: true,
     unit: 'paise',
-    hideBelow: 'xl',
-    value: (row) => row.setup?.entryLow ?? null,
+    value: () => null,
   },
   {
     id: 'setupTarget',
     label: 'Target',
     description: 'First target level of the live setup',
     group: 'signals',
-    source: 'signals',
+    source: null,
+    unavailableReason: NO_INTRADAY_ENGINE,
     numeric: true,
     unit: 'paise',
-    hideBelow: 'xl',
-    value: (row) => row.setup?.target1 ?? null,
+    value: () => null,
   },
   {
     id: 'setupInvalidation',
     label: 'Invalidation',
     description: 'The level at which the live setup stops being valid',
     group: 'signals',
-    source: 'signals',
+    source: null,
+    unavailableReason: NO_INTRADAY_ENGINE,
     numeric: true,
     unit: 'paise',
-    hideBelow: 'xl',
-    value: (row) => row.setup?.invalidationLevel ?? null,
+    value: () => null,
   },
   {
     id: 'setupRiskReward',
@@ -940,11 +948,11 @@ const COLUMNS: readonly WatchlistColumn[] = [
     description:
       'Reward-to-risk of the live setup, NET of the modelled round-trip transaction cost',
     group: 'signals',
-    source: 'signals',
+    source: null,
+    unavailableReason: NO_INTRADAY_ENGINE,
     numeric: true,
     unit: 'ratio',
-    hideBelow: 'xl',
-    value: (row) => row.setup?.netRiskReward ?? null,
+    value: () => null,
   },
   {
     id: 'support',
@@ -990,16 +998,11 @@ const COLUMNS: readonly WatchlistColumn[] = [
     hideBelow: 'xl',
     value: (row) => row.exchange,
   },
-  {
-    id: 'note',
-    label: 'Note',
-    description: 'Your own reason for watching this name',
-    group: 'market',
-    source: 'instrument',
-    numeric: false,
-    hideBelow: 'xl',
-    value: (row) => row.note,
-  },
+  // A "Note" column belongs here — the row DTO carries `note` and the free-text
+  // filter already searches it — but it is deliberately not registered: nothing
+  // in the app can SET a note yet, so the column could only ever render blank.
+  // Register it the day an editor exists, not before (a column that can only
+  // show an em dash earns its place in the panel, not in the table).
   {
     id: 'indicatorDate',
     label: 'Data as of',

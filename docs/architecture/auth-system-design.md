@@ -1,6 +1,13 @@
 # Authentication system — design
 
-Status: **proposal / for review** · Author: prepared with Claude · Date: 2026-09-05
+> ⚠️ **SUPERSEDED (2026-09-06).** This proposal was built on a misread requirement
+> — it recommends the external framework **Better Auth**, which is not what was
+> asked for — and it contains a route error (it opens `/login`, which is actually
+> the Fyers OAuth handshake and must stay gated). It is kept only for the record.
+> The authoritative plan is **[planning/authentication-plan.md](../planning/authentication-plan.md)**,
+> which reviews this document in its §1–§2 and replaces it.
+
+Status: **superseded** · Author: prepared with Claude · Date: 2026-09-05
 Scope: design only. **No code has been changed.** This document is the plan to
 review and agree before any implementation begins.
 

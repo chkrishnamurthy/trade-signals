@@ -1,12 +1,6 @@
 'use client';
 
-import {
-  ActivityIcon,
-  BarChart3Icon,
-  ListPlusIcon,
-  MoreHorizontalIcon,
-  Trash2Icon,
-} from 'lucide-react';
+import { BarChart3Icon, ListPlusIcon, MoreHorizontalIcon, Trash2Icon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { DefinitionGrid, DefinitionRow } from '@/components/data-display/metric-card';
 import { LiveIndicator } from '@/components/market/market-status';
@@ -54,7 +48,6 @@ export function WatchlistRowDetail({
   row,
   isLive,
   onViewChart,
-  onViewSignals,
   otherLists,
   onAddToList,
   onRemove,
@@ -63,7 +56,6 @@ export function WatchlistRowDetail({
   isLive: boolean;
   /** Opens the full drawer — chart, metrics and the identity block at once. */
   onViewChart: (row: WatchlistRowDto) => void;
-  onViewSignals: (row: WatchlistRowDto) => void;
   otherLists: readonly WatchlistSummaryDto[];
   onAddToList: (watchlistId: number, symbol: string) => void;
   onRemove: (row: WatchlistRowDto) => void;
@@ -157,36 +149,17 @@ export function WatchlistRowDetail({
               className="mt-2"
             />
           )}
-
-          <Text as="h5" variant="overline" className="mt-3 mb-1 block">
-            Live intraday setup
-          </Text>
-          {row.setup === null ? (
-            <span className="text-xs text-subtle-foreground">No live intraday setup today</span>
-          ) : (
-            <DefinitionGrid columns={1}>
-              <DefinitionRow label="Setup" value={cellFor('setupState')(row)} />
-              <DefinitionRow label="Confluence score" value={cellFor('setupScore')(row)} />
-              <DefinitionRow label="Technical entry zone" value={cellFor('entryZone')(row)} />
-              <DefinitionRow label="Target" value={cellFor('setupTarget')(row)} />
-              <DefinitionRow label="Invalidation" value={cellFor('setupInvalidation')(row)} />
-              <DefinitionRow label="Net R:R" value={cellFor('setupRiskReward')(row)} />
-            </DefinitionGrid>
-          )}
         </SummarySection>
       </div>
 
-      {/* Quick actions — one visible secondary action, the rest behind a menu. */}
+      {/* Quick actions — the full drawer is one click up in the snapshot card, so
+          this bar carries only the list-management actions, behind one menu. */}
       <div className="mt-4 flex items-center gap-2 border-t border-border pt-3">
-        <Button variant="outline" size="sm" onClick={() => onViewSignals(row)}>
-          <ActivityIcon />
-          View signals
-        </Button>
-
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon-sm" aria-label={`More actions for ${row.symbol}`}>
+            <Button variant="outline" size="sm" aria-label={`More actions for ${row.symbol}`}>
               <MoreHorizontalIcon />
+              Actions
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-52">
