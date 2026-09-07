@@ -18,22 +18,34 @@ export function ResetForm({ token }: { token: string | null }) {
 function RequestLink() {
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
+  const [noAccount, setNoAccount] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
     setBusy(true);
+    setError(null);
     try {
-      await fetch(API_ROUTES.authResetRequest, {
+      const res = await fetch(API_ROUTES.authResetRequest, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ email }),
       });
+      if (res.ok) {
+        setSent(true);
+        return;
+      }
+      const data = (await res.json().catch(() => ({}))) as { error?: string; code?: string };
+      if (data.code === 'NO_ACCOUNT') {
+        setNoAccount(true);
+        return;
+      }
+      setError(data.error ?? 'Could not send a reset link. Please try again.');
     } catch {
-      /* answer is intentionally the same regardless */
+      setError('Network error — please try again.');
     } finally {
       setBusy(false);
-      setSent(true);
     }
   }
 
@@ -50,11 +62,29 @@ function RequestLink() {
       {sent ? (
         <Alert>
           <AlertDescription>
-            If an account exists for that email, a reset link is on its way.
+            A reset link is on its way to <span className="font-medium">{email}</span>. Check your
+            inbox (and spam) — the link expires in 30 minutes.
           </AlertDescription>
         </Alert>
+      ) : noAccount ? (
+        <div className="space-y-4">
+          <Alert>
+            <AlertDescription>
+              We couldn't find an account for <span className="font-medium">{email}</span>. Please
+              sign up first.
+            </AlertDescription>
+          </Alert>
+          <Button asChild className="w-full">
+            <Link href="/signup">Sign up</Link>
+          </Button>
+        </div>
       ) : (
         <form onSubmit={onSubmit} className="space-y-4">
+          {error !== null ? (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          ) : null}
           <div className="space-y-1.5">
             <Label htmlFor="email">Email</Label>
             <Input
@@ -140,7 +170,10 @@ function SetNewPassword({ token }: { token: string }) {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
-            <p className="text-xs text-muted-foreground">At least 12 characters.</p>
+            <p className="text-xs text-muted-foreground">
+              At least 12 characters. A few memorable words work well — avoid common or reused
+              passwords.
+            </p>
           </div>
           <Button type="submit" className="w-full" disabled={busy}>
             {busy ? 'Saving…' : 'Reset password'}

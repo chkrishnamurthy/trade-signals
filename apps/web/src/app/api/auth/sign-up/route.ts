@@ -1,7 +1,7 @@
-import { createToken, createUser, writeAudit } from '@equitywise/db';
+import { type AuthUser, createToken, createUser, writeAudit } from '@equitywise/db';
 import type { NextResponse } from 'next/server';
 import { sendVerificationEmail } from '@/server/auth/email';
-import { signupEnabled } from '@/server/auth/env';
+import { authSessionSecret, signupEnabled } from '@/server/auth/env';
 import { fail, json } from '@/server/auth/http';
 import { hashPassword } from '@/server/auth/password';
 import { validatePassword } from '@/server/auth/password-policy';
@@ -17,7 +17,20 @@ export const dynamic = 'force-dynamic';
 
 const VERIFY_TTL_MS = 30 * 60_000;
 
-/** POST /api/auth/sign-up — create an account and sign the new user in. */
+/**
+ * POST /api/auth/sign-up — create an account and sign the new user in.
+ *
+ * Atomicity contract: signup either creates a complete account or writes nothing.
+ * Everything that can fail runs in one of two phases:
+ *   - BEFORE `createUser`: validation, breach check, and a required-config check.
+ *     A failure here writes nothing at all.
+ *   - AFTER `createUser` (which is itself atomic): the verification email, the
+ *     audit line, and the session cookie are all BEST-EFFORT — a failure is
+ *     logged and never turns a successfully created account into a
+ *     "could not create your account" error.
+ * The one thing we must not do is what the old code did: commit the user, then
+ * throw on a later step and report failure, leaving an orphaned account behind.
+ */
 export async function POST(request: Request): Promise<NextResponse> {
   if (!signupEnabled()) {
     return fail('Sign-up is currently closed.', 403, { code: 'SIGNUP_DISABLED' });
@@ -47,19 +60,46 @@ export async function POST(request: Request): Promise<NextResponse> {
     });
   }
 
+  // Verify required config BEFORE any write. Establishing the session (below)
+  // needs this secret; checking it now means a server misconfiguration can never
+  // leave a half-created account behind — it fails cleanly with nothing written.
+  try {
+    authSessionSecret();
+  } catch {
+    console.error('[sign-up] AUTH_SESSION_SECRET is not configured — refusing before any write.');
+    return fail('Sign-up is temporarily unavailable. Please try again later.', 503, {
+      code: 'SERVER_MISCONFIGURED',
+    });
+  }
+
   const db = getDatabase();
   const passwordHash = await hashPassword(password);
   const name = displayName ?? email.split('@')[0] ?? 'there';
 
+  // Account creation is the single atomic write. If it fails there is nothing to
+  // clean up — the transaction rolled back — so we can report honestly.
+  let user: AuthUser;
   try {
-    const user = await createUser(db, {
+    user = await createUser(db, {
       email,
       displayName: name,
       passwordHash,
       termsAcceptedAt: new Date(),
     });
+  } catch (error) {
+    if (isUniqueViolation(error)) {
+      return fail('An account with this email already exists — please sign in instead.', 409, {
+        code: 'EMAIL_TAKEN',
+        remedy: 'Sign in, or reset your password if you have forgotten it.',
+      });
+    }
+    throw error;
+  }
 
-    // Verification is optional (does not block use); send the link anyway.
+  // ── From here the account exists and is complete. Everything below is
+  //    best-effort and must never fail the request. ──────────────────────────
+
+  try {
     const verifyToken = generateSessionToken();
     await createToken(db, {
       userId: user.id,
@@ -68,23 +108,31 @@ export async function POST(request: Request): Promise<NextResponse> {
       expiresAt: new Date(Date.now() + VERIFY_TTL_MS),
     });
     await sendVerificationEmail(email, verifyToken);
+  } catch (error) {
+    console.error('[sign-up] verification-email step failed (non-fatal):', error);
+  }
 
+  try {
     await writeAudit(db, {
       event: 'signup',
       userId: user.id,
       ipAddress: clientIp(request),
       userAgent: userAgent(request),
     });
-
-    await startSession(user.id, request);
-    return json({ ok: true }, 201);
   } catch (error) {
-    if (isUniqueViolation(error)) {
-      // Enumeration-safe: respond exactly as for a fresh signup.
-      return json({ ok: true }, 201);
-    }
-    throw error;
+    console.error('[sign-up] audit write failed (non-fatal):', error);
   }
+
+  try {
+    await startSession(user.id, request);
+  } catch (error) {
+    // The account was created; we just couldn't set the cookie. Report success
+    // and tell the client to route the user to sign-in rather than the app.
+    console.error('[sign-up] session establishment failed (account WAS created):', error);
+    return json({ ok: true, signedIn: false }, 201);
+  }
+
+  return json({ ok: true, signedIn: true }, 201);
 }
 
 function isUniqueViolation(error: unknown): boolean {

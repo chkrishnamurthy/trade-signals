@@ -17,7 +17,8 @@ export default async function LoginPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const next = safeNext((await searchParams).next);
+  const params = await searchParams;
+  const next = safeNext(params.next);
   if ((await getSessionUser()) !== null) redirect(next);
-  return <LoginForm next={next} />;
+  return <LoginForm next={next} accountCreated={params.created === '1'} />;
 }
