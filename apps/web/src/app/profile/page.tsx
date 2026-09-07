@@ -1,5 +1,13 @@
 import { getUserWithProfile, listWatchlists } from '@equitywise/db';
 import { redirect } from 'next/navigation';
+import { AppShell } from '@/components/layout/app-shell';
+import {
+  PageContainer,
+  PageDescription,
+  PageHeader,
+  PageHeading,
+  PageTitle,
+} from '@/components/layout/page';
 import { ProfileTabs } from '@/components/profile/profile-tabs';
 import { getSessionUser } from '@/server/auth/require-user';
 import { getDatabase } from '@/server/db';
@@ -54,15 +62,22 @@ export default async function ProfilePage() {
     watchlists: watchlists.map((w) => ({ id: w.id, name: w.name })),
   };
 
+  // Same shell (sidebar + topbar) and full-width PageContainer as every other
+  // page, so the profile screen inherits the app's navigation and spacing
+  // instead of floating in a narrow centred column of its own.
   return (
-    <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-10">
-      <div className="mb-6 flex items-baseline justify-between gap-3">
-        <h1 className="font-semibold text-foreground text-xl tracking-tight">Your profile</h1>
-        <a href="/watchlists" className="text-muted-foreground text-sm hover:text-foreground">
-          ← Back to app
-        </a>
-      </div>
-      <ProfileTabs data={data} />
-    </main>
+    <AppShell>
+      <PageContainer>
+        <PageHeader>
+          <PageHeading>
+            <PageTitle>Your profile</PageTitle>
+            <PageDescription>
+              Manage how you appear across EquityWise and the settings that secure your account.
+            </PageDescription>
+          </PageHeading>
+        </PageHeader>
+        <ProfileTabs data={data} />
+      </PageContainer>
+    </AppShell>
   );
 }

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { ProfilePageData } from '@/app/profile/page';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardHeading, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AvatarUploader } from './avatar-uploader';
 import { ProfileForm } from './profile-form';
@@ -52,22 +53,44 @@ export function ProfileTabs({ data }: { data: ProfilePageData }) {
         </TabsList>
 
         <TabsContent value="profile" className="pt-2">
-          <div className="flex flex-col gap-6">
-            <AvatarUploader
-              displayName={displayName}
-              avatarUrl={avatarUrl}
-              onChange={setAvatarUrl}
-            />
-            <ProfileForm
-              initial={{ displayName, bio: bio ?? '', timezone, defaultWatchlistId }}
-              watchlists={data.watchlists}
-              onSaved={(v) => {
-                setDisplayName(v.displayName);
-                setBio(v.bio);
-                setTimezone(v.timezone);
-                setDefaultWatchlistId(v.defaultWatchlistId);
-              }}
-            />
+          {/* Two columns on wide screens so the profile tab fills the same
+              page width as the rest of the app instead of a single narrow
+              stack: a compact photo card beside the details form. */}
+          <div className="grid gap-4 lg:grid-cols-3">
+            <Card className="lg:col-span-1">
+              <CardHeader>
+                <CardHeading>
+                  <CardTitle>Profile photo</CardTitle>
+                </CardHeading>
+              </CardHeader>
+              <CardContent>
+                <AvatarUploader
+                  displayName={displayName}
+                  avatarUrl={avatarUrl}
+                  onChange={setAvatarUrl}
+                />
+              </CardContent>
+            </Card>
+
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <CardHeading>
+                  <CardTitle>Details &amp; preferences</CardTitle>
+                </CardHeading>
+              </CardHeader>
+              <CardContent>
+                <ProfileForm
+                  initial={{ displayName, bio: bio ?? '', timezone, defaultWatchlistId }}
+                  watchlists={data.watchlists}
+                  onSaved={(v) => {
+                    setDisplayName(v.displayName);
+                    setBio(v.bio);
+                    setTimezone(v.timezone);
+                    setDefaultWatchlistId(v.defaultWatchlistId);
+                  }}
+                />
+              </CardContent>
+            </Card>
           </div>
         </TabsContent>
 

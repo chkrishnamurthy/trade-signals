@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { ListIcon } from 'lucide-react';
+import { ListIcon, UserIcon } from 'lucide-react';
 import type { Route } from 'next';
 
 /**
@@ -51,6 +51,18 @@ export const NAVIGATION: readonly NavGroup[] = [
         label: 'My watchlists',
         icon: ListIcon,
         description: 'The names you have chosen to follow',
+      },
+    ],
+  },
+  {
+    label: 'Account',
+    items: [
+      {
+        status: 'ready',
+        href: '/profile',
+        label: 'Your profile',
+        icon: UserIcon,
+        description: 'Your details, preferences and account security',
       },
     ],
   },
