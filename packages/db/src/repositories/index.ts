@@ -19,11 +19,11 @@ export {
   createToken,
   createUser,
   deleteAllSessionsForUser,
-  deleteUser,
   deleteExpiredSessions,
   deleteExpiredTokens,
   deleteSession,
   deleteStaleAttempts,
+  deleteUser,
   getAttempt,
   getSessionContext,
   getUserForLogin,
@@ -77,6 +77,15 @@ export {
 } from './instruments.js';
 export type { InstrumentSetup } from './intraday-signals.js';
 export { liveSetupsForInstruments } from './intraday-signals.js';
+export type { ProfilePatch } from './profile.js';
+export {
+  deleteOtherSessionsForUser,
+  deleteSessionForUser,
+  emailInUse,
+  getAvatarUrl,
+  updateProfile,
+  updateUserEmail,
+} from './profile.js';
 export type {
   InstrumentSignal,
   SignalFactorInput,

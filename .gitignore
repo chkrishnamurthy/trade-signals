@@ -13,3 +13,7 @@ coverage/
 .DS_Store
 *.log
 .fyers-token.json
+
+# User-uploaded files (avatars), served from disk
+/uploads/
+uploads/

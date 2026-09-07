@@ -471,7 +471,15 @@ Repo conventions: `integer generatedAlwaysAsIdentity()` PKs, snake_case,
 
 Profile pictures are stored as **files on the VPS** (served by Nginx), re-encoded to
 a 256×256 WebP on upload (strips metadata, normalizes size); the DB stores only the
-path. The **future profile-edit page** writes only this table — never `auth_users`.
+path. The **profile-edit page** writes only this table — never `auth_users`.
+
+> **Built:** the profile-edit page now exists at `/profile` — see
+> [`profile-page-plan.md`](./profile-page-plan.md) for the as-built design. It
+> honours the "writes only `user_profiles`" rule above; email/password/delete are
+> separate re-authenticated `/api/account/*` routes. Two items from this section
+> are deferred there: **TOTP 2FA** (needs sign-in-flow enforcement) and the
+> **server-side avatar re-encode** (needs `sharp`); today avatars are stored
+> as-uploaded after strict magic-byte + size validation.
 
 ### `auth_credentials` (1:1 password store, split so a hash never rides a user read)
 | `user_id` PK FK cascade · `password_hash` (Argon2id) · `password_changed_at` · `updated_at` |

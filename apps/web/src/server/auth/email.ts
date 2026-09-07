@@ -78,3 +78,34 @@ export async function sendPasswordResetEmail(to: string, token: string): Promise
     text: `Reset your password:\n\n${link}\n\nThis link expires in 30 minutes and can be used once. If you didn't request this, ignore this message — your password stays unchanged.`,
   });
 }
+
+/**
+ * Sent to the NEW address when a signed-in user requests an email change. The
+ * swap happens only after this link is opened, proving the new inbox is reachable.
+ */
+export async function sendEmailChangeVerification(to: string, token: string): Promise<void> {
+  const link = `${baseUrl()}/account/verify-email?token=${encodeURIComponent(token)}`;
+  await deliver({
+    to,
+    subject: 'Confirm your new EquityWise email',
+    text: `Confirm this address as your new EquityWise email:\n\n${link}\n\nThis link expires in 30 minutes. If you didn't request this change, ignore this message — your account email stays unchanged.`,
+  });
+}
+
+/** A security notice to the OLD address after the email is changed away from it. */
+export async function sendEmailChangedNotice(oldEmail: string, newEmail: string): Promise<void> {
+  await deliver({
+    to: oldEmail,
+    subject: 'Your EquityWise email was changed',
+    text: `The email on your EquityWise account was changed to ${newEmail}.\n\nIf this was you, no action is needed. If it wasn't, reset your password immediately and contact support.`,
+  });
+}
+
+/** A security notice after a successful password change (not a reset). */
+export async function sendPasswordChangedNotice(to: string): Promise<void> {
+  await deliver({
+    to,
+    subject: 'Your EquityWise password was changed',
+    text: `Your EquityWise password was just changed, and every other session was signed out.\n\nIf this wasn't you, reset your password immediately and contact support.`,
+  });
+}
