@@ -38,7 +38,10 @@ export function SignupForm() {
         }),
       });
       if (res.ok) {
-        window.location.href = '/watchlists';
+        // `signedIn: false` means the account was created but the session cookie
+        // couldn't be set — send them to sign in rather than into a guarded page.
+        const data = (await res.json().catch(() => ({}))) as { signedIn?: boolean };
+        window.location.href = data.signedIn === false ? '/login?created=1' : '/watchlists';
         return;
       }
       const data = (await res.json().catch(() => ({}))) as { error?: string };
@@ -99,7 +102,10 @@ export function SignupForm() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
-          <p className="text-xs text-muted-foreground">At least 12 characters.</p>
+          <p className="text-xs text-muted-foreground">
+            At least 12 characters. A few memorable words work well — avoid common or reused
+            passwords, which are rejected for your safety.
+          </p>
         </div>
         <label className="flex items-start gap-2 text-sm text-muted-foreground">
           <Checkbox

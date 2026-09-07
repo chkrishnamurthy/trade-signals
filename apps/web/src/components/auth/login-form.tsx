@@ -9,7 +9,13 @@ import { Label } from '@/components/ui/label';
 import { API_ROUTES } from '@/lib/api-routes';
 import { AuthCard } from './auth-card';
 
-export function LoginForm({ next }: { next: string }) {
+export function LoginForm({
+  next,
+  accountCreated = false,
+}: {
+  next: string;
+  accountCreated?: boolean;
+}) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -57,6 +63,13 @@ export function LoginForm({ next }: { next: string }) {
       }
     >
       <form onSubmit={onSubmit} className="space-y-4">
+        {accountCreated && error === null ? (
+          <Alert>
+            <AlertDescription>
+              Your account was created. Please sign in to continue.
+            </AlertDescription>
+          </Alert>
+        ) : null}
         {error !== null ? (
           <Alert variant="destructive">
             <AlertDescription>{error}</AlertDescription>
