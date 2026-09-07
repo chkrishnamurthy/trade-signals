@@ -1,6 +1,6 @@
 'use client';
 
-import { LogOut, Shield } from 'lucide-react';
+import { LogOut, Shield, UserRound } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -61,11 +61,7 @@ export function UserMenu() {
         <Button variant="ghost" size="icon" aria-label="Account menu">
           {user.profile.avatarUrl !== null ? (
             // biome-ignore lint/performance/noImgElement: avatars are small user uploads, not layout images
-            <img
-              src={user.profile.avatarUrl}
-              alt=""
-              className="size-6 rounded-full object-cover"
-            />
+            <img src={user.profile.avatarUrl} alt="" className="size-6 rounded-full object-cover" />
           ) : (
             <span className="grid size-6 place-items-center rounded-full bg-primary/15 font-medium text-[11px] text-primary">
               {initials}
@@ -79,6 +75,11 @@ export function UserMenu() {
           <span className="font-normal text-muted-foreground text-xs">{user.email}</span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link href="/profile">
+            <UserRound className="mr-2 size-4" /> Profile
+          </Link>
+        </DropdownMenuItem>
         {user.role === 'admin' ? (
           <DropdownMenuItem asChild>
             <Link href="/admin">
@@ -86,6 +87,7 @@ export function UserMenu() {
             </Link>
           </DropdownMenuItem>
         ) : null}
+        <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => void logout(false)}>
           <LogOut className="mr-2 size-4" /> Log out
         </DropdownMenuItem>

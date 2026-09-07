@@ -69,6 +69,34 @@ export const API_ROUTES = {
   authResetConfirm: '/api/auth/reset/confirm',
 
   // ---------------------------------------------------------------------------
+  // Profile & Account self-service (/api/profile/*, /api/account/*)
+  // ---------------------------------------------------------------------------
+
+  /** PATCH /api/profile — update the signed-in user's profile (name, bio, timezone, preferences). */
+  profile: '/api/profile',
+
+  /** POST/DELETE /api/profile/avatar — upload or remove the avatar image. */
+  profileAvatar: '/api/profile/avatar',
+
+  /** POST /api/account/password — change password (requires the current password). */
+  accountPassword: '/api/account/password',
+
+  /** POST /api/account/email — request an email change (verification sent to the new address). */
+  accountEmail: '/api/account/email',
+
+  /** POST /api/account/email/confirm — finish an email change from the signed link. */
+  accountEmailConfirm: '/api/account/email/confirm',
+
+  /** GET/DELETE /api/account/sessions — list active sessions, or revoke one / all others. */
+  accountSessions: '/api/account/sessions',
+
+  /** POST /api/account/verify — resend the email-verification link. */
+  accountVerify: '/api/account/verify',
+
+  /** DELETE /api/account — permanently delete the signed-in user's account. */
+  account: '/api/account',
+
+  // ---------------------------------------------------------------------------
   // Market Data & Stock Search (/api/*)
   // ---------------------------------------------------------------------------
 
