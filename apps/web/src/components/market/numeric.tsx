@@ -25,7 +25,7 @@ import { cn } from '@/lib/utils';
 const figureVariants = cva('figure whitespace-nowrap', {
   variants: {
     size: {
-      xs: 'text-[0.6875rem]',
+      xs: 'text-2xs',
       sm: 'text-xs',
       md: 'text-sm',
       lg: 'text-base font-medium',

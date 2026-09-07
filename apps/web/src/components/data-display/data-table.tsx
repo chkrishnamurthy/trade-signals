@@ -347,7 +347,7 @@ export function DataTable<Row>({
                         {/* Only worth showing once a second rule exists — a lone
                             "1" next to the arrow is noise. */}
                         {active && sortRules.length > 1 && (
-                          <span className="text-[0.625rem] tabular-nums text-muted-foreground">
+                          <span className="text-3xs tabular-nums text-muted-foreground">
                             {ruleIndex + 1}
                           </span>
                         )}

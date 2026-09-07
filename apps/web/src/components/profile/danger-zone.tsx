@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { FormControl, FormField, FormLabel } from '@/components/forms/form-field';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -21,7 +22,6 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/toast';
 import { API_ROUTES } from '@/lib/api-routes';
 import { sendJson } from './request';
@@ -79,26 +79,28 @@ export function DangerZone() {
               </DialogDescription>
             </DialogHeader>
             <div className="flex flex-col gap-4">
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="deletePassword">Password</Label>
-                <Input
-                  id="deletePassword"
-                  type="password"
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="deleteConfirm">Type DELETE</Label>
-                <Input
-                  id="deleteConfirm"
-                  value={confirm}
-                  autoComplete="off"
-                  placeholder="DELETE"
-                  onChange={(e) => setConfirm(e.target.value)}
-                />
-              </div>
+              <FormField>
+                <FormLabel>Password</FormLabel>
+                <FormControl>
+                  <Input
+                    type="password"
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                </FormControl>
+              </FormField>
+              <FormField>
+                <FormLabel>Type DELETE</FormLabel>
+                <FormControl>
+                  <Input
+                    value={confirm}
+                    autoComplete="off"
+                    placeholder="DELETE"
+                    onChange={(e) => setConfirm(e.target.value)}
+                  />
+                </FormControl>
+              </FormField>
             </div>
             <DialogFooter>
               <DialogClose asChild>

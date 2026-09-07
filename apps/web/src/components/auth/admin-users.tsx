@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { API_ROUTES } from '@/lib/api-routes';
+import { istDate } from '@/lib/format';
 
 interface Row {
   id: number;
@@ -67,7 +68,7 @@ export function AdminUsers({ initial, adminId }: { initial: Row[]; adminId: numb
                   </Badge>
                 </td>
                 <td className="px-4 py-2.5 text-muted-foreground text-xs">
-                  {new Date(r.createdAt).toLocaleDateString()}
+                  {istDate(r.createdAt)}
                 </td>
                 <td className="px-4 py-2.5 text-right">
                   {isSelf ? (
@@ -78,9 +79,7 @@ export function AdminUsers({ initial, adminId }: { initial: Row[]; adminId: numb
                         variant="ghost"
                         size="sm"
                         disabled={busy === r.id}
-                        onClick={() =>
-                          patch(r.id, { role: r.role === 'admin' ? 'user' : 'admin' })
-                        }
+                        onClick={() => patch(r.id, { role: r.role === 'admin' ? 'user' : 'admin' })}
                       >
                         {r.role === 'admin' ? 'Demote' : 'Make admin'}
                       </Button>

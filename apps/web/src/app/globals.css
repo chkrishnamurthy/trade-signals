@@ -324,6 +324,16 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 
+  /* Micro type sizes below the `text-xs` (0.75rem) floor of the default scale.
+     Dense tables and overlines genuinely need these; before they were
+     hard-coded as `text-[0.6875rem]` / `text-[0.625rem]` across ~15 sites.
+     Now they are named steps of the scale, consumed via `Text` `micro`/`nano`
+     (see typography.tsx) or the `text-2xs`/`text-3xs` utilities directly. */
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
+  --text-3xs: 0.625rem;
+  --text-3xs--line-height: 0.875rem;
+
   --shadow-subtle: var(--shadow-subtle);
   --shadow-elevated: var(--shadow-elevated);
   --shadow-overlay: var(--shadow-overlay);
@@ -349,6 +359,19 @@
   :focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 2px;
+  }
+
+  /* Tailwind v4's preflight stopped setting a pointer cursor on buttons, so
+     every clickable control was rendering with the default arrow. Restore it
+     for interactive elements so a clickable always reads as one. Disabled
+     controls are excluded, and any component that deliberately opts out with a
+     `cursor-*` utility still wins (utilities beat this base rule). */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="tab"]:not([aria-disabled="true"]),
+  label[for],
+  summary {
+    cursor: pointer;
   }
 }
 

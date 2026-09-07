@@ -239,7 +239,7 @@ export function VolumeIndicator({
       )}
     >
       {relativeVolume.toFixed(2)}×
-      {unusual && <span className="text-[0.6875rem] text-warning">unusual</span>}
+      {unusual && <span className="text-2xs text-warning">unusual</span>}
     </span>
   );
 }

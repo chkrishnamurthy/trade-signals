@@ -189,7 +189,7 @@ export function WatchlistRowDetail({
         </DropdownMenu>
       </div>
 
-      <p className="mt-2 text-[0.6875rem] text-subtle-foreground">
+      <p className="mt-2 text-2xs text-subtle-foreground">
         Technical observation from stored indicator and signal data. Not a recommendation.
       </p>
     </div>

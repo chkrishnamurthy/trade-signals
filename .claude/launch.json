@@ -12,6 +12,12 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--dir", "tracker", "dev"],
       "port": 4321
+    },
+    {
+      "name": "storybook",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@equitywise/web", "storybook", "--no-open"],
+      "port": 6006
     }
   ]
 }

@@ -1,0 +1,44 @@
+name: CI
+
+# PR checks for the web app. Kept separate from deploy.yml (which runs on push to
+# main): this gate runs on pull requests and on branch pushes, never blocking or
+# racing the deploy. It deliberately runs only checks that pass in a clean CI
+# environment with no secrets or database — `typecheck` and `build-storybook`.
+# NOT run here (would be red for reasons unrelated to a given PR):
+#   - `pnpm lint`  — the repo has pre-existing Biome errors to clear first.
+#   - `pnpm test`  — the suite needs a live database, unavailable in CI.
+# The Storybook interaction/a11y test run is not wired yet (see
+# docs/design-system/contributing.md — blocked upstream).
+
+on:
+  pull_request:
+  push:
+    branches-ignore: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck (web)
+        run: pnpm --filter @equitywise/web typecheck
+
+      - name: Build Storybook
+        run: pnpm --filter @equitywise/web build-storybook

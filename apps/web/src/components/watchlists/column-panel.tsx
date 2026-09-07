@@ -165,7 +165,7 @@ export function ColumnPanel({
                                 <Label htmlFor={id} className="block cursor-pointer text-xs">
                                   {column.label}
                                 </Label>
-                                <p className="text-[0.6875rem] leading-snug text-muted-foreground">
+                                <p className="text-2xs leading-snug text-muted-foreground">
                                   {available ? (
                                     column.description
                                   ) : (

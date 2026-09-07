@@ -288,9 +288,7 @@ const CELLS: Record<string, (row: WatchlistRowDto) => ReactNode> = {
           </Badge>
         ))}
         {setups.length > shown.length && (
-          <span className="text-[0.6875rem] text-muted-foreground">
-            +{setups.length - shown.length}
-          </span>
+          <span className="text-2xs text-muted-foreground">+{setups.length - shown.length}</span>
         )}
       </span>
     );
@@ -333,14 +331,10 @@ const CELLS: Record<string, (row: WatchlistRowDto) => ReactNode> = {
     </Badge>
   ),
   indicatorDate: (row) => (
-    <span className="figure text-[0.6875rem] text-muted-foreground">
-      {row.indicatorDate ?? '—'}
-    </span>
+    <span className="figure text-2xs text-muted-foreground">{row.indicatorDate ?? '—'}</span>
   ),
   quoteAt: (row) => (
-    <span className="figure text-[0.6875rem] text-muted-foreground">
-      {fmt.istTime(row.quoteAt)}
-    </span>
+    <span className="figure text-2xs text-muted-foreground">{fmt.istTime(row.quoteAt)}</span>
   ),
 };
 

@@ -24,7 +24,9 @@ export function AuthCard({
       ) : null}
       <div className="mt-5">{children}</div>
       {footer !== undefined ? (
-        <div className="mt-5 border-t border-border pt-4 text-sm text-muted-foreground">{footer}</div>
+        <div className="mt-5 border-t border-border pt-4 text-sm text-muted-foreground">
+          {footer}
+        </div>
       ) : null}
     </div>
   );

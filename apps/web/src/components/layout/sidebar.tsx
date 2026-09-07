@@ -60,7 +60,7 @@ export function Sidebar({
             <p
               data-nav-heading
               style={{ '--nav-i': group.index } as React.CSSProperties}
-              className="absolute inset-x-2 bottom-0 truncate text-[0.6875rem] font-medium tracking-wide text-subtle-foreground uppercase"
+              className="absolute inset-x-2 bottom-0 truncate text-2xs font-medium tracking-wide text-subtle-foreground uppercase"
             >
               {group.label}
             </p>
@@ -173,7 +173,7 @@ function SidebarRow({
         <span
           data-nav-label
           style={stagger}
-          className="ml-auto pr-2 text-[0.625rem] tracking-wide text-subtle-foreground uppercase"
+          className="ml-auto pr-2 text-3xs tracking-wide text-subtle-foreground uppercase"
         >
           Soon
         </span>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { FormControl, FormField, FormLabel } from '@/components/forms/form-field';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -11,7 +12,6 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/toast';
 import { API_ROUTES } from '@/lib/api-routes';
 import { sendJson } from './request';
@@ -73,30 +73,32 @@ export function ChangeEmail({ currentEmail }: { currentEmail: string }) {
           </p>
         ) : null}
         <div className="grid gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="newEmail">New email</Label>
-            <Input
-              id="newEmail"
-              type="email"
-              autoComplete="email"
-              value={newEmail}
-              placeholder="you@example.com"
-              onChange={(e) => {
-                setNewEmail(e.target.value);
-                setSent(false);
-              }}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="emailPassword">Current password</Label>
-            <Input
-              id="emailPassword"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
+          <FormField>
+            <FormLabel>New email</FormLabel>
+            <FormControl>
+              <Input
+                type="email"
+                autoComplete="email"
+                value={newEmail}
+                placeholder="you@example.com"
+                onChange={(e) => {
+                  setNewEmail(e.target.value);
+                  setSent(false);
+                }}
+              />
+            </FormControl>
+          </FormField>
+          <FormField>
+            <FormLabel>Current password</FormLabel>
+            <FormControl>
+              <Input
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </FormControl>
+          </FormField>
         </div>
         <div className="flex justify-end">
           <Button size="sm" disabled={!canSubmit} onClick={() => void submit()}>

@@ -249,7 +249,7 @@ export function StockDetailDrawer({
                         ))}
                       </ul>
                     </SignalScore>
-                    <p className="mt-3 border-t border-border pt-2 text-[0.6875rem] text-subtle-foreground">
+                    <p className="mt-3 border-t border-border pt-2 text-2xs text-subtle-foreground">
                       Technical observation from indicator readings. Not a recommendation.
                     </p>
                   </>

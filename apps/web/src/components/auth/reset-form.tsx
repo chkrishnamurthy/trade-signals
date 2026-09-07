@@ -2,10 +2,10 @@
 
 import Link from 'next/link';
 import { type FormEvent, useState } from 'react';
+import { FormControl, FormDescription, FormField, FormLabel } from '@/components/forms/form-field';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { API_ROUTES } from '@/lib/api-routes';
 import { AuthCard } from './auth-card';
 
@@ -85,17 +85,18 @@ function RequestLink() {
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           ) : null}
-          <div className="space-y-1.5">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
+          <FormField>
+            <FormLabel>Email</FormLabel>
+            <FormControl>
+              <Input
+                type="email"
+                autoComplete="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </FormControl>
+          </FormField>
           <Button type="submit" className="w-full" disabled={busy}>
             {busy ? 'Sending…' : 'Send reset link'}
           </Button>
@@ -160,21 +161,22 @@ function SetNewPassword({ token }: { token: string }) {
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           ) : null}
-          <div className="space-y-1.5">
-            <Label htmlFor="password">New password</Label>
-            <Input
-              id="password"
-              type="password"
-              autoComplete="new-password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
+          <FormField>
+            <FormLabel>New password</FormLabel>
+            <FormControl>
+              <Input
+                type="password"
+                autoComplete="new-password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </FormControl>
+            <FormDescription>
               At least 12 characters. A few memorable words work well — avoid common or reused
               passwords.
-            </p>
-          </div>
+            </FormDescription>
+          </FormField>
           <Button type="submit" className="w-full" disabled={busy}>
             {busy ? 'Saving…' : 'Reset password'}
           </Button>

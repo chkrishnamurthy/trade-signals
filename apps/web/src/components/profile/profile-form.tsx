@@ -1,9 +1,9 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { FormControl, FormField, FormLabel, FormMessage } from '@/components/forms/form-field';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -112,42 +112,45 @@ export function ProfileForm({
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="displayName">Display name</Label>
-        <Input
-          id="displayName"
-          value={values.displayName}
-          maxLength={MAX_NAME}
-          aria-invalid={nameError !== null}
-          onChange={(e) => set('displayName', e.target.value)}
-        />
-        {nameError !== null ? <p className="text-destructive text-xs">{nameError}</p> : null}
-      </div>
+      <FormField invalid={nameError !== null}>
+        <FormLabel>Display name</FormLabel>
+        <FormControl>
+          <Input
+            value={values.displayName}
+            maxLength={MAX_NAME}
+            onChange={(e) => set('displayName', e.target.value)}
+          />
+        </FormControl>
+        <FormMessage>{nameError}</FormMessage>
+      </FormField>
 
-      <div className="flex flex-col gap-1.5">
+      <FormField>
         <div className="flex items-baseline justify-between">
-          <Label htmlFor="bio">Bio</Label>
-          <span className="text-muted-foreground text-xs">
+          <FormLabel>Bio</FormLabel>
+          <span className="text-xs text-muted-foreground">
             {values.bio.length}/{MAX_BIO}
           </span>
         </div>
-        <Textarea
-          id="bio"
-          rows={3}
-          value={values.bio}
-          maxLength={MAX_BIO}
-          placeholder="A short line about how you trade — optional."
-          onChange={(e) => set('bio', e.target.value)}
-        />
-      </div>
+        <FormControl>
+          <Textarea
+            rows={3}
+            value={values.bio}
+            maxLength={MAX_BIO}
+            placeholder="A short line about how you trade — optional."
+            onChange={(e) => set('bio', e.target.value)}
+          />
+        </FormControl>
+      </FormField>
 
       <div className="grid gap-5 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="timezone">Timezone</Label>
+        <FormField>
+          <FormLabel>Timezone</FormLabel>
           <Select value={values.timezone} onValueChange={(v) => set('timezone', v)}>
-            <SelectTrigger id="timezone" className="w-full">
-              <SelectValue />
-            </SelectTrigger>
+            <FormControl>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+            </FormControl>
             <SelectContent>
               {zones.map((z) => (
                 <SelectItem key={z} value={z}>
@@ -156,19 +159,21 @@ export function ProfileForm({
               ))}
             </SelectContent>
           </Select>
-        </div>
+        </FormField>
 
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="defaultWatchlist">Default watchlist</Label>
+        <FormField>
+          <FormLabel>Default watchlist</FormLabel>
           <Select
             value={
               values.defaultWatchlistId === null ? NO_DEFAULT : String(values.defaultWatchlistId)
             }
             onValueChange={(v) => set('defaultWatchlistId', v === NO_DEFAULT ? null : Number(v))}
           >
-            <SelectTrigger id="defaultWatchlist" className="w-full">
-              <SelectValue placeholder="None" />
-            </SelectTrigger>
+            <FormControl>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="None" />
+              </SelectTrigger>
+            </FormControl>
             <SelectContent>
               <SelectItem value={NO_DEFAULT}>None</SelectItem>
               {watchlists.map((w) => (
@@ -178,7 +183,7 @@ export function ProfileForm({
               ))}
             </SelectContent>
           </Select>
-        </div>
+        </FormField>
       </div>
 
       {/* Sticky save bar — only present while there are unsaved changes. */}

@@ -5,9 +5,14 @@ import { cn } from '@/lib/utils';
 /**
  * The typography scale.
  *
- * Eleven named roles, and nothing outside this file picks a font size. A page
+ * Thirteen named roles, and nothing outside this file picks a font size. A page
  * that wants "a slightly bigger caption" uses `caption` — the scale does not
  * grow to accommodate one screen.
+ *
+ * `micro` / `nano` are the two steps below `caption`, for dense tables and
+ * overlines. They map to the `--text-2xs` / `--text-3xs` tokens in globals.css;
+ * before they existed those sizes were hard-coded as arbitrary `text-[…]`
+ * values in a dozen components.
  *
  * The `metric` / `value` / `indicator` roles all carry `figure`, which turns on
  * tabular lining figures. That is what makes a column of prices line up.
@@ -21,6 +26,10 @@ const textVariants = cva('', {
       body: 'text-sm text-foreground',
       secondary: 'text-sm text-muted-foreground',
       caption: 'text-xs text-muted-foreground',
+      /** One step below caption — dense table cells, secondary metadata. */
+      micro: 'text-2xs text-muted-foreground',
+      /** The smallest legible step — overlines, chart-axis labels, dense chips. */
+      nano: 'text-3xs text-muted-foreground',
       label: 'text-xs font-medium text-foreground',
       overline: 'text-xs font-medium tracking-wide text-muted-foreground uppercase',
       /** A headline statistic: portfolio value, index level, sentiment score. */

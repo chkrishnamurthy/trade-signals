@@ -24,7 +24,7 @@ const badgeVariants = cva(
         destructive: 'bg-destructive-soft text-destructive ring-destructive-line',
       },
       size: {
-        sm: 'px-1 py-0 text-[0.6875rem]',
+        sm: 'px-1 py-0 text-2xs',
         default: '',
         lg: 'rounded-lg px-2 py-1 text-sm',
       },

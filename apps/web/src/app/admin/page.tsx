@@ -1,6 +1,18 @@
 import { listUsers } from '@equitywise/db';
+import { ArrowLeftIcon } from 'lucide-react';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { AdminUsers } from '@/components/auth/admin-users';
+import { AppShell } from '@/components/layout/app-shell';
+import {
+  PageActions,
+  PageContainer,
+  PageDescription,
+  PageHeader,
+  PageHeading,
+  PageTitle,
+} from '@/components/layout/page';
+import { Button } from '@/components/ui/button';
 import { getAdminUser } from '@/server/auth/require-user';
 import { getDatabase } from '@/server/db';
 
@@ -22,15 +34,28 @@ export default async function AdminPage() {
     createdAt: u.createdAt.toISOString(),
   }));
 
+  // Same shell (sidebar + topbar) and full-width PageContainer as every other
+  // page, so the admin screen inherits the app's navigation and spacing instead
+  // of floating in a narrow centred column of its own.
   return (
-    <main className="mx-auto max-w-4xl px-6 py-10">
-      <div className="mb-6 flex items-baseline justify-between">
-        <h1 className="font-semibold text-xl tracking-tight text-foreground">Users</h1>
-        <a href="/watchlists" className="text-muted-foreground text-sm hover:text-foreground">
-          ← Back to app
-        </a>
-      </div>
-      <AdminUsers initial={rows} adminId={admin.id} />
-    </main>
+    <AppShell>
+      <PageContainer>
+        <PageHeader>
+          <PageHeading>
+            <PageTitle>Users</PageTitle>
+            <PageDescription>Manage accounts, roles and access across EquityWise.</PageDescription>
+          </PageHeading>
+          <PageActions>
+            <Button asChild variant="outline" size="sm">
+              <Link href="/watchlists">
+                <ArrowLeftIcon />
+                Back to app
+              </Link>
+            </Button>
+          </PageActions>
+        </PageHeader>
+        <AdminUsers initial={rows} adminId={admin.id} />
+      </PageContainer>
+    </AppShell>
   );
 }

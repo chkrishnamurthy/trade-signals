@@ -1,5 +1,6 @@
 'use client';
 
+import { Slot } from '@radix-ui/react-slot';
 import type * as React from 'react';
 import { createContext, useContext, useId } from 'react';
 import { Label } from '@/components/ui/label';
@@ -79,6 +80,17 @@ export function FormField({ invalid = false, className, children, ...props }: Fo
 export function FormLabel({ className, ...props }: React.ComponentProps<typeof Label>) {
   const { controlId } = useFormField();
   return <Label htmlFor={controlId} className={className} {...props} />;
+}
+
+/**
+ * Wires the field's `id` / `aria-describedby` / `aria-invalid` onto its control
+ * via `Slot`, so a caller writes `<FormControl><Input …/></FormControl>` and the
+ * accessibility props cannot be forgotten or mistyped. The single child must
+ * forward props (every `ui/*` control does).
+ */
+export function FormControl({ children }: { children: React.ReactElement }) {
+  const props = useFieldControlProps();
+  return <Slot {...props}>{children}</Slot>;
 }
 
 export function FormDescription({ className, ...props }: React.ComponentProps<'p'>) {

@@ -2,10 +2,10 @@
 
 import Link from 'next/link';
 import { type FormEvent, useState } from 'react';
+import { FormControl, FormField, FormLabel } from '@/components/forms/form-field';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { API_ROUTES } from '@/lib/api-routes';
 import { AuthCard } from './auth-card';
 
@@ -49,7 +49,7 @@ export function LoginForm({
       title="Sign in"
       subtitle="Welcome back to EquityWise."
       footer={
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <Link href="/reset" className="hover:text-foreground">
             Forgot password?
           </Link>
@@ -75,28 +75,30 @@ export function LoginForm({
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         ) : null}
-        <div className="space-y-1.5">
-          <Label htmlFor="email">Email</Label>
-          <Input
-            id="email"
-            type="email"
-            autoComplete="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="password">Password</Label>
-          <Input
-            id="password"
-            type="password"
-            autoComplete="current-password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </div>
+        <FormField>
+          <FormLabel>Email</FormLabel>
+          <FormControl>
+            <Input
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </FormControl>
+        </FormField>
+        <FormField>
+          <FormLabel>Password</FormLabel>
+          <FormControl>
+            <Input
+              type="password"
+              autoComplete="current-password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </FormControl>
+        </FormField>
         <Button type="submit" className="w-full" disabled={busy}>
           {busy ? 'Signing in…' : 'Sign in'}
         </Button>

@@ -242,7 +242,7 @@ export function AddStocks({
                           <StockAvatar symbol={hit.symbol} />
                           <span className="flex min-w-0 flex-1 flex-col">
                             <span className="truncate text-xs font-medium">{hit.symbol}</span>
-                            <span className="truncate text-[0.6875rem] text-muted-foreground">
+                            <span className="truncate text-2xs text-muted-foreground">
                               {hit.name}
                             </span>
                           </span>

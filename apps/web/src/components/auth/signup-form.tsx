@@ -2,11 +2,11 @@
 
 import Link from 'next/link';
 import { type FormEvent, useState } from 'react';
+import { FormControl, FormDescription, FormField, FormLabel } from '@/components/forms/form-field';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { API_ROUTES } from '@/lib/api-routes';
 import { AuthCard } from './auth-card';
 
@@ -72,41 +72,44 @@ export function SignupForm() {
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         ) : null}
-        <div className="space-y-1.5">
-          <Label htmlFor="name">Name (optional)</Label>
-          <Input
-            id="name"
-            autoComplete="name"
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="email">Email</Label>
-          <Input
-            id="email"
-            type="email"
-            autoComplete="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="password">Password</Label>
-          <Input
-            id="password"
-            type="password"
-            autoComplete="new-password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          <p className="text-xs text-muted-foreground">
+        <FormField>
+          <FormLabel>Name (optional)</FormLabel>
+          <FormControl>
+            <Input
+              autoComplete="name"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+            />
+          </FormControl>
+        </FormField>
+        <FormField>
+          <FormLabel>Email</FormLabel>
+          <FormControl>
+            <Input
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </FormControl>
+        </FormField>
+        <FormField>
+          <FormLabel>Password</FormLabel>
+          <FormControl>
+            <Input
+              type="password"
+              autoComplete="new-password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </FormControl>
+          <FormDescription>
             At least 12 characters. A few memorable words work well — avoid common or reused
             passwords, which are rejected for your safety.
-          </p>
-        </div>
+          </FormDescription>
+        </FormField>
         <label className="flex items-start gap-2 text-sm text-muted-foreground">
           <Checkbox
             checked={accept}

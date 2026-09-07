@@ -205,9 +205,7 @@ export function FilterPanel({
                     >
                       <span className="truncate">{column.label}</span>
                       {hint !== '' && (
-                        <span className="shrink-0 text-[0.625rem] text-subtle-foreground">
-                          {hint}
-                        </span>
+                        <span className="shrink-0 text-3xs text-subtle-foreground">{hint}</span>
                       )}
                     </Label>
                     <Input

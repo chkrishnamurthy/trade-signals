@@ -58,7 +58,7 @@ export function StockAvatar({
     <span
       aria-hidden
       className={cn(
-        'grid size-7 shrink-0 place-items-center rounded-md bg-muted text-[0.6875rem] font-semibold text-muted-foreground',
+        'grid size-7 shrink-0 place-items-center rounded-md bg-muted text-2xs font-semibold text-muted-foreground',
         className,
       )}
     >

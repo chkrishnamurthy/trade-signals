@@ -17,10 +17,13 @@ export function ProfileTabs({ data }: { data: ProfilePageData }) {
   const [timezone, setTimezone] = useState(data.profile.timezone);
   const [defaultWatchlistId, setDefaultWatchlistId] = useState(data.profile.defaultWatchlistId);
 
-  const memberSince = new Date(data.memberSince).toLocaleDateString(undefined, {
+  // Pinned locale + timezone so SSR and the client agree (a runtime-locale
+  // format hydration-mismatches on a browser whose locale differs from the server).
+  const memberSince = new Intl.DateTimeFormat('en-GB', {
     year: 'numeric',
     month: 'short',
-  });
+    timeZone: 'Asia/Kolkata',
+  }).format(new Date(data.memberSince));
 
   return (
     <div className="flex flex-col gap-6">

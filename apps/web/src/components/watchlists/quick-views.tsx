@@ -132,7 +132,7 @@ export function QuickViews({
             >
               <span className="min-w-0 flex-1 truncate">{view.name}</span>
               {view.watchlistId === null && (
-                <span className="shrink-0 text-[0.625rem] text-muted-foreground">all lists</span>
+                <span className="shrink-0 text-3xs text-muted-foreground">all lists</span>
               )}
               <button
                 type="button"
@@ -184,9 +184,7 @@ export function QuickViews({
             <div className="flex items-center justify-between gap-3 rounded-md border border-border p-2.5">
               <Label htmlFor="view-global" className="cursor-pointer text-xs font-normal">
                 Available on every watchlist
-                <span className="block text-[0.6875rem] text-muted-foreground">
-                  Off: only on this one
-                </span>
+                <span className="block text-2xs text-muted-foreground">Off: only on this one</span>
               </Label>
               <Switch id="view-global" checked={global} onCheckedChange={setGlobal} />
             </div>

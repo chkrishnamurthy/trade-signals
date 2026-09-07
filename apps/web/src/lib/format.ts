@@ -111,6 +111,26 @@ export function istTime(iso: string | null): string {
 }
 
 /**
+ * `DD Mon YYYY` in IST — a deterministic, locale-independent date.
+ *
+ * A bare `toLocaleDateString()` formats in the runtime's own locale, so the
+ * server (dd/mm/yyyy) and a US-locale browser (m/d/yyyy) disagree and React
+ * throws a hydration mismatch. Pinning the locale and timezone makes SSR and the
+ * client agree, and the `Mon` form removes the dd/mm-vs-mm/dd ambiguity too.
+ */
+export function istDate(iso: string | null): string {
+  if (iso === null) return DASH;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return DASH;
+  return new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'Asia/Kolkata',
+  }).format(date);
+}
+
+/**
  * "12s ago" / "4m ago" / "2h ago", for data-freshness labels.
  *
  * `now` is a parameter rather than a `Date.now()` call so the caller controls

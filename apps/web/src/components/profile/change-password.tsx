@@ -1,6 +1,13 @@
 'use client';
 
 import { useState } from 'react';
+import {
+  FormControl,
+  FormDescription,
+  FormField,
+  FormLabel,
+  FormMessage,
+} from '@/components/forms/form-field';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -11,7 +18,6 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/toast';
 import { API_ROUTES } from '@/lib/api-routes';
 import { MIN_PASSWORD_LENGTH, validatePassword } from '@/server/auth/password-policy';
@@ -60,45 +66,50 @@ export function ChangePassword() {
         </CardHeading>
       </CardHeader>
       <CardContent className="flex flex-col gap-4 p-4">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="currentPassword">Current password</Label>
-          <Input
-            id="currentPassword"
-            type="password"
-            autoComplete="current-password"
-            value={current}
-            onChange={(e) => setCurrent(e.target.value)}
-          />
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="newPassword">New password</Label>
+        <FormField>
+          <FormLabel>Current password</FormLabel>
+          <FormControl>
             <Input
-              id="newPassword"
               type="password"
-              autoComplete="new-password"
-              value={next}
-              aria-invalid={strength !== null && !strength.ok}
-              onChange={(e) => setNext(e.target.value)}
+              autoComplete="current-password"
+              value={current}
+              onChange={(e) => setCurrent(e.target.value)}
             />
-            <p className="text-muted-foreground text-xs">
+          </FormControl>
+        </FormField>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <FormField>
+            <FormLabel>New password</FormLabel>
+            <FormControl>
+              {/* The strength hint stays a muted description (not an error), so the
+                  border is driven by an explicit aria-invalid rather than the
+                  field's invalid state. */}
+              <Input
+                type="password"
+                autoComplete="new-password"
+                value={next}
+                aria-invalid={strength !== null && !strength.ok}
+                onChange={(e) => setNext(e.target.value)}
+              />
+            </FormControl>
+            <FormDescription>
               {strength !== null && !strength.ok
                 ? strength.reason
                 : `At least ${MIN_PASSWORD_LENGTH} characters.`}
-            </p>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="confirmPassword">Confirm new password</Label>
-            <Input
-              id="confirmPassword"
-              type="password"
-              autoComplete="new-password"
-              value={confirm}
-              aria-invalid={mismatch}
-              onChange={(e) => setConfirm(e.target.value)}
-            />
-            {mismatch ? <p className="text-destructive text-xs">Passwords don't match.</p> : null}
-          </div>
+            </FormDescription>
+          </FormField>
+          <FormField invalid={mismatch}>
+            <FormLabel>Confirm new password</FormLabel>
+            <FormControl>
+              <Input
+                type="password"
+                autoComplete="new-password"
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+              />
+            </FormControl>
+            <FormMessage>{mismatch ? "Passwords don't match." : undefined}</FormMessage>
+          </FormField>
         </div>
         <div className="flex justify-end">
           <Button size="sm" disabled={!canSubmit} onClick={() => void submit()}>
