@@ -133,14 +133,22 @@ reviewable commit.
 - **Phase 1 — done** (`eb22e0d`). ScrollArea viewport now clamps (verified:
   clientHeight 480, isScrollable true); user-menu email truncates + "Log out of all
   devices" has an affordance. Overlay contract audited (Dropdown/Select/Sheet OK).
-- **Phase 2 — pinned columns done** (`8dcd5c2`). DataTable freezes a `pinned` column
-  (+ leading utility columns) with position:sticky; verified at 375px the Stock
-  column holds while scrolling brings Change% into view.
-  - _Remaining in Phase 2:_ the expanded row detail still lays out at the table's
-    full scroll width inside the x-scroll container, so its chart/snapshot can clip
-    (image 3). Pending decision: fix now or fold into the Phase 3 sweep.
-- **Phase 3 — not started** (profile ④ + remaining surfaces).
-- **Phase 4 — not started** (mobile stories + test gate).
+- **Phase 2 — done** (`8dcd5c2`, `f2b4e8e`). DataTable freezes a `pinned` column
+  (+ leading utility columns) with position:sticky — verified at 375px the Stock
+  column holds while scrolling brings Change% into view. The expanded row panel is
+  now pinned to the visible width (sticky, left 0) so its chart/snapshot no longer
+  ride the horizontal scroll — verified panel width tracks the 341px viewport, not
+  the 527px scroll width (image 3 fixed).
+- **Phase 3 — audit done, no code fixes needed.** Audited every remaining surface:
+  profile (form/tabs/sessions/2FA/change-email/change-password), auth, stock-drawer
+  (Sheet `w-full` on mobile), add-stocks (Dialog `w-full`), and the forms layer — all
+  responsive-clean (`min-w-0`, `truncate`, grids collapse, selects `w-full`).
+  - **④ profile sideways-scroll:** the current profile code is fully responsive, so
+    the production screenshot is a **stale build** (profile was reworked in `7fafa2b`).
+    Needs on-device confirmation after deploy — no code change identified.
+  - _Minor optional (not done):_ the Dialog is full-bleed on mobile (no side gutter).
+    Cosmetic, not overflow.
+- **Phase 4 — not started** (mobile-viewport stories + `addon-vitest` test gate).
 
 _Note: `pnpm lint` is red from pre-existing `main` errors (tracker/scripts/signup),
 unrelated to this branch; all files changed here are lint-clean._
