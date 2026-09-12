@@ -127,4 +127,20 @@ reviewable commit.
 
 ## Progress log
 
-- **Phase 0:** _in progress_ — branch created, baseline capture next.
+- **Phase 0 — done.** Reproduced at 375px in Storybook: table clips Change% (②);
+  filter `ScrollArea` measured not clamping (① — viewport 1002px, not scrollable).
+  ③ code-confirmed. ④ (profile) deferred — behind auth, needs on-device verify.
+- **Phase 1 — done** (`eb22e0d`). ScrollArea viewport now clamps (verified:
+  clientHeight 480, isScrollable true); user-menu email truncates + "Log out of all
+  devices" has an affordance. Overlay contract audited (Dropdown/Select/Sheet OK).
+- **Phase 2 — pinned columns done** (`8dcd5c2`). DataTable freezes a `pinned` column
+  (+ leading utility columns) with position:sticky; verified at 375px the Stock
+  column holds while scrolling brings Change% into view.
+  - _Remaining in Phase 2:_ the expanded row detail still lays out at the table's
+    full scroll width inside the x-scroll container, so its chart/snapshot can clip
+    (image 3). Pending decision: fix now or fold into the Phase 3 sweep.
+- **Phase 3 — not started** (profile ④ + remaining surfaces).
+- **Phase 4 — not started** (mobile stories + test gate).
+
+_Note: `pnpm lint` is red from pre-existing `main` errors (tracker/scripts/signup),
+unrelated to this branch; all files changed here are lint-clean._
