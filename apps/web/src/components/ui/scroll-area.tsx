@@ -15,9 +15,19 @@ function ScrollArea({ className, children, viewportClassName, ...props }: Scroll
       className={cn('relative', className)}
       {...props}
     >
+      {/* `max-h-[inherit]` is load-bearing: a caller puts the height cap on the
+          Root (e.g. `max-h-[70vh]`), but Radix's *Viewport* is the scroller, and a
+          plain `h-full` viewport resolves to the content height against a Root that
+          has only a max-height — so it renders full-size and never scrolls, spilling
+          the panel over the page. Inheriting the Root's max-height caps the viewport
+          itself, so it clamps and scrolls. A caller needing a different cap on the
+          viewport still overrides via `viewportClassName`. */}
       <ScrollAreaPrimitive.Viewport
         data-slot="scroll-area-viewport"
-        className={cn('size-full rounded-[inherit] outline-none', viewportClassName)}
+        className={cn(
+          'size-full max-h-[inherit] rounded-[inherit] outline-none',
+          viewportClassName,
+        )}
       >
         {children}
       </ScrollAreaPrimitive.Viewport>

@@ -1,6 +1,6 @@
 'use client';
 
-import { LogOut, Shield, UserRound } from 'lucide-react';
+import { LogOut, MonitorSmartphone, Shield, UserRound } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -70,9 +70,9 @@ export function UserMenu() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel className="flex flex-col gap-0.5">
-          <span className="font-medium">{user.profile.displayName}</span>
-          <span className="font-normal text-muted-foreground text-xs">{user.email}</span>
+        <DropdownMenuLabel className="flex min-w-0 flex-col gap-0.5">
+          <span className="truncate font-medium">{user.profile.displayName}</span>
+          <span className="truncate font-normal text-muted-foreground text-xs">{user.email}</span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
@@ -91,8 +91,8 @@ export function UserMenu() {
         <DropdownMenuItem onClick={() => void logout(false)}>
           <LogOut className="mr-2 size-4" /> Log out
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => void logout(true)} className="text-muted-foreground">
-          Log out of all devices
+        <DropdownMenuItem onClick={() => void logout(true)}>
+          <MonitorSmartphone className="mr-2 size-4" /> Log out of all devices
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
