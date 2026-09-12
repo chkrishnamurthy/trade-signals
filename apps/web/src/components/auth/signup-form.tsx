@@ -110,8 +110,12 @@ export function SignupForm() {
             passwords, which are rejected for your safety.
           </FormDescription>
         </FormField>
-        <label className="flex items-start gap-2 text-sm text-muted-foreground">
+        <label
+          htmlFor="accept-terms"
+          className="flex items-start gap-2 text-sm text-muted-foreground"
+        >
           <Checkbox
+            id="accept-terms"
             checked={accept}
             onCheckedChange={(v) => setAccept(v === true)}
             className="mt-0.5"

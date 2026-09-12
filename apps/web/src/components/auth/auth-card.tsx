@@ -1,5 +1,6 @@
-import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { Brand } from '@/components/layout/brand';
+import { cn } from '@/lib/utils';
 
 /** The framed card every auth page shares: brand, title, body, and a footer link. */
 export function AuthCard({
@@ -7,18 +8,23 @@ export function AuthCard({
   subtitle,
   children,
   footer,
+  className,
 }: {
   title: string;
   subtitle?: string;
   children: ReactNode;
   footer?: ReactNode;
+  className?: string | undefined;
 }) {
   return (
-    <div className="w-full max-w-sm rounded-xl border border-border bg-card p-6 shadow-sm">
-      <Link href="/watchlists" className="text-sm font-semibold tracking-tight text-foreground">
-        EquityWise
-      </Link>
-      <h1 className="mt-4 text-lg font-semibold tracking-tight text-foreground">{title}</h1>
+    <div
+      className={cn(
+        'mx-auto w-full max-w-sm rounded-lg border border-border bg-card p-6 shadow-elevated',
+        className,
+      )}
+    >
+      <Brand className="text-sm" />
+      <h1 className="mt-5 text-xl font-semibold tracking-tight text-foreground">{title}</h1>
       {subtitle !== undefined ? (
         <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
       ) : null}

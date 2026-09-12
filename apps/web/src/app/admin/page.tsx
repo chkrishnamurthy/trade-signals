@@ -17,7 +17,10 @@ import { getAdminUser } from '@/server/auth/require-user';
 import { getDatabase } from '@/server/db';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Admin — EquityWise' };
+export const metadata = {
+  title: 'Admin — EquityWise',
+  robots: { index: false, follow: false },
+};
 
 export default async function AdminPage() {
   const admin = await getAdminUser();

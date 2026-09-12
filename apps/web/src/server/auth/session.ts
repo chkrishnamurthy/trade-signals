@@ -4,7 +4,12 @@ import { getDatabase } from '@/server/db';
 import { clearSessionCookie, readSessionCookieValue, setSessionCookie } from './cookies';
 import { authSessionSecret } from './env';
 import { clientIp, userAgent } from './request';
-import { generateSessionToken, hashToken, readCookieValue, SESSION_ABSOLUTE_MS } from './session-token';
+import {
+  generateSessionToken,
+  hashToken,
+  readCookieValue,
+  SESSION_ABSOLUTE_MS,
+} from './session-token';
 
 /**
  * Session lifecycle. Creating a session mints a fresh token every time (so there

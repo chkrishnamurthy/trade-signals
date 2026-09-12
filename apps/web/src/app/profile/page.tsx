@@ -13,7 +13,10 @@ import { getSessionUser } from '@/server/auth/require-user';
 import { getDatabase } from '@/server/db';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Your profile — EquityWise' };
+export const metadata = {
+  title: 'Your profile — EquityWise',
+  robots: { index: false, follow: false },
+};
 
 /** Everything the profile UI needs, already scrubbed of secrets. */
 export interface ProfilePageData {

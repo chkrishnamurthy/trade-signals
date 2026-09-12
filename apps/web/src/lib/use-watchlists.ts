@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useToast } from '@/components/ui/toast';
+import { API_ROUTES } from './api-routes';
 import type { Feed } from './feed';
 import type { MarketErrorDto } from './market-types';
-import { API_ROUTES } from './api-routes';
 import { redirectToLoginIfUnauthenticated } from './session-guard';
 import type {
   SavedViewDto,
@@ -100,7 +100,9 @@ export function useWatchlists() {
   // --- Sidebar --------------------------------------------------------------
 
   const loadLists = useCallback(async (): Promise<readonly WatchlistSummaryDto[] | null> => {
-    const result = await request<{ watchlists: readonly WatchlistSummaryDto[] }>(API_ROUTES.watchlists);
+    const result = await request<{ watchlists: readonly WatchlistSummaryDto[] }>(
+      API_ROUTES.watchlists,
+    );
     if (!mounted.current) return null;
 
     if (!result.ok) {

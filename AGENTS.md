@@ -36,6 +36,7 @@ base later. The design docs above still describe the fuller original product as
 historical intent; that intraday code no longer exists in the tree.
 
 Design & architecture docs: `docs/README.md`, `docs/architecture.md` (topology & stack),
+`docs/architecture/seo-architecture.md` (SEO & Googlebot indexing engine),
 `docs/domain-and-contracts.md` (schema, indicators & invariants), `docs/api-reference.md`,
 `docs/operations-runbook.md`, and `docs/planning/storybook-plan.md`.
 

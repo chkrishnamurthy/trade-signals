@@ -1,6 +1,6 @@
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import type { Database } from '../client.js';
-import { instruments } from '../schema/index.js';
+import { corporateActions, instruments } from '../schema/index.js';
 
 /**
  * The instrument universe.
@@ -165,4 +165,55 @@ export async function listActiveInstruments(
     })
     .from(instruments)
     .where(and(...conditions));
+}
+
+export interface CorporateActionRow {
+  readonly kind: string;
+  readonly exDate: string;
+  readonly ratio: string;
+  readonly note: string | null;
+}
+
+export async function listCorporateActions(
+  db: Database,
+  instrumentId: number,
+  limit = 10,
+): Promise<CorporateActionRow[]> {
+  return db
+    .select({
+      kind: corporateActions.kind,
+      exDate: corporateActions.exDate,
+      ratio: corporateActions.ratio,
+      note: corporateActions.note,
+    })
+    .from(corporateActions)
+    .where(eq(corporateActions.instrumentId, instrumentId))
+    .orderBy(desc(corporateActions.exDate))
+    .limit(limit);
+}
+
+export async function getInstrumentBySymbol(
+  db: Database,
+  symbol: string,
+  exchange = 'NSE',
+): Promise<{
+  id: number;
+  symbol: string;
+  name: string;
+  isin: string | null;
+  exchange: string;
+} | null> {
+  const [row] = await db
+    .select({
+      id: instruments.id,
+      symbol: instruments.symbol,
+      name: instruments.name,
+      isin: instruments.isin,
+      exchange: instruments.exchange,
+    })
+    .from(instruments)
+    .where(and(eq(instruments.symbol, symbol), eq(instruments.exchange, exchange)))
+    .limit(1);
+
+  return row ?? null;
 }

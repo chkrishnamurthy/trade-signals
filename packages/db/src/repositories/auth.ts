@@ -147,10 +147,7 @@ export async function updatePassword(
 
 /** Admin-only: promote/demote a role. */
 export async function setUserRole(db: Database, userId: number, role: UserRole): Promise<void> {
-  await db
-    .update(authUsers)
-    .set({ role, updatedAt: sql`now()` })
-    .where(eq(authUsers.id, userId));
+  await db.update(authUsers).set({ role, updatedAt: sql`now()` }).where(eq(authUsers.id, userId));
 }
 
 /**
@@ -168,10 +165,7 @@ export async function setUserStatus(
   userId: number,
   status: UserStatus,
 ): Promise<void> {
-  await db
-    .update(authUsers)
-    .set({ status, updatedAt: sql`now()` })
-    .where(eq(authUsers.id, userId));
+  await db.update(authUsers).set({ status, updatedAt: sql`now()` }).where(eq(authUsers.id, userId));
 }
 
 export interface AdminUserRow extends AuthUser {

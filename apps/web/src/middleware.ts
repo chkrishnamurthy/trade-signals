@@ -17,13 +17,26 @@ import { SESSION_COOKIE_NAME } from '@/server/auth/cookie-config';
 
 function isPublic(pathname: string): boolean {
   return (
+    pathname === '/' ||
     pathname === '/login' ||
     pathname === '/signup' ||
     pathname === '/verify' ||
     pathname === '/reset' ||
     pathname === '/privacy' ||
     pathname === '/terms' ||
-    pathname.startsWith('/api/auth/')
+    pathname === '/about' ||
+    pathname === '/methodology' ||
+    pathname === '/data-sources' ||
+    pathname === '/disclaimer' ||
+    pathname === '/contact' ||
+    pathname.startsWith('/stocks') ||
+    pathname.startsWith('/screener') ||
+    pathname.startsWith('/sectors') ||
+    pathname.startsWith('/api/auth/') ||
+    pathname.startsWith('/api/og/') ||
+    pathname === '/api/search' ||
+    pathname === '/robots.txt' ||
+    pathname === '/sitemap.xml'
   );
 }
 

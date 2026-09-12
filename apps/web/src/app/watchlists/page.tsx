@@ -5,6 +5,7 @@ export const metadata: Metadata = {
   title: 'My watchlists — EquityWise',
   description:
     'Group the stocks you follow and track their prices and technical readings side by side.',
+  robots: { index: false, follow: false },
 };
 
 /** Reads live quotes on every request; never prerender. */

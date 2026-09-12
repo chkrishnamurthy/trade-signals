@@ -39,7 +39,10 @@ export async function POST(request: Request): Promise<NextResponse> {
     if (lock.locked) {
       return NextResponse.json(
         { error: 'Too many attempts. Try again later.', code: 'RATE_LIMIT' },
-        { status: 429, headers: { 'Cache-Control': 'no-store', 'Retry-After': String(lock.retryAfterSec) } },
+        {
+          status: 429,
+          headers: { 'Cache-Control': 'no-store', 'Retry-After': String(lock.retryAfterSec) },
+        },
       );
     }
   }
