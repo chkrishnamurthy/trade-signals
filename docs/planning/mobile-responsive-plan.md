@@ -148,7 +148,24 @@ reviewable commit.
     Needs on-device confirmation after deploy — no code change identified.
   - _Minor optional (not done):_ the Dialog is full-bleed on mobile (no side gutter).
     Cosmetic, not overflow.
-- **Phase 4 — not started** (mobile-viewport stories + `addon-vitest` test gate).
+- **Phase 4 — mostly done.** Added `Mobile` (375px) stories for the watchlist Table
+  (pinned-columns behaviour) and the FilterPanel — the latter with a `play()`
+  regression guard that opens the panel and asserts the filter list scrolls inside
+  itself (clientHeight 480 < scrollHeight 1002), verified passing at 375px.
+  Documented the two new patterns (pinned/frozen columns; height-capped overlays
+  scroll internally) in `docs/design-system/contributing.md`.
+  - _Deferred:_ the `addon-vitest` CI test gate (auto-runs these `play()`/a11y checks
+    headlessly). It's a new dependency and needs the pre-existing `main` lint cleaned
+    first — it belongs to the design-system enforcement track (DS plan §8/Phase 6),
+    which the Storybook preview already points to. The stories/guards are written so
+    they become CI tests for free the day that lands.
+
+## Remaining before this branch is done
+
+- **④ profile** — verify on a real phone after deploy (current code is clean).
+- **On-device pass** of the watchlist at 375px (pinned columns, expanded panel) in the
+  real app, since local pages are auth-gated.
+- **Merge/deploy** — open a PR from `fix/mobile-responsive` → `main` (deploys on merge).
 
 _Note: `pnpm lint` is red from pre-existing `main` errors (tracker/scripts/signup),
 unrelated to this branch; all files changed here are lint-clean._

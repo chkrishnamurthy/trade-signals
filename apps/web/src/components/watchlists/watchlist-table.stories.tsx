@@ -45,6 +45,18 @@ export const Ready: Story = {
   args: { rows: WATCHLIST_ROWS, status: 'ready' },
 };
 
+/**
+ * At 375px the pinned Stock column freezes while the rest of the table scrolls
+ * horizontally, so Change% stays reachable without losing the ticker — and an
+ * expanded row's panel is held to the viewport width rather than riding that
+ * scroll. Scroll the table sideways and expand a row to see both.
+ */
+export const Mobile: Story = {
+  args: { rows: WATCHLIST_ROWS, status: 'ready' },
+  globals: { viewport: { value: 'mobile', isRotated: false } },
+  parameters: { layout: 'fullscreen' },
+};
+
 export const Loading: Story = {
   args: { rows: [], status: 'loading' },
 };

@@ -72,6 +72,15 @@ Sheet drawer below `lg` and a permanent column at `lg`+.
   they do not squeeze two items onto one cramped line.
 - **Overlays fit the viewport**: a `Sheet` is `w-full sm:max-w-…`; a `Popover`/menu
   is capped with `w-[min(24rem,calc(100vw-2rem))]` so it never exceeds the screen.
+- **Height-capped overlays scroll internally.** Put the height cap on the
+  `ScrollArea` (its Viewport inherits it and becomes the scroller) — a tall Popover
+  (e.g. the Filters panel) must scroll inside itself, never grow past the screen and
+  spill over the page.
+- **Dense tables may freeze their identity column.** Mark it `pinned` (see the
+  watchlist column registry / `DataTableColumn.pinned`) so the ticker stays visible
+  while the price columns scroll — the prices must never scroll away from the name
+  they belong to. An expanded row panel inside a scrolling table is pinned to the
+  visible width so its chart/detail doesn't ride the horizontal scroll.
 - **Tap targets** stay comfortable on touch (don't shrink interactive controls
   below the primitive's default height on mobile).
 
