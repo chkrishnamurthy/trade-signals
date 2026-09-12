@@ -191,6 +191,27 @@ export async function reorderWatchlists(
   });
 }
 
+/**
+ * Every distinct instrument id across all of the owner's watchlists.
+ *
+ * Owner-scoped by the join on `ownerId`. Used by surfaces that filter to "the
+ * names I follow" without caring which list each sits on — the announcements
+ * and institutional-flow pages, for instance.
+ */
+export async function listOwnerWatchedInstrumentIds(
+  db: Database,
+  ownerId: number,
+): Promise<number[]> {
+  const rows = await db
+    .selectDistinct({ instrumentId: watchlistItems.instrumentId })
+    .from(watchlistItems)
+    .innerJoin(
+      watchlists,
+      and(eq(watchlists.id, watchlistItems.watchlistId), eq(watchlists.ownerId, ownerId)),
+    );
+  return rows.map((row) => row.instrumentId);
+}
+
 export interface WatchlistMember {
   readonly instrumentId: number;
   readonly symbol: string;

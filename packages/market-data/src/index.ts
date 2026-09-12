@@ -4,6 +4,16 @@
  * Business logic imports from here. It must never import `@equitywise/fyers` or any
  * other provider package directly.
  */
+export type {
+  DealSide,
+  DealType,
+  DisclosureSource,
+  InstitutionParticipant,
+  RawAnnouncement,
+  RawDeal,
+  RawFiiDiiFlow,
+  RawShareholding,
+} from './disclosures.js';
 export type { MarketDataFailure } from './errors.js';
 export { isMarketDataProviderError, MarketDataProviderError } from './errors.js';
 export type {

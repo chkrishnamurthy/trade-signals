@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { ListIcon, UserIcon } from 'lucide-react';
+import { LandmarkIcon, ListIcon, MegaphoneIcon, SunriseIcon, UserIcon } from 'lucide-react';
 import type { Route } from 'next';
 
 /**
@@ -47,10 +47,36 @@ export const NAVIGATION: readonly NavGroup[] = [
     items: [
       {
         status: 'ready',
+        href: '/today',
+        label: 'Market Brief',
+        icon: SunriseIcon,
+        description: 'A technical summary of the latest completed session',
+      },
+      {
+        status: 'ready',
         href: '/watchlists',
         label: 'My watchlists',
         icon: ListIcon,
         description: 'The names you have chosen to follow',
+      },
+    ],
+  },
+  {
+    label: 'Market record',
+    items: [
+      {
+        status: 'ready',
+        href: '/announcements',
+        label: 'Announcements',
+        icon: MegaphoneIcon,
+        description: 'Official corporate filings from the exchanges',
+      },
+      {
+        status: 'ready',
+        href: '/flows',
+        label: 'Institutional Flow',
+        icon: LandmarkIcon,
+        description: 'FII/DII activity, bulk & block deals, and shareholding',
       },
     ],
   },

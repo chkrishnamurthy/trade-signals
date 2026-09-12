@@ -38,6 +38,21 @@ export {
   updatePassword,
   writeAudit,
 } from './auth.js';
+export type {
+  BriefFactorRow,
+  BriefIndicatorRow,
+  BriefSignalRow,
+  IndicatorSession,
+  WatchlistMembershipRef,
+} from './brief.js';
+export {
+  factorsForSignals,
+  indicatorsForInstrumentsOnDate,
+  ownerHasWatchlists,
+  recentIndicatorSessions,
+  signalsForInstrumentsOnDate,
+  watchlistMembershipForOwner,
+} from './brief.js';
 export type { BarQuery, CandleInput, CloseAnchor, StoredBar } from './candles.js';
 export {
   applyAdjustments,
@@ -53,6 +68,30 @@ export {
   invalidateProviderCredential,
   saveProviderCredential,
 } from './credentials.js';
+export type {
+  AnnouncementQuery,
+  AnnouncementResult,
+  AnnouncementRow,
+  AnnouncementUpsert,
+  DealQuery,
+  DealRow,
+  DealUpsert,
+  FiiDiiRow,
+  FiiDiiUpsert,
+  ShareholdingRow,
+  ShareholdingUpsert,
+} from './disclosures.js';
+export {
+  getAnnouncements,
+  getRecentDeals,
+  getRecentFiiDii,
+  latestShareholdingForInstruments,
+  listAnnouncementCategories,
+  upsertAnnouncements,
+  upsertDeals,
+  upsertFiiDiiFlows,
+  upsertShareholding,
+} from './disclosures.js';
 export type {
   IndicatorUpsert,
   InstrumentIndicators,
@@ -116,6 +155,7 @@ export {
   getWatchlistLayout,
   getWatchlistMembers,
   listGlobalWatchlistViews,
+  listOwnerWatchedInstrumentIds,
   listWatchlists,
   listWatchlistViews,
   removeWatchlistItems,
