@@ -60,6 +60,12 @@ export interface DataTableColumn<Row> {
   sortValue?: ((row: Row) => number | string | null) | undefined;
   /** Below this breakpoint the column is dropped rather than squeezed. */
   hideBelow?: 'sm' | 'md' | 'lg' | 'xl' | undefined;
+  /**
+   * Freezes the column to the left edge while the rest of the table scrolls
+   * horizontally. The leading utility columns (expand chevron, selection) freeze
+   * along with it, so a ticker never scrolls away from its own row controls.
+   */
+  pinned?: boolean | undefined;
   /** Excluded from the column-visibility menu when false. */
   hideable?: boolean | undefined;
   headerClassName?: string | undefined;
@@ -72,6 +78,21 @@ const HIDE_BELOW_CLASS: Record<NonNullable<DataTableColumn<unknown>['hideBelow']
   lg: 'hidden lg:table-cell',
   xl: 'hidden xl:table-cell',
 };
+
+/**
+ * A frozen (pinned) column stays put while the rest scrolls sideways — the
+ * readable answer to a dense financial table on a narrow screen, where the price
+ * columns must never scroll away from the ticker they belong to.
+ *
+ * A `position: sticky` cell is NOT painted over by the row/header background, so
+ * it needs its own opaque fill or the scrolling columns show through it; the
+ * hover/selected variants keep the frozen cell in step with its row, and the
+ * raised z-index lets the rest of the row pass beneath it. `left` is set inline
+ * because the offset depends on how many leading utility columns precede it.
+ */
+const PINNED_HEAD_CLASS = 'sticky z-20 bg-surface-sunken';
+const PINNED_CELL_CLASS =
+  'sticky z-10 bg-surface [tr:hover_&]:bg-accent/60 [[data-state=selected]_&]:bg-accent';
 
 export interface DataTableProps<Row> {
   data: readonly Row[];
@@ -174,6 +195,14 @@ export function DataTable<Row>({
     () => columns.filter((column) => !hidden.has(column.id)),
     [columns, hidden],
   );
+
+  // Frozen-column geometry. The leading utility columns (expand chevron, then
+  // selection) are each 2rem (`w-8`) wide, so a pinned data column sits that far
+  // in from the left edge and the utility columns freeze in front of it.
+  const leadingUtilCount =
+    (renderExpanded !== undefined ? 1 : 0) + (selection !== undefined ? 1 : 0);
+  const hasPinned = visibleColumns.some((column) => column.pinned === true);
+  const pinnedLeft = `${leadingUtilCount * 2}rem`;
 
   const sorted = useMemo(() => {
     // Controlled: the caller sorted before handing the rows over. Re-sorting
@@ -289,12 +318,20 @@ export function DataTable<Row>({
           <TableHeader sticky={stickyHeader}>
             <TableRow className="hover:bg-transparent">
               {renderExpanded !== undefined && (
-                <TableHead className="w-8 pr-0">
+                <TableHead
+                  className={cn('w-8 pr-0', hasPinned && PINNED_HEAD_CLASS)}
+                  style={hasPinned ? { left: 0 } : undefined}
+                >
                   <span className="sr-only">Expand row</span>
                 </TableHead>
               )}
               {selection !== undefined && (
-                <TableHead className="w-8 pr-0">
+                <TableHead
+                  className={cn('w-8 pr-0', hasPinned && PINNED_HEAD_CLASS)}
+                  style={
+                    hasPinned ? { left: renderExpanded !== undefined ? '2rem' : 0 } : undefined
+                  }
+                >
                   <Checkbox
                     checked={allSelected}
                     onCheckedChange={toggleAll}
@@ -313,8 +350,10 @@ export function DataTable<Row>({
                     numeric={column.numeric === true}
                     className={cn(
                       column.hideBelow !== undefined && HIDE_BELOW_CLASS[column.hideBelow],
+                      column.pinned === true && cn(PINNED_HEAD_CLASS, 'border-r border-border'),
                       column.headerClassName,
                     )}
+                    style={column.pinned === true ? { left: pinnedLeft } : undefined}
                     aria-sort={
                       active ? (rule.direction === 'asc' ? 'ascending' : 'descending') : 'none'
                     }
@@ -382,7 +421,11 @@ export function DataTable<Row>({
                     onClick={rowClick === undefined ? undefined : () => rowClick(row)}
                   >
                     {renderExpanded !== undefined && (
-                      <TableCell className="w-8 pr-0" onClick={(event) => event.stopPropagation()}>
+                      <TableCell
+                        className={cn('w-8 pr-0', hasPinned && PINNED_CELL_CLASS)}
+                        style={hasPinned ? { left: 0 } : undefined}
+                        onClick={(event) => event.stopPropagation()}
+                      >
                         <button
                           type="button"
                           onClick={() => onToggleExpand?.(row)}
@@ -399,7 +442,15 @@ export function DataTable<Row>({
                       </TableCell>
                     )}
                     {selection !== undefined && (
-                      <TableCell className="w-8 pr-0" onClick={(event) => event.stopPropagation()}>
+                      <TableCell
+                        className={cn('w-8 pr-0', hasPinned && PINNED_CELL_CLASS)}
+                        style={
+                          hasPinned
+                            ? { left: renderExpanded !== undefined ? '2rem' : 0 }
+                            : undefined
+                        }
+                        onClick={(event) => event.stopPropagation()}
+                      >
                         <Checkbox
                           checked={isSelected}
                           onCheckedChange={(checked) => {
@@ -418,8 +469,10 @@ export function DataTable<Row>({
                         numeric={column.numeric === true}
                         className={cn(
                           column.hideBelow !== undefined && HIDE_BELOW_CLASS[column.hideBelow],
+                          column.pinned === true && cn(PINNED_CELL_CLASS, 'border-r border-border'),
                           column.cellClassName,
                         )}
+                        style={column.pinned === true ? { left: pinnedLeft } : undefined}
                       >
                         {column.cell(row)}
                       </TableCell>
