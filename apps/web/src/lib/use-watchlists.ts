@@ -5,6 +5,7 @@ import { useToast } from '@/components/ui/toast';
 import type { Feed } from './feed';
 import type { MarketErrorDto } from './market-types';
 import { API_ROUTES } from './api-routes';
+import { redirectToLoginIfUnauthenticated } from './session-guard';
 import type {
   SavedViewDto,
   WatchlistDetailDto,
@@ -47,6 +48,11 @@ async function request<T>(url: string, init?: RequestInit): Promise<MutationResu
       cache: 'no-store',
       headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
     });
+    // A revoked/expired session that slipped past the edge is rejected here as a
+    // 401. Leave the frame and go to login rather than reporting a load failure.
+    if (redirectToLoginIfUnauthenticated(response)) {
+      return { ok: false, error: { error: 'Not signed in.', code: 'UNAUTHENTICATED' } };
+    }
     const payload = await readJson(response);
     if (!response.ok) {
       return {
@@ -118,6 +124,7 @@ export function useWatchlists() {
         signal: controller.signal,
         cache: 'no-store',
       });
+      if (redirectToLoginIfUnauthenticated(response)) return 60;
       const payload = await readJson(response);
       if (!mounted.current || activeIdRef.current !== id) return 60;
 

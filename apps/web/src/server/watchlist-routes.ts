@@ -1,6 +1,7 @@
 import 'server-only';
 import { NextResponse } from 'next/server';
 import type { ZodType } from 'zod';
+import { clearStaleSessionCookie } from './auth/http';
 import { MarketDataError, toMarketError } from './errors';
 
 /**
@@ -79,10 +80,13 @@ export async function handle(run: () => Promise<NextResponse>): Promise<NextResp
       });
     }
     const failure = error instanceof MarketDataError ? error : toMarketError(error);
-    return jsonError(failure.message, failure.status, {
+    const response = jsonError(failure.message, failure.status, {
       code: failure.code,
       ...(failure.remedy === undefined ? {} : { remedy: failure.remedy }),
     });
+    // A rejected session leaves a dead cookie behind; clear it so the edge gate
+    // stops waving the user past it (see clearStaleSessionCookie).
+    return failure.status === 401 ? clearStaleSessionCookie(response) : response;
   }
 }
 

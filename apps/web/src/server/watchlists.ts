@@ -80,7 +80,11 @@ const REFRESH_CLOSED_SECONDS = 300;
 async function requireOwnerId(): Promise<number> {
   const user = await getSessionUser();
   if (user === null) {
-    throw new MarketDataError('Not signed in.', { code: 'UNAUTHENTICATED', status: 401 });
+    throw new MarketDataError('Not signed in.', {
+      code: 'UNAUTHENTICATED',
+      status: 401,
+      remedy: 'Sign in and try again.',
+    });
   }
   return user.id;
 }
