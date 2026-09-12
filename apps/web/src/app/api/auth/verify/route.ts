@@ -26,7 +26,9 @@ export async function POST(request: Request): Promise<NextResponse> {
   const db = getDatabase();
   const userId = await consumeToken(db, hashToken(parsed.data.token), 'email_verify');
   if (userId === null) {
-    return fail('This verification link is invalid or has expired.', 400, { code: 'INVALID_TOKEN' });
+    return fail('This verification link is invalid or has expired.', 400, {
+      code: 'INVALID_TOKEN',
+    });
   }
 
   await markEmailVerified(db, userId);

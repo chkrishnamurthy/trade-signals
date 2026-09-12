@@ -3,7 +3,10 @@ import { VerifyEmailClient } from '@/components/profile/verify-email-client';
 import { getSessionUser } from '@/server/auth/require-user';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Confirm email change — EquityWise' };
+export const metadata = {
+  title: 'Confirm email change — EquityWise',
+  robots: { index: false, follow: false },
+};
 
 /**
  * Landing page for the email-change confirmation link. Requires a signed-in

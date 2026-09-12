@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  generateSessionToken,
-  hashToken,
-  readCookieValue,
-  signCookieValue,
-} from './session-token';
+import { generateSessionToken, hashToken, readCookieValue, signCookieValue } from './session-token';
 
 const SECRET = 'test-secret-at-least-32-bytes-long-000';
 

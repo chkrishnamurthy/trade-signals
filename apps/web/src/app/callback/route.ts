@@ -10,8 +10,8 @@ import {
 } from '@equitywise/providers-fyers';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
-import { toMarketError } from '@/server/errors';
 import { API_ROUTES } from '@/lib/api-routes';
+import { toMarketError } from '@/server/errors';
 import { OAUTH_STATE_COOKIE } from '../api/fyers/connect/route';
 
 /**

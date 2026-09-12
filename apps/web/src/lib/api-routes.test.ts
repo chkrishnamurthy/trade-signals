@@ -29,7 +29,9 @@ describe('API_ROUTES', () => {
     it('formats history endpoint with and without options', () => {
       expect(API_ROUTES.history('RELIANCE')).toBe('/api/history/RELIANCE');
       expect(API_ROUTES.history('M&M', { tf: '1D' })).toBe('/api/history/M%26M?tf=1D');
-      expect(API_ROUTES.history('TCS', { tf: '5m', days: 10 })).toBe('/api/history/TCS?tf=5m&days=10');
+      expect(API_ROUTES.history('TCS', { tf: '5m', days: 10 })).toBe(
+        '/api/history/TCS?tf=5m&days=10',
+      );
       expect(API_ROUTES.history('INFY', { days: 30 })).toBe('/api/history/INFY?days=30');
     });
   });

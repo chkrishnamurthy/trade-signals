@@ -68,10 +68,12 @@ export {
   screen,
   upsertDailyIndicators,
 } from './indicators.js';
-export type { InstrumentRow, InstrumentUpsert } from './instruments.js';
+export type { CorporateActionRow, InstrumentRow, InstrumentUpsert } from './instruments.js';
 export {
   ensureInstruments,
+  getInstrumentBySymbol,
   listActiveInstruments,
+  listCorporateActions,
   resolveInstrumentIds,
   syncInstruments,
 } from './instruments.js';

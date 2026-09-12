@@ -154,10 +154,7 @@ export const authTokens = pgTable(
   (table) => [
     uniqueIndex('auth_tokens_token_idx').on(table.tokenHash),
     index('auth_tokens_user_idx').on(table.userId),
-    check(
-      'auth_tokens_purpose_check',
-      sql`${table.purpose} in ('email_verify', 'password_reset')`,
-    ),
+    check('auth_tokens_purpose_check', sql`${table.purpose} in ('email_verify', 'password_reset')`),
   ],
 );
 
