@@ -24,6 +24,12 @@ export {
 } from './auth.js';
 export { dailyCandles } from './candles.js';
 export { providerCredentials } from './credentials.js';
+export {
+  bulkBlockDeals,
+  corporateAnnouncements,
+  fiiDiiFlows,
+  shareholdingPatterns,
+} from './disclosures.js';
 export { dailyIndicators } from './indicators.js';
 export { corporateActions, ingestionRuns, instruments } from './instruments.js';
 export { intradaySignals } from './intraday.js';

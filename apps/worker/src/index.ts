@@ -4,6 +4,12 @@ import { createContext, type WorkerContext } from './context.js';
 import { authMaintenance } from './jobs/auth-maintenance.js';
 import { computeIndicators } from './jobs/compute-indicators.js';
 import { ingestDailyCandles } from './jobs/ingest-daily.js';
+import {
+  ingestAnnouncements,
+  ingestDeals,
+  ingestFiiDii,
+  ingestShareholding,
+} from './jobs/ingest-disclosures.js';
 import { refreshProviderCredential } from './jobs/refresh-credential.js';
 import { createLogger, errorFields } from './log.js';
 import { createScheduler, type Scheduler } from './scheduler.js';
@@ -52,6 +58,14 @@ const SCHEDULES = {
   ingestRetry: '30 18 * * 1-5',
   /** Reap expired auth rows nightly (daily — auth is not market-hours bound). */
   authMaintenance: '30 3 * * *',
+  /** Corporate announcements: a few sweeps through the trading day. */
+  ingestAnnouncements: '20 10,13,16,19 * * 1-5',
+  /** FII/DII cash figures settle after the session; pull in the evening. */
+  ingestFiiDii: '45 19 * * 1-5',
+  /** Bulk & block deals are published after close. */
+  ingestDeals: '50 18 * * 1-5',
+  /** Shareholding changes quarterly; a weekly sweep is ample. */
+  ingestShareholding: '15 6 * * 6',
 } as const;
 
 function buildScheduler(context: WorkerContext): Scheduler {
@@ -83,6 +97,34 @@ function buildScheduler(context: WorkerContext): Scheduler {
         schedule: SCHEDULES.authMaintenance,
         run: async () => {
           await authMaintenance(context, log.child('auth-maintenance'));
+        },
+      },
+      {
+        name: 'ingest-announcements',
+        schedule: SCHEDULES.ingestAnnouncements,
+        run: async () => {
+          await ingestAnnouncements(context, log.child('ingest-announcements'));
+        },
+      },
+      {
+        name: 'ingest-fii-dii',
+        schedule: SCHEDULES.ingestFiiDii,
+        run: async () => {
+          await ingestFiiDii(context, log.child('ingest-fii-dii'));
+        },
+      },
+      {
+        name: 'ingest-deals',
+        schedule: SCHEDULES.ingestDeals,
+        run: async () => {
+          await ingestDeals(context, log.child('ingest-deals'));
+        },
+      },
+      {
+        name: 'ingest-shareholding',
+        schedule: SCHEDULES.ingestShareholding,
+        run: async () => {
+          await ingestShareholding(context, log.child('ingest-shareholding'));
         },
       },
       {
@@ -173,7 +215,16 @@ async function main(): Promise<void> {
     const jobName = args[onceIndex + 1];
     if (jobName === undefined) {
       log.error('--once requires a job name', {
-        available: ['refresh-credential', 'ingest-daily', 'compute-indicators', 'ingest-retry'],
+        available: [
+          'refresh-credential',
+          'ingest-daily',
+          'compute-indicators',
+          'ingest-retry',
+          'ingest-announcements',
+          'ingest-fii-dii',
+          'ingest-deals',
+          'ingest-shareholding',
+        ],
       });
       process.exitCode = 1;
       await context.close();
