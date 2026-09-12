@@ -82,6 +82,7 @@ export function WatchlistTable({
         // click would reorder nothing and look broken.
         sortValue: column.source === null ? undefined : column.value,
         hideBelow: column.hideBelow,
+        pinned: column.pinned === true,
         headerClassName: column.pinned === true ? 'min-w-40' : undefined,
       })),
     [columnIds],
