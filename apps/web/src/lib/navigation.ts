@@ -1,11 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import {
-  LayoutGridIcon,
-  LineChartIcon,
-  ListIcon,
-  SlidersHorizontalIcon,
-  UserIcon,
-} from 'lucide-react';
+import { ListIcon, UserIcon } from 'lucide-react';
 import type { Route } from 'next';
 
 /**
@@ -57,32 +51,6 @@ export const NAVIGATION: readonly NavGroup[] = [
         label: 'My watchlists',
         icon: ListIcon,
         description: 'The names you have chosen to follow',
-      },
-    ],
-  },
-  {
-    label: 'Research',
-    items: [
-      {
-        status: 'ready',
-        href: '/stocks',
-        label: 'Stocks',
-        icon: LineChartIcon,
-        description: 'Directory of all active NSE listed equities',
-      },
-      {
-        status: 'ready',
-        href: '/screener',
-        label: 'Screener',
-        icon: SlidersHorizontalIcon,
-        description: 'Technical scans for RSI, moving averages, and volume',
-      },
-      {
-        status: 'ready',
-        href: '/sectors',
-        label: 'Sectors',
-        icon: LayoutGridIcon,
-        description: 'Browse Indian equities by market sectors',
       },
     ],
   },

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import robots from '@/app/robots';
-import sitemap, { SCREENER_PRESETS } from '@/app/sitemap';
+import sitemap from '@/app/sitemap';
 import {
   generateBreadcrumbSchema,
   generateFaqSchema,
@@ -25,7 +25,7 @@ describe('SEO Schema Generators', () => {
 
     expect(website['@type']).toBe('WebSite');
     expect(website.url).toBe(SITE_URL);
-    expect(website.potentialAction['@type']).toBe('SearchAction');
+    expect(website.publisher['@id']).toBe(`${SITE_URL}/#organization`);
   });
 
   it('generates 1-indexed BreadcrumbList schema with normalized URLs', () => {
@@ -110,12 +110,13 @@ describe('Robots Configuration', () => {
 
     const allowList = Array.isArray(rules!.allow) ? rules!.allow : [rules!.allow];
     expect(allowList).toContain('/');
-    expect(allowList).toContain('/stocks');
-    expect(allowList).toContain('/screener');
-    expect(allowList).toContain('/sectors');
     expect(allowList).toContain('/about');
     expect(allowList).toContain('/methodology');
     expect(allowList).toContain('/disclaimer');
+    // The private application surface must never be advertised as crawlable.
+    expect(allowList).not.toContain('/stocks');
+    expect(allowList).not.toContain('/screener');
+    expect(allowList).not.toContain('/sectors');
 
     const disallowList = Array.isArray(rules!.disallow) ? rules!.disallow : [rules!.disallow];
     expect(disallowList).toContain('/api/');
@@ -130,7 +131,7 @@ describe('Robots Configuration', () => {
 describe('Sitemap Generation', () => {
   it('produces valid XML sitemap entries with priority and changeFrequency', async () => {
     const items = await sitemap();
-    expect(items.length).toBeGreaterThan(15);
+    expect(items.length).toBeGreaterThan(5);
 
     // Root homepage
     const homeEntry = items.find((e) => e.url === SITE_URL);
@@ -138,17 +139,14 @@ describe('Sitemap Generation', () => {
     expect(homeEntry?.priority).toBe(1.0);
     expect(homeEntry?.changeFrequency).toBe('daily');
 
-    // Public hubs
-    expect(items.some((e) => e.url === `${SITE_URL}/stocks`)).toBe(true);
-    expect(items.some((e) => e.url === `${SITE_URL}/screener`)).toBe(true);
-    expect(items.some((e) => e.url === `${SITE_URL}/sectors`)).toBe(true);
+    // Public content pages
     expect(items.some((e) => e.url === `${SITE_URL}/about`)).toBe(true);
     expect(items.some((e) => e.url === `${SITE_URL}/methodology`)).toBe(true);
 
-    // Screener presets
-    for (const preset of SCREENER_PRESETS) {
-      expect(items.some((e) => e.url === `${SITE_URL}/screener/${preset.slug}`)).toBe(true);
-    }
+    // The removed research surface must not be present
+    expect(items.some((e) => e.url.startsWith(`${SITE_URL}/stocks`))).toBe(false);
+    expect(items.some((e) => e.url.startsWith(`${SITE_URL}/screener`))).toBe(false);
+    expect(items.some((e) => e.url.startsWith(`${SITE_URL}/sectors`))).toBe(false);
 
     // No private URLs should ever appear in the sitemap
     for (const entry of items) {

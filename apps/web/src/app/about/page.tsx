@@ -163,13 +163,13 @@ export default async function AboutPage() {
 
           <section className="border-t border-border pt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div>
-              <h3 className="font-semibold text-foreground">Ready to explore Indian equities?</h3>
+              <h3 className="font-semibold text-foreground">Ready to track Indian equities?</h3>
               <p className="text-xs text-muted-foreground">
-                Access live NSE screener presets and technical analysis.
+                Build a watchlist and follow its technical indicators at every NSE close.
               </p>
             </div>
             <Button asChild variant="default">
-              <Link href="/screener">Launch Stock Screener</Link>
+              <Link href="/watchlists">Open My Watchlists</Link>
             </Button>
           </section>
         </article>

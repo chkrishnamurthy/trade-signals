@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { SCREENER_PRESETS } from '@/app/sitemap';
 import { Brand } from '@/components/layout/brand';
 
 export function PublicFooter() {
@@ -8,13 +7,13 @@ export function PublicFooter() {
   return (
     <footer className="border-t border-border bg-surface/50 text-muted-foreground">
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 gap-8 md:grid-cols-4 lg:grid-cols-5">
+        <div className="grid grid-cols-1 gap-8 md:grid-cols-3 lg:grid-cols-4">
           {/* Brand & Mission */}
           <div className="space-y-4 md:col-span-2">
             <Brand showWordmark={true} />
             <p className="max-w-sm text-xs leading-relaxed text-muted-foreground">
-              EquityWise provides high-precision technical tracking, market screening, and indicator
-              analysis for National Stock Exchange (NSE) equities. Decision support, not execution.
+              EquityWise provides high-precision technical tracking and indicator analysis for
+              National Stock Exchange (NSE) equities. Decision support, not execution.
             </p>
             <div className="text-xs text-subtle-foreground">
               Data synchronized daily at market close (15:30 IST).
@@ -24,48 +23,24 @@ export function PublicFooter() {
           {/* Quick Links */}
           <div className="space-y-3">
             <h4 className="text-xs font-semibold tracking-wider text-foreground uppercase">
-              Markets & Research
+              Product
             </h4>
             <ul className="space-y-2 text-xs">
-              <li>
-                <Link href="/stocks" className="transition-colors hover:text-foreground">
-                  All NSE Stocks
-                </Link>
-              </li>
-              <li>
-                <Link href="/screener" className="transition-colors hover:text-foreground">
-                  Stock Screener
-                </Link>
-              </li>
-              <li>
-                <Link href="/sectors" className="transition-colors hover:text-foreground">
-                  Market Sectors
-                </Link>
-              </li>
               <li>
                 <Link href="/watchlists" className="transition-colors hover:text-foreground">
-                  Personal Watchlists
+                  My Watchlists
                 </Link>
               </li>
-            </ul>
-          </div>
-
-          {/* Screener Presets */}
-          <div className="space-y-3">
-            <h4 className="text-xs font-semibold tracking-wider text-foreground uppercase">
-              Popular Screeners
-            </h4>
-            <ul className="space-y-2 text-xs">
-              {SCREENER_PRESETS.slice(0, 5).map((preset) => (
-                <li key={preset.slug}>
-                  <Link
-                    href={`/screener/${preset.slug}`}
-                    className="transition-colors hover:text-foreground"
-                  >
-                    {preset.name}
-                  </Link>
-                </li>
-              ))}
+              <li>
+                <Link href="/methodology" className="transition-colors hover:text-foreground">
+                  Indicator Methodology
+                </Link>
+              </li>
+              <li>
+                <Link href="/data-sources" className="transition-colors hover:text-foreground">
+                  Market Data Sources
+                </Link>
+              </li>
             </ul>
           </div>
 

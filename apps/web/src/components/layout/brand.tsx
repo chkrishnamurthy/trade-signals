@@ -1,3 +1,4 @@
+import type { Route } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -11,14 +12,17 @@ import { cn } from '@/lib/utils';
  */
 export function Brand({
   showWordmark = true,
+  href = '/watchlists',
   className,
 }: {
   showWordmark?: boolean | undefined;
+  /** Where the mark links. Defaults to the app home; public surfaces pass `/`. */
+  href?: Route | undefined;
   className?: string | undefined;
 }) {
   return (
     <Link
-      href="/watchlists"
+      href={href}
       className={cn('flex items-center gap-2 rounded-md font-semibold tracking-tight', className)}
     >
       {/* The tile carries its own corner radius in the alpha channel, so it

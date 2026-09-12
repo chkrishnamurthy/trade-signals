@@ -5,7 +5,7 @@ import { SITE_URL } from '@/lib/seo/schema';
  * Production robots.txt configuration for EquityWise.io.
  *
  * Directs search engine crawlers to high-value public pages:
- * - Homepage, Stocks directory, Stock detail pages, Screener presets, Sector hubs, Trust & Legal pages.
+ * - Homepage and the Trust, Methodology & Legal pages.
  *
  * Prevents crawling and indexing of:
  * - Internal APIs (/api/*)
@@ -20,12 +20,6 @@ export default function robots(): MetadataRoute.Robots {
         userAgent: '*',
         allow: [
           '/',
-          '/stocks',
-          '/stocks/*',
-          '/screener',
-          '/screener/*',
-          '/sectors',
-          '/sectors/*',
           '/about',
           '/methodology',
           '/data-sources',

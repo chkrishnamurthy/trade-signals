@@ -29,9 +29,6 @@ function isPublic(pathname: string): boolean {
     pathname === '/data-sources' ||
     pathname === '/disclaimer' ||
     pathname === '/contact' ||
-    pathname.startsWith('/stocks') ||
-    pathname.startsWith('/screener') ||
-    pathname.startsWith('/sectors') ||
     pathname.startsWith('/api/auth/') ||
     pathname.startsWith('/api/og/') ||
     pathname === '/api/search' ||

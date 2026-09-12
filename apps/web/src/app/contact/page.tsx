@@ -119,17 +119,14 @@ export default async function ContactPage() {
           </div>
 
           <div className="mt-12 rounded-xl border border-border/80 bg-surface/20 p-8 text-center">
-            <h2 className="text-lg font-semibold text-foreground">Looking for Stock Research?</h2>
+            <h2 className="text-lg font-semibold text-foreground">Start tracking your names</h2>
             <p className="mt-2 text-xs text-muted-foreground max-w-md mx-auto">
-              You can instantly search over 500+ NSE equities or run custom technical screeners
-              right now without waiting.
+              Build a watchlist of NSE equities and follow their technical indicators, returns, and
+              signals — updated at every trading close.
             </p>
             <div className="mt-6 flex flex-wrap justify-center gap-3">
               <Button asChild variant="default" size="sm">
-                <Link href="/screener">Open Stock Screener</Link>
-              </Button>
-              <Button asChild variant="outline" size="sm">
-                <Link href="/stocks">Explore Stocks</Link>
+                <Link href="/watchlists">Open My Watchlists</Link>
               </Button>
             </div>
           </div>

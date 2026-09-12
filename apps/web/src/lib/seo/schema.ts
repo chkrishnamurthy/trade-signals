@@ -37,14 +37,6 @@ export interface WebSiteSchema {
   name: string;
   publisher: { '@id': string };
   description: string;
-  potentialAction: {
-    '@type': 'SearchAction';
-    target: {
-      '@type': 'EntryPoint';
-      urlTemplate: string;
-    };
-    'query-input': string;
-  };
 }
 
 export interface OrganizationAndWebSiteGraph {
@@ -80,14 +72,6 @@ export function generateOrganizationAndWebsiteSchema(): OrganizationAndWebSiteGr
         name: SITE_NAME,
         publisher: { '@id': `${SITE_URL}/#organization` },
         description: SITE_DESCRIPTION,
-        potentialAction: {
-          '@type': 'SearchAction',
-          target: {
-            '@type': 'EntryPoint',
-            urlTemplate: `${SITE_URL}/stocks?q={search_term_string}`,
-          },
-          'query-input': 'required name=search_term_string',
-        },
       },
     ],
   };
