@@ -8,7 +8,7 @@ import {
   ChevronsUpDownIcon,
   SettingsIcon,
 } from 'lucide-react';
-import { Fragment, type ReactNode, useCallback, useMemo, useState } from 'react';
+import { Fragment, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -187,6 +187,23 @@ export function DataTable<Row>({
   const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set());
   const [page, setPage] = useState(0);
 
+  // An expanded row's panel spans every column, so inside the horizontally
+  // scrolling table it lays out at the full *scroll* width — wider than a phone
+  // — and its chart/snapshot clip. Track the visible width and pin the panel to
+  // it (sticky, left 0) so the detail stays viewport-wide whatever the table's
+  // horizontal scroll is doing. Only needed when something is expandable.
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [viewportWidth, setViewportWidth] = useState<number | null>(null);
+  useEffect(() => {
+    const el = rootRef.current;
+    if (el === null || renderExpanded === undefined) return;
+    const measure = () => setViewportWidth(el.clientWidth);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [renderExpanded]);
+
   // One shape for both modes, so the header renders from a single source.
   const isControlled = controlledSort !== undefined;
   const sortRules = isControlled ? controlledSort : internalSort === null ? [] : [internalSort];
@@ -305,7 +322,7 @@ export function DataTable<Row>({
   }
 
   return (
-    <div className={cn('flex min-w-0 flex-col', className)}>
+    <div ref={rootRef} className={cn('flex min-w-0 flex-col', className)}>
       {columnVisibility && (
         <div className="flex justify-end px-3 py-1.5">
           <ColumnVisibilityMenu columns={columns} hidden={hidden} onChange={setHidden} />
@@ -494,7 +511,15 @@ export function DataTable<Row>({
                         }
                         className="whitespace-normal p-0"
                       >
-                        {renderExpanded(row)}
+                        {/* Pinned to the visible width so the panel never rides
+                            the table's horizontal scroll (which would clip its
+                            chart/snapshot on a narrow screen). */}
+                        <div
+                          className="sticky left-0"
+                          style={viewportWidth === null ? undefined : { width: viewportWidth }}
+                        >
+                          {renderExpanded(row)}
+                        </div>
                       </TableCell>
                     </TableRow>
                   )}
