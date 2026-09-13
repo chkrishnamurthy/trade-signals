@@ -59,6 +59,8 @@ export function toQuote(symbol: string, quote: FyersQuote): Quote {
     low: quote.low,
     previousClose: quote.previousClose,
     averagePrice: quote.averagePrice,
+    bid: quote.bid ?? null,
+    ask: quote.ask ?? null,
     volume: quote.volume,
     timestamp: quote.timestamp,
   };

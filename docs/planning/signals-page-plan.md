@@ -1,8 +1,11 @@
 # Intraday Signals — prompt assessment and proposed build
 
-Status: **Ready for product/strategy review; implementation has not started.**
-Reviewed against the working tree on 12 September 2026. The accompanying interactive
-mockup is a design preview with synthetic fixtures, not a running strategy.
+Status: **Implemented locally; live rollout validation remains.**
+The user approved proceeding with the plan, cards, visible strategy names, a private
+paper journal, and prospective trigger observations. See [implementation notes](signals-implementation.md)
+for the current source map, verification results and operational differences. The
+original assessment below is retained as design history; its pre-build inventory is
+not a description of the current tree. Storybook fixtures are explicitly simulated.
 
 ## Recommendation
 
@@ -12,8 +15,8 @@ durable lifecycle, and personal paper journal. Treating it as a frontend-only
 change would produce an attractive screen without trustworthy signals.
 
 Keep the supplied strategy and its numerical thresholds as the starting specification.
-Resolve the two product decisions and validate the benchmark data below before implementing the engine. The review
-checkpoint follows the user's request to plan and build after review.
+The two product decisions below were adopted for implementation. Benchmark validation
+is enforced at runtime and remains a required live rollout check.
 
 ### Confirmed design requirements
 
@@ -27,7 +30,7 @@ checkpoint follows the user's request to plan and build after review.
   A quality control opens the evidence breakdown; an Inspect action opens details.
   Keep filtering, URL state, sorting and pagination independent of the presentation.
 
-### Two decisions for review and one integration validation
+### Adopted decisions and remaining live integration validation
 
 1. **Paper research scope.** The prompt requests capital/risk sizing and a paper-trade
    form; `AGENTS.md` currently excludes order-shaped forms and uses technical-level
@@ -108,8 +111,8 @@ examples still reference deleted engines and Clerk; neither describes today's ap
 | Data limitations | `packages/market-data/src/types.ts`, `packages/fyers/src/quotes.ts` | Normalized Quote/Tick lack bid/ask. Raw quote parsing knows bid/ask but the normalized quote drops them. Extend through the adapter with nullable paise values, timestamp/provenance and capabilities. Unknown spread cannot pass a required gate. |
 | Reusable math | `packages/core/src/indicators/{vwap,adx,atr,moving-average}.ts`, `intraday-indicators.test.ts` | Session VWAP, ADX, ATR, SMA-seeded EMA remain. Build strategy-specific opening range, volume baseline, trend/pullback/confirmation, score and lifecycle around them. |
 | Worker | `apps/worker/src/index.ts`, `scheduler.ts`, `context.ts`, `universe.ts` | Credential, daily ingestion, daily indicators, auth maintenance only. No minute ingestion or intraday scanner is scheduled. Reuse context, scheduling, overlap prevention and structured logging. |
-| Candle storage | `packages/db/src/schema/candles.ts`, `repositories/candles.ts` | Minute/daily tables remain; current repository exposes daily operations, not a complete intraday aggregation path. Add append-only minute ingestion and session-aligned five-minute reads with completeness checks. |
-| Old intraday storage | `packages/db/src/schema/intraday.ts`, `repositories/intraday-signals.ts`, migrations | Main intraday_signals table and watchlist reader remain. The factors/events/runs and engine were removed. Existing states/constraints do not implement the new lifecycle. Existing uniqueness is per stock + setup + date, weaker than the prompt's one-active-per-stock rule. |
+| Candle storage | `packages/db/src/schema/candles.ts`, `repositories/candles.ts` | Daily storage remains. Migration 0012 dropped minute storage; migration 0016 now restores it. Add append-only minute ingestion and session-aligned five-minute reads with completeness checks. |
+| Old intraday storage | `packages/db/src/schema/intraday.ts`, `repositories/intraday-signals.ts`, migrations | The old intraday schema/repository were removed. The implementation creates dedicated VWAP signal, event, observation and journal tables; it does not restore the removed engine. |
 | Universe | `config/indices.yaml`, `apps/worker/src/universe.ts` | Reuse configured `nifty50` constituents/sector metadata. Validate membership before calling this the current NIFTY 50; the YAML explicitly flags an unresolved Tata Motors index seat. Snapshot the accepted universe per session. |
 | Checks | `vitest.config.ts`, package scripts, `apps/web/.storybook` | Vitest in Node includes `.test.ts`/`.spec.ts`, not browser `.tsx` tests. Storybook and a11y addon are installed. Browser interaction checks need a deliberate runner; do not claim component coverage from Node tests. |
 

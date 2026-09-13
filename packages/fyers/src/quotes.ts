@@ -85,6 +85,8 @@ export interface Quote {
   readonly low: number | null;
   readonly previousClose: number | null;
   readonly averagePrice: number | null;
+  readonly bid?: number | null;
+  readonly ask?: number | null;
   readonly volume: number | null;
   /** Exchange feed time. */
   readonly timestamp: Date | null;
@@ -92,14 +94,19 @@ export interface Quote {
 
 /** Paise, or null when the field is missing or a zero placeholder. */
 function optionalPaise(value: number | undefined): number | null {
-  if (value === undefined || !Number.isFinite(value) || value === 0) return null;
+  if (value === undefined || !Number.isFinite(value) || value <= 0) return null;
   return rupeesToPaise(value);
 }
 
 function optionalTimestamp(tt: number | string | undefined): Date | null {
   if (tt === undefined) return null;
   const seconds = typeof tt === 'string' ? Number(tt) : tt;
-  if (!Number.isFinite(seconds) || seconds <= 0) return null;
+  if (
+    !Number.isSafeInteger(seconds) ||
+    seconds <= 0 ||
+    !Number.isFinite(new Date(seconds * 1000).getTime())
+  )
+    return null;
   return new Date(seconds * 1000);
 }
 
@@ -139,6 +146,8 @@ export function toQuote(entry: z.infer<typeof quoteEntrySchema>): Quote | null {
     low: optionalPaise(v.low_price),
     previousClose: optionalPaise(v.prev_close_price),
     averagePrice: optionalPaise(v.atp),
+    bid: optionalPaise(v.bid),
+    ask: optionalPaise(v.ask),
     volume: v.volume === undefined || !Number.isFinite(v.volume) ? null : Math.round(v.volume),
     timestamp: optionalTimestamp(v.tt),
   };

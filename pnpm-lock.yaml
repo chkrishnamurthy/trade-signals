@@ -211,6 +211,12 @@ importers:
 
   packages/db:
     dependencies:
+      '@equitywise/core':
+        specifier: workspace:*
+        version: link:../core
+      '@equitywise/shared':
+        specifier: workspace:*
+        version: link:../shared
       dotenv:
         specifier: ^17.4.2
         version: 17.4.2
@@ -258,7 +264,11 @@ importers:
         specifier: workspace:*
         version: link:../shared
 
-  packages/shared: {}
+  packages/shared:
+    dependencies:
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
 
 packages:
 

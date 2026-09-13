@@ -61,6 +61,18 @@ describe('chunkSymbols', () => {
 });
 
 describe('toQuote', () => {
+  it('preserves bid/ask in paise and rejects missing, nonpositive or invalid feed fields', () => {
+    const base = parsed().d![0]!;
+    expect(toQuote({ ...base, v: { ...base.v, bid: 426.85, ask: 426.95 } })).toMatchObject({
+      bid: 42685,
+      ask: 42695,
+    });
+    expect(toQuote({ ...base, v: { ...base.v, bid: -1, ask: 0, tt: 'invalid' } })).toMatchObject({
+      bid: null,
+      ask: null,
+      timestamp: null,
+    });
+  });
   it('converts every price to integer paise', () => {
     const entry = parsed().d?.[0];
     const quote = toQuote(entry!);

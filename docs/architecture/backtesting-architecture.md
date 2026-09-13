@@ -1,5 +1,9 @@
 # Backtesting architecture
 
+> **Historical document:** its referenced engine was subsequently removed. For the
+> current Telegram/Feather request and runtime investigation, see
+> [the September plan](../planning/telegram-feather-backtesting.md).
+
 Status: **proposal, not implemented.** Written 2026-08-29 against the repository
 at `8656714`. Every claim about existing code names the file it came from.
 

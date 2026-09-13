@@ -141,6 +141,7 @@ export {
   registerStrategy,
   saveSignal,
 } from './signals.js';
+export * from './vwap-signals.js';
 export type {
   StoredLayout,
   StoredView,

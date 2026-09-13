@@ -2,6 +2,8 @@ import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+  // Match Next's automatic JSX runtime for server-rendered component tests.
+  esbuild: { jsx: 'automatic' },
   resolve: {
     alias: {
       // The same `@/` the web app uses. Without it a test cannot reach a web
