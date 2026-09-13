@@ -11,6 +11,12 @@ import {
   listOwnerWatchedInstrumentIds,
 } from '@equitywise/db';
 import { istDateKey } from '@equitywise/shared';
+import {
+  type DateRange,
+  HIGH_IMPACT_PATTERNS,
+  isDateRange,
+  rangeSince,
+} from '@/lib/announcement-meta';
 import type {
   AnnouncementDto,
   AnnouncementsPageDto,
@@ -66,6 +72,14 @@ export interface AnnouncementsInput {
   readonly watchlistOnly?: boolean;
   readonly categories?: readonly string[];
   readonly page?: number;
+  /** Free-text search across symbol, company and headline. */
+  readonly search?: string;
+  /** One stock's filings only (exchange symbol). */
+  readonly symbol?: string;
+  /** Relative date window. */
+  readonly range?: string;
+  /** Keep only high-impact filings (results, dividends, buybacks, …). */
+  readonly highImpactOnly?: boolean;
 }
 
 export async function getAnnouncementsPage(
@@ -81,12 +95,23 @@ export async function getAnnouncementsPage(
   const hasWatchlists = watched.length > 0;
   const watchlistOnly = input.watchlistOnly === true && hasWatchlists;
 
+  const range: DateRange =
+    input.range !== undefined && isDateRange(input.range) ? input.range : 'all';
+  const since = rangeSince(range, now);
+  const search = input.search?.trim() ?? '';
+  const symbol = input.symbol?.trim().toUpperCase() ?? '';
+  const highImpactOnly = input.highImpactOnly === true;
+  const activeCategories =
+    input.categories !== undefined && input.categories.length > 0 ? input.categories : [];
+
   const [result, categories] = await Promise.all([
     getAnnouncements(db, {
       ...(watchlistOnly ? { instrumentIds: watched } : {}),
-      ...(input.categories !== undefined && input.categories.length > 0
-        ? { categories: input.categories }
-        : {}),
+      ...(symbol !== '' ? { symbols: [symbol] } : {}),
+      ...(activeCategories.length > 0 ? { categories: activeCategories } : {}),
+      ...(since !== null ? { since } : {}),
+      ...(search !== '' ? { search } : {}),
+      ...(highImpactOnly ? { matchPatterns: HIGH_IMPACT_PATTERNS } : {}),
       limit: PAGE_SIZE,
       offset: (page - 1) * PAGE_SIZE,
     }),
@@ -119,6 +144,14 @@ export async function getAnnouncementsPage(
     status: freshnessOf(latestAt, now, result.total),
     watchlistOnly,
     hasWatchlists,
+    nowIso: now.toISOString(),
+    query: {
+      search: search === '' ? null : search,
+      symbol: symbol === '' ? null : symbol,
+      range,
+      highImpactOnly,
+      categories: activeCategories,
+    },
     disclaimer: DISCLAIMER,
   };
 }

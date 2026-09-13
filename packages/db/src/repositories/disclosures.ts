@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray, type SQL, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, ilike, inArray, or, type SQL, sql } from 'drizzle-orm';
 import type { Database } from '../client.js';
 import {
   bulkBlockDeals,
@@ -93,10 +93,20 @@ export interface AnnouncementRow {
 export interface AnnouncementQuery {
   /** Restrict to these instruments (e.g. the user's watchlist). */
   readonly instrumentIds?: readonly number[];
+  /** Restrict to these exchange symbols (e.g. one stock's history). */
+  readonly symbols?: readonly string[];
   /** Restrict to these categories. */
   readonly categories?: readonly string[];
   /** Only announcements at or after this instant. */
   readonly since?: Date;
+  /** Free-text match across symbol, company name and headline (case-insensitive). */
+  readonly search?: string;
+  /**
+   * When set, keep only rows whose category OR headline matches one of these
+   * SQL `ILIKE` patterns (e.g. `%dividend%`). The caller owns the pattern list
+   * so "high impact" stays a single source of truth in the app layer.
+   */
+  readonly matchPatterns?: readonly string[];
   readonly limit?: number;
   readonly offset?: number;
 }
@@ -117,11 +127,33 @@ export async function getAnnouncements(
     if (query.instrumentIds.length === 0) return { rows: [], total: 0 };
     conditions.push(inArray(corporateAnnouncements.instrumentId, [...query.instrumentIds]));
   }
+  if (query.symbols !== undefined) {
+    if (query.symbols.length === 0) return { rows: [], total: 0 };
+    conditions.push(inArray(corporateAnnouncements.symbol, [...query.symbols]));
+  }
   if (query.categories !== undefined && query.categories.length > 0) {
     conditions.push(inArray(corporateAnnouncements.category, [...query.categories]));
   }
   if (query.since !== undefined) {
     conditions.push(gte(corporateAnnouncements.announcedAt, query.since));
+  }
+  if (query.search !== undefined && query.search.trim() !== '') {
+    const term = `%${query.search.trim()}%`;
+    const match = or(
+      ilike(corporateAnnouncements.symbol, term),
+      ilike(corporateAnnouncements.companyName, term),
+      ilike(corporateAnnouncements.headline, term),
+    );
+    if (match !== undefined) conditions.push(match);
+  }
+  if (query.matchPatterns !== undefined && query.matchPatterns.length > 0) {
+    const clauses: SQL[] = [];
+    for (const pattern of query.matchPatterns) {
+      clauses.push(ilike(corporateAnnouncements.category, pattern));
+      clauses.push(ilike(corporateAnnouncements.headline, pattern));
+    }
+    const match = or(...clauses);
+    if (match !== undefined) conditions.push(match);
   }
   const where = conditions.length === 0 ? undefined : and(...conditions);
 

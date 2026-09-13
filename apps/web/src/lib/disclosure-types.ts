@@ -36,6 +36,16 @@ export interface AnnouncementsPageDto {
   readonly status: FreshnessStatus;
   readonly watchlistOnly: boolean;
   readonly hasWatchlists: boolean;
+  /** Server clock, so relative-day grouping renders identically on server and client. */
+  readonly nowIso: string;
+  /** The active filter state, echoed back so the UI reflects the URL. */
+  readonly query: {
+    readonly search: string | null;
+    readonly symbol: string | null;
+    readonly range: string;
+    readonly highImpactOnly: boolean;
+    readonly categories: readonly string[];
+  };
   readonly disclaimer: string;
 }
 
