@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import {
   ChartContainer,
   ChartLegend,
@@ -11,7 +11,7 @@ import { ChartSkeleton, DataUnavailable, ErrorState } from '@/components/data-di
 import { IndexLevel } from '@/components/market/numeric';
 import { API_ROUTES } from '@/lib/api-routes';
 import { volume as formatVolume, indexLevel, signedPercent, signedPrice } from '@/lib/format';
-import { TONE_GLYPH, toneOf, toneText } from '@/lib/tone';
+import { toneOf, toneText } from '@/lib/tone';
 import { cn } from '@/lib/utils';
 
 /**
@@ -175,20 +175,24 @@ export function MarketChart({
   const hoverBar = geometry !== null && hover !== null ? geometry.bars[hover] : undefined;
 
   /**
+   * The candle the legend describes: the hovered one, else the latest — the
+   * legend always shows a real candle rather than a "hover for detail" hint,
+   * the way every charting platform's data line behaves.
+   */
+  const legendIndex = geometry === null ? null : (hover ?? geometry.bars.length - 1);
+  const legendBar =
+    geometry !== null && legendIndex !== null ? geometry.bars[legendIndex] : undefined;
+
+  /**
    * The candle's move against the reference the rest of the row is quoted
    * against — the previous close when the caller supplied one, otherwise the
-   * candle before it. The label names the reference so the number is never
-   * ambiguous.
+   * candle before it.
    */
-  const hoverChange = (() => {
-    if (geometry === null || hover === null || hoverBar === undefined) return null;
-    const base = previousClose ?? geometry.bars[hover - 1]?.c ?? hoverBar.o;
+  const legendChange = (() => {
+    if (geometry === null || legendIndex === null || legendBar === undefined) return null;
+    const base = previousClose ?? geometry.bars[legendIndex - 1]?.c ?? legendBar.o;
     if (base === 0) return null;
-    return {
-      label: previousClose !== null ? 'vs prev close' : 'vs prev candle',
-      absolute: hoverBar.c - base,
-      percent: ((hoverBar.c - base) / base) * 100,
-    };
+    return { absolute: legendBar.c - base, percent: ((legendBar.c - base) / base) * 100 };
   })();
 
   /** Clamps a raw index to the series; the pointer can run past either edge. */
@@ -234,11 +238,48 @@ export function MarketChart({
         />
       ) : (
         <div>
-          {/* Series context. The per-candle readout is the hover tooltip below. */}
-          <div className="flex h-6 items-center justify-between gap-3 text-xs text-muted-foreground">
-            <span className="figure font-mono">{geometry.bars.length} candles</span>
-            <span className="hidden sm:inline">Hover a candle for detail</span>
-          </div>
+          {/* Data legend — the standard chart readout: a fixed line above the
+              plot that shows the latest candle and follows the cursor on hover.
+              Fixed in place so nothing floats over the plot or moves under the
+              pointer; it wraps on narrow screens rather than truncating. */}
+          {legendBar !== undefined && (
+            <div className="flex min-h-6 flex-wrap items-baseline gap-x-4 gap-y-0.5 text-xs">
+              <span className="figure font-mono text-muted-foreground">
+                {barLabel(legendBar.t, data?.resolution)}
+              </span>
+              {(
+                [
+                  ['Open', indexLevel(legendBar.o)],
+                  ['High', indexLevel(legendBar.h)],
+                  ['Low', indexLevel(legendBar.l)],
+                  ['Close', indexLevel(legendBar.c)],
+                  ['Volume', formatVolume(legendBar.v)],
+                ] as const
+              ).map(([label, value]) => (
+                <span key={label} className="text-muted-foreground">
+                  {label}{' '}
+                  <span
+                    className={cn(
+                      'figure font-mono text-foreground',
+                      label === 'Close' && 'font-semibold',
+                    )}
+                  >
+                    {value}
+                  </span>
+                </span>
+              ))}
+              {legendChange !== null && (
+                <span
+                  className={cn(
+                    'figure font-mono font-medium',
+                    toneText({ tone: toneOf(legendChange.absolute) }),
+                  )}
+                >
+                  {signedPrice(legendChange.absolute)} ({signedPercent(legendChange.percent)})
+                </span>
+              )}
+            </div>
+          )}
 
           <div className="relative">
             <svg
@@ -329,61 +370,33 @@ export function MarketChart({
               )}
             </svg>
 
-            {/* Hover tooltip.
-                Pinned to a top corner and flipped away from the cursor rather
-                than tracked to it: the plot is only a few hundred pixels wide,
-                and a corner card can never overflow the card or cover the
-                candle being read. */}
+            {/* Crosshair axis tags, the way a charting platform labels its
+                cursor: the candle's time on the time axis and its close on the
+                price axis. Positioned as percentages of the plot so they track
+                the stretched SVG at any width. */}
             {hoverBar !== undefined && hover !== null && (
-              <div
-                className={cn(
-                  'pointer-events-none absolute top-1 z-10 min-w-40 rounded-md border border-border bg-surface-raised px-2.5 py-1.5 text-xs shadow-overlay',
-                  hover / (geometry.bars.length - 1) < 0.5 ? 'right-1' : 'left-1',
-                )}
-              >
-                <div className="figure font-mono text-muted-foreground">
+              <>
+                {/* Shifted by its own width in proportion to the cursor, so
+                    it is centred mid-plot and flush at either edge, never
+                    clipped. */}
+                <span
+                  className="figure pointer-events-none absolute bottom-0 z-10 rounded-sm bg-foreground px-1.5 py-0.5 font-mono text-[10px] text-background leading-tight"
+                  style={{
+                    left: `${(hover / (geometry.bars.length - 1)) * 100}%`,
+                    transform: `translateX(-${(hover / (geometry.bars.length - 1)) * 100}%)`,
+                  }}
+                >
                   {barLabel(hoverBar.t, data?.resolution)}
-                </div>
-                <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
-                  {(
-                    [
-                      ['O', indexLevel(hoverBar.o)],
-                      ['H', indexLevel(hoverBar.h)],
-                      ['L', indexLevel(hoverBar.l)],
-                      ['C', indexLevel(hoverBar.c)],
-                      ['Vol', formatVolume(hoverBar.v)],
-                    ] as const
-                  ).map(([label, value]) => (
-                    <Fragment key={label}>
-                      <dt className="text-muted-foreground">{label}</dt>
-                      <dd
-                        className={cn(
-                          'figure text-right font-mono text-foreground',
-                          label === 'C' && 'font-semibold',
-                        )}
-                      >
-                        {value}
-                      </dd>
-                    </Fragment>
-                  ))}
-                </dl>
-                {hoverChange !== null && (
-                  <div className="mt-1 flex items-center justify-between gap-3 border-border/60 border-t pt-1">
-                    <span className="text-muted-foreground">{hoverChange.label}</span>
-                    <span
-                      className={cn(
-                        'figure font-mono font-medium',
-                        toneText({ tone: toneOf(hoverChange.absolute) }),
-                      )}
-                    >
-                      <span aria-hidden className="mr-1">
-                        {TONE_GLYPH[toneOf(hoverChange.absolute)]}
-                      </span>
-                      {signedPrice(hoverChange.absolute)} ({signedPercent(hoverChange.percent)})
-                    </span>
-                  </div>
-                )}
-              </div>
+                </span>
+                <span
+                  className="figure -translate-y-1/2 pointer-events-none absolute right-0 z-10 rounded-sm bg-foreground px-1.5 py-0.5 font-mono text-[10px] text-background leading-tight"
+                  style={{
+                    top: `${(geometry.y(hoverBar.c) / (PRICE_HEIGHT + VOLUME_HEIGHT + 8)) * 100}%`,
+                  }}
+                >
+                  {indexLevel(hoverBar.c)}
+                </span>
+              </>
             )}
           </div>
 
