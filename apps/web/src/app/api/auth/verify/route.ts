@@ -1,7 +1,7 @@
-import { consumeToken, markEmailVerified, writeAudit } from '@equitywise/db';
+import { consumeToken, markEmailVerified } from '@equitywise/db';
 import type { NextResponse } from 'next/server';
 import { fail, json } from '@/server/auth/http';
-import { clientIp, isSameOrigin } from '@/server/auth/request';
+import { isSameOrigin } from '@/server/auth/request';
 import { tokenSchema } from '@/server/auth/schemas';
 import { hashToken } from '@/server/auth/session-token';
 import { getDatabase } from '@/server/db';
@@ -32,6 +32,5 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   await markEmailVerified(db, userId);
-  await writeAudit(db, { event: 'email_verified', userId, ipAddress: clientIp(request) });
   return json({ ok: true });
 }

@@ -67,7 +67,6 @@ export async function POST(request: Request): Promise<NextResponse> {
     event: 'email_changed',
     userId: user.id,
     ipAddress: clientIp(request),
-    detail: { from: oldEmail },
   });
   await sendEmailChangedNotice(oldEmail, claim.newEmail);
 

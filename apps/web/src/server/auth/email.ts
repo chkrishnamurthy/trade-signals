@@ -39,10 +39,11 @@ function baseUrl(): string {
 async function deliver(mail: Mail): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
   if (apiKey === undefined || apiKey === '') {
-    console.log(
-      `\n──[ auth email (dev — no RESEND_API_KEY) ]──\n` +
-        `to:      ${mail.to}\nsubject: ${mail.subject}\n\n${mail.text}\n────────────────────────────────────────\n`,
-    );
+    if (!IS_PROD) {
+      console.warn(`[auth-email] RESEND_API_KEY is not configured; skipped ${mail.subject}.`);
+    } else {
+      console.error('[auth-email] RESEND_API_KEY is not configured; email not sent.');
+    }
     return;
   }
   const from = process.env.AUTH_EMAIL_FROM ?? DEFAULT_FROM;
