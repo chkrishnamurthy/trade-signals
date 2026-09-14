@@ -124,6 +124,49 @@ export function ScopeToggle({
   );
 }
 
+/**
+ * A generic segmented control (radio-style row of buttons).
+ *
+ * Client-only state, unlike {@link ScopeToggle} which drives the URL — use this
+ * for view-local choices (chart series, deal filters) that need no round-trip.
+ */
+export function Segmented<T extends string>({
+  options,
+  value,
+  onChange,
+  ariaLabel,
+}: {
+  options: ReadonlyArray<{ readonly id: T; readonly label: string }>;
+  value: T;
+  onChange: (value: T) => void;
+  ariaLabel: string;
+}) {
+  return (
+    <fieldset
+      className="m-0 inline-flex items-center gap-0.5 rounded-md border-0 bg-muted p-0.5 text-muted-foreground text-xs"
+      aria-label={ariaLabel}
+    >
+      {options.map((option) => {
+        const on = value === option.id;
+        return (
+          <button
+            key={option.id}
+            type="button"
+            aria-pressed={on}
+            onClick={() => onChange(option.id)}
+            className={cn(
+              'rounded-sm px-2.5 py-1 font-medium transition-colors',
+              on ? 'bg-surface text-foreground shadow-subtle' : 'hover:text-foreground',
+            )}
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </fieldset>
+  );
+}
+
 /** Category filter chips that toggle the `category` query param(s). */
 export function CategoryChips({
   categories,

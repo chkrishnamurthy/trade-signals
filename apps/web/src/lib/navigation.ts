@@ -1,5 +1,12 @@
 import type { LucideIcon } from 'lucide-react';
-import { LandmarkIcon, ListIcon, MegaphoneIcon, SunriseIcon, UserIcon } from 'lucide-react';
+import {
+  ActivityIcon,
+  LandmarkIcon,
+  ListIcon,
+  MegaphoneIcon,
+  SunriseIcon,
+  UserIcon,
+} from 'lucide-react';
 import type { Route } from 'next';
 
 /**
@@ -45,6 +52,13 @@ export const NAVIGATION: readonly NavGroup[] = [
   {
     label: 'Tracking',
     items: [
+      {
+        status: 'ready',
+        href: '/signals',
+        label: 'Signals',
+        icon: ActivityIcon,
+        description: 'Confirmed VWAP Trend Pullback setups',
+      },
       {
         status: 'ready',
         href: '/today',

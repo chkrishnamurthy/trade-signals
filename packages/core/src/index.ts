@@ -7,6 +7,9 @@
  * execute byte-identical code.
  */
 export * from './indicators/index.js';
+export * from './paper-journal.js';
+export * from './signal-lifecycle.js';
 export * from './signals/index.js';
 export type { Bar, Series } from './types.js';
 export { at, latest } from './types.js';
+export * from './vwap-strategy.js';

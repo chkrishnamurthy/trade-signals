@@ -42,3 +42,4 @@ export {
   timeframeFromLabel,
   timeframeMinutes,
 } from './timeframe.js';
+export * from './trade-signals.js';

@@ -235,14 +235,25 @@ export function createFyersProvider(options: FyersProviderOptions): MarketDataPr
  * The signal engine must never see a partial bar — that is lookahead bias and
  * it silently corrupts every backtest sharing this code path (hard rule 2).
  *
- * Daily bars are decided by IST trading date. Intraday bars are left alone:
- * Fyers stamps a bar with its OPEN time, so deciding whether the last one has
- * closed needs the resolution's duration, which `history` handles at a level
- * that knows the session calendar.
+ * Daily bars are decided by IST trading date. Intraday timestamps denote the
+ * candle open; retain a candle only after its resolution duration has elapsed
+ * against the request's injected clock.
  */
 function dropFormingBar(bars: readonly Bar[], resolution: string, now: Date): readonly Bar[] {
   const last = bars.at(-1);
   if (last === undefined) return bars;
-  if (resolution !== '1d' && resolution !== '1w') return bars;
+  if (resolution !== '1d' && resolution !== '1w') {
+    const minutes: Readonly<Record<string, number>> = {
+      '1m': 1,
+      '5m': 5,
+      '15m': 15,
+      '30m': 30,
+      '1h': 60,
+    };
+    const duration = minutes[resolution];
+    return duration === undefined
+      ? []
+      : bars.filter((bar) => bar.timestamp + duration * 60_000 <= now.getTime());
+  }
   return istDateKey(new Date(last.timestamp)) === istDateKey(now) ? bars.slice(0, -1) : bars;
 }

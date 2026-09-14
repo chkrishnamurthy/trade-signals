@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist"
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/__tests__/**",
+    "src/telegram-*.ts",
+    "src/dashboard.ts",
+    "src/fno-trial.ts"
+  ]
+}

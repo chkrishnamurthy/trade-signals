@@ -58,6 +58,8 @@ export interface Quote {
   readonly low: number | null;
   readonly previousClose: number | null;
   readonly averagePrice: number | null;
+  readonly bid?: number | null;
+  readonly ask?: number | null;
   /** Shares traded today. A count, not money. */
   readonly volume: number | null;
   /** Exchange feed time, UTC. Null when the provider omitted it. */

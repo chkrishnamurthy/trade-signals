@@ -1,6 +1,7 @@
 'use client';
 
 import { StarIcon } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { EmptyState } from '@/components/data-display/states';
 import { AppShell } from '@/components/layout/app-shell';
 import {
@@ -34,11 +35,22 @@ import type {
   ShareholdingDto,
 } from '@/lib/disclosure-types';
 import {
+  aggregateByClient,
+  type ClientFlow,
+  cumulativeSeries,
+  type DealFilters,
+  filterDeals,
+  NO_DEAL_FILTERS,
+  netSeries,
+} from '@/lib/flow-analytics';
+import { FlowChart } from './flow-chart';
+import {
   DealTypeBadge,
   FreshnessBanner,
   formatDateKey,
   NetValue,
   ScopeToggle,
+  Segmented,
   SideBadge,
 } from './parts';
 
@@ -70,6 +82,7 @@ export function FlowView({ data }: { data: InstitutionalFlowDto }) {
           />
 
           <FiiDiiSection latest={data.latest} history={data.fiiDii} />
+          <TopMoversSection deals={data.deals} />
           <DealsSection deals={data.deals} watchlistOnly={data.watchlistOnly} />
           <ShareholdingSection rows={data.shareholding} hasWatchlists={data.hasWatchlists} />
 
@@ -87,6 +100,15 @@ function FiiDiiSection({
   latest: FiiDiiDayDto | null;
   history: readonly FiiDiiDayDto[];
 }) {
+  const [participant, setParticipant] = useState<'fii' | 'dii'>('fii');
+  const [mode, setMode] = useState<'bars' | 'line'>('bars');
+
+  const dailyPoints = useMemo(() => netSeries(history, participant), [history, participant]);
+  const points = useMemo(
+    () => (mode === 'line' ? cumulativeSeries(dailyPoints) : dailyPoints),
+    [mode, dailyPoints],
+  );
+
   return (
     <Section aria-labelledby="fiidii-heading">
       <SectionHeader>
@@ -98,6 +120,41 @@ function FiiDiiSection({
         <EmptyState title="No FII/DII data yet" description="It is published after the close." />
       ) : (
         <>
+          <Card>
+            <CardContent className="flex flex-col gap-3 py-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <Segmented
+                  ariaLabel="Participant"
+                  value={participant}
+                  onChange={setParticipant}
+                  options={[
+                    { id: 'fii', label: 'FII' },
+                    { id: 'dii', label: 'DII' },
+                  ]}
+                />
+                <Segmented
+                  ariaLabel="Chart mode"
+                  value={mode}
+                  onChange={setMode}
+                  options={[
+                    { id: 'bars', label: 'Daily net' },
+                    { id: 'line', label: 'Cumulative' },
+                  ]}
+                />
+              </div>
+              <FlowChart
+                points={points}
+                mode={mode}
+                seriesLabel={participant === 'fii' ? 'FII' : 'DII'}
+              />
+              <Text as="p" variant="caption">
+                {mode === 'line'
+                  ? 'Running total of net buying over the window. Above the line is net accumulation.'
+                  : 'Each bar is one session’s net. Green is net buying, red is net selling.'}
+              </Text>
+            </CardContent>
+          </Card>
+
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <FlowCard
               title="FII net"
@@ -180,6 +237,76 @@ function FlowCard({
   );
 }
 
+function TopMoversSection({ deals }: { deals: readonly DealDto[] }) {
+  const flows = useMemo(() => aggregateByClient(deals), [deals]);
+  if (flows.length === 0) return null;
+
+  const buyers = flows.filter((f) => f.net > 0).slice(0, 5);
+  const sellers = flows
+    .filter((f) => f.net < 0)
+    .sort((a, b) => a.net - b.net)
+    .slice(0, 5);
+
+  return (
+    <Section aria-labelledby="movers-heading">
+      <SectionHeader>
+        <SectionTitle id="movers-heading">Top institutional parties</SectionTitle>
+        <SectionDescription>
+          Net across recent bulk &amp; block deals, by trading party
+        </SectionDescription>
+      </SectionHeader>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <MoversCard title="Net buyers" rows={buyers} empty="No net buyers in recent deals." />
+        <MoversCard title="Net sellers" rows={sellers} empty="No net sellers in recent deals." />
+      </div>
+    </Section>
+  );
+}
+
+function MoversCard({
+  title,
+  rows,
+  empty,
+}: {
+  title: string;
+  rows: readonly ClientFlow[];
+  empty: string;
+}) {
+  return (
+    <Card>
+      <CardContent className="flex flex-col gap-2 py-4">
+        <Text as="h3" variant="overline">
+          {title}
+        </Text>
+        {rows.length === 0 ? (
+          <Text variant="caption">{empty}</Text>
+        ) : (
+          <ul className="flex flex-col divide-y divide-border">
+            {rows.map((row) => (
+              <li key={row.client} className="flex items-center justify-between gap-3 py-1.5">
+                <span className="min-w-0 truncate text-sm text-foreground" title={row.client}>
+                  {row.client}
+                  <span className="ml-1 text-2xs text-subtle-foreground">
+                    ({row.deals} {row.deals === 1 ? 'deal' : 'deals'})
+                  </span>
+                </span>
+                <NetValue paise={row.net} className="shrink-0 text-sm font-medium" />
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+const MIN_VALUE_OPTIONS = [
+  { id: '0', label: 'Any size' },
+  { id: '1000000000', label: '₹1 Cr+' },
+  { id: '5000000000', label: '₹5 Cr+' },
+  { id: '25000000000', label: '₹25 Cr+' },
+] as const;
+
 function DealsSection({
   deals,
   watchlistOnly,
@@ -187,12 +314,67 @@ function DealsSection({
   deals: readonly DealDto[];
   watchlistOnly: boolean;
 }) {
+  const [filters, setFilters] = useState<DealFilters>(NO_DEAL_FILTERS);
+  const latestDate = useMemo(
+    () => deals.reduce((max, deal) => (deal.tradingDate > max ? deal.tradingDate : max), ''),
+    [deals],
+  );
+  const filtered = useMemo(() => filterDeals(deals, filters), [deals, filters]);
+  const patch = (next: Partial<DealFilters>): void => setFilters((prev) => ({ ...prev, ...next }));
+
   return (
     <Section aria-labelledby="deals-heading">
       <SectionHeader>
         <SectionTitle id="deals-heading">Bulk &amp; block deals</SectionTitle>
-        <SectionDescription>Large single trades reported by the exchange</SectionDescription>
+        <SectionDescription>
+          {deals.length === 0
+            ? 'Large single trades reported by the exchange'
+            : `Showing ${filtered.length} of ${deals.length} recent deals`}
+        </SectionDescription>
       </SectionHeader>
+
+      {deals.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <Segmented
+            ariaLabel="Side"
+            value={filters.side}
+            onChange={(side) => patch({ side })}
+            options={[
+              { id: 'all', label: 'All' },
+              { id: 'buy', label: 'Buy' },
+              { id: 'sell', label: 'Sell' },
+            ]}
+          />
+          <Segmented
+            ariaLabel="Deal type"
+            value={filters.type}
+            onChange={(type) => patch({ type })}
+            options={[
+              { id: 'all', label: 'All' },
+              { id: 'bulk', label: 'Bulk' },
+              { id: 'block', label: 'Block' },
+            ]}
+          />
+          <Segmented
+            ariaLabel="Minimum value"
+            value={String(filters.minValue)}
+            onChange={(id) => patch({ minValue: Number(id) })}
+            options={MIN_VALUE_OPTIONS}
+          />
+          <Segmented
+            ariaLabel="Dates"
+            value={filters.since === null ? 'all' : 'latest'}
+            onChange={(id) =>
+              patch({ since: id === 'latest' && latestDate !== '' ? latestDate : null })
+            }
+            options={[
+              { id: 'all', label: 'All dates' },
+              { id: 'latest', label: 'Latest session' },
+            ]}
+          />
+        </div>
+      )}
+
       <Card>
         <CardContent className="overflow-x-auto px-0 py-0">
           {deals.length === 0 ? (
@@ -200,6 +382,13 @@ function DealsSection({
               <EmptyState
                 title={watchlistOnly ? 'No deals in your watchlist' : 'No recent deals'}
                 description="Bulk and block deals are published after the close."
+              />
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="p-4">
+              <EmptyState
+                title="No deals match these filters"
+                description="Widen the size, side, type or date filters."
               />
             </div>
           ) : (
@@ -217,7 +406,7 @@ function DealsSection({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {deals.map((deal) => (
+                {filtered.map((deal) => (
                   <TableRow key={deal.id}>
                     <TableCell className="whitespace-nowrap text-muted-foreground text-xs">
                       {formatDateKey(deal.tradingDate)}

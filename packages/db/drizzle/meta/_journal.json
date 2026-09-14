@@ -113,6 +113,13 @@
       "when": 1789226768697,
       "tag": "0015_careless_zodiak",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1789236754472,
+      "tag": "0016_striped_toad_men",
+      "breakpoints": true
     }
   ]
 }

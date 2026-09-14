@@ -18,6 +18,10 @@ function toArray(value: string | string[] | undefined): string[] {
   return Array.isArray(value) ? value : [value];
 }
 
+function toStr(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
 export default async function AnnouncementsRoute({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams;
   const categories = toArray(sp.category);
@@ -27,6 +31,10 @@ export default async function AnnouncementsRoute({ searchParams }: { searchParam
     watchlistOnly: sp.watchlist === '1',
     categories,
     page: Number.isInteger(pageValue) && pageValue > 0 ? pageValue : 1,
+    ...(toStr(sp.q) !== undefined ? { search: toStr(sp.q) as string } : {}),
+    ...(toStr(sp.symbol) !== undefined ? { symbol: toStr(sp.symbol) as string } : {}),
+    ...(toStr(sp.range) !== undefined ? { range: toStr(sp.range) as string } : {}),
+    highImpactOnly: sp.impact === '1',
   });
 
   return <AnnouncementsView data={data} activeCategories={categories} />;

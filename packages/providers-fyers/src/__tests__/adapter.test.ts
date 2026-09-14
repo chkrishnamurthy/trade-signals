@@ -73,3 +73,27 @@ describe('createFyersProvider credential handling', () => {
     await expect(provider.fetchMarketStatus()).rejects.toThrow(/FYERS_ACCESS_TOKEN/);
   });
 });
+
+describe('closed intraday candles', () => {
+  it('drops a forming minute against the injected clock but retains it when explicitly requested', async () => {
+    const start = Date.parse('2026-09-11T03:45:00Z');
+    globalThis.fetch = vi.fn(async () =>
+      Response.json({
+        s: 'ok',
+        candles: [
+          [start / 1000, 100, 102, 99, 101, 500],
+          [start / 1000 + 60, 101, 103, 100, 102, 600],
+        ],
+      }),
+    );
+    const provider = createFyersProvider({ appId: 'APP-100', accessToken: 'test-token' });
+    const request = {
+      ref: { symbol: 'SBIN', kind: 'equity' as const },
+      resolution: '1m' as const,
+      range: { from: new Date(start), to: new Date(start + 90_000) },
+      now: new Date(start + 90_000),
+    };
+    expect((await provider.fetchBars(request)).map((b) => b.timestamp)).toEqual([start]);
+    expect(await provider.fetchBars({ ...request, includeForming: true })).toHaveLength(2);
+  });
+});

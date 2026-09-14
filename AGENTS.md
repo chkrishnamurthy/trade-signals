@@ -25,15 +25,14 @@ answers three questions and nothing else:
 business logic consumes a normalised `MarketDataProvider`, never a Fyers type. The
 UI never presents itself as a Fyers client.
 
-**Current scope: watchlists only.** The app has been stripped to the watchlists
-surface (`/watchlists`) plus its data spine — the Fyers provider for live quotes,
-`/api/search` to add names, and the daily end-of-day pass that feeds the watchlist's
-indicator/return/signal columns. The dashboard, all-stocks, intraday-signals,
-signal-performance and backtests pages and APIs were removed, along with the whole
-intraday/backtest/paper-trading engine (`packages/core/src/intraday`, the worker's
-intraday cycle, and the backtest scripts). New feature pages will be built on this
-base later. The design docs above still describe the fuller original product as
-historical intent; that intraday code no longer exists in the tree.
+**Current scope includes intraday research at `/signals`.** The watchlist data spine
+and existing public/authenticated surfaces remain. The new Confirmed VWAP Trend
+Pullback strategy runs in the worker, exposes cards on every screen size, and keeps
+immutable evidence and lifecycle events. A private paper journal provides prospective
+simulated studies scoped to the signed-in user. It has no broker execution connection.
+The previously removed intraday/backtest engine remains historical; this feature uses
+`vwap-strategy.ts`, `signal-lifecycle.ts`, and the dedicated signal repositories.
+Implementation and rollout checks: `docs/planning/signals-implementation.md`.
 
 Design & architecture docs: `docs/README.md`, `docs/architecture.md` (topology & stack),
 `docs/architecture/seo-architecture.md` (SEO & Googlebot indexing engine),
@@ -42,7 +41,7 @@ Design & architecture docs: `docs/README.md`, `docs/architecture.md` (topology &
 
 ## Stack
 
-Node 22 · TypeScript strict · pnpm workspaces · Neon Postgres 17 + timescaledb
+Node >=24 · TypeScript strict · pnpm workspaces · PostgreSQL 17 + TimescaleDB
 Drizzle ORM · Next.js (web) · croner (scheduler) · Zod · Vitest · Biome
 Fyers API v3 for market data. No Redis. No Celery. No Python in the app.
 
@@ -52,9 +51,13 @@ Fyers API v3 for market data. No Redis. No Celery. No Python in the app.
    result. No DB, no `Date.now()`, no network, no module-level mutable state, no
    `process.env`. This is what lets the backtester and the live path run identical code.
 
-2. **Signals are computed on CLOSED candles only.** Never the forming candle. The
-   tradeable entry is the NEXT candle's open. Any path that lets the engine see a
-   price at or after the entry timestamp is lookahead bias and invalidates every backtest.
+2. **Signals are computed on CLOSED candles only.** Never the forming candle.
+   The VWAP strategy publishes a frozen trigger; shared outcomes and private paper
+   fills advance only from observations after publication/enrolment, respectively.
+   Never backfill a missed trigger or use post-confirmation prices to construct the
+   setup. Store simulated fill separately from the trigger. An interrupted feed
+   makes the outcome unavailable, never a fabricated historical fill. This explicit
+   prospective-trigger model supersedes the removed engine's next-open convention.
 
 3. **All prices are INTEGER PAISE everywhere internally.** ₹1,245.50 is `124550`.
    Never `number` rupees, never floats, never a decimal library. Convert to a display
@@ -76,7 +79,8 @@ Fyers API v3 for market data. No Redis. No Celery. No Python in the app.
    `strategy_versions` row. Never UPDATE an existing version.
 
 8. **Every signal writes its factor breakdown and indicator snapshot.** The
-   "Why this signal?" UI reads `signal_factors`; it never recomputes.
+   "Why this signal?" UI reads persisted evidence (`signal_factors` for daily
+   signals; immutable `vwap_signals.evidence` for intraday); it never recomputes.
 
 ## Production hosting (self-hosted VPS)
 
@@ -136,6 +140,8 @@ operations — is **`docs/operations/deployment.md`**. Read it before touching i
   "Technical entry zone", "Invalidation level", "Watch". Never "ORDER", never
   "ENTRY PRICE", never "position", never "quantity". An entry or exit level is a
   technical price level and is labelled as one
+- A private paper-study form may accept research capital and risk and display
+  simulated shares, costs and hypothetical outcomes. It never sends broker requests.
 - There is no order button, order ticket, or order-shaped affordance anywhere.
   A direction label describes price structure; it is not an instruction, and the
   UI must never imply the application could act on it
