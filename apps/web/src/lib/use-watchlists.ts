@@ -75,6 +75,9 @@ async function request<T>(url: string, init?: RequestInit): Promise<MutationResu
   }
 }
 
+/** Shortest time the refresh icon spins, so a fast response is still seen. */
+const MIN_SPIN_MS = 500;
+
 export function useWatchlists() {
   const [lists, setLists] = useState<Feed<readonly WatchlistSummaryDto[]>>({ status: 'loading' });
   const [activeId, setActiveId] = useState<number | null>(null);
@@ -221,9 +224,25 @@ export function useWatchlists() {
     })();
   }, [activeId, loadDetail, schedule]);
 
+  /**
+   * The user's explicit refresh. Unlike the background poll it is NOT quiet:
+   * the button must visibly spin, and for long enough to register — a quote
+   * fetch can finish in under 100 ms, which reads as "nothing happened".
+   */
   const refresh = useCallback(() => {
-    void tick();
-  }, [tick]);
+    const id = activeIdRef.current;
+    if (id === null) return;
+    setIsRefreshing(true);
+    void (async () => {
+      const [next] = await Promise.all([
+        loadDetail(id, true),
+        new Promise((resolve) => setTimeout(resolve, MIN_SPIN_MS)),
+      ]);
+      if (!mounted.current) return;
+      setIsRefreshing(false);
+      schedule(next);
+    })();
+  }, [loadDetail, schedule]);
 
   // --- Mutations ------------------------------------------------------------
 
