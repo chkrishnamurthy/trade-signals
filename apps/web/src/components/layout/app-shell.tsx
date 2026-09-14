@@ -78,7 +78,12 @@ export function AppShell({
               <MenuIcon />
             </Button>
 
-            <Brand href="/today" className="shrink-0" />
+            {/* Phone widths get the mark alone: the wordmark, a fixed-width
+                search box and the theme toggle together outrun a 390px
+                viewport, and a header that cannot shrink widens the whole
+                document — the page then scrolls sideways under the user. */}
+            <Brand href="/today" className="shrink-0 sm:hidden" showWordmark={false} />
+            <Brand href="/today" className="hidden shrink-0 sm:flex" />
 
             {/* Primary destinations. A single row of names — the whole point of
                 the redesign — so the app announces where you can go instead of
@@ -89,8 +94,9 @@ export function AppShell({
               ))}
             </nav>
 
-            <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
-              <div className="w-36 sm:w-52 lg:w-64">
+            <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-2 sm:flex-none sm:gap-3">
+              {/* Fills whatever the phone header has left; fixed only from `sm` up. */}
+              <div className="min-w-0 flex-1 sm:w-52 sm:flex-none lg:w-64">
                 <StockSearch onSelect={handleSearchSelect} />
               </div>
               <ThemeToggle />
