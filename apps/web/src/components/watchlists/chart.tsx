@@ -10,7 +10,7 @@ import {
 import { ChartSkeleton, DataUnavailable, ErrorState } from '@/components/data-display/states';
 import { IndexLevel } from '@/components/market/numeric';
 import { API_ROUTES } from '@/lib/api-routes';
-import { volume as formatVolume, indexLevel, signedPercent, signedPrice } from '@/lib/format';
+import { indexLevel, signedPercent, signedPrice } from '@/lib/format';
 import { toneOf, toneText } from '@/lib/tone';
 import { cn } from '@/lib/utils';
 
@@ -51,18 +51,26 @@ const PRICE_HEIGHT = 220;
 const VOLUME_HEIGHT = 48;
 
 /**
- * A daily candle has no meaningful clock time, so printing 00:00 against it
- * would be a fabricated precision. Intraday candles need the time to be
- * identifiable at all.
+ * The tooltip's date, e.g. "Fri 11 Sept 12:00" — or "Fri 11 Sept 2026" for a
+ * daily candle, which has no meaningful clock time; printing 00:00 against it
+ * would be a fabricated precision.
  */
 function barLabel(timestamp: number, resolution: string | undefined): string {
   const daily = resolution === '1d';
-  return new Date(timestamp).toLocaleString('en-IN', {
+  // Parts joined by spaces rather than the locale's own punctuation, so the
+  // label reads "Fri 11 Sept 12:00" instead of "Fri, 11 Sept, 12:00".
+  return new Intl.DateTimeFormat('en-IN', {
     timeZone: 'Asia/Kolkata',
-    day: '2-digit',
+    weekday: 'short',
+    day: 'numeric',
     month: 'short',
     ...(daily ? { year: 'numeric' } : { hour: '2-digit', minute: '2-digit', hour12: false }),
-  });
+  })
+    .formatToParts(new Date(timestamp))
+    .filter((part) => part.type !== 'literal')
+    .map((part) => part.value)
+    .join(' ')
+    .replace(/(\d{2}) (\d{2})$/, '$1:$2');
 }
 
 export function MarketChart({
@@ -175,9 +183,8 @@ export function MarketChart({
   const hoverBar = geometry !== null && hover !== null ? geometry.bars[hover] : undefined;
 
   /**
-   * The candle the legend describes: the hovered one, else the latest — the
-   * legend always shows a real candle rather than a "hover for detail" hint,
-   * the way every charting platform's data line behaves.
+   * The candle the legend describes: the hovered one, else the latest — so
+   * the line above the plot always reads a real candle.
    */
   const legendIndex = geometry === null ? null : (hover ?? geometry.bars.length - 1);
   const legendBar =
@@ -238,40 +245,27 @@ export function MarketChart({
         />
       ) : (
         <div>
-          {/* Data legend — the standard chart readout: a fixed line above the
-              plot that shows the latest candle and follows the cursor on hover.
-              Fixed in place so nothing floats over the plot or moves under the
-              pointer; it wraps on narrow screens rather than truncating. */}
+          {/* Data legend: the candle's open, high and low and its change,
+              following the cursor. The close and the time are the tooltip
+              pill's, and the stock's live price sits above the chart in the
+              drawer, so neither is repeated here. */}
           {legendBar !== undefined && (
             <div className="flex min-h-6 flex-wrap items-baseline gap-x-4 gap-y-0.5 text-xs">
-              <span className="figure font-mono text-muted-foreground">
-                {barLabel(legendBar.t, data?.resolution)}
-              </span>
               {(
                 [
                   ['Open', indexLevel(legendBar.o)],
                   ['High', indexLevel(legendBar.h)],
                   ['Low', indexLevel(legendBar.l)],
-                  ['Close', indexLevel(legendBar.c)],
-                  ['Volume', formatVolume(legendBar.v)],
                 ] as const
               ).map(([label, value]) => (
                 <span key={label} className="text-muted-foreground">
-                  {label}{' '}
-                  <span
-                    className={cn(
-                      'figure font-mono text-foreground',
-                      label === 'Close' && 'font-semibold',
-                    )}
-                  >
-                    {value}
-                  </span>
+                  {label} <span className="figure text-foreground">{value}</span>
                 </span>
               ))}
               {legendChange !== null && (
                 <span
                   className={cn(
-                    'figure font-mono font-medium',
+                    'figure font-medium',
                     toneText({ tone: toneOf(legendChange.absolute) }),
                   )}
                 >
@@ -346,8 +340,9 @@ export function MarketChart({
                     x1={hover * geometry.step}
                     x2={hover * geometry.step}
                     y1="0"
-                    y2={PRICE_HEIGHT}
+                    y2={PRICE_HEIGHT + 8 + VOLUME_HEIGHT}
                     strokeWidth={1}
+                    strokeDasharray="3 3"
                     vectorEffect="non-scaling-stroke"
                     stroke="var(--chart-axis)"
                   />
@@ -370,33 +365,25 @@ export function MarketChart({
               )}
             </svg>
 
-            {/* Crosshair axis tags, the way a charting platform labels its
-                cursor: the candle's time on the time axis and its close on the
-                price axis. Positioned as percentages of the plot so they track
-                the stretched SVG at any width. */}
+            {/* The tooltip: one pill above the plot at the cursor, showing the
+                candle's close and its time — the Google Finance pattern. It
+                slides by its own width in proportion to the cursor so it is
+                centred mid-plot and flush at either edge, never clipped. */}
             {hoverBar !== undefined && hover !== null && (
-              <>
-                {/* Shifted by its own width in proportion to the cursor, so
-                    it is centred mid-plot and flush at either edge, never
-                    clipped. */}
-                <span
-                  className="figure pointer-events-none absolute bottom-0 z-10 rounded-sm bg-foreground px-1.5 py-0.5 font-mono text-[10px] text-background leading-tight"
-                  style={{
-                    left: `${(hover / (geometry.bars.length - 1)) * 100}%`,
-                    transform: `translateX(-${(hover / (geometry.bars.length - 1)) * 100}%)`,
-                  }}
-                >
+              <div
+                className="pointer-events-none absolute top-1 z-10 flex items-baseline gap-2 whitespace-nowrap rounded-md border border-border bg-surface-raised px-3 py-1.5 text-sm shadow-overlay"
+                style={{
+                  left: `${(hover / (geometry.bars.length - 1)) * 100}%`,
+                  transform: `translateX(-${(hover / (geometry.bars.length - 1)) * 100}%)`,
+                }}
+              >
+                <span className="figure font-semibold text-foreground">
+                  {indexLevel(hoverBar.c)} INR
+                </span>
+                <span className="text-muted-foreground text-xs">
                   {barLabel(hoverBar.t, data?.resolution)}
                 </span>
-                <span
-                  className="figure -translate-y-1/2 pointer-events-none absolute right-0 z-10 rounded-sm bg-foreground px-1.5 py-0.5 font-mono text-[10px] text-background leading-tight"
-                  style={{
-                    top: `${(geometry.y(hoverBar.c) / (PRICE_HEIGHT + VOLUME_HEIGHT + 8)) * 100}%`,
-                  }}
-                >
-                  {indexLevel(hoverBar.c)}
-                </span>
-              </>
+              </div>
             )}
           </div>
 
