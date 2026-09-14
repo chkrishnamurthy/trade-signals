@@ -11,6 +11,10 @@ storybook-static/
 .env.*.local
 !.env.example
 
+# Local-only Telegram/Feather research data: login session and downloaded
+# archive files. These must never be committed or deployed.
+.archive-data/
+
 .DS_Store
 *.log
 .fyers-token.json

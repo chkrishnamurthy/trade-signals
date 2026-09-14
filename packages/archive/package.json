@@ -1,0 +1,41 @@
+{
+  "name": "@equitywise/archive",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "bin": {
+    "feather-probe": "./dist/feather-probe-cli.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch --preserveWatchOutput",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "probe": "tsx src/feather-probe-cli.ts",
+    "tg:login": "tsx src/telegram-login.ts",
+    "tg:list": "tsx src/telegram-list.ts",
+    "tg:get": "tsx src/telegram-download.ts",
+    "tg:dashboard": "tsx src/dashboard.ts",
+    "fno:trial": "tsx src/fno-trial.ts",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@equitywise/core": "workspace:*",
+    "@equitywise/shared": "workspace:*",
+    "apache-arrow": "^17.0.0"
+  },
+  "devDependencies": {
+    "dotenv": "^17.4.2",
+    "telegram": "^2.26.22"
+  }
+}
