@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useId, useMemo, useRef, useState } from 'react';
 import {
   ChartContainer,
   ChartLegend,
@@ -10,8 +10,9 @@ import {
 import { ChartSkeleton, DataUnavailable, ErrorState } from '@/components/data-display/states';
 import { IndexLevel } from '@/components/market/numeric';
 import { API_ROUTES } from '@/lib/api-routes';
-import { indexLevel } from '@/lib/format';
-import { toneOf } from '@/lib/tone';
+import { volume as formatVolume, indexLevel, signedPercent, signedPrice } from '@/lib/format';
+import { TONE_GLYPH, toneOf, toneText } from '@/lib/tone';
+import { cn } from '@/lib/utils';
 
 /**
  * Price chart.
@@ -40,12 +41,29 @@ interface ChartBar {
 interface ChartResponse {
   readonly symbol: string;
   readonly name: string;
+  /** Provider-normalised resolution, e.g. `5m` or `1d`. Decides the tooltip's date format. */
+  readonly resolution?: string;
   readonly bars: ChartBar[];
 }
 
 const WIDTH = 720;
 const PRICE_HEIGHT = 220;
 const VOLUME_HEIGHT = 48;
+
+/**
+ * A daily candle has no meaningful clock time, so printing 00:00 against it
+ * would be a fabricated precision. Intraday candles need the time to be
+ * identifiable at all.
+ */
+function barLabel(timestamp: number, resolution: string | undefined): string {
+  const daily = resolution === '1d';
+  return new Date(timestamp).toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    day: '2-digit',
+    month: 'short',
+    ...(daily ? { year: 'numeric' } : { hour: '2-digit', minute: '2-digit', hour12: false }),
+  });
+}
 
 export function MarketChart({
   symbol,
@@ -71,6 +89,9 @@ export function MarketChart({
     const controller = new AbortController();
     setLoading(true);
     setError(null);
+    // A stale index would read out of the previous series, so the cursor is
+    // dropped whenever the symbol or timeframe changes.
+    setHover(null);
 
     void (async () => {
       try {
@@ -145,7 +166,36 @@ export function MarketChart({
     neutral: 'stroke-neutral',
   }[tone];
 
+  const fillClass = {
+    bullish: 'fill-bullish',
+    bearish: 'fill-bearish',
+    neutral: 'fill-neutral',
+  }[tone];
+
   const hoverBar = geometry !== null && hover !== null ? geometry.bars[hover] : undefined;
+
+  /**
+   * The candle's move against the reference the rest of the row is quoted
+   * against — the previous close when the caller supplied one, otherwise the
+   * candle before it. The label names the reference so the number is never
+   * ambiguous.
+   */
+  const hoverChange = (() => {
+    if (geometry === null || hover === null || hoverBar === undefined) return null;
+    const base = previousClose ?? geometry.bars[hover - 1]?.c ?? hoverBar.o;
+    if (base === 0) return null;
+    return {
+      label: previousClose !== null ? 'vs prev close' : 'vs prev candle',
+      absolute: hoverBar.c - base,
+      percent: ((hoverBar.c - base) / base) * 100,
+    };
+  })();
+
+  /** Clamps a raw index to the series; the pointer can run past either edge. */
+  const moveCursor = (next: number): void => {
+    if (geometry === null) return;
+    setHover(Math.max(0, Math.min(geometry.bars.length - 1, next)));
+  };
 
   return (
     <ChartContainer
@@ -184,113 +234,158 @@ export function MarketChart({
         />
       ) : (
         <div>
-          {/* Hover readout. Reserves its height so the chart never shifts. */}
-          <div className="flex h-6 items-center justify-between gap-3 text-xs">
-            <span className="figure font-mono text-muted-foreground">
-              {hoverBar === undefined
-                ? `${geometry.bars.length} candles`
-                : new Date(hoverBar.t).toLocaleString('en-IN', {
-                    timeZone: 'Asia/Kolkata',
-                    day: '2-digit',
-                    month: 'short',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: false,
-                  })}
-            </span>
-            {hoverBar !== undefined && (
-              <span className="figure flex gap-3 font-mono">
-                <span className="text-muted-foreground">
-                  O <span className="text-foreground">{indexLevel(hoverBar.o)}</span>
-                </span>
-                <span className="text-muted-foreground">
-                  H <span className="text-foreground">{indexLevel(hoverBar.h)}</span>
-                </span>
-                <span className="text-muted-foreground">
-                  L <span className="text-foreground">{indexLevel(hoverBar.l)}</span>
-                </span>
-                <span className="text-muted-foreground">
-                  C <span className="font-semibold text-foreground">{indexLevel(hoverBar.c)}</span>
-                </span>
-              </span>
-            )}
+          {/* Series context. The per-candle readout is the hover tooltip below. */}
+          <div className="flex h-6 items-center justify-between gap-3 text-xs text-muted-foreground">
+            <span className="figure font-mono">{geometry.bars.length} candles</span>
+            <span className="hidden sm:inline">Hover a candle for detail</span>
           </div>
 
-          <svg
-            ref={svgRef}
-            viewBox={`0 0 ${WIDTH} ${PRICE_HEIGHT + VOLUME_HEIGHT + 8}`}
-            className="mt-1 w-full touch-none"
-            preserveAspectRatio="none"
-            role="img"
-            aria-label={`${symbol} price chart, ${timeframe}`}
-            onMouseMove={(event) => {
-              const rect = event.currentTarget.getBoundingClientRect();
-              const ratio = (event.clientX - rect.left) / rect.width;
-              setHover(
-                Math.max(
-                  0,
-                  Math.min(
-                    geometry.bars.length - 1,
-                    Math.round(ratio * (geometry.bars.length - 1)),
-                  ),
-                ),
-              );
-            }}
-            onMouseLeave={() => setHover(null)}
-          >
-            <defs>
-              <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={`var(--${tone})`} stopOpacity="0.18" />
-                <stop offset="100%" stopColor={`var(--${tone})`} stopOpacity="0" />
-              </linearGradient>
-            </defs>
+          <div className="relative">
+            <svg
+              ref={svgRef}
+              viewBox={`0 0 ${WIDTH} ${PRICE_HEIGHT + VOLUME_HEIGHT + 8}`}
+              className="mt-1 w-full touch-none"
+              preserveAspectRatio="none"
+              role="img"
+              aria-label={`${symbol} price chart, ${timeframe}`}
+              onPointerMove={(event) => {
+                const rect = event.currentTarget.getBoundingClientRect();
+                const ratio = (event.clientX - rect.left) / rect.width;
+                moveCursor(Math.round(ratio * (geometry.bars.length - 1)));
+              }}
+              onPointerLeave={() => setHover(null)}
+            >
+              <defs>
+                <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={`var(--${tone})`} stopOpacity="0.18" />
+                  <stop offset="100%" stopColor={`var(--${tone})`} stopOpacity="0" />
+                </linearGradient>
+              </defs>
 
-            {previousClose !== null && (
-              <line
-                x1="0"
-                x2={WIDTH}
-                y1={geometry.y(previousClose)}
-                y2={geometry.y(previousClose)}
-                strokeDasharray="4 4"
-                strokeWidth={1}
+              {previousClose !== null && (
+                <line
+                  x1="0"
+                  x2={WIDTH}
+                  y1={geometry.y(previousClose)}
+                  y2={geometry.y(previousClose)}
+                  strokeDasharray="4 4"
+                  strokeWidth={1}
+                  vectorEffect="non-scaling-stroke"
+                  stroke="var(--chart-axis)"
+                />
+              )}
+
+              <polygon points={geometry.area} fill={`url(#${gradientId})`} />
+              <polyline
+                points={geometry.points}
+                fill="none"
+                strokeWidth={1.5}
                 vectorEffect="non-scaling-stroke"
-                stroke="var(--chart-axis)"
+                className={strokeClass}
+                strokeLinejoin="round"
               />
+
+              {geometry.bars.map((bar, i) => (
+                <rect
+                  key={bar.t}
+                  x={i * geometry.step}
+                  width={Math.max(0.5, geometry.step * 0.7)}
+                  y={
+                    PRICE_HEIGHT + 8 + VOLUME_HEIGHT - (bar.v / geometry.maxVolume) * VOLUME_HEIGHT
+                  }
+                  height={(bar.v / geometry.maxVolume) * VOLUME_HEIGHT}
+                  className={i === hover ? fillClass : undefined}
+                  fill={i === hover ? undefined : 'var(--chart-grid)'}
+                />
+              ))}
+
+              {hover !== null && hoverBar !== undefined && (
+                <>
+                  <line
+                    x1={hover * geometry.step}
+                    x2={hover * geometry.step}
+                    y1="0"
+                    y2={PRICE_HEIGHT}
+                    strokeWidth={1}
+                    vectorEffect="non-scaling-stroke"
+                    stroke="var(--chart-axis)"
+                  />
+                  {/* A zero-length round-capped stroke, not a <circle>:
+                      `preserveAspectRatio="none"` stretches x against y, which
+                      would render any radius as an ellipse. A non-scaling
+                      stroke is measured in screen pixels, so this stays round
+                      at every chart width. */}
+                  <line
+                    x1={hover * geometry.step}
+                    x2={hover * geometry.step}
+                    y1={geometry.y(hoverBar.c)}
+                    y2={geometry.y(hoverBar.c)}
+                    strokeLinecap="round"
+                    strokeWidth={6}
+                    vectorEffect="non-scaling-stroke"
+                    className={strokeClass}
+                  />
+                </>
+              )}
+            </svg>
+
+            {/* Hover tooltip.
+                Pinned to a top corner and flipped away from the cursor rather
+                than tracked to it: the plot is only a few hundred pixels wide,
+                and a corner card can never overflow the card or cover the
+                candle being read. */}
+            {hoverBar !== undefined && hover !== null && (
+              <div
+                className={cn(
+                  'pointer-events-none absolute top-1 z-10 min-w-40 rounded-md border border-border bg-surface-raised px-2.5 py-1.5 text-xs shadow-overlay',
+                  hover / (geometry.bars.length - 1) < 0.5 ? 'right-1' : 'left-1',
+                )}
+              >
+                <div className="figure font-mono text-muted-foreground">
+                  {barLabel(hoverBar.t, data?.resolution)}
+                </div>
+                <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
+                  {(
+                    [
+                      ['O', indexLevel(hoverBar.o)],
+                      ['H', indexLevel(hoverBar.h)],
+                      ['L', indexLevel(hoverBar.l)],
+                      ['C', indexLevel(hoverBar.c)],
+                      ['Vol', formatVolume(hoverBar.v)],
+                    ] as const
+                  ).map(([label, value]) => (
+                    <Fragment key={label}>
+                      <dt className="text-muted-foreground">{label}</dt>
+                      <dd
+                        className={cn(
+                          'figure text-right font-mono text-foreground',
+                          label === 'C' && 'font-semibold',
+                        )}
+                      >
+                        {value}
+                      </dd>
+                    </Fragment>
+                  ))}
+                </dl>
+                {hoverChange !== null && (
+                  <div className="mt-1 flex items-center justify-between gap-3 border-border/60 border-t pt-1">
+                    <span className="text-muted-foreground">{hoverChange.label}</span>
+                    <span
+                      className={cn(
+                        'figure font-mono font-medium',
+                        toneText({ tone: toneOf(hoverChange.absolute) }),
+                      )}
+                    >
+                      <span aria-hidden className="mr-1">
+                        {TONE_GLYPH[toneOf(hoverChange.absolute)]}
+                      </span>
+                      {signedPrice(hoverChange.absolute)} ({signedPercent(hoverChange.percent)})
+                    </span>
+                  </div>
+                )}
+              </div>
             )}
-
-            <polygon points={geometry.area} fill={`url(#${gradientId})`} />
-            <polyline
-              points={geometry.points}
-              fill="none"
-              strokeWidth={1.5}
-              vectorEffect="non-scaling-stroke"
-              className={strokeClass}
-              strokeLinejoin="round"
-            />
-
-            {geometry.bars.map((bar, i) => (
-              <rect
-                key={bar.t}
-                x={i * geometry.step}
-                width={Math.max(0.5, geometry.step * 0.7)}
-                y={PRICE_HEIGHT + 8 + VOLUME_HEIGHT - (bar.v / geometry.maxVolume) * VOLUME_HEIGHT}
-                height={(bar.v / geometry.maxVolume) * VOLUME_HEIGHT}
-                fill="var(--chart-grid)"
-              />
-            ))}
-
-            {hover !== null && (
-              <line
-                x1={hover * geometry.step}
-                x2={hover * geometry.step}
-                y1="0"
-                y2={PRICE_HEIGHT}
-                strokeWidth={1}
-                vectorEffect="non-scaling-stroke"
-                stroke="var(--chart-axis)"
-              />
-            )}
-          </svg>
+          </div>
 
           <ChartLegend className="mt-1 justify-between">
             <IndexLevel paise={geometry.min} size="xs" className="text-subtle-foreground" />
