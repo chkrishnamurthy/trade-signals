@@ -56,7 +56,6 @@ export function createScheduler(definitions: readonly JobDefinition[], log: Logg
     const startedAt = Date.now();
     try {
       await definition.run();
-      log.info('run complete', { job: definition.name, durationMs: Date.now() - startedAt });
     } catch (error) {
       // Swallowed on purpose: a thrown error here would reject inside croner's
       // timer callback and take the process down, losing every other schedule.

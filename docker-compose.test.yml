@@ -26,6 +26,11 @@ services:
       interval: 3s
       timeout: 3s
       retries: 30
+    logging:
+      driver: json-file
+      options:
+        max-size: '1m'
+        max-file: '2'
     # Ephemeral by design — no named volume. `down -v` leaves nothing behind.
     tmpfs:
       - /var/lib/postgresql/data

@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import { fail, json } from '@/server/auth/http';
 import { verifyPasswordOrDecoy } from '@/server/auth/password';
 import { checkLock, recordFailure, recordSuccess } from '@/server/auth/rate-limit';
-import { clientIp, isSameOrigin, userAgent } from '@/server/auth/request';
+import { clientIp, isSameOrigin } from '@/server/auth/request';
 import { signInSchema } from '@/server/auth/schemas';
 import { startSession } from '@/server/auth/session';
 import { getDatabase } from '@/server/db';
@@ -59,7 +59,6 @@ export async function POST(request: Request): Promise<NextResponse> {
       event: 'login_failure',
       userId: found?.user.id ?? null,
       ipAddress: ip,
-      userAgent: userAgent(request),
     });
     return fail('Invalid email or password.', 401, { code: 'INVALID_CREDENTIALS' });
   }
@@ -75,7 +74,6 @@ export async function POST(request: Request): Promise<NextResponse> {
     event: 'login_success',
     userId: found.user.id,
     ipAddress: ip,
-    userAgent: userAgent(request),
   });
 
   return json({ ok: true });

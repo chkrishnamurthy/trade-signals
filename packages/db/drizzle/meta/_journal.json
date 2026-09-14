@@ -134,6 +134,13 @@
       "when": 1789364644684,
       "tag": "0018_announcement_version_guards",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1789371600000,
+      "tag": "0019_trim_low_value_audit_logs",
+      "breakpoints": true
     }
   ]
 }
