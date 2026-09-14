@@ -71,7 +71,9 @@ function Hero({
             className="mb-5 inline-flex items-center gap-1.5 bg-surface/70 px-3 py-1 text-xs"
           >
             <span className="size-1.5 rounded-full bg-bullish" />
-            Live NSE data · recomputed every market close
+            {signedIn
+              ? 'Welcome back — your latest session brief is ready'
+              : 'Live NSE data · recomputed every market close'}
           </Badge>
 
           <h1 className="font-display font-extrabold text-4xl tracking-tight text-foreground text-balance sm:text-6xl sm:leading-[1.05]">
@@ -86,12 +88,17 @@ function Hero({
 
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             {signedIn ? (
-              <Button asChild size="lg" className="gap-2">
-                <Link href="/today">
-                  <SparklesIcon className="size-4" />
-                  Open your market brief
-                </Link>
-              </Button>
+              <>
+                <Button asChild size="lg" className="gap-2">
+                  <Link href="/today">
+                    <SparklesIcon className="size-4" />
+                    Open your market brief
+                  </Link>
+                </Button>
+                <Button asChild size="lg" variant="outline">
+                  <Link href="/watchlists">View watchlists</Link>
+                </Button>
+              </>
             ) : (
               <>
                 <Button asChild size="lg" className="gap-2">

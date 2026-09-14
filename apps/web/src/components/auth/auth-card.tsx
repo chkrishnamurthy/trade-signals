@@ -24,7 +24,9 @@ export function AuthCard({
       )}
     >
       <Brand className="text-sm" />
-      <h1 className="mt-5 text-xl font-semibold tracking-tight text-foreground">{title}</h1>
+      <h1 className="mt-5 font-display text-xl font-bold tracking-tight text-foreground">
+        {title}
+      </h1>
       {subtitle !== undefined ? (
         <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
       ) : null}

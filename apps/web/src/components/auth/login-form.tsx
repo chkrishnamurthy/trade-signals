@@ -72,7 +72,7 @@ export function LoginForm({
           <p className="text-xs font-semibold tracking-wide text-primary uppercase">
             NSE market analysis workspace
           </p>
-          <h1 className="mt-4 max-w-3xl text-4xl font-semibold tracking-tight text-foreground xl:text-5xl xl:leading-[1.05]">
+          <h1 className="mt-4 max-w-3xl font-display text-4xl font-bold tracking-tight text-foreground xl:text-5xl xl:leading-[1.05]">
             Your watchlists, technical readings, and market setups in one calm place.
           </h1>
           <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground">
@@ -108,7 +108,7 @@ export function LoginForm({
           <div className="lg:hidden">
             <Brand className="text-sm" />
           </div>
-          <h2 className="mt-6 text-2xl font-semibold tracking-tight text-foreground lg:mt-0">
+          <h2 className="mt-6 font-display text-2xl font-bold tracking-tight text-foreground lg:mt-0">
             Sign in
           </h2>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
