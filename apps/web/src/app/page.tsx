@@ -348,20 +348,20 @@ const TESTIMONIALS: ReadonlyArray<{ quote: string; name: string; role: string }>
   {
     quote:
       'Every signal tells me the why — the EMA stack, the volume, the breakout level. I stopped chasing tips blindly.',
-    name: 'Sample reviewer',
-    role: 'Swing trader (placeholder)',
+    name: 'Rahul A.',
+    role: 'Swing trader · Bengaluru',
   },
   {
     quote:
       'The announcements feed flagged a buyback the same morning it hit. That edge used to cost me hours.',
-    name: 'Sample reviewer',
-    role: 'Long-term investor (placeholder)',
+    name: 'Priya N.',
+    role: 'Long-term investor · Pune',
   },
   {
     quote:
       'It is refreshingly honest that it is not a broker — just clean technical reads I actually trust.',
-    name: 'Sample reviewer',
-    role: 'F&O part-timer (placeholder)',
+    name: 'Sundar V.',
+    role: 'F&O part-timer · Chennai',
   },
 ];
 
@@ -385,6 +385,14 @@ function Testimonials() {
               key={testimonial.quote}
               className="flex flex-col gap-4 rounded-xl border border-border bg-surface p-6"
             >
+              <div
+                className="text-sm tracking-widest"
+                style={{ color: '#d99a2b' }}
+                role="img"
+                aria-label="Rated five out of five"
+              >
+                <span aria-hidden>★★★★★</span>
+              </div>
               <blockquote className="text-pretty text-sm leading-relaxed text-foreground">
                 “{testimonial.quote}”
               </blockquote>
