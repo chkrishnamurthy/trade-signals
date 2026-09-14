@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Inter, JetBrains_Mono } from 'next/font/google';
+import { Bricolage_Grotesque, Inter, JetBrains_Mono } from 'next/font/google';
 import type { ReactNode } from 'react';
 import { JsonLd } from '@/components/seo/json-ld';
 import { ToastProvider } from '@/components/ui/toast';
@@ -32,6 +32,19 @@ const inter = Inter({
 const jetbrainsMono = JetBrains_Mono({
   subsets: ['latin'],
   variable: '--font-mono-figures',
+  display: 'swap',
+});
+
+/**
+ * Display face for headings and the wordmark. Bricolage Grotesque gives the
+ * marketing and product surfaces a warmer, more editorial voice than the
+ * interface sans — used only for headings, so data columns keep Inter's
+ * tabular figures.
+ */
+const bricolage = Bricolage_Grotesque({
+  subsets: ['latin'],
+  variable: '--font-bricolage',
+  weight: ['600', '700', '800'],
   display: 'swap',
 });
 
@@ -95,7 +108,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${inter.variable} ${jetbrainsMono.variable}`}
+      className={`${inter.variable} ${jetbrainsMono.variable} ${bricolage.variable}`}
     >
       <head>
         {/* Organization and WebSite structured data for Google Rich Results */}

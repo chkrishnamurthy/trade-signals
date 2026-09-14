@@ -20,7 +20,7 @@ import { cn } from '@/lib/utils';
 const textVariants = cva('', {
   variants: {
     variant: {
-      'page-title': 'text-xl font-semibold tracking-tight text-foreground sm:text-2xl',
+      'page-title': 'font-display text-xl font-bold tracking-tight text-foreground sm:text-2xl',
       'section-title': 'text-sm font-semibold tracking-tight text-foreground',
       'card-title': 'text-sm font-semibold tracking-tight text-foreground',
       body: 'text-sm text-foreground',
