@@ -1,7 +1,8 @@
 # Announcement interpretation: free sources, FYERS and delivery limits
 
-Assessed: **14 September 2026**. Status: source feasibility and implementation plan;
-the interpretation enhancement is **not implemented** by this document.
+Assessed and implementation verified: **14 September 2026**. Status: the first
+metadata-based interpretation release is implemented. See “Implemented scope and
+remaining limits” below; this is not full attachment interpretation.
 
 This assesses the supplied “Announcement Interpretation” specification against
 the current repository and official source documentation. It is specific to
@@ -158,9 +159,9 @@ The BSE tariff was available in search-indexed official text, but direct PDF
 retrieval failed during this assessment. Its current applicability requires
 confirmation; no price estimate is used as an approved budget here.
 
-## Existing implementation: verified from repository, not production
+## Pre-enhancement baseline: verified from repository, not production
 
-Current data flow:
+Data flow at the initial assessment:
 
 ```text
 BSE website JSON service (AnnGetData)
@@ -230,7 +231,7 @@ Important gaps in the supplied “already implemented” premise:
     factors as part of the future enhancement. A substring such as “order” can
     also describe a legal order, not an order win.
 
-## Recommended delivery sequence
+## Delivery sequence from the initial assessment
 
 1. **Establish source access and measure coverage.** Validate official NSE RSS
    as discovery, confirm permitted attachment/structured-filing access, and
@@ -264,13 +265,111 @@ Then verify responsive/accessibility behaviour and run the implementation's
 required typecheck, lint and tests without starting the full worker or mutating
 production.
 
-## Verification boundary for this assessment
+## Implemented scope and remaining limits
 
-This is a documentation-only assessment from repository inspection and public
-official documentation. No production data, authenticated FYERS endpoint, live
-RSS payload, exchange JSON payload or downloaded announcement document was tested.
-No source provider was contacted. Public pages establish that the source products
-exist; they do not validate our adapter or approve EquityWise's reuse.
+The initial implementation is already in `main` (commit `cc20038`, included in
+subsequent merges). Follow-up validation fixes are on
+`codex/announcement-interpretation-followup`. Existing ingestion, source metadata,
+filters, pagination and original-filing links are preserved.
 
-No schema, API, UI, worker behaviour or deployment changed. Existing code issues
-above are follow-up implementation requirements, not fixes claimed by this task.
+| Area | Implemented behaviour |
+| --- | --- |
+| Interpretation | Worker-generated, deterministic `metadata-rules-v1`; uses only persisted title, category and description. No AI provider or new dependency. |
+| Category and status | Full requested category/status vocabulary; conservative keyword categories and explicit labelled status only. Unknown, conflicting or qualified completion remains unknown. |
+| Facts and dates | Explicit label/value lines retain source field, character span and exact excerpt. Original units and conditional wording are preserved. No guessed numeric values or financial comparisons. |
+| Explanation | Separate official facts, business relevance and unknowns. Every interpretation identifies that the attachment was not analysed. |
+| Provenance | Original metadata and source ID, filing/ingestion times, method and SHA-256 metadata/method checksum. This is explicitly **not** a document checksum. |
+| Versioning | Append-only source snapshots and interpretation versions, enforced by a database trigger. Retries do not duplicate versions; revisions and reversions remain inspectable. Existing rows are preserved before upgrade. |
+| Personalization | Owner-scoped watchlist names, read/unread, save, dismiss/restore and a personal issue flag. Reading state records the interpretation checksum so a changed filing becomes unread again. |
+| Filters | Existing search/date/company/category filters plus interpreted category, event status, source, reading state and presence of extracted labelled facts. Empty watchlist scope remains empty. |
+| Feed health | Separate persisted successful/failed attempts and last success, independent of filtered rows. Successful empty fetches and failed fetches are distinct. Coverage remains explicitly partial/unverified. |
+| UI | Neutral category styling, explained keyword-based reading priority, IST date groups, first three facts on cards, responsive Radix detail/filter drawers, keyboard focus handling and original links. |
+| Failure handling | Invalid announcement timestamps are rejected rather than replaced with the current time. HTTP, malformed and rejected-row failures propagate to ingestion history; unrelated jobs remain isolated. |
+
+The web application reads worker-produced interpretations; it writes only personal
+announcement state. State mutation validates the request, verifies the session,
+checks origin, and never accepts an owner ID from the client. Original attachment
+links are restricted to supported HTTPS exchange hosts. Interpretation is withheld
+when a valid original attachment link is absent. A valid URL is not proof that the
+remote document remains reachable.
+
+The first release intentionally retains these limits:
+
+- **No PDF/XBRL download, OCR or attachment extraction.** A missing extracted fact
+  means “not established from the available metadata”, not “the company omitted it”.
+- **No financial normalization, YoY/QoQ calculations or dilution estimates.**
+  Labelled monetary strings are source excerpts, not computational money values.
+- **No new NSE/RSS feed, expanded website scraping or FYERS context.** Source
+  permissions, validated transport and public-display rights remain unresolved.
+- **No verified complete coverage or real-time delivery.** The existing BSE source
+  and weekday sweep schedule remain; pagination and outage recovery still need
+  source-specific validation.
+- **No inferred BSE-to-NSE company mapping.** Unmapped filings stay visible but
+  cannot receive reliable watchlist membership until authoritative mapping exists.
+- **No automatic links between separate filings or NSE/BSE duplicates.** The
+  drawer shows stored versions of the same source filing ID. Similar titles are
+  not treated as an event identity.
+- **No automatic general-language lifecycle inference.** The v1 status reader
+  requires an explicit labelled status; a title alone never establishes completion.
+- **The issue flag is personal state**, not a promise of an editorial review queue
+  or an external message being sent.
+
+Existing metadata is processed in bounded batches of 100 by the worker during
+announcement ingestion runs, including before an attempted external fetch.
+After migrations, older items can remain pending until those batches run. A rule
+change must bump the method version; reprocessing preserves earlier versions.
+
+### Schema and verification
+
+- `0017_announcement_interpretation.sql`: current interpretation/checksum columns,
+  immutable-version storage, ingestion-attempt history and per-owner state.
+- `0018_announcement_version_guards.sql`: preserve pre-upgrade snapshots and reject
+  UPDATE/DELETE on evidence versions.
+- `pnpm typecheck`: passed.
+- `pnpm test:integration`: **657 passed, 4 skipped**. The actual migrations ran
+  against disposable local PostgreSQL 17 + TimescaleDB. All six announcement
+  database tests executed and passed; the remaining skips are the separate auth
+  integration suite. The test container is removed by the existing test script.
+- Browser fixture checks: 375px and 1440px, light and dark, drawer content,
+  Escape/focus restoration, saving, marking read and unread filtering passed.
+  Reduced-motion checks also passed, with no drawer animation or horizontal overflow.
+  The fixture uses the real components and stylesheet, isolated API responses
+  and a mocked app shell; it does not prove live production source availability.
+- Full-repository lint reports **26 pre-existing errors outside the changed files**.
+  Changed-file lint passes; unrelated code was not reformatted.
+
+The follow-up also aligns the announcement integration suite with the shared
+`TEST_DATABASE_URL` resolver used by Vitest global setup, so the existing integration
+command actually exercises these database invariants. Filter selects now have
+explicitly associated accessible labels. The shared sheet and overlay now disable
+state-based animations when the user requests reduced motion.
+
+No production migration, deployment, authenticated FYERS request or live exchange
+payload validation was performed by this task. No source provider was contacted.
+The earlier source research establishes available products, not permission for
+EquityWise's particular reuse or proof of the adapter's live coverage.
+
+### Reported production failure: 14 September 2026
+
+The user reported “Latest ingestion failed” for the 13:20 IST attempt, with
+“Last successful ingestion: Not recorded”. This is an actual failed worker run,
+not a healthy-feed status. “Not recorded” means no successful run is present in
+the new ingestion history; it does not establish that no filings were ever
+collected before that history existed.
+
+The health banner does not persist the underlying exception. A failure can occur
+during stored-metadata interpretation, the BSE request, response validation,
+instrument resolution or database writes. The scheduler logs the actual error
+under `job: ingest-announcements`, `run failed`, with `errorName` and
+`errorMessage`. Do not assume a BSE HTTP block without that evidence.
+
+The accompanying NSE-not-connected, unverified-coverage and attachments-not-analysed
+notices describe remaining implementation limits; they are not additional runtime
+errors. FYERS credentials are unrelated to this ingestion path.
+
+A read-only production SSH diagnostic was attempted from this workspace and
+failed with `Permission denied (publickey)`. No production logs were retrieved
+and the root cause remains unconfirmed. Obtain the relevant worker error log
+through existing server access; do not send private keys, tokens or `.env` files.
+Live ingestion verification remains outstanding despite passing fixture and local
+database tests. The release must not be described as a verified working live feed.

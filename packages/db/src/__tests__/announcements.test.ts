@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { interpretAnnouncement } from '@equitywise/core';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { resolveTestDatabaseUrl } from '../../../../test/db';
 import { createDatabase, type DatabaseHandle } from '../client.js';
 import {
   announcementStatesForOwner,
@@ -15,14 +16,8 @@ import {
 } from '../repositories/disclosures.js';
 import { announcementVersions, authUsers } from '../schema/index.js';
 
-// Explicit opt-in to an already-migrated disposable local DB. Never load the app's .env.
-const url = process.env.ANNOUNCEMENTS_TEST_DATABASE_URL;
-if (
-  url &&
-  (!['127.0.0.1', 'localhost'].includes(new URL(url).hostname) ||
-    !new URL(url).pathname.endsWith('_test'))
-)
-  throw new Error('Announcement integration tests require a local disposable *_test database.');
+// Use the same guarded local database that Vitest global setup migrates.
+const url = resolveTestDatabaseUrl();
 const suite = url ? describe : describe.skip;
 suite('announcement persistence on real PostgreSQL', () => {
   let handle: DatabaseHandle;
