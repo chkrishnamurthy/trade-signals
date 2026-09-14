@@ -3,9 +3,8 @@ import { expect, userEvent, waitFor, within } from 'storybook/test';
 import { FilterPanel } from './filter-panel';
 
 /**
- * The filters popover. Range inputs are typed in DISPLAY units (₹ for a price)
- * and read their label/unit from the column registry. Columns with no data
- * source render disabled with the reason.
+ * The filters popover: direction, the sectors present in the list, and the
+ * exchange when there is more than one.
  */
 const meta = {
   title: 'Features/Watchlist/FilterPanel',
@@ -39,21 +38,22 @@ export const WithActiveFilters: Story = {
   args: {
     filters: {
       direction: 'advancing',
-      ranges: { rsi14: { min: 50, max: null }, ltp: { min: 100000, max: null } },
-      flags: [],
       sectors: ['IT'],
     },
   },
 };
 
 /**
- * Mobile (375px): the tall filters list is capped and scrolls INSIDE the popover
- * rather than growing past the screen and spilling over the page. Regression guard
- * for the `ScrollArea` viewport clamp (the panel's height cap must reach Radix's
- * scroller, not just the Root).
+ * Mobile (375px): a list spanning many sectors is capped and scrolls INSIDE the
+ * popover rather than growing past the screen and spilling over the page.
+ * Regression guard for the `ScrollArea` viewport clamp (the panel's height cap
+ * must reach Radix's scroller, not just the Root).
  */
 export const Mobile: Story = {
-  args: WithActiveFilters.args,
+  args: {
+    ...WithActiveFilters.args,
+    sectors: Array.from({ length: 40 }, (_, i) => `Sector ${i + 1}`),
+  },
   globals: { viewport: { value: 'mobile', isRotated: false } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
