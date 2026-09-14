@@ -1,6 +1,9 @@
-import { and, desc, eq, gte, ilike, inArray, or, type SQL, sql } from 'drizzle-orm';
+import type { AnnouncementInterpretation } from '@equitywise/core';
+import { and, desc, eq, exists, gte, ilike, inArray, not, or, type SQL, sql } from 'drizzle-orm';
 import type { Database } from '../client.js';
 import {
+  announcementUserState,
+  announcementVersions,
   bulkBlockDeals,
   corporateAnnouncements,
   fiiDiiFlows,
@@ -34,50 +37,88 @@ export interface AnnouncementUpsert {
   readonly detail: string | null;
   readonly attachmentUrl: string | null;
   readonly announcedAt: Date;
+  readonly interpretation?: AnnouncementInterpretation | null;
+  readonly interpretationChecksum?: string | null;
 }
 
 export async function upsertAnnouncements(
   db: Database,
   rows: readonly AnnouncementUpsert[],
 ): Promise<number> {
-  let written = 0;
-  for (let i = 0; i < rows.length; i += CHUNK) {
-    const chunk = rows.slice(i, i + CHUNK);
-    if (chunk.length === 0) continue;
-    const result = await db
-      .insert(corporateAnnouncements)
-      .values(
-        chunk.map((row) => ({
-          instrumentId: row.instrumentId,
-          symbol: row.symbol,
-          companyName: row.companyName,
-          source: row.source,
-          externalId: row.externalId,
-          category: row.category,
-          headline: row.headline,
-          detail: row.detail,
-          attachmentUrl: row.attachmentUrl,
-          announcedAt: row.announcedAt,
-        })),
-      )
-      .onConflictDoUpdate({
-        target: [corporateAnnouncements.source, corporateAnnouncements.externalId],
-        set: {
-          instrumentId: sql`excluded.instrument_id`,
-          category: sql`excluded.category`,
-          headline: sql`excluded.headline`,
-          detail: sql`excluded.detail`,
-          attachmentUrl: sql`excluded.attachment_url`,
-          announcedAt: sql`excluded.announced_at`,
-        },
-      })
-      .returning({ id: corporateAnnouncements.id });
-    written += result.length;
-  }
-  return written;
+  // Serialize on the source row so concurrent retries cannot lose a revision.
+  if (rows.length === 0) return 0;
+  await db.transaction(async (tx) => {
+    for (const row of [...rows].sort(
+      (a, b) => a.source.localeCompare(b.source) || a.externalId.localeCompare(b.externalId),
+    )) {
+      await tx.insert(corporateAnnouncements).values(row).onConflictDoNothing();
+      const [current] = await tx
+        .select()
+        .from(corporateAnnouncements)
+        .where(
+          and(
+            eq(corporateAnnouncements.source, row.source),
+            eq(corporateAnnouncements.externalId, row.externalId),
+          ),
+        )
+        .for('update');
+      if (current === undefined) throw new Error('Announcement insert did not return a row');
+      const snapshot = (item: AnnouncementUpsert) => ({
+        source: item.source,
+        externalId: item.externalId,
+        symbol: item.symbol,
+        companyName: item.companyName,
+        category: item.category,
+        headline: item.headline,
+        detail: item.detail,
+        attachmentUrl: item.attachmentUrl,
+        announcedAt: item.announcedAt.toISOString(),
+      });
+      const [previous] = await tx
+        .select({ id: announcementVersions.id })
+        .from(announcementVersions)
+        .where(eq(announcementVersions.announcementId, current.id))
+        .limit(1);
+      if (previous === undefined) {
+        await tx.insert(announcementVersions).values({
+          announcementId: current.id,
+          snapshot: snapshot(current),
+          checksum: current.interpretationChecksum,
+          interpretation: current.interpretation,
+        });
+      }
+      const changed =
+        JSON.stringify(snapshot(current)) !== JSON.stringify(snapshot(row)) ||
+        current.interpretationChecksum !== (row.interpretationChecksum ?? null);
+      if (changed) {
+        await tx.insert(announcementVersions).values({
+          announcementId: current.id,
+          snapshot: snapshot(row),
+          checksum: row.interpretationChecksum ?? null,
+          interpretation: row.interpretation ?? null,
+        });
+        await tx
+          .update(corporateAnnouncements)
+          .set({
+            ...row,
+            interpretation: row.interpretation ?? null,
+            interpretationChecksum: row.interpretationChecksum ?? null,
+          })
+          .where(eq(corporateAnnouncements.id, current.id));
+      } else if (row.instrumentId !== current.instrumentId) {
+        await tx
+          .update(corporateAnnouncements)
+          .set({ instrumentId: row.instrumentId })
+          .where(eq(corporateAnnouncements.id, current.id));
+      }
+    }
+  });
+  return rows.length;
 }
 
 export interface AnnouncementRow {
+  readonly interpretation: AnnouncementInterpretation | null;
+  readonly interpretationChecksum: string | null;
   readonly id: number;
   readonly instrumentId: number | null;
   readonly symbol: string;
@@ -88,9 +129,18 @@ export interface AnnouncementRow {
   readonly attachmentUrl: string | null;
   readonly announcedAt: Date;
   readonly source: string;
+  readonly externalId: string;
+  readonly ingestedAt: Date;
 }
 
 export interface AnnouncementQuery {
+  readonly ownerId?: number;
+  readonly state?: 'unread' | 'read' | 'saved' | 'dismissed';
+  readonly eventStatus?: string;
+  readonly normalizedCategory?: string;
+  readonly source?: string;
+  readonly hasFacts?: boolean;
+  readonly id?: number;
   /** Restrict to these instruments (e.g. the user's watchlist). */
   readonly instrumentIds?: readonly number[];
   /** Restrict to these exchange symbols (e.g. one stock's history). */
@@ -123,6 +173,52 @@ export async function getAnnouncements(
   query: AnnouncementQuery = {},
 ): Promise<AnnouncementResult> {
   const conditions: SQL[] = [];
+  if (query.id !== undefined) conditions.push(eq(corporateAnnouncements.id, query.id));
+  if (query.source !== undefined) conditions.push(eq(corporateAnnouncements.source, query.source));
+  if (query.eventStatus !== undefined)
+    conditions.push(
+      sql`coalesce(${corporateAnnouncements.interpretation}->>'eventStatus', 'STATUS_UNKNOWN') = ${query.eventStatus}`,
+    );
+  if (query.normalizedCategory !== undefined)
+    conditions.push(
+      sql`coalesce(${corporateAnnouncements.interpretation}->>'category', 'OTHER') = ${query.normalizedCategory}`,
+    );
+  if (query.hasFacts)
+    conditions.push(sql`jsonb_array_length(${corporateAnnouncements.interpretation}->'facts') > 0`);
+  if (query.state !== undefined && query.ownerId === undefined)
+    throw new Error('Owner required for announcement state');
+  if (query.ownerId !== undefined) {
+    const ownerId = query.ownerId;
+    const stateMatches = (
+      column:
+        | typeof announcementUserState.read
+        | typeof announcementUserState.saved
+        | typeof announcementUserState.dismissed,
+    ) =>
+      exists(
+        db
+          .select({ id: announcementUserState.announcementId })
+          .from(announcementUserState)
+          .where(
+            and(
+              eq(announcementUserState.ownerId, ownerId),
+              eq(announcementUserState.announcementId, corporateAnnouncements.id),
+              eq(column, true),
+              ...(column === announcementUserState.read
+                ? [
+                    sql`coalesce(${announcementUserState.readChecksum}, '') = coalesce(${corporateAnnouncements.interpretationChecksum}, '')`,
+                  ]
+                : []),
+            ),
+          ),
+      );
+    if (query.state === 'dismissed') conditions.push(stateMatches(announcementUserState.dismissed));
+    else conditions.push(not(stateMatches(announcementUserState.dismissed)));
+    if (query.state === 'unread') conditions.push(not(stateMatches(announcementUserState.read)));
+    if (query.state === 'read') conditions.push(stateMatches(announcementUserState.read));
+    if (query.state === 'saved') conditions.push(stateMatches(announcementUserState.saved));
+  }
+
   if (query.instrumentIds !== undefined) {
     if (query.instrumentIds.length === 0) return { rows: [], total: 0 };
     conditions.push(inArray(corporateAnnouncements.instrumentId, [...query.instrumentIds]));
@@ -174,10 +270,14 @@ export async function getAnnouncements(
       attachmentUrl: corporateAnnouncements.attachmentUrl,
       announcedAt: corporateAnnouncements.announcedAt,
       source: corporateAnnouncements.source,
+      externalId: corporateAnnouncements.externalId,
+      ingestedAt: corporateAnnouncements.ingestedAt,
+      interpretation: corporateAnnouncements.interpretation,
+      interpretationChecksum: corporateAnnouncements.interpretationChecksum,
     })
     .from(corporateAnnouncements)
     .where(where)
-    .orderBy(desc(corporateAnnouncements.announcedAt))
+    .orderBy(desc(corporateAnnouncements.announcedAt), desc(corporateAnnouncements.id))
     .limit(Math.min(query.limit ?? 50, MAX_ANNOUNCEMENTS))
     .offset(query.offset ?? 0);
 

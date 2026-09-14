@@ -15,15 +15,12 @@ import {
   publishVwapSignal,
   reconcileSignalDeadlines,
 } from '../repositories/vwap-signals.js';
+import { resolveTestDatabaseUrl } from '../../../../test/db';
 
-// Explicit opt-in; never picks up DATABASE_URL or the repository's live .env.
-const url = process.env.SIGNALS_TEST_DATABASE_URL;
-if (
-  url &&
-  (!['127.0.0.1', 'localhost'].includes(new URL(url).hostname) ||
-    !new URL(url).pathname.endsWith('_test'))
-)
-  throw new Error('Signal integration tests require a local disposable *_test database.');
+// One shared, local, disposable *_test database for every DB suite (test/db.ts).
+// The Vitest global setup migrates it; this suite only connects and inserts.
+// Skips when unset locally; throws in CI, or on a non-local / non-*_test URL.
+const url = resolveTestDatabaseUrl();
 const suite = url ? describe : describe.skip;
 suite('signal persistence on real PostgreSQL', () => {
   let handle: DatabaseHandle;

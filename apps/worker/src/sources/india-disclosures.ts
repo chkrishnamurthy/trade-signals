@@ -11,10 +11,10 @@ import { z } from 'zod';
 /**
  * India exchange disclosure source (BSE + NSE public feeds).
  *
- * These are the free, officially-published feeds — legal to store and re-present
- * with attribution. The PURE PARSERS below are the tested part; the fetch
- * wrappers are thin and fail soft (an empty array, never a throw), because a
- * single weak or rate-limited feed must not take a whole ingestion pass down.
+ * Public access does not establish storage or redistribution permission.
+ * See docs/planning/announcement-interpretation-sources.md. The PURE PARSERS below are the tested part; the fetch
+ * announcement transport throws on failure; other legacy feeds fail soft.
+ * The scheduler isolates unrelated jobs.
  *
  * ⚠️ ENDPOINT VERIFICATION: BSE/NSE gate their JSON endpoints behind a browser
  * cookie/referer handshake that changes from time to time and cannot be reached
@@ -33,7 +33,10 @@ const BROWSER_HEADERS: Record<string, string> = {
 };
 
 async function fetchJson(url: string, headers: Record<string, string>): Promise<unknown> {
-  const response = await fetch(url, { headers: { ...BROWSER_HEADERS, ...headers } });
+  const response = await fetch(url, {
+    headers: { ...BROWSER_HEADERS, ...headers },
+    signal: AbortSignal.timeout(15_000),
+  });
   if (!response.ok) throw new Error(`${url} responded ${response.status}`);
   return response.json();
 }
@@ -69,21 +72,37 @@ export function parseDdMonYyyy(value: string): string | null {
 }
 
 /** An IST wall-clock timestamp string → a UTC `Date`. Tolerant of formats. */
-export function parseIstTimestamp(value: string): Date {
-  const iso = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?/.exec(value.trim());
-  if (iso !== null) {
-    return fromIstParts({
-      year: Number(iso[1]),
-      month: Number(iso[2]),
-      day: Number(iso[3]),
-      hour: Number(iso[4]),
-      minute: Number(iso[5]),
-      second: Number(iso[6] ?? '0'),
-    });
+export function parseIstTimestamp(value: string): Date | null {
+  const iso =
+    /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?(Z|[+-]\d{2}:\d{2})?$/.exec(
+      value.trim(),
+    );
+  if (iso === null) return null;
+  const year = Number(iso[1]),
+    month = Number(iso[2]),
+    day = Number(iso[3]);
+  const hour = Number(iso[4]),
+    minute = Number(iso[5]),
+    second = Number(iso[6] ?? 0);
+  if (
+    year < 1900 ||
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > new Date(Date.UTC(year, month, 0)).getUTCDate() ||
+    hour > 23 ||
+    minute > 59 ||
+    second > 59
+  )
+    return null;
+  if (iso[8] !== undefined) {
+    const parsed = new Date(value.trim().replace(' ', 'T'));
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
   }
-  // Last resort: let the runtime try. Treated as-is if it carries a zone.
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+  return new Date(
+    fromIstParts({ year, month, day, hour, minute, second }).getTime() +
+      Number((iso[7] ?? '').padEnd(3, '0')),
+  );
 }
 
 /** ₹ crore (as reported) → integer paise. */
@@ -124,6 +143,8 @@ export function parseBseAnnouncements(payload: unknown): RawAnnouncement[] {
     const headline = (row.HEADLINE ?? row.NEWSSUB ?? '').trim();
     if (headline === '') continue;
 
+    const announcedAt = parseIstTimestamp(row.NEWS_DT ?? row.DT_TM ?? '');
+    if (announcedAt === null) continue;
     const attachment = row.ATTACHMENTNAME?.trim();
     out.push({
       source: 'bse',
@@ -137,7 +158,7 @@ export function parseBseAnnouncements(payload: unknown): RawAnnouncement[] {
         attachment !== undefined && attachment !== ''
           ? `https://www.bseindia.com/xml-data/corpfiling/AttachLive/${attachment}`
           : (row.NSURL ?? null),
-      announcedAt: parseIstTimestamp(row.NEWS_DT ?? row.DT_TM ?? ''),
+      announcedAt,
     });
   }
   return out;
@@ -299,9 +320,8 @@ function compact(dateKey: string): string {
 /**
  * The India disclosure source.
  *
- * Every fetch is wrapped so a failed feed yields `[]`, keeping one weak endpoint
- * from failing the whole pass. Endpoints must be verified on the VPS (see the
- * module note above).
+ * Announcement failures propagate to the worker for persisted health reporting.
+ * Other legacy feeds still fail soft. Source coverage remains unverified.
  */
 export function createIndiaDisclosureSource(): DisclosureSource {
   const safe = async <T>(run: () => Promise<readonly T[]>): Promise<readonly T[]> => {
@@ -315,15 +335,17 @@ export function createIndiaDisclosureSource(): DisclosureSource {
   return {
     id: 'india-exchanges',
 
-    fetchAnnouncements: ({ since }) =>
-      safe(async () => {
-        const from = compact(istKey(since));
-        const to = compact(istKey(new Date()));
-        const url = `https://api.bseindia.com/BseIndiaAPI/api/AnnGetData/w?strCat=-1&strPrevDate=${from}&strToDate=${to}&strSearch=P&strscrip=&strType=C`;
-        return parseBseAnnouncements(
-          await fetchJson(url, { Referer: 'https://www.bseindia.com/' }),
-        );
-      }),
+    fetchAnnouncements: async ({ since }) => {
+      const from = compact(istKey(since));
+      const to = compact(istKey(new Date()));
+      const url = `https://api.bseindia.com/BseIndiaAPI/api/AnnGetData/w?strCat=-1&strPrevDate=${from}&strToDate=${to}&strSearch=P&strscrip=&strType=C`;
+      const payload = await fetchJson(url, { Referer: 'https://www.bseindia.com/' });
+      const envelope = z.object({ Table: z.array(z.unknown()) }).parse(payload);
+      const rows = parseBseAnnouncements(envelope);
+      if (rows.length !== envelope.Table.length)
+        throw new Error('Announcement response contains invalid or undated filings');
+      return rows;
+    },
 
     fetchFiiDii: () =>
       safe(async () =>

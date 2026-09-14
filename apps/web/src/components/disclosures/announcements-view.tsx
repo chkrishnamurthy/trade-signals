@@ -1,5 +1,6 @@
 'use client';
 
+import { ANNOUNCEMENT_CATEGORIES, ANNOUNCEMENT_STATUSES } from '@equitywise/core';
 import { ExternalLinkIcon, SearchIcon, StarIcon, XIcon, ZapIcon } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -18,25 +19,31 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Text } from '@/components/ui/typography';
 import {
-  announcementMeta,
-  DATE_RANGES,
-  RELATIVE_DAY_LABEL,
-  type RelativeDayBucket,
-  relativeDayBucket,
-} from '@/lib/announcement-meta';
+  Sheet,
+  SheetBody,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet';
+import { Text } from '@/components/ui/typography';
+import { announcementMeta, DATE_RANGES } from '@/lib/announcement-meta';
 import type { AnnouncementDto, AnnouncementsPageDto } from '@/lib/disclosure-types';
 import { cn } from '@/lib/utils';
-import { CategoryChips, FreshnessBanner, formatDateTimeIst, ScopeToggle } from './parts';
+import {
+  AnnouncementActions,
+  AnnouncementInterpretationSheet,
+} from './announcement-interpretation';
+import { CategoryChips, formatDateTimeIst, ScopeToggle } from './parts';
 
 /**
  * Corporate Announcements page (`/announcements`).
  *
  * A chronological, filterable feed of official filings. All filter state lives
  * in the URL and the server re-renders — no client data fetching. The only
- * client-only state is the per-device "new since last visit" marker, kept in
- * localStorage.
+ * reading state is persisted per owner. Interpretations are produced by the worker.
  */
 export function AnnouncementsView({
   data,
@@ -46,30 +53,67 @@ export function AnnouncementsView({
   activeCategories: readonly string[];
 }) {
   const setParams = useUrlParams();
-  const isNew = useNewSince(data.rows);
 
   return (
     <AppShell>
       <PageContainer>
         <PageHeader>
           <PageHeading>
-            <PageTitle>Announcements</PageTitle>
+            <PageTitle>Corporate Announcements</PageTitle>
             <PageDescription>
-              Official corporate filings published by the exchanges.
+              Company disclosures, with facts, context and unknowns.
             </PageDescription>
           </PageHeading>
           <ScopeToggle watchlistOnly={data.watchlistOnly} hasWatchlists={data.hasWatchlists} />
         </PageHeader>
 
         <PageContent>
-          <FreshnessBanner
-            status={data.status}
-            latestLabel={data.latestAt === null ? null : formatDateTimeIst(data.latestAt)}
-          />
+          <div
+            role="status"
+            className="space-y-1 rounded-lg border border-border bg-muted p-3 text-sm"
+          >
+            <p className="font-medium">
+              {data.coverage.failed
+                ? 'Latest ingestion failed'
+                : data.coverage.stale
+                  ? 'Ingestion is stale or unverified'
+                  : 'Latest ingestion succeeded — partial coverage'}
+            </p>
+            <p>
+              Current source: BSE. NSE announcement ingestion is not connected. Complete coverage is
+              not verified.
+            </p>
+            <p className="text-muted-foreground">
+              Last successful ingestion:{' '}
+              {data.coverage.lastSuccess
+                ? `${formatDateTimeIst(data.coverage.lastSuccess)} IST`
+                : 'Not recorded'}{' '}
+              · Latest attempt:{' '}
+              {data.coverage.latestAttempt
+                ? `${formatDateTimeIst(data.coverage.latestAttempt)} IST`
+                : 'Not recorded'}
+            </p>
+            <p className="text-muted-foreground">
+              Existing filings remain available when a source fails. Attachments are not analysed.
+            </p>
+          </div>
+          {data.rows.some((row) => row.onWatchlist) && (
+            <p className="text-sm">
+              On this page, {data.rows.filter((row) => row.onWatchlist).length} filings relate to
+              companies in your watchlists:{' '}
+              {[
+                ...new Set(
+                  data.rows.filter((row) => row.onWatchlist).map((row) => row.companyName),
+                ),
+              ].join(', ')}
+              .
+            </p>
+          )}
 
           {/* Controls */}
           <div className="flex flex-col gap-3">
             <SearchBox
+              key={data.query.search ?? ''}
               initial={data.query.search ?? ''}
               onSearch={(q) => setParams({ q, page: null })}
             />
@@ -83,6 +127,92 @@ export function AnnouncementsView({
                 onToggle={(on) => setParams({ impact: on ? '1' : null, page: null })}
               />
             </div>
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="outline" className="self-start">
+                  More filters
+                  {Object.values(data.personalFilters).some(
+                    (value) => value !== '' && value !== false && value !== 'all',
+                  )
+                    ? ' · active'
+                    : ''}
+                </Button>
+              </SheetTrigger>
+              <SheetContent className="motion-reduce:animate-none">
+                <SheetHeader>
+                  <div>
+                    <SheetTitle>Announcement filters</SheetTitle>
+                    <SheetDescription>
+                      Filter stored filings and your own reading state.
+                    </SheetDescription>
+                  </div>
+                </SheetHeader>
+                <SheetBody className="space-y-4">
+                  <FilterSelect
+                    label="Reading state"
+                    value={data.personalFilters.state}
+                    options={{
+                      all: 'All except dismissed',
+                      unread: 'Unread',
+                      read: 'Read',
+                      saved: 'Saved',
+                      dismissed: 'Dismissed',
+                    }}
+                    onChange={(value) =>
+                      setParams({ state: value === 'all' ? null : value, page: null })
+                    }
+                  />
+                  <FilterSelect
+                    label="Event status"
+                    value={data.personalFilters.eventStatus}
+                    options={{ '': 'All statuses', ...ANNOUNCEMENT_STATUSES }}
+                    onChange={(value) => setParams({ status: value, page: null })}
+                  />
+                  <FilterSelect
+                    label="Interpreted category"
+                    value={data.personalFilters.normalizedCategory}
+                    options={{ '': 'All interpreted categories', ...ANNOUNCEMENT_CATEGORIES }}
+                    onChange={(value) => setParams({ kind: value, page: null })}
+                  />
+                  <FilterSelect
+                    label="Source"
+                    value={data.personalFilters.source}
+                    options={{ '': 'All stored sources', bse: 'BSE', nse: 'NSE' }}
+                    onChange={(value) => setParams({ source: value, page: null })}
+                  />
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={data.personalFilters.hasFacts}
+                      onChange={(event) =>
+                        setParams({ facts: event.target.checked ? '1' : null, page: null })
+                      }
+                    />
+                    Has extracted labelled facts
+                  </label>
+                  <Button
+                    variant="outline"
+                    onClick={() =>
+                      setParams({
+                        state: null,
+                        status: null,
+                        kind: null,
+                        source: null,
+                        facts: null,
+                        category: null,
+                        range: null,
+                        impact: null,
+                        q: null,
+                        symbol: null,
+                        page: null,
+                      })
+                    }
+                  >
+                    Clear filters
+                  </Button>
+                </SheetBody>
+              </SheetContent>
+            </Sheet>
             <CategoryChips categories={data.categories} active={activeCategories} />
             <ActiveFilters
               query={data.query}
@@ -92,14 +222,12 @@ export function AnnouncementsView({
 
           {data.rows.length === 0 ? (
             <EmptyState
-              title="No announcements match"
+              title={data.watchlistOnly ? 'No watchlist announcements' : 'No announcements match'}
               description="Try clearing a filter, widening the date range, or switching to All names."
             />
           ) : (
             <AnnouncementGroups
               rows={data.rows}
-              nowIso={data.nowIso}
-              isNew={isNew}
               onPickSymbol={(symbol) => setParams({ symbol, page: null })}
             />
           )}
@@ -264,45 +392,35 @@ function ActiveFilters({
 
 function AnnouncementGroups({
   rows,
-  nowIso,
-  isNew,
   onPickSymbol,
 }: {
   rows: readonly AnnouncementDto[];
-  nowIso: string;
-  isNew: (iso: string) => boolean;
   onPickSymbol: (symbol: string) => void;
 }) {
   const groups = useMemo(() => {
-    const now = new Date(nowIso);
-    const order: RelativeDayBucket[] = ['today', 'yesterday', 'week', 'earlier'];
-    const byBucket = new Map<RelativeDayBucket, AnnouncementDto[]>();
+    const byDate = new Map<string, AnnouncementDto[]>();
     for (const row of rows) {
-      const bucket = relativeDayBucket(row.announcedAt, now);
-      const list = byBucket.get(bucket) ?? [];
-      list.push(row);
-      byBucket.set(bucket, list);
+      const date = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(new Date(row.announcedAt));
+      byDate.set(date, [...(byDate.get(date) ?? []), row]);
     }
-    return order
-      .filter((bucket) => byBucket.has(bucket))
-      .map((bucket) => ({ bucket, rows: byBucket.get(bucket) ?? [] }));
-  }, [rows, nowIso]);
+    return [...byDate].map(([bucket, items]) => ({ bucket, rows: items }));
+  }, [rows]);
 
   return (
     <div className="flex flex-col gap-4">
       {groups.map((group) => (
         <section key={group.bucket} className="flex flex-col gap-2">
           <Text as="h2" variant="overline" className="px-0.5">
-            {RELATIVE_DAY_LABEL[group.bucket]}
+            {group.bucket} · IST
           </Text>
           <ul className="flex flex-col gap-2">
             {group.rows.map((row) => (
-              <AnnouncementCard
-                key={row.id}
-                row={row}
-                isNew={isNew(row.announcedAt)}
-                onPickSymbol={onPickSymbol}
-              />
+              <AnnouncementCard key={row.id} row={row} onPickSymbol={onPickSymbol} />
             ))}
           </ul>
         </section>
@@ -313,11 +431,9 @@ function AnnouncementGroups({
 
 function AnnouncementCard({
   row,
-  isNew,
   onPickSymbol,
 }: {
   row: AnnouncementDto;
-  isNew: boolean;
   onPickSymbol: (symbol: string) => void;
 }) {
   const meta = announcementMeta(row.category, row.headline);
@@ -343,20 +459,70 @@ function AnnouncementCard({
                 className="size-3.5 fill-warning text-warning"
               />
             )}
-            {isNew && (
-              <Badge variant="bullish" size="sm">
-                New
+            {!row.userState.read && (
+              <Badge variant="secondary" size="sm">
+                Unread
+              </Badge>
+            )}
+            {row.userState.saved && (
+              <Badge variant="secondary" size="sm">
+                Saved
               </Badge>
             )}
             <Badge variant={meta.tone} size="sm" className="ml-auto font-normal">
-              {meta.label}
+              {row.interpretation
+                ? ANNOUNCEMENT_CATEGORIES[row.interpretation.category]
+                : meta.label}
             </Badge>
           </div>
 
+          {row.instrumentId === null && (
+            <p className="text-xs text-muted-foreground">
+              Company mapping unavailable · watchlist relevance cannot be checked
+            </p>
+          )}
           <Text as="h3" variant="label" className="text-pretty">
             {row.headline}
           </Text>
 
+          <p className="text-sm">
+            {row.interpretation?.summary ??
+              (row.attachmentUrl === null
+                ? 'Original attachment link unavailable. Interpretation is withheld.'
+                : 'Interpretation pending. Read the original filing.')}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {row.interpretation
+              ? ANNOUNCEMENT_STATUSES[row.interpretation.eventStatus]
+              : 'Status not established'}{' '}
+            · Attachment not analysed
+          </p>
+          {row.interpretation && row.interpretation.facts.length > 0 && (
+            <dl className="space-y-1 text-sm">
+              {row.interpretation.facts.slice(0, 3).map((fact) => (
+                <div key={`${fact.evidence.field}-${fact.evidence.start}`}>
+                  <dt className="inline font-medium">{fact.label}: </dt>
+                  <dd className="inline break-words">{fact.value}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
+          {meta.highImpact && row.attachmentUrl !== null && (
+            <p className="text-xs text-muted-foreground">
+              Reading priority: title/category matches a key-filing keyword ({meta.label}). This
+              does not predict price impact.
+            </p>
+          )}
+          {row.interpretation?.relevance.map((area) => (
+            <p key={area.area} className="text-xs text-muted-foreground">
+              Relates to: {area.area}
+            </p>
+          ))}
+          {row.watchlistNames.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              In your watchlists: {row.watchlistNames.join(', ')}
+            </p>
+          )}
           {row.detail !== null && row.detail !== row.headline && (
             <Text as="p" variant="caption" className="line-clamp-3">
               {row.detail}
@@ -364,6 +530,8 @@ function AnnouncementCard({
           )}
 
           <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-xs text-muted-foreground">{row.source.toUpperCase()}</span>
+            <AnnouncementInterpretationSheet row={row} />
             <time className="text-2xs text-subtle-foreground" dateTime={row.announcedAt}>
               {formatDateTimeIst(row.announcedAt)} IST
             </time>
@@ -376,45 +544,15 @@ function AnnouncementCard({
               </Button>
             )}
           </div>
+          {row.attachmentUrl === null && (
+            <p className="text-xs text-muted-foreground">Original attachment link unavailable.</p>
+          )}
+          <AnnouncementActions row={row} />
         </CardContent>
       </Card>
     </li>
   );
 }
-
-// ---------------------------------------------------------------------------
-// "New since last visit" (per-device)
-// ---------------------------------------------------------------------------
-
-const LAST_SEEN_KEY = 'announcements:lastSeenAt';
-
-function useNewSince(rows: readonly AnnouncementDto[]): (iso: string) => boolean {
-  const [seenBefore, setSeenBefore] = useState<number | null>(null);
-
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(LAST_SEEN_KEY);
-      const prior = raw !== null ? Number(raw) : null;
-      setSeenBefore(prior !== null && !Number.isNaN(prior) ? prior : null);
-      const newest = rows.reduce(
-        (max, row) => Math.max(max, Date.parse(row.announcedAt)),
-        prior ?? 0,
-      );
-      if (newest > 0) localStorage.setItem(LAST_SEEN_KEY, String(newest));
-    } catch {
-      // Storage unavailable (private mode etc.) — no "new" markers, no crash.
-    }
-  }, [rows]);
-
-  return useCallback(
-    (iso: string) => seenBefore !== null && Date.parse(iso) > seenBefore,
-    [seenBefore],
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Pagination
-// ---------------------------------------------------------------------------
 
 function Pagination({ total, page, pageSize }: { total: number; page: number; pageSize: number }) {
   const setParams = useUrlParams();
@@ -443,5 +581,34 @@ function Pagination({ total, page, pageSize }: { total: number; page: number; pa
         Next
       </Button>
     </nav>
+  );
+}
+
+function FilterSelect({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: Readonly<Record<string, string>>;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="block space-y-2 text-sm font-medium">
+      <span>{label}</span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="w-full rounded-md border border-border bg-surface p-2 text-foreground"
+      >
+        {Object.entries(options).map(([key, text]) => (
+          <option key={key} value={key}>
+            {text}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }

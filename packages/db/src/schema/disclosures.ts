@@ -1,9 +1,11 @@
+import type { AnnouncementInterpretation } from '@equitywise/core';
 import {
   bigint,
   date,
   doublePrecision,
   index,
   integer,
+  jsonb,
   pgTable,
   primaryKey,
   text,
@@ -15,12 +17,8 @@ import { instruments } from './instruments.js';
 /**
  * Exchange & regulator DISCLOSURES — the free, official public record.
  *
- * These are facts the exchanges publish themselves (corporate announcements,
- * FII/DII flows, bulk & block deals, quarterly shareholding), so they are legal
- * to store and re-present with attribution — unlike scraped news or vendor
- * fundamentals. They are NOT market-data-provider quotes and do not go through
- * the `MarketDataProvider` boundary; the worker fetches them from a
- * provider-neutral `DisclosureSource` and writes them here.
+ * Public availability does not establish automated collection or redistribution rights.
+ * Source-specific permission is required; disclosures use their own neutral boundary.
  *
  * Invariants that still apply (CLAUDE.md):
  *   - Money is INTEGER PAISE (rule 3): deal prices and flow values are paise.
@@ -61,6 +59,8 @@ export const corporateAnnouncements = pgTable(
     attachmentUrl: text(),
     /** When the exchange disseminated it, UTC. */
     announcedAt: timestamp({ withTimezone: true }).notNull(),
+    interpretation: jsonb().$type<AnnouncementInterpretation>(),
+    interpretationChecksum: text(),
     ingestedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [

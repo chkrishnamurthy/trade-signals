@@ -23,6 +23,19 @@ export async function GET(request: Request): Promise<NextResponse> {
     const range = url.searchParams.get('range');
 
     const brief = await getAnnouncementsPage({
+      ...((url.searchParams.get('state') ?? undefined)
+        ? { state: url.searchParams.get('state') ?? undefined }
+        : {}),
+      ...((url.searchParams.get('status') ?? undefined)
+        ? { eventStatus: url.searchParams.get('status') ?? undefined }
+        : {}),
+      ...((url.searchParams.get('kind') ?? undefined)
+        ? { normalizedCategory: url.searchParams.get('kind') ?? undefined }
+        : {}),
+      ...((url.searchParams.get('source') ?? undefined)
+        ? { source: url.searchParams.get('source') ?? undefined }
+        : {}),
+      hasFacts: (url.searchParams.get('facts') ?? undefined) === '1',
       watchlistOnly: url.searchParams.get('watchlist') === '1',
       ...(categories.length > 0 ? { categories } : {}),
       page: Number.isInteger(pageParam) && pageParam > 0 ? pageParam : 1,

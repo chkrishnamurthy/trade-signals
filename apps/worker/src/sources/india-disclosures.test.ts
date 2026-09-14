@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  createIndiaDisclosureSource,
   croreToPaise,
   parseBseAnnouncements,
   parseDdMonYyyy,
@@ -21,7 +22,9 @@ describe('date & money helpers', () => {
 
   it('reads an IST wall-clock timestamp as the correct UTC instant', () => {
     // 16:30 IST is 11:00 UTC.
-    expect(parseIstTimestamp('2026-09-11T16:30:00').toISOString()).toBe('2026-09-11T11:00:00.000Z');
+    expect(parseIstTimestamp('2026-09-11T16:30:00')?.toISOString()).toBe(
+      '2026-09-11T11:00:00.000Z',
+    );
   });
 
   it('converts crore to integer paise', () => {
@@ -152,5 +155,49 @@ describe('parseShareholding', () => {
   it('tolerates missing optional percentages', () => {
     const rows = parseShareholding([{ symbol: 'X', asOf: '2026-06-30' }]);
     expect(rows[0]?.fiiPercent).toBeNull();
+  });
+});
+
+describe('announcement source integrity', () => {
+  it('never fabricates a filing time for malformed metadata', () => {
+    expect(parseIstTimestamp('')).toBeNull();
+    expect(parseIstTimestamp('not a date')).toBeNull();
+    expect(parseIstTimestamp('2026-02-30T12:00:00')).toBeNull();
+    expect(
+      parseBseAnnouncements({ Table: [{ NEWSID: 'x', HEADLINE: 'Dividend', NEWS_DT: 'bad' }] }),
+    ).toEqual([]);
+  });
+  it('honours an explicit timezone instead of interpreting it again as IST', () => {
+    expect(parseIstTimestamp('2026-09-14T10:00:00Z')?.toISOString()).toBe(
+      '2026-09-14T10:00:00.000Z',
+    );
+    expect(parseIstTimestamp('2026-09-14T15:30:00+05:30')?.toISOString()).toBe(
+      '2026-09-14T10:00:00.000Z',
+    );
+  });
+});
+
+describe('announcement transport health', () => {
+  afterEach(() => vi.unstubAllGlobals());
+  it('distinguishes an empty success from HTTP and malformed-response failures', async () => {
+    const fetcher = vi.fn();
+    vi.stubGlobal('fetch', fetcher);
+    const source = createIndiaDisclosureSource();
+    const request = { since: new Date('2026-09-14T00:00:00Z') };
+    fetcher.mockResolvedValueOnce(new Response(JSON.stringify({ Table: [] }), { status: 200 }));
+    await expect(source.fetchAnnouncements(request)).resolves.toEqual([]);
+    fetcher.mockResolvedValueOnce(new Response('', { status: 503 }));
+    await expect(source.fetchAnnouncements(request)).rejects.toThrow();
+    fetcher.mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: 'unavailable' }), { status: 200 }),
+    );
+    await expect(source.fetchAnnouncements(request)).rejects.toThrow();
+    fetcher.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ Table: [{ NEWSID: 'x', HEADLINE: 'Dividend', NEWS_DT: 'invalid' }] }),
+        { status: 200 },
+      ),
+    );
+    await expect(source.fetchAnnouncements(request)).rejects.toThrow('invalid or undated');
   });
 });

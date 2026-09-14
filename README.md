@@ -53,16 +53,15 @@ Signals are technical observations, not advice, and the score is setup strength
 
 ```bash
 pnpm install
-cp .env.example .env     # then fill in both Neon connection strings
+cp .env.example .env     # then fill in the two database connection strings
 pnpm build
-pnpm --filter @equitywise/worker dev   # connects to Neon, prints the server version
+pnpm --filter @equitywise/worker dev   # connects to Postgres, prints the server version
 ```
 
-`.env.example` documents which Neon endpoint goes in which variable and where
-to find them in the console. The short version: `DATABASE_URL` is the **pooled**
-host (`-pooler` in the hostname), `DATABASE_URL_DIRECT` is the **direct** host.
-Migrations run against the direct one — `drizzle.config.ts` refuses to start if
-it is handed a pooled URL.
+`.env.example` documents each variable. The short version: both `DATABASE_URL`
+and `DATABASE_URL_DIRECT` point at the self-hosted Postgres (identical on the VPS
+and over a local SSH tunnel, since there is no pooler). Migrations run against
+`DATABASE_URL_DIRECT` — `drizzle.config.ts` refuses a pooled URL.
 
 ## Deploying (single VPS)
 
@@ -90,9 +89,9 @@ request rather than the build:
 
 `next build` succeeds without any of them — a missing key is a runtime 500, not a
 build error. Nothing else belongs in the web app's environment — not
-`DATABASE_URL_DIRECT`, not `FYERS_SECRET_KEY`, not `FYERS_TOTP_SECRET`, not
-`NEON_API_KEY`. Migrations, the OAuth handshake and the schema tests all run from
-the worker or a developer machine.
+`DATABASE_URL_DIRECT`, not `FYERS_SECRET_KEY`, not `FYERS_TOTP_SECRET`.
+Migrations, the OAuth handshake and the integration tests all run from the worker
+or a developer machine.
 
 `FYERS_ACCESS_TOKEN` is absent from that table on purpose: the running app reads
 its credential from the database, not the environment. See below.
@@ -181,48 +180,44 @@ running app reads its credential from the database instead.
 | `pnpm verify:intraday` | replay the intraday engine at any instant and print the evidence |
 | `pnpm verify:adjustment` | check whether the provider back-adjusts split history |
 
-## Schema tests and Neon branches
+## Database integration tests
 
-The schema suite needs a database it may migrate from empty and then discard, so
-it runs against a **throwaway Neon branch** rather than your production branch.
-Each run forks a branch, applies the migrations, asserts, and deletes it.
+Most of the suite is pure and needs nothing. The DB-backed suites — the ones that
+assert schema-level guarantees a mock could never catch (one default watchlist per
+user, no duplicate stock in a list, append-only signal history) — need a real
+Postgres they may migrate from empty and throw away.
 
-### Automatic (preferred)
-
-Set both of these in `.env` and the suite manages branches by itself:
-
-```
-NEON_API_KEY="napi_..."          # Console -> Account settings -> API keys
-NEON_PROJECT_ID="tiny-brook-..." # Console -> Project settings -> General
-```
-
-Branches are named `test-<timestamp>-<random>`, so parallel runs never collide,
-and are deleted in teardown even when a test fails.
-
-If `NEON_API_KEY` is unset the schema suite **skips** rather than fails — the
-rest of the workspace still tests fine without Neon access.
-
-A Neon API key is account-scoped and can reach every project on the account.
-Prefer an org- or project-scoped key, and rotate it if it ever leaves `.env`.
-
-### Manual
-
-If you would rather not hand over an API key, create the branch yourself:
-
-1. Neon console -> your project -> **Branches** -> **Create branch**
-2. Name it `test`, parent `production`, include a read-write compute
-3. Copy its **direct** connection string (host *without* `-pooler`)
-4. Put it in `.env` as `DATABASE_URL_TEST`, with `?sslmode=verify-full`
-
-Or with the CLI:
+That database is **local and disposable**, run from `docker-compose.test.yml`:
+**Postgres 17 + TimescaleDB**, the same stack the VPS runs, so the migrations'
+`CREATE EXTENSION` and hypertables execute for real.
 
 ```bash
-neon branches create --project-id <id> --name test
-neon connection-string test --project-id <id>
+pnpm test:integration     # up → migrate → full suite → down (ephemeral, tmpfs)
 ```
 
-Clean up afterwards with `neon branches delete test --project-id <id>` — the
-free plan caps branch storage at 512 MB each.
+That is the whole workflow — it needs no configuration. Under the hood it starts
+the container, sets `TEST_DATABASE_URL`, and Vitest's global setup migrates the
+schema once before any suite.
+
+For an iterative loop, keep the database up and run the watcher against it:
+
+```bash
+pnpm test:db:up           # start the container (port 5433)
+TEST_DATABASE_URL="postgresql://equitywise:equitywise@localhost:5433/nse_signals_test" pnpm test:watch
+pnpm test:db:down         # stop it and drop the volume
+```
+
+Safety and skip rules (see [`test/db.ts`](test/db.ts)):
+
+- `TEST_DATABASE_URL` must be **local** and its name must end in **`_test`**, or
+  the suites refuse to run — so a test can never migrate or truncate a real
+  database.
+- Unset locally, the DB suites **skip** (a machine without Docker still runs
+  every pure test). Unset **in CI**, they **fail** — CI always provides the
+  database, so the DB-enforced invariants can never quietly stop being tested.
+
+CI runs this exact suite against a TimescaleDB service container
+(`.github/workflows/ci.yml`).
 
 ## Troubleshooting
 

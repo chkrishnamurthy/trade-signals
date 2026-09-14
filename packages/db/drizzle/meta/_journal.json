@@ -120,6 +120,20 @@
       "when": 1789236754472,
       "tag": "0016_striped_toad_men",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1789364644683,
+      "tag": "0017_announcement_interpretation",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1789364644684,
+      "tag": "0018_announcement_version_guards",
+      "breakpoints": true
     }
   ]
 }

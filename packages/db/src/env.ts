@@ -1,20 +1,20 @@
 import { z } from 'zod';
 
 /**
- * Neon hands out two connection strings for the same database. They are not
- * interchangeable — see `.env.example` for which is which and where to find
- * them in the console.
+ * Two connection strings for the same database. They are not interchangeable —
+ * see `.env.example`. On the self-hosted VPS (no pooler) the two are identical;
+ * the split is kept because the code still reads both.
  */
 const envSchema = z.object({
-  /** Pooled (PgBouncer, host contains `-pooler`). The application query path. */
+  /** The application query path. */
   DATABASE_URL: z.string().url().startsWith('postgres'),
   /**
    * Direct. Migrations, studio, COPY, extensions — anything needing session state.
    *
    * OPTIONAL, and deliberately so: nothing that reaches this validator ever reads
-   * it. `createDatabase` takes the pooled string only, so requiring it here broke
-   * every serverless deploy of `apps/web`, which is documented in `.env.example`
-   * as the one place that must NOT carry the direct credential.
+   * it. `createDatabase` takes `DATABASE_URL` only, so requiring it here broke
+   * every deploy of `apps/web`, which is documented in `.env.example` as the one
+   * place that must NOT carry the direct credential.
    *
    * The migration path does not lose a guard by this being optional —
    * `drizzle.config.ts` reads `process.env.DATABASE_URL_DIRECT` itself and
@@ -45,10 +45,11 @@ export function readDatabaseEnv(source: NodeJS.ProcessEnv = process.env): Databa
 }
 
 /**
- * True when the URL points at Neon's pooled endpoint.
+ * True when the URL points at a pooled endpoint (host contains `-pooler`).
  *
- * Used to catch the classic mistake of running migrations through PgBouncer,
- * where they fail in confusing ways rather than cleanly.
+ * Used to catch the classic mistake of running migrations through a transaction
+ * pooler, where they fail in confusing ways rather than cleanly. The self-hosted
+ * VPS has no pooler, so this is a guard for a stray managed-host URL.
  */
 export function isPooledUrl(url: string): boolean {
   return new URL(url).hostname.includes('-pooler');

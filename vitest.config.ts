@@ -18,6 +18,9 @@ export default defineConfig({
   test: {
     include: ['{apps,packages}/*/src/**/*.{test,spec}.ts'],
     environment: 'node',
+    // Migrates the local test database once before any DB-backed suite. A no-op
+    // when TEST_DATABASE_URL is unset (those suites then skip). See test/db.ts.
+    globalSetup: ['./test/global-setup.ts'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],
