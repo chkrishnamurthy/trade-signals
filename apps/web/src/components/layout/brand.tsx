@@ -40,7 +40,7 @@ export function Brand({
       {/* Inside the navigation rail this fades with the rest of the labels;
           everywhere else the attribute is inert. See `globals.css`. */}
       {showWordmark && (
-        <span data-nav-label className="text-base">
+        <span data-nav-label className="font-display text-lg font-extrabold tracking-tight">
           EquityWise
         </span>
       )}

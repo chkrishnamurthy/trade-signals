@@ -7,15 +7,18 @@ loadEnv({ path: '../../.env' });
 const url = process.env.DATABASE_URL_DIRECT;
 if (url === undefined || url === '') {
   throw new Error(
-    "DATABASE_URL_DIRECT is not set. Migrations must run against Neon's DIRECT endpoint " +
-      '(the host WITHOUT "-pooler"); the pooled string will fail. See .env.example.',
+    'DATABASE_URL_DIRECT is not set. Migrations need a DIRECT (non-pooled) Postgres ' +
+      'connection — they run CREATE EXTENSION, advisory locks and other session-level ' +
+      'statements a connection pooler rejects. See .env.example.',
   );
 }
 
+// A pooled endpoint (PgBouncer in transaction mode) cannot run migrations. The
+// self-hosted VPS has no pooler, but this guard still catches a stray pooled URL.
 if (new URL(url).hostname.includes('-pooler')) {
   throw new Error(
-    'DATABASE_URL_DIRECT points at a POOLED Neon endpoint (host contains "-pooler"). ' +
-      'drizzle-kit needs the direct endpoint. See .env.example.',
+    'DATABASE_URL_DIRECT points at a POOLED endpoint (host contains "-pooler"). ' +
+      'drizzle-kit needs the direct, non-pooled endpoint. See .env.example.',
   );
 }
 

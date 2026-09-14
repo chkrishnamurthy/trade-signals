@@ -8,11 +8,11 @@ import {
 } from './announcement-meta';
 
 describe('announcementMeta', () => {
-  it('classifies results as a high-impact bullish bucket', () => {
+  it('classifies results as a key-filing neutral bucket', () => {
     const meta = announcementMeta('Result', 'Q2 FY27 results approved');
     expect(meta.bucket).toBe('results');
     expect(meta.highImpact).toBe(true);
-    expect(meta.tone).toBe('bullish');
+    expect(meta.tone).toBe('neutral');
   });
 
   it('detects the bucket from the headline when the category is null', () => {

@@ -12,6 +12,8 @@
  *   - strategy_versions rows are immutable (rule 7)
  *   - Every signal writes its factor breakdown (rule 8)
  */
+
+export * from './announcement-research.js';
 export {
   authAttempts,
   authAudit,

@@ -6,6 +6,8 @@
  * (CLAUDE.md hard rule 1) — that is what lets the backtester and the live path
  * execute byte-identical code.
  */
+
+export * from './announcement-interpretation.js';
 export * from './indicators/index.js';
 export * from './paper-journal.js';
 export * from './signal-lifecycle.js';

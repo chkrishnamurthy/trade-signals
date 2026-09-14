@@ -3,6 +3,7 @@
 import type { Route } from 'next';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { UserMenu } from '@/components/auth/user-menu';
 import { Brand } from '@/components/layout/brand';
 import { StockSearch } from '@/components/market/stock-search';
 import { Button } from '@/components/ui/button';
@@ -30,9 +31,12 @@ export function PublicHeader({ signedIn = false }: { signedIn?: boolean }) {
           <ThemeToggle />
 
           {signedIn ? (
-            <Button asChild size="sm" variant="default">
-              <Link href="/watchlists">Watchlists</Link>
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button asChild size="sm" variant="default">
+                <Link href="/today">Open app</Link>
+              </Button>
+              <UserMenu />
+            </div>
           ) : (
             <div className="flex items-center gap-2">
               <Button asChild size="sm" variant="ghost">

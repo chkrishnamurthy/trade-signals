@@ -73,9 +73,9 @@ export interface RawShareholding {
 /**
  * A source of exchange/regulator disclosures.
  *
- * Every method returns provider-neutral shapes; a source that cannot supply a
- * feed returns an empty array rather than throwing, so one weak feed never
- * takes a whole ingestion pass down.
+ * Methods return provider-neutral shapes. Announcement failures must throw so
+ * the worker can distinguish unavailable data from a successful empty fetch.
+ * The scheduler isolates job failures; other legacy disclosure methods fail soft.
  */
 export interface DisclosureSource {
   readonly id: string;

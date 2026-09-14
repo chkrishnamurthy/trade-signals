@@ -1,14 +1,25 @@
 import 'server-only';
 import {
+  ANNOUNCEMENT_CATEGORIES,
+  ANNOUNCEMENT_STATUSES,
+  officialAnnouncementUrl,
+} from '@equitywise/core';
+import {
   type AnnouncementRow,
+  type AnnouncementStatePatch,
+  announcementIngestionHealth,
+  announcementStatesForOwner,
   type DealRow,
   type FiiDiiRow,
   getAnnouncements,
+  getAnnouncementVersions,
   getRecentDeals,
   getRecentFiiDii,
   latestShareholdingForInstruments,
   listAnnouncementCategories,
   listOwnerWatchedInstrumentIds,
+  updateAnnouncementState,
+  watchlistMembershipForOwner,
 } from '@equitywise/db';
 import { istDateKey } from '@equitywise/shared';
 import {
@@ -26,6 +37,7 @@ import type {
   InstitutionalFlowDto,
   ShareholdingDto,
 } from '@/lib/disclosure-types';
+import { announcementFilterSchema } from './announcement-schemas';
 import { getSessionUser } from './auth/require-user';
 import { getDatabase } from './db';
 import { MarketDataError } from './errors';
@@ -69,6 +81,11 @@ function freshnessOf(latest: Date | null, now: Date, count: number): FreshnessSt
 // ---------------------------------------------------------------------------
 
 export interface AnnouncementsInput {
+  readonly state?: string | undefined;
+  readonly eventStatus?: string | undefined;
+  readonly normalizedCategory?: string | undefined;
+  readonly source?: string | undefined;
+  readonly hasFacts?: boolean;
   readonly watchlistOnly?: boolean;
   readonly categories?: readonly string[];
   readonly page?: number;
@@ -88,12 +105,26 @@ export async function getAnnouncementsPage(
 ): Promise<AnnouncementsPageDto> {
   const ownerId = await requireOwnerId();
   const db = getDatabase();
-  const page = Math.max(1, input.page ?? 1);
+  const filters = announcementFilterSchema.safeParse(input);
+  if (
+    !filters.success ||
+    (input.eventStatus && !Object.hasOwn(ANNOUNCEMENT_STATUSES, input.eventStatus)) ||
+    (input.normalizedCategory && !Object.hasOwn(ANNOUNCEMENT_CATEGORIES, input.normalizedCategory))
+  ) {
+    throw new MarketDataError('Invalid announcement filters.', {
+      code: 'INVALID_FILTER',
+      status: 400,
+    });
+  }
+  const personal = filters.data;
+  const page = Number.isSafeInteger(input.page ?? 1)
+    ? Math.max(1, Math.min(10000, input.page ?? 1))
+    : 1;
 
   const watched = await listOwnerWatchedInstrumentIds(db, ownerId);
   const watchedSet = new Set(watched);
   const hasWatchlists = watched.length > 0;
-  const watchlistOnly = input.watchlistOnly === true && hasWatchlists;
+  const watchlistOnly = input.watchlistOnly === true;
 
   const range: DateRange =
     input.range !== undefined && isDateRange(input.range) ? input.range : 'all';
@@ -104,8 +135,14 @@ export async function getAnnouncementsPage(
   const activeCategories =
     input.categories !== undefined && input.categories.length > 0 ? input.categories : [];
 
-  const [result, categories] = await Promise.all([
+  const [result, categories, health] = await Promise.all([
     getAnnouncements(db, {
+      ownerId,
+      ...(personal.state !== 'all' ? { state: personal.state } : {}),
+      ...(personal.eventStatus ? { eventStatus: personal.eventStatus } : {}),
+      ...(personal.normalizedCategory ? { normalizedCategory: personal.normalizedCategory } : {}),
+      ...(personal.source ? { source: personal.source } : {}),
+      ...(personal.hasFacts ? { hasFacts: true } : {}),
       ...(watchlistOnly ? { instrumentIds: watched } : {}),
       ...(symbol !== '' ? { symbols: [symbol] } : {}),
       ...(activeCategories.length > 0 ? { categories: activeCategories } : {}),
@@ -116,17 +153,48 @@ export async function getAnnouncementsPage(
       offset: (page - 1) * PAGE_SIZE,
     }),
     listAnnouncementCategories(db),
+    announcementIngestionHealth(db),
   ]);
 
+  const [states, membership] = await Promise.all([
+    announcementStatesForOwner(
+      db,
+      ownerId,
+      result.rows.map((row) => row.id),
+    ),
+    watchlistMembershipForOwner(
+      db,
+      ownerId,
+      result.rows.flatMap((row) => (row.instrumentId === null ? [] : [row.instrumentId])),
+    ),
+  ]);
+  const statesById = new Map(states.map((row) => [row.announcementId, row]));
   const rows: AnnouncementDto[] = result.rows.map((row: AnnouncementRow) => ({
     id: row.id,
+    interpretation:
+      officialAnnouncementUrl(row.attachmentUrl) === null ? null : (row.interpretation ?? null),
+    interpretationChecksum: row.interpretationChecksum ?? null,
+    externalId: row.externalId,
+    ingestedAt: row.ingestedAt.toISOString(),
+    watchlistNames:
+      row.instrumentId === null
+        ? []
+        : (membership.get(row.instrumentId) ?? []).map((item) => item.name),
+    userState: {
+      read:
+        statesById.get(row.id)?.read === true &&
+        (statesById.get(row.id)?.readChecksum ?? null) === row.interpretationChecksum,
+      saved: statesById.get(row.id)?.saved ?? false,
+      dismissed: statesById.get(row.id)?.dismissed ?? false,
+      issueReported: statesById.get(row.id)?.issueReported ?? false,
+    },
     instrumentId: row.instrumentId,
     symbol: row.symbol,
     companyName: row.companyName,
     category: row.category,
     headline: row.headline,
     detail: row.detail,
-    attachmentUrl: row.attachmentUrl,
+    attachmentUrl: officialAnnouncementUrl(row.attachmentUrl),
     announcedAt: row.announcedAt.toISOString(),
     source: row.source,
     onWatchlist: row.instrumentId !== null && watchedSet.has(row.instrumentId),
@@ -135,6 +203,21 @@ export async function getAnnouncementsPage(
   const latestAt = result.rows[0]?.announcedAt ?? null;
 
   return {
+    coverage: {
+      latestAttempt: health.latest?.completedAt.toISOString() ?? null,
+      lastSuccess: health.successful?.completedAt.toISOString() ?? null,
+      failed: health.latest?.succeeded === false,
+      stale:
+        health.successful === null ||
+        now.getTime() - health.successful.completedAt.getTime() > 24 * 60 * 60_000,
+    },
+    personalFilters: {
+      state: personal.state,
+      eventStatus: personal.eventStatus ?? '',
+      normalizedCategory: personal.normalizedCategory ?? '',
+      source: personal.source ?? '',
+      hasFacts: personal.hasFacts ?? false,
+    },
     rows,
     total: result.total,
     page,
@@ -261,4 +344,30 @@ export async function getInstitutionalFlow(
     hasWatchlists,
     disclaimer: DISCLAIMER,
   };
+}
+
+export async function setAnnouncementUserState(
+  id: number,
+  patch: AnnouncementStatePatch,
+): Promise<void> {
+  const ownerId = await requireOwnerId();
+  if (!Number.isSafeInteger(id) || id < 1)
+    throw new MarketDataError('Invalid announcement ID.', { code: 'INVALID_ID', status: 400 });
+  if (!(await updateAnnouncementState(getDatabase(), ownerId, id, patch)))
+    throw new MarketDataError('Announcement not found.', { code: 'NOT_FOUND', status: 404 });
+}
+
+export async function announcementHistory(id: number) {
+  await requireOwnerId();
+  if (!Number.isSafeInteger(id) || id < 1)
+    throw new MarketDataError('Invalid announcement ID.', { code: 'INVALID_ID', status: 400 });
+  const versions = await getAnnouncementVersions(getDatabase(), id);
+  return versions.map((version) => ({
+    ...version,
+    createdAt: version.createdAt.toISOString(),
+    snapshot: {
+      ...version.snapshot,
+      attachmentUrl: officialAnnouncementUrl(version.snapshot.attachmentUrl),
+    },
+  }));
 }

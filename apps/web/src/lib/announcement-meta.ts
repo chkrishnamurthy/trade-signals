@@ -27,7 +27,7 @@ export interface AnnouncementMeta {
   readonly bucket: AnnouncementBucket;
   readonly label: string;
   /** Badge variant from the design system. */
-  readonly tone: 'bullish' | 'bearish' | 'neutral' | 'warning' | 'secondary';
+  readonly tone: 'neutral' | 'bearish' | 'neutral' | 'warning' | 'secondary';
   readonly highImpact: boolean;
 }
 
@@ -42,25 +42,25 @@ const RULES: ReadonlyArray<{
   {
     bucket: 'results',
     label: 'Results',
-    tone: 'bullish',
+    tone: 'neutral',
     highImpact: true,
     keywords: ['result', 'financial statement', 'quarterly', 'earnings'],
   },
   {
     bucket: 'dividend',
     label: 'Dividend',
-    tone: 'bullish',
+    tone: 'neutral',
     highImpact: true,
     keywords: ['dividend'],
   },
   {
     bucket: 'buyback',
     label: 'Buyback',
-    tone: 'bullish',
+    tone: 'neutral',
     highImpact: true,
     keywords: ['buyback', 'buy back', 'buy-back'],
   },
-  { bucket: 'bonus', label: 'Bonus', tone: 'bullish', highImpact: true, keywords: ['bonus'] },
+  { bucket: 'bonus', label: 'Bonus', tone: 'neutral', highImpact: true, keywords: ['bonus'] },
   {
     bucket: 'split',
     label: 'Split',
@@ -71,9 +71,16 @@ const RULES: ReadonlyArray<{
   {
     bucket: 'orders',
     label: 'Order / Deal',
-    tone: 'bullish',
+    tone: 'neutral',
     highImpact: true,
-    keywords: ['order', 'contract', 'bags', 'wins', 'acquisition', 'merger', 'amalgamation'],
+    keywords: [
+      'order win',
+      'order received',
+      'contract awarded',
+      'acquisition',
+      'merger',
+      'amalgamation',
+    ],
   },
   {
     bucket: 'board_meeting',

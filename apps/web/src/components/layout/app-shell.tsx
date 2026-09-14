@@ -1,8 +1,13 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { MenuIcon } from 'lucide-react';
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
 import type * as React from 'react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
+import { UserMenu } from '@/components/auth/user-menu';
+import { StockSearch } from '@/components/market/stock-search';
+import { Button } from '@/components/ui/button';
 import {
   Sheet,
   SheetContent,
@@ -10,27 +15,25 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { applyNavState, currentNavState, writeStoredNavState } from '@/lib/nav-rail';
+import { NAVIGATION, type ReadyNavItem } from '@/lib/navigation';
 import { cn } from '@/lib/utils';
 import { Brand } from './brand';
-import { Sidebar } from './sidebar';
-import { Topbar } from './topbar';
 
 /**
  * The application frame.
  *
- * Sidebar, topbar and main region. Every route renders inside this, so a new
- * page inherits navigation, session state and theming without wiring anything.
+ * A single horizontal command bar sits on top of every signed-in route, with a
+ * main region beneath it. This replaced the collapsing icon rail: the product
+ * is a place people come to read the market, not an operator's console, so the
+ * chrome reads like a consumer app — a wordmark, a row of named destinations, a
+ * search box and the account — rather than a dashboard sidebar.
  *
- * On `lg` and up the sidebar is a permanent column; below that it becomes a
- * Sheet, which gives it a focus trap and Escape-to-close for free rather than
- * a hand-rolled overlay.
- *
- * The column's open/closed state lives on <html>, not in React — the blocking
- * script in the layout has already restored it by the time this mounts, and
- * writing it back here would repaint a frame late. What React keeps is a copy
- * for the toggle's accessible name, synced after mount.
+ * Every route renders inside this, so a new page inherits navigation, session
+ * state and theming without wiring anything. On `lg` and up the destinations
+ * live in the bar; below that they move into a Sheet, which brings a focus trap
+ * and Escape-to-close for free.
  */
 export function AppShell({
   children,
@@ -47,7 +50,6 @@ export function AppShell({
   className?: string | undefined;
 }) {
   const router = useRouter();
-  const [collapsed, setCollapsed] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const handleSearchSelect = useCallback(
@@ -61,88 +63,113 @@ export function AppShell({
     [onSearchSelect, router],
   );
 
-  // The attribute is the truth. Read it once, so `aria-expanded` agrees with
-  // what is on screen; the server rendered the optimistic value because it has
-  // no way to know, and correcting it in an effect avoids a hydration error.
-  useEffect(() => {
-    setCollapsed(currentNavState() === 'collapsed');
-  }, []);
-
-  const toggleCollapsed = useCallback(() => {
-    const next = currentNavState() === 'collapsed' ? 'expanded' : 'collapsed';
-    applyNavState(next);
-    writeStoredNavState(next);
-    setCollapsed(next === 'collapsed');
-  }, []);
-
-  // Ctrl/⌘ B, the shortcut every editor with a side panel uses. Ignored while
-  // the caret is in a field, so it never eats a keystroke meant for a search
-  // box or a note.
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'b' && event.key !== 'B') return;
-      if (!event.metaKey && !event.ctrlKey) return;
-      if (event.altKey || event.shiftKey) return;
-
-      const target = event.target;
-      if (target instanceof HTMLElement) {
-        if (target.isContentEditable) return;
-        if (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return;
-      }
-
-      event.preventDefault();
-      toggleCollapsed();
-    };
-
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [toggleCollapsed]);
-
   return (
     <TooltipProvider>
-      <div className={cn('flex min-h-dvh bg-background', className)}>
-        {/* `data-nav-rail` is what scopes the collapse styling to this column:
-            the same Sidebar inside the mobile Sheet is outside it and stays
-            expanded whatever the rail is doing. */}
-        <aside
-          data-nav-rail
-          className="sticky top-0 hidden h-dvh shrink-0 flex-col overflow-x-clip border-r border-border bg-surface lg:flex"
-        >
-          {/* pl-3.5 is not arbitrary: it centres the 28px monogram on 28px,
-              exactly where the 40px icon slots below centre their icons, so
-              the whole left column reads as one line in the collapsed rail. */}
-          <div className="flex h-12 shrink-0 items-center border-b border-border pl-3.5">
-            <Brand />
+      <div className={cn('flex min-h-dvh flex-col bg-background', className)}>
+        <header className="sticky top-0 z-40 border-border border-b bg-surface/85 backdrop-blur supports-[backdrop-filter]:bg-surface/75">
+          <div className="mx-auto flex h-14 max-w-[1800px] items-center gap-2 px-4 sm:gap-4 sm:px-6">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setDrawerOpen(true)}
+              className="shrink-0 lg:hidden"
+              aria-label="Open navigation"
+            >
+              <MenuIcon />
+            </Button>
+
+            <Brand href="/today" className="shrink-0" />
+
+            {/* Primary destinations. A single row of names — the whole point of
+                the redesign — so the app announces where you can go instead of
+                hiding it behind icons. */}
+            <nav aria-label="Primary" className="hidden items-center gap-0.5 lg:flex">
+              {PRIMARY_NAV.map((item) => (
+                <NavLink key={item.href} item={item} />
+              ))}
+            </nav>
+
+            <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
+              <div className="w-36 sm:w-52 lg:w-64">
+                <StockSearch onSelect={handleSearchSelect} />
+              </div>
+              <ThemeToggle />
+              <UserMenu />
+            </div>
           </div>
-          <Sidebar
-            id="primary-navigation"
-            collapsed={collapsed}
-            onToggleCollapsed={toggleCollapsed}
-          />
-        </aside>
+        </header>
 
         <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
-          <SheetContent side="left" className="w-64 p-0">
-            <SheetHeader className="h-12 items-center py-0">
+          <SheetContent side="left" className="w-72 p-0">
+            <SheetHeader className="h-14 items-start justify-center border-border border-b px-4 py-0">
               <SheetTitle className="text-sm">
-                <Brand />
+                <Brand href="/today" />
               </SheetTitle>
               <SheetDescription className="sr-only">
                 Sections of the EquityWise application
               </SheetDescription>
             </SheetHeader>
-            <Sidebar onNavigate={() => setDrawerOpen(false)} />
+            <nav aria-label="Primary" className="flex flex-col gap-1 p-3">
+              {PRIMARY_NAV.map((item) => (
+                <NavLink
+                  key={item.href}
+                  item={item}
+                  variant="drawer"
+                  onNavigate={() => setDrawerOpen(false)}
+                />
+              ))}
+            </nav>
           </SheetContent>
         </Sheet>
 
-        <div className="flex min-w-0 flex-1 flex-col">
-          <Topbar
-            onOpenNavigation={() => setDrawerOpen(true)}
-            onSearchSelect={handleSearchSelect}
-          />
-          <main className="min-w-0 flex-1">{children}</main>
-        </div>
+        <main className="min-w-0 flex-1">{children}</main>
       </div>
     </TooltipProvider>
   );
 }
+
+/**
+ * A single destination in the bar (or the mobile drawer).
+ *
+ * A route is active when the current path is it or sits beneath it, so a stock
+ * detail opened from the watchlist still lights the Watchlists tab.
+ */
+function NavLink({
+  item,
+  variant = 'bar',
+  onNavigate,
+}: {
+  item: ReadyNavItem;
+  variant?: 'bar' | 'drawer';
+  onNavigate?: (() => void) | undefined;
+}) {
+  const pathname = usePathname();
+  const Icon = item.icon;
+  const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+
+  return (
+    <Link
+      href={item.href}
+      {...(onNavigate === undefined ? {} : { onClick: onNavigate })}
+      aria-current={active ? 'page' : undefined}
+      className={cn(
+        'flex items-center gap-2 rounded-md font-medium transition-colors',
+        variant === 'drawer' ? 'px-3 py-2.5 text-sm' : 'px-3 py-1.5 text-sm',
+        active
+          ? 'bg-primary/10 text-primary'
+          : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground',
+      )}
+    >
+      <Icon className="size-4 shrink-0" aria-hidden />
+      {item.label}
+    </Link>
+  );
+}
+
+/**
+ * The bar's destinations, flattened from the navigation model. The Account
+ * group is excluded — the profile lives in the user menu, not the primary bar.
+ */
+const PRIMARY_NAV: readonly ReadyNavItem[] = NAVIGATION.flatMap((group) =>
+  group.label === 'Account' ? [] : group.items,
+).filter((item): item is ReadyNavItem => item.status === 'ready');

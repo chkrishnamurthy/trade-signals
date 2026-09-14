@@ -1,3 +1,4 @@
+import type { AnnouncementInterpretation } from '@equitywise/core';
 /**
  * Disclosure wire types — corporate announcements and institutional flow.
  *
@@ -11,6 +12,17 @@
 export type FreshnessStatus = 'fresh' | 'stale' | 'empty';
 
 export interface AnnouncementDto {
+  readonly interpretation: AnnouncementInterpretation | null;
+  readonly interpretationChecksum: string | null;
+  readonly externalId: string;
+  readonly ingestedAt: string;
+  readonly watchlistNames: readonly string[];
+  readonly userState: {
+    readonly read: boolean;
+    readonly saved: boolean;
+    readonly dismissed: boolean;
+    readonly issueReported: boolean;
+  };
   readonly id: number;
   readonly instrumentId: number | null;
   readonly symbol: string;
@@ -27,6 +39,19 @@ export interface AnnouncementDto {
 }
 
 export interface AnnouncementsPageDto {
+  readonly coverage: {
+    readonly latestAttempt: string | null;
+    readonly lastSuccess: string | null;
+    readonly failed: boolean;
+    readonly stale: boolean;
+  };
+  readonly personalFilters: {
+    readonly state: string;
+    readonly eventStatus: string;
+    readonly normalizedCategory: string;
+    readonly source: string;
+    readonly hasFacts: boolean;
+  };
   readonly rows: readonly AnnouncementDto[];
   readonly total: number;
   readonly page: number;

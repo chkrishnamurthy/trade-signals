@@ -17,17 +17,18 @@ export interface DatabaseHandle {
 
 export interface CreateDatabaseOptions {
   /**
-   * Defaults to `DATABASE_URL` — the POOLED endpoint.
+   * Defaults to `DATABASE_URL`.
    *
    * Pass `DATABASE_URL_DIRECT` explicitly for migrations, COPY, or anything
-   * else that needs a real session rather than a PgBouncer transaction.
+   * else that needs a real session rather than a pooled/transaction connection.
    */
   readonly connectionString?: string;
-  /** Max pool size. Keep this modest; Neon's pooler is the real pool. */
+  /** Max pool size. Keep this modest. */
   readonly max?: number;
   /**
-   * Connection timeout. Generous by default: a suspended Neon compute takes a
-   * few seconds to wake, and a tight timeout turns a cold start into an error.
+   * Connection timeout. Generous by default so a brief blip — a database
+   * restart, or a stalled connection over an SSH tunnel — does not turn into an
+   * immediate error.
    */
   readonly connectionTimeoutMillis?: number;
   readonly idleTimeoutMillis?: number;
@@ -41,7 +42,7 @@ export interface CreateDatabaseOptions {
   readonly onIdleError?: (error: Error) => void;
 }
 
-/** Opens a connection pool against Neon and wraps it in Drizzle. */
+/** Opens a Postgres connection pool and wraps it in Drizzle. */
 export function createDatabase(options: CreateDatabaseOptions = {}): DatabaseHandle {
   const connectionString = options.connectionString ?? readDatabaseEnv().DATABASE_URL;
 
@@ -60,10 +61,10 @@ export function createDatabase(options: CreateDatabaseOptions = {}): DatabaseHan
    *
    * `pg.Pool` emits `error` when a connection that is sitting IDLE in the pool
    * dies — and in Node an unhandled `error` event on an EventEmitter is a
-   * crash, not a rejected promise. Neon makes this routine rather than
-   * exceptional: computes scale to zero and idle TCP connections get dropped,
-   * so a worker that spends three minutes on an upstream fetch can come back to
-   * a pool full of dead sockets.
+   * crash, not a rejected promise. Idle sockets get dropped routinely — a
+   * database restart, a network blip, or an SSH tunnel timing out — so a worker
+   * that spends three minutes on an upstream fetch can come back to a pool full
+   * of dead sockets.
    *
    * `pg` has already removed the bad client from the pool by the time this
    * fires; the next query gets a fresh connection. There is nothing to do but
@@ -105,9 +106,9 @@ const defaultSleep = (ms: number): Promise<void> =>
 /**
  * Retries an operation with exponential backoff and full jitter.
  *
- * Neon computes scale to zero, so the first query after an idle period can fail
- * outright while the compute wakes. Every scheduled job wraps its connection in
- * this before treating a failure as real (CLAUDE.md, "Neon specifics").
+ * The first query after an idle period can fail outright — a database that was
+ * restarting, or a dropped idle connection. Every scheduled job wraps its
+ * connection in this before treating a failure as real.
  */
 export async function withRetry<T>(
   operation: () => Promise<T>,

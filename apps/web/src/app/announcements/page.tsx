@@ -28,6 +28,11 @@ export default async function AnnouncementsRoute({ searchParams }: { searchParam
   const pageValue = Number(sp.page ?? '1');
 
   const data = await getAnnouncementsPage({
+    ...(toStr(sp.state) ? { state: toStr(sp.state) } : {}),
+    ...(toStr(sp.status) ? { eventStatus: toStr(sp.status) } : {}),
+    ...(toStr(sp.kind) ? { normalizedCategory: toStr(sp.kind) } : {}),
+    ...(toStr(sp.source) ? { source: toStr(sp.source) } : {}),
+    hasFacts: toStr(sp.facts) === '1',
     watchlistOnly: sp.watchlist === '1',
     categories,
     page: Number.isInteger(pageValue) && pageValue > 0 ? pageValue : 1,

@@ -1,7 +1,4 @@
-import { execFile } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
-import { promisify } from 'node:util';
-import { config as loadEnv } from 'dotenv';
+import { randomUUID } from 'node:crypto';
 import { Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createDatabase, type Database, type DatabaseHandle } from '../client.js';
@@ -20,7 +17,7 @@ import {
   saveWatchlistView,
   setDefaultWatchlist,
 } from '../repositories/watchlists.js';
-import { createTestBranch, type EphemeralBranch, readNeonCredentials } from './neon-branch.js';
+import { resolveTestDatabaseUrl } from '../../../../test/db';
 
 /**
  * The watchlist schema, against a real Postgres.
@@ -34,49 +31,40 @@ import { createTestBranch, type EphemeralBranch, readNeonCredentials } from './n
  *   - no two saved views sharing a name in the same scope, INCLUDING the
  *     global scope, where a plain unique index would not have held
  *
- * Each is asserted here by trying to violate it and requiring the write to
- * fail. Runs against a throwaway Neon branch that is migrated from empty and
- * deleted afterwards; skips cleanly when there is no Neon access.
+ * Each is asserted here by trying to violate it and requiring the write to fail.
+ * Runs against the local, disposable test database (see test/db.ts and
+ * docker-compose.test.yml — Postgres 17 + TimescaleDB, exactly what the VPS
+ * runs), whose schema the Vitest global setup migrates once. Skips when no test
+ * database is configured; fails loudly in CI when one is missing.
  */
 
-const execFileAsync = promisify(execFile);
-loadEnv({ path: fileURLToPath(new URL('../../../../.env', import.meta.url)) });
+const url = resolveTestDatabaseUrl();
+const suite = url === undefined ? describe.skip : describe;
+// Uniquifies the owners and global-view names this file writes, so a rerun
+// against a persistent local DB does not collide on a UNIQUE constraint.
+const tag = randomUUID().slice(0, 8);
 
-const credentials = readNeonCredentials();
-const suite = credentials === undefined ? describe.skip : describe;
-
-/** Branch creation plus a full migration run is well past the default 5s. */
-const SETUP_TIMEOUT_MS = 180_000;
-
-/** Neon computes scale to zero; a first query can take many seconds. */
-const TEST_TIMEOUT_MS = 30_000;
+/** Local Postgres is fast, but a first connection and insert can still stall. */
+const SETUP_TIMEOUT_MS = 30_000;
+const TEST_TIMEOUT_MS = 15_000;
 
 suite('watchlist schema', () => {
-  let branch: EphemeralBranch;
   let pool: Pool;
   let ownerId: number;
 
   beforeAll(async () => {
-    if (credentials === undefined) return;
-    branch = await createTestBranch(credentials, { prefix: 'watchlists' });
-
-    const packageRoot = fileURLToPath(new URL('../../', import.meta.url));
-    await execFileAsync('pnpm', ['exec', 'drizzle-kit', 'migrate'], {
-      cwd: packageRoot,
-      env: { ...process.env, DATABASE_URL_DIRECT: branch.connectionUri },
-    });
-
-    pool = new Pool({ connectionString: branch.connectionUri, max: 2 });
+    if (url === undefined) return;
+    pool = new Pool({ connectionString: url, max: 2 });
     // Watchlists are per-user; the raw inserts below need an owner.
     const { rows } = await pool.query<{ id: number }>(
-      "INSERT INTO auth_users (email) VALUES ('watchlist-schema-test@example.com') RETURNING id",
+      'INSERT INTO auth_users (email) VALUES ($1) RETURNING id',
+      [`watchlist-schema-${tag}@example.com`],
     );
     ownerId = rows[0]!.id;
   }, SETUP_TIMEOUT_MS);
 
   afterAll(async () => {
     await pool?.end();
-    await branch?.destroy();
   }, SETUP_TIMEOUT_MS);
 
   async function freshWatchlist(name: string, isDefault = false): Promise<number> {
@@ -183,7 +171,7 @@ suite('watchlist schema', () => {
       const insert = (): Promise<unknown> =>
         pool.query(
           'INSERT INTO watchlist_views (owner_id, watchlist_id, name) VALUES ($1, NULL, $2)',
-          [ownerId, 'Momentum'],
+          [ownerId, `Momentum-${tag}`],
         );
 
       await insert();
@@ -199,14 +187,15 @@ suite('watchlist schema', () => {
     'allows a scoped view to reuse a global view’s name',
     async () => {
       const id = await freshWatchlist('Scope test');
+      const sharedName = `Shared name ${tag}`;
       await pool.query(
         'INSERT INTO watchlist_views (owner_id, watchlist_id, name) VALUES ($1, NULL, $2)',
-        [ownerId, 'Shared name'],
+        [ownerId, sharedName],
       );
       await expect(
         pool.query(
           'INSERT INTO watchlist_views (owner_id, watchlist_id, name) VALUES ($1, $2, $3)',
-          [ownerId, id, 'Shared name'],
+          [ownerId, id, sharedName],
         ),
       ).resolves.toBeDefined();
     },
@@ -247,34 +236,25 @@ suite('watchlist schema', () => {
  * has to keep an empty watchlist in the list.
  */
 suite('watchlist repository', () => {
-  let branch: EphemeralBranch;
   let handle: DatabaseHandle;
   let db: Database;
   let ownerId: number;
 
   beforeAll(async () => {
-    if (credentials === undefined) return;
-    branch = await createTestBranch(credentials, { prefix: 'watchlist-repo' });
-
-    const packageRoot = fileURLToPath(new URL('../../', import.meta.url));
-    await execFileAsync('pnpm', ['exec', 'drizzle-kit', 'migrate'], {
-      cwd: packageRoot,
-      env: { ...process.env, DATABASE_URL_DIRECT: branch.connectionUri },
-    });
-
-    handle = createDatabase({ connectionString: branch.connectionUri, max: 3 });
+    if (url === undefined) return;
+    handle = createDatabase({ connectionString: url, max: 3 });
     db = handle.db;
 
     // Watchlists are per-user now, so every repo call needs an owner.
     const { rows } = await handle.pool.query<{ id: number }>(
-      "INSERT INTO auth_users (email) VALUES ('watchlist-repo-test@example.com') RETURNING id",
+      'INSERT INTO auth_users (email) VALUES ($1) RETURNING id',
+      [`watchlist-repo-${tag}@example.com`],
     );
     ownerId = rows[0]!.id;
   }, SETUP_TIMEOUT_MS);
 
   afterAll(async () => {
     await handle?.close();
-    await branch?.destroy();
   }, SETUP_TIMEOUT_MS);
 
   async function instrument(symbol: string): Promise<number> {

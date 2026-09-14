@@ -1,3 +1,4 @@
+export * from './announcement-research.js';
 export type {
   AdminUserRow,
   AttemptRow,

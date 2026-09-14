@@ -2,6 +2,7 @@ import {
   type AnnouncementUpsert,
   type DealUpsert,
   type FiiDiiUpsert,
+  recordAnnouncementIngestion,
   resolveInstrumentIds,
   type ShareholdingUpsert,
   upsertAnnouncements,
@@ -18,6 +19,10 @@ import type {
 import type { WorkerContext } from '../context.js';
 import type { Logger } from '../log.js';
 import { createIndiaDisclosureSource } from '../sources/india-disclosures.js';
+import {
+  interpretPendingAnnouncements,
+  withAnnouncementInterpretation,
+} from './interpret-announcements.js';
 
 /**
  * Disclosure ingestion.
@@ -63,28 +68,51 @@ export async function ingestAnnouncements(
   const now = options.now ?? new Date();
   const since = new Date(now.getTime() - 3 * DAY_MS);
 
-  const fetched = await source.fetchAnnouncements({ since });
-  const ids = await resolve(
-    context,
-    fetched.map((a: RawAnnouncement) => a.symbol),
-  );
+  let fetched: readonly RawAnnouncement[] = [];
+  try {
+    await interpretPendingAnnouncements(context);
+    fetched = await source.fetchAnnouncements({ since });
+    const ids = await resolve(
+      context,
+      fetched.map((a: RawAnnouncement) => a.symbol),
+    );
 
-  const rows: AnnouncementUpsert[] = fetched.map((a) => ({
-    instrumentId: ids.get(a.symbol) ?? null,
-    symbol: a.symbol,
-    companyName: a.companyName,
-    source: a.source,
-    externalId: a.externalId,
-    category: a.category,
-    headline: a.headline,
-    detail: a.detail,
-    attachmentUrl: a.attachmentUrl,
-    announcedAt: a.announcedAt,
-  }));
+    const rows: AnnouncementUpsert[] = fetched.map((a) => ({
+      instrumentId: ids.get(a.symbol) ?? null,
+      symbol: a.symbol,
+      companyName: a.companyName,
+      source: a.source,
+      externalId: a.externalId,
+      category: a.category,
+      headline: a.headline,
+      detail: a.detail,
+      attachmentUrl: a.attachmentUrl,
+      announcedAt: a.announcedAt,
+    }));
 
-  const written = await upsertAnnouncements(context.db, rows);
-  log.info('announcements ingested', { fetched: fetched.length, written });
-  return { fetched: fetched.length, written };
+    const written = await upsertAnnouncements(context.db, rows.map(withAnnouncementInterpretation));
+    await recordAnnouncementIngestion(context.db, {
+      source: source.id,
+      succeeded: true,
+      fetched: fetched.length,
+      written,
+      startedAt: now,
+      completedAt: new Date(),
+    });
+    log.info('announcements ingested', { fetched: fetched.length, written });
+    return { fetched: fetched.length, written };
+  } catch (error) {
+    await recordAnnouncementIngestion(context.db, {
+      source: source.id,
+      succeeded: false,
+      fetched: fetched.length,
+      written: 0,
+      startedAt: now,
+      completedAt: new Date(),
+    });
+    log.warn('Announcement ingestion failed; existing filings remain available');
+    throw error;
+  }
 }
 
 export async function ingestFiiDii(

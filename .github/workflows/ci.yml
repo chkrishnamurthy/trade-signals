@@ -2,11 +2,15 @@ name: CI
 
 # PR checks for the web app. Kept separate from deploy.yml (which runs on push to
 # main): this gate runs on pull requests and on branch pushes, never blocking or
-# racing the deploy. It deliberately runs only checks that pass in a clean CI
-# environment with no secrets or database — `typecheck` and `build-storybook`.
+# racing the deploy.
+#
+# `checks`   — typecheck + Storybook build (no secrets, no database).
+# `db-tests` — the full Vitest suite against a real, ephemeral Postgres 17 +
+#              TimescaleDB service (the same stack the VPS runs). This is what
+#              exercises the DB-enforced invariants; TEST_DATABASE_URL is set, so
+#              those suites are REQUIRED here and cannot silently skip.
 # NOT run here (would be red for reasons unrelated to a given PR):
 #   - `pnpm lint`  — the repo has pre-existing Biome errors to clear first.
-#   - `pnpm test`  — the suite needs a live database, unavailable in CI.
 # The Storybook interaction/a11y test run is not wired yet (see
 # docs/design-system/contributing.md — blocked upstream).
 
@@ -42,3 +46,50 @@ jobs:
 
       - name: Build Storybook
         run: pnpm --filter @equitywise/web build-storybook
+
+  db-tests:
+    runs-on: ubuntu-latest
+    services:
+      # Matches production and docker-compose.test.yml: PG 17 + TimescaleDB, so
+      # the migrations' hypertables and CREATE EXTENSION run for real.
+      postgres:
+        image: timescale/timescaledb:2.17.2-pg17
+        env:
+          POSTGRES_USER: equitywise
+          POSTGRES_PASSWORD: equitywise
+          POSTGRES_DB: nse_signals_test
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U equitywise -d nse_signals_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      # Present, so the DB-backed suites are required and cannot silently skip.
+      TEST_DATABASE_URL: postgresql://equitywise:equitywise@localhost:5433/nse_signals_test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The Vitest global setup migrates the database on the first run; this
+      # keeps that cost out of the suite's own timing and fails fast on a bad
+      # migration.
+      - name: Migrate test database
+        run: pnpm --filter @equitywise/db exec drizzle-kit migrate
+        env:
+          DATABASE_URL_DIRECT: ${{ env.TEST_DATABASE_URL }}
+
+      - name: Test
+        run: pnpm test

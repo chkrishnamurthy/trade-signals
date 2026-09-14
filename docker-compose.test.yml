@@ -1,0 +1,31 @@
+# Local, disposable database for the integration test suites.
+#
+# It mirrors PRODUCTION: Postgres 17 + TimescaleDB, the same stack the VPS runs,
+# so the schema tests exercise the real major version, the timescaledb extension,
+# and the hypertables the migrations create (packages/db/drizzle/0001_hypertables.sql)
+# — which a plain Postgres image could not run.
+#
+# Started by `pnpm test:db:up` (or `pnpm test:integration`, which also migrates,
+# runs the suite and tears the volume down). The database name ends in `_test`
+# and the host is localhost by design: test/db.ts refuses to run against anything
+# else, so a stray production URL can never be migrated or truncated by a test.
+
+services:
+  db:
+    image: timescale/timescaledb:2.17.2-pg17
+    environment:
+      POSTGRES_USER: equitywise
+      POSTGRES_PASSWORD: equitywise
+      POSTGRES_DB: nse_signals_test
+    ports:
+      # Host 5433 avoids clashing with a local Postgres on 5432 or the VPS tunnel
+      # on 15432. The container always listens on 5432 internally.
+      - '5433:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U equitywise -d nse_signals_test']
+      interval: 3s
+      timeout: 3s
+      retries: 30
+    # Ephemeral by design — no named volume. `down -v` leaves nothing behind.
+    tmpfs:
+      - /var/lib/postgresql/data

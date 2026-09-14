@@ -31,9 +31,9 @@ export interface WorkerContext {
 export function createContext(): WorkerContext {
   const handle: DatabaseHandle = createDatabase({
     // The worker is long-lived and spends minutes at a time on upstream
-    // fetches, so idle pooled connections get dropped by Neon underneath it.
-    // Logging rather than swallowing: a sudden run of these means something
-    // worse than an idle timeout.
+    // fetches, so idle connections get dropped underneath it. Logging rather
+    // than swallowing: a sudden run of these means something worse than an idle
+    // timeout.
     onIdleError: (error) => {
       process.stderr.write(
         `${JSON.stringify({
