@@ -32,8 +32,6 @@ export interface FlagDefinition {
   readonly id: string;
   readonly label: string;
   readonly description: string;
-  /** Column ids this flag reads. A flag is unavailable if any lacks a source. */
-  readonly requires: readonly string[];
   readonly test: (row: WatchlistRowDto) => boolean;
 }
 
@@ -42,35 +40,30 @@ const FLAG_LIST: readonly FlagDefinition[] = [
     id: 'above_ema20',
     label: 'Above EMA 20',
     description: 'Last price is above the 20-period exponential moving average',
-    requires: ['ema20'],
     test: (row) => row.ltp !== null && row.ema20 !== null && row.ltp > row.ema20,
   },
   {
     id: 'above_ema50',
     label: 'Above EMA 50',
     description: 'Last price is above the 50-period exponential moving average',
-    requires: ['ema50'],
     test: (row) => row.ltp !== null && row.ema50 !== null && row.ltp > row.ema50,
   },
   {
     id: 'above_ema200',
     label: 'Above EMA 200',
     description: 'Last price is above the 200-period exponential moving average',
-    requires: ['ema200'],
     test: (row) => row.ltp !== null && row.ema200 !== null && row.ltp > row.ema200,
   },
   {
     id: 'below_ema200',
     label: 'Below EMA 200',
     description: 'Last price is below the 200-period exponential moving average',
-    requires: ['ema200'],
     test: (row) => row.ltp !== null && row.ema200 !== null && row.ltp < row.ema200,
   },
   {
     id: 'ema_stacked',
     label: 'EMAs stacked up',
     description: 'Price above the 20, which is above the 50, which is above the 200',
-    requires: ['ema20', 'ema50', 'ema200'],
     test: (row) => {
       const { ltp, ema20, ema50, ema200 } = row;
       if (ltp === null || ema20 === null || ema50 === null || ema200 === null) return false;
@@ -81,7 +74,6 @@ const FLAG_LIST: readonly FlagDefinition[] = [
     id: 'near_52w_high',
     label: 'Within 5% of 52W high',
     description: 'Trading in the top 5% of its 52-week range',
-    requires: ['high52w'],
     test: (row) => {
       if (row.ltp === null || row.high52w === null || row.high52w === 0) return false;
       return (row.high52w - row.ltp) / row.high52w <= 0.05;
@@ -91,7 +83,6 @@ const FLAG_LIST: readonly FlagDefinition[] = [
     id: 'near_52w_low',
     label: 'Within 5% of 52W low',
     description: 'Trading in the bottom 5% of its 52-week range',
-    requires: ['low52w'],
     test: (row) => {
       if (row.ltp === null || row.low52w === null || row.low52w === 0) return false;
       return (row.ltp - row.low52w) / row.low52w <= 0.05;
@@ -101,21 +92,18 @@ const FLAG_LIST: readonly FlagDefinition[] = [
     id: 'volume_surge',
     label: 'Volume above 1.5×',
     description: 'Trading at more than one and a half times its average volume',
-    requires: ['relativeVolume'],
     test: (row) => row.relativeVolume !== null && row.relativeVolume >= 1.5,
   },
   {
     id: 'rsi_overbought',
     label: 'RSI above 70',
     description: 'Relative strength index in conventional overbought territory',
-    requires: ['rsi14'],
     test: (row) => row.rsi14 !== null && row.rsi14 > 70,
   },
   {
     id: 'rsi_oversold',
     label: 'RSI below 30',
     description: 'Relative strength index in conventional oversold territory',
-    requires: ['rsi14'],
     test: (row) => row.rsi14 !== null && row.rsi14 < 30,
   },
 ];
@@ -123,14 +111,6 @@ const FLAG_LIST: readonly FlagDefinition[] = [
 export const WATCHLIST_FLAGS = FLAG_LIST;
 
 const FLAGS_BY_ID = new Map(FLAG_LIST.map((flag) => [flag.id, flag]));
-
-/** A flag is usable only if every column it reads has a real data source. */
-export function isFlagAvailable(flag: FlagDefinition): boolean {
-  return flag.requires.every((id) => {
-    const column = getColumn(id);
-    return column !== null && column.source !== null;
-  });
-}
 
 function inRange(value: number | null, range: RangeDto): boolean {
   // A row the exchange gave us nothing for cannot satisfy a numeric bound.

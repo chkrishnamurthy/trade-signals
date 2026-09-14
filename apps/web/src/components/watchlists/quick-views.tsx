@@ -23,9 +23,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/typography';
-import { cn } from '@/lib/utils';
 import type { SavedViewDto, WatchlistLayoutDto } from '@/lib/watchlist-types';
-import { isQuickViewAvailable, missingSourcesFor, QUICK_VIEWS } from '@/lib/watchlist-views';
+import { QUICK_VIEWS } from '@/lib/watchlist-views';
 
 /**
  * Quick views, and the user's own saved configurations beside them.
@@ -33,11 +32,6 @@ import { isQuickViewAvailable, missingSourcesFor, QUICK_VIEWS } from '@/lib/watc
  * A quick view changes columns, sort and filters in one click. It does NOT
  * change which stocks are in the list, and the copy says so — a user who
  * clicks "Top gainers" and sees three rows must not think they lost stocks.
- *
- * Views whose columns this app has no source for are rendered disabled with
- * the reason, rather than hidden. Hiding them makes the product look smaller
- * than it is; showing them broken makes it look wrong. Naming the missing feed
- * is the only honest option.
  */
 export function QuickViews({
   activeId,
@@ -81,27 +75,18 @@ export function QuickViews({
   return (
     <div className="flex min-w-0 items-center gap-1.5">
       <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto pb-0.5">
-        {QUICK_VIEWS.map((view) => {
-          const available = isQuickViewAvailable(view);
-          const missing = available ? [] : missingSourcesFor(view);
-          return (
-            <Button
-              key={view.id}
-              variant={activeId === view.id ? 'default' : 'ghost'}
-              size="sm"
-              disabled={!available}
-              onClick={() => onApply(view.id)}
-              title={
-                available
-                  ? view.description
-                  : `Needs data this app does not have: ${missing.join(', ')}`
-              }
-              className={cn('shrink-0', !available && 'opacity-50')}
-            >
-              {view.label}
-            </Button>
-          );
-        })}
+        {QUICK_VIEWS.map((view) => (
+          <Button
+            key={view.id}
+            variant={activeId === view.id ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => onApply(view.id)}
+            title={view.description}
+            className="shrink-0"
+          >
+            {view.label}
+          </Button>
+        ))}
       </div>
 
       <DropdownMenu>

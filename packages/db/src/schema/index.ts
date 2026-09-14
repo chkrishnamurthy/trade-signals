@@ -34,7 +34,6 @@ export {
 } from './disclosures.js';
 export { dailyIndicators } from './indicators.js';
 export { corporateActions, ingestionRuns, instruments } from './instruments.js';
-export { intradaySignals } from './intraday.js';
 export { signalFactors, signals, strategyVersions } from './signals.js';
 export * from './vwap-signals.js';
 export {

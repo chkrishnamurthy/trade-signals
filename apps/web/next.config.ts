@@ -59,6 +59,9 @@ const nextConfig: NextConfig = {
     '@equitywise/core',
     '@equitywise/fyers',
   ],
+  // The Fyers data-socket SDK is obfuscated CommonJS carrying its own `ws` and
+  // `protobufjs`; bundling it breaks it. Node requires it at runtime instead.
+  serverExternalPackages: ['fyers-api-v3'],
   typedRoutes: true,
 };
 

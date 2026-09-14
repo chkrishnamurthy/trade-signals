@@ -1,6 +1,6 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import {
   IndicatorValue,
   Percent,
@@ -34,13 +34,35 @@ import type { WatchlistRowDto } from '@/lib/watchlist-types';
  * table disagreeing with the rest of the product.
  */
 
-/** Renders an unavailable column. Never a number — see the registry comment. */
-function noSource(columnId: string): (row: WatchlistRowDto) => ReactNode {
-  const reason = getColumn(columnId)?.unavailableReason ?? 'No data source for this field';
-  return () => (
-    <span className="text-subtle-foreground" title={reason}>
-      <span aria-hidden>—</span>
-      <span className="sr-only">Not available: {reason}</span>
+/**
+ * Pulses the cell background in the direction of a change to `value`.
+ *
+ * This is what makes the table visibly LIVE: every tick that moves a price
+ * flashes green or red for under a second. The first render never flashes —
+ * a page full of flashing cells on load says "everything just changed", which
+ * is false — and an unchanged value never flashes either.
+ */
+function FlashOnChange({ value, children }: { value: number | null; children: ReactNode }) {
+  const previous = useRef<number | null>(value);
+  const [flash, setFlash] = useState<{ tone: 'up' | 'down'; key: number } | null>(null);
+
+  useEffect(() => {
+    const before = previous.current;
+    previous.current = value;
+    if (before === null || value === null || before === value) return;
+    setFlash({ tone: value > before ? 'up' : 'down', key: Date.now() });
+  }, [value]);
+
+  return (
+    <span
+      key={flash?.key}
+      className={cn(
+        'inline-block rounded-sm px-1 -mx-1',
+        flash?.tone === 'up' && 'price-flash-up',
+        flash?.tone === 'down' && 'price-flash-down',
+      )}
+    >
+      {children}
     </span>
   );
 }
@@ -144,7 +166,11 @@ const CELLS: Record<string, (row: WatchlistRowDto) => ReactNode> = {
   ),
 
   // --- Price ----------------------------------------------------------------
-  ltp: (row) => <Price paise={row.ltp} bare size="sm" weight="medium" />,
+  ltp: (row) => (
+    <FlashOnChange value={row.ltp}>
+      <Price paise={row.ltp} bare size="sm" weight="medium" />
+    </FlashOnChange>
+  ),
   change: (row) => <PriceChange paise={row.change} size="sm" />,
   changePercent: (row) => <PercentChange value={row.changePercent} size="sm" />,
   previousClose: (row) => <Price paise={row.previousClose} bare size="sm" />,
@@ -163,8 +189,6 @@ const CELLS: Record<string, (row: WatchlistRowDto) => ReactNode> = {
     );
   },
   averagePrice: (row) => <Price paise={row.averagePrice} bare size="sm" />,
-  upperCircuit: noSource('upperCircuit'),
-  lowerCircuit: noSource('lowerCircuit'),
 
   // --- Volume & liquidity ---------------------------------------------------
   volume: (row) => <Volume shares={row.volume} size="sm" />,
@@ -175,26 +199,6 @@ const CELLS: Record<string, (row: WatchlistRowDto) => ReactNode> = {
     const value = getColumn('turnover')?.value(row);
     return <Turnover paise={typeof value === 'number' ? value : null} size="sm" />;
   },
-  deliveryPercent: noSource('deliveryPercent'),
-
-  // --- Valuation and fundamentals (no source) -------------------------------
-  marketCap: noSource('marketCap'),
-  peRatio: noSource('peRatio'),
-  forwardPeRatio: noSource('forwardPeRatio'),
-  pbRatio: noSource('pbRatio'),
-  pegRatio: noSource('pegRatio'),
-  evEbitda: noSource('evEbitda'),
-  dividendYield: noSource('dividendYield'),
-  eps: noSource('eps'),
-  epsGrowth: noSource('epsGrowth'),
-  revenue: noSource('revenue'),
-  revenueGrowth: noSource('revenueGrowth'),
-  profitGrowth: noSource('profitGrowth'),
-  roe: noSource('roe'),
-  roce: noSource('roce'),
-  debtToEquity: noSource('debtToEquity'),
-  promoterHolding: noSource('promoterHolding'),
-  promoterPledge: noSource('promoterPledge'),
 
   // --- 52-week position -----------------------------------------------------
   range52w: (row) => {
@@ -232,8 +236,6 @@ const CELLS: Record<string, (row: WatchlistRowDto) => ReactNode> = {
   macdHistogram: (row) => <PriceChange paise={row.macdHistogram} size="sm" />,
   sma20: (row) => <AgainstLine paise={row.sma20} reference={row.ltp} />,
   sma50: (row) => <AgainstLine paise={row.sma50} reference={row.ltp} />,
-  sma100: noSource('sma100'),
-  sma200: noSource('sma200'),
   ema20: (row) => <AgainstLine paise={row.ema20} reference={row.ltp} />,
   ema50: (row) => <AgainstLine paise={row.ema50} reference={row.ltp} />,
   ema200: (row) => <AgainstLine paise={row.ema200} reference={row.ltp} />,
@@ -242,9 +244,6 @@ const CELLS: Record<string, (row: WatchlistRowDto) => ReactNode> = {
     const value = getColumn('atrPercent')?.value(row);
     return <Percent value={typeof value === 'number' ? value : null} decimals={2} size="sm" />;
   },
-  adx14: noSource('adx14'),
-  stochastic: noSource('stochastic'),
-  bollingerBands: noSource('bollingerBands'),
 
   // --- Trading signals ------------------------------------------------------
   /**
@@ -305,18 +304,6 @@ const CELLS: Record<string, (row: WatchlistRowDto) => ReactNode> = {
       </Badge>
     );
   },
-  momentum: noSource('momentum'),
-
-  // The live intraday setup columns render as unavailable — the engine that
-  // wrote them was removed. See the matching note in `watchlist-columns.ts`.
-  setupState: noSource('setupState'),
-  setupScore: noSource('setupScore'),
-  entryZone: noSource('entryZone'),
-  setupTarget: noSource('setupTarget'),
-  setupInvalidation: noSource('setupInvalidation'),
-  setupRiskReward: noSource('setupRiskReward'),
-  support: noSource('support'),
-  resistance: noSource('resistance'),
 
   // --- Market information ---------------------------------------------------
   sector: (row) =>

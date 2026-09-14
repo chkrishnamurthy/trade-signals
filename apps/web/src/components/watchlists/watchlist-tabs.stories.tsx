@@ -20,6 +20,8 @@ const meta = {
     onCreate: async () => ({ ok: true }),
     onRename: async () => ({ ok: true }),
     onDelete: () => {},
+    onPickTemplate: async () => true,
+    creatingTemplateId: null,
     onMakeDefault: () => {},
     onReorder: () => {},
   },

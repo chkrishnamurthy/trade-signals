@@ -17,9 +17,11 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/typography';
 import { API_ROUTES } from '@/lib/api-routes';
 import { cn } from '@/lib/utils';
+import { ImportStocks } from './import-stocks';
 
 /**
  * Add stocks.
@@ -33,6 +35,10 @@ import { cn } from '@/lib/utils';
  * Symbols already in the watchlist are shown and marked rather than filtered
  * out. A user searching for a stock they already added needs to be told that,
  * not left wondering why their search returns nothing.
+ *
+ * A second tab, "Paste or import", takes a whole list at once — typed,
+ * pasted, or a broker's holdings export — and previews what each line
+ * resolved to before anything is added (`import-stocks.tsx`).
  */
 
 interface SearchHit {
@@ -65,6 +71,7 @@ export function AddStocks({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [justAdded, setJustAdded] = useState<readonly string[]>([]);
+  const [mode, setMode] = useState<'search' | 'import'>('search');
 
   const inputRef = useRef<HTMLInputElement>(null);
   const abort = useRef<AbortController | null>(null);
@@ -178,6 +185,7 @@ export function AddStocks({
           setStaged([]);
           setError(null);
           setJustAdded([]);
+          setMode('search');
         }
       }}
     >
@@ -194,133 +202,156 @@ export function AddStocks({
         <DialogHeader>
           <DialogTitle>Add stocks</DialogTitle>
           <DialogDescription>
-            Search by company name, symbol or ticker. Enter adds the highlighted result.
+            {mode === 'search'
+              ? 'Search by company name, symbol or ticker. Enter adds the highlighted result.'
+              : 'Paste a list, or import a holdings export from your broker.'}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col gap-3">
-          <SearchInput
-            ref={inputRef}
-            value={query}
-            onValueChange={setQuery}
-            onKeyDown={onKeyDown}
-            placeholder="RELIANCE, Infosys, HDFC…"
-            aria-label="Search for a stock"
-            autoFocus
-          />
+        <Tabs
+          value={mode}
+          onValueChange={(value) => setMode(value === 'import' ? 'import' : 'search')}
+        >
+          <TabsList className="mb-3">
+            <TabsTrigger value="search">Search</TabsTrigger>
+            <TabsTrigger value="import">Paste or import</TabsTrigger>
+          </TabsList>
 
-          {/* Results */}
-          <div className="min-h-40">
-            {searching && query.trim() !== '' && <SkeletonRows rows={3} className="px-2 py-1" />}
+          <TabsContent value="import">
+            <ImportStocks existingSymbols={existingSymbols} onAdd={onAdd} />
+          </TabsContent>
 
-            {!searching && query.trim() !== '' && hits.length === 0 && (
-              <div className="px-2 py-6 text-center">
-                <Text variant="label">No match for “{query.trim()}”</Text>
-                <Text variant="caption">Try the ticker, or part of the company name.</Text>
+          <TabsContent value="search">
+            <div className="flex flex-col gap-3">
+              <SearchInput
+                ref={inputRef}
+                value={query}
+                onValueChange={setQuery}
+                onKeyDown={onKeyDown}
+                placeholder="RELIANCE, Infosys, HDFC…"
+                aria-label="Search for a stock"
+                autoFocus
+              />
+
+              {/* Results */}
+              <div className="min-h-40">
+                {searching && query.trim() !== '' && (
+                  <SkeletonRows rows={3} className="px-2 py-1" />
+                )}
+
+                {!searching && query.trim() !== '' && hits.length === 0 && (
+                  <div className="px-2 py-6 text-center">
+                    <Text variant="label">No match for “{query.trim()}”</Text>
+                    <Text variant="caption">Try the ticker, or part of the company name.</Text>
+                  </div>
+                )}
+
+                {!searching && hits.length > 0 && (
+                  <ScrollArea className="max-h-56">
+                    <ul className="flex flex-col gap-0.5">
+                      {hits.map((hit, index) => {
+                        const already = existing.has(hit.symbol.toUpperCase());
+                        const pending = stagedSymbols.has(hit.symbol.toUpperCase());
+                        return (
+                          <li key={`${hit.exchange}:${hit.symbol}`}>
+                            <button
+                              type="button"
+                              disabled={already}
+                              onMouseEnter={() => setCursor(index)}
+                              onClick={() => stage(hit)}
+                              className={cn(
+                                'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors',
+                                index === cursor && !already && 'bg-muted',
+                                already && 'opacity-55',
+                              )}
+                            >
+                              <StockAvatar symbol={hit.symbol} />
+                              <span className="flex min-w-0 flex-1 flex-col">
+                                <span className="truncate text-xs font-medium">{hit.symbol}</span>
+                                <span className="truncate text-2xs text-muted-foreground">
+                                  {hit.name}
+                                </span>
+                              </span>
+                              <Badge variant="outline" size="sm">
+                                {hit.exchange}
+                              </Badge>
+                              {already ? (
+                                <Badge variant="secondary" size="sm">
+                                  <CheckIcon aria-hidden />
+                                  In list
+                                </Badge>
+                              ) : pending ? (
+                                <Badge variant="default" size="sm">
+                                  Queued
+                                </Badge>
+                              ) : (
+                                <PlusIcon className="size-3.5 text-muted-foreground" aria-hidden />
+                              )}
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </ScrollArea>
+                )}
+
+                {query.trim() === '' && staged.length === 0 && justAdded.length === 0 && (
+                  <div className="px-2 py-6 text-center">
+                    <Text variant="caption">
+                      Start typing to search every instrument the provider lists.
+                    </Text>
+                  </div>
+                )}
+
+                {query.trim() === '' && justAdded.length > 0 && staged.length === 0 && (
+                  <div className="flex flex-col items-center gap-1 px-2 py-6 text-center">
+                    <Badge variant="bullish">
+                      <CheckIcon aria-hidden />
+                      Added {justAdded.length}
+                    </Badge>
+                    <Text variant="caption">{justAdded.join(', ')} — keep going, or close.</Text>
+                  </div>
+                )}
               </div>
-            )}
 
-            {!searching && hits.length > 0 && (
-              <ScrollArea className="max-h-56">
-                <ul className="flex flex-col gap-0.5">
-                  {hits.map((hit, index) => {
-                    const already = existing.has(hit.symbol.toUpperCase());
-                    const pending = stagedSymbols.has(hit.symbol.toUpperCase());
-                    return (
-                      <li key={`${hit.exchange}:${hit.symbol}`}>
-                        <button
-                          type="button"
-                          disabled={already}
-                          onMouseEnter={() => setCursor(index)}
-                          onClick={() => stage(hit)}
-                          className={cn(
-                            'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors',
-                            index === cursor && !already && 'bg-muted',
-                            already && 'opacity-55',
-                          )}
-                        >
-                          <StockAvatar symbol={hit.symbol} />
-                          <span className="flex min-w-0 flex-1 flex-col">
-                            <span className="truncate text-xs font-medium">{hit.symbol}</span>
-                            <span className="truncate text-2xs text-muted-foreground">
-                              {hit.name}
-                            </span>
-                          </span>
-                          <Badge variant="outline" size="sm">
-                            {hit.exchange}
-                          </Badge>
-                          {already ? (
-                            <Badge variant="secondary" size="sm">
-                              <CheckIcon aria-hidden />
-                              In list
-                            </Badge>
-                          ) : pending ? (
-                            <Badge variant="default" size="sm">
-                              Queued
-                            </Badge>
-                          ) : (
-                            <PlusIcon className="size-3.5 text-muted-foreground" aria-hidden />
-                          )}
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </ScrollArea>
-            )}
+              {/* Staged */}
+              {staged.length > 0 && (
+                <div className="flex flex-wrap gap-1 rounded-md border border-border p-2">
+                  {staged.map((hit) => (
+                    <Badge key={hit.symbol} variant="secondary" className="gap-1 pr-1">
+                      {hit.symbol}
+                      <button
+                        type="button"
+                        onClick={() => unstage(hit.symbol)}
+                        className="rounded-sm text-muted-foreground transition-colors hover:text-foreground"
+                      >
+                        <XIcon className="size-3" aria-hidden />
+                        <span className="sr-only">Remove {hit.symbol}</span>
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
 
-            {query.trim() === '' && staged.length === 0 && justAdded.length === 0 && (
-              <div className="px-2 py-6 text-center">
-                <Text variant="caption">
-                  Start typing to search every instrument the provider lists.
+              {error !== null && (
+                <Text variant="caption" className="text-destructive">
+                  {error}
                 </Text>
-              </div>
-            )}
-
-            {query.trim() === '' && justAdded.length > 0 && staged.length === 0 && (
-              <div className="flex flex-col items-center gap-1 px-2 py-6 text-center">
-                <Badge variant="bullish">
-                  <CheckIcon aria-hidden />
-                  Added {justAdded.length}
-                </Badge>
-                <Text variant="caption">{justAdded.join(', ')} — keep going, or close.</Text>
-              </div>
-            )}
-          </div>
-
-          {/* Staged */}
-          {staged.length > 0 && (
-            <div className="flex flex-wrap gap-1 rounded-md border border-border p-2">
-              {staged.map((hit) => (
-                <Badge key={hit.symbol} variant="secondary" className="gap-1 pr-1">
-                  {hit.symbol}
-                  <button
-                    type="button"
-                    onClick={() => unstage(hit.symbol)}
-                    className="rounded-sm text-muted-foreground transition-colors hover:text-foreground"
-                  >
-                    <XIcon className="size-3" aria-hidden />
-                    <span className="sr-only">Remove {hit.symbol}</span>
-                  </button>
-                </Badge>
-              ))}
+              )}
             </div>
-          )}
-
-          {error !== null && (
-            <Text variant="caption" className="text-destructive">
-              {error}
-            </Text>
-          )}
-        </div>
+          </TabsContent>
+        </Tabs>
 
         <DialogFooter>
           <Button variant="ghost" onClick={() => setOpen(false)}>
             Done
           </Button>
-          <Button onClick={() => void commit()} disabled={staged.length === 0} loading={busy}>
-            Add {staged.length > 0 ? staged.length : ''}
-          </Button>
+          {/* The import tab carries its own Add button beside its preview. */}
+          {mode === 'search' && (
+            <Button onClick={() => void commit()} disabled={staged.length === 0} loading={busy}>
+              Add {staged.length > 0 ? staged.length : ''}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

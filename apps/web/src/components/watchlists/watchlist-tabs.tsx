@@ -23,7 +23,8 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
-import type { WatchlistSummaryDto } from '@/lib/watchlist-types';
+import type { WatchlistSummaryDto, WatchlistTemplateDto } from '@/lib/watchlist-types';
+import { StarterLists } from './starter-lists';
 
 /**
  * The watchlist selector, as a horizontal strip of tabs.
@@ -48,6 +49,8 @@ export function WatchlistTabs({
   onCreate,
   onRename,
   onDelete,
+  onPickTemplate,
+  creatingTemplateId,
   onMakeDefault,
   onReorder,
 }: {
@@ -58,6 +61,9 @@ export function WatchlistTabs({
   onCreate: (name: string) => Promise<{ ok: boolean; error?: string }>;
   onRename: (id: number, name: string) => Promise<{ ok: boolean; error?: string }>;
   onDelete: (id: number) => void;
+  /** Creates a filled list from a starter template; resolves true once it is open. */
+  onPickTemplate: (template: WatchlistTemplateDto) => Promise<boolean>;
+  creatingTemplateId: string | null;
   onMakeDefault: (id: number) => void;
   onReorder: (ids: readonly number[]) => void;
 }) {
@@ -199,20 +205,24 @@ export function WatchlistTabs({
       </nav>
 
       <NameDialog
-        open={dialog?.kind === 'create' || dialog?.kind === 'rename'}
-        title={dialog?.kind === 'rename' ? 'Rename watchlist' : 'New watchlist'}
-        description={
-          dialog?.kind === 'rename'
-            ? 'The stocks and the column layout stay as they are.'
-            : 'Group the names you want to follow together — a sector, a strategy, a theme.'
-        }
+        open={dialog?.kind === 'rename'}
+        title="Rename watchlist"
+        description="The stocks and the column layout stay as they are."
         initial={dialog?.kind === 'rename' ? dialog.list.name : ''}
-        confirmLabel={dialog?.kind === 'rename' ? 'Rename' : 'Create'}
+        confirmLabel="Rename"
         onClose={() => setDialog(null)}
         onSubmit={async (name) => {
           if (dialog?.kind === 'rename') return onRename(dialog.list.id, name);
-          return onCreate(name);
+          return { ok: false, error: 'Nothing to rename.' };
         }}
+      />
+
+      <NewWatchlistDialog
+        open={dialog?.kind === 'create'}
+        creatingTemplateId={creatingTemplateId}
+        onClose={() => setDialog(null)}
+        onCreate={onCreate}
+        onPickTemplate={onPickTemplate}
       />
 
       <Dialog open={dialog?.kind === 'delete'} onOpenChange={(open) => !open && setDialog(null)}>
@@ -242,6 +252,113 @@ export function WatchlistTabs({
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+/**
+ * New watchlist: a starter list in one click, or an empty one by name.
+ *
+ * The templates sit ABOVE the name field because they are the faster path
+ * and the one a new user needs; the empty list is still one field away for
+ * anyone who knows what they want.
+ */
+function NewWatchlistDialog({
+  open,
+  creatingTemplateId,
+  onClose,
+  onCreate,
+  onPickTemplate,
+}: {
+  open: boolean;
+  creatingTemplateId: string | null;
+  onClose: () => void;
+  onCreate: (name: string) => Promise<{ ok: boolean; error?: string }>;
+  onPickTemplate: (template: WatchlistTemplateDto) => Promise<boolean>;
+}) {
+  const [name, setName] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const close = (): void => {
+    setName('');
+    setError(null);
+    onClose();
+  };
+
+  const commit = async (): Promise<void> => {
+    const trimmed = name.trim();
+    if (trimmed === '') return;
+    setBusy(true);
+    setError(null);
+    const result = await onCreate(trimmed);
+    setBusy(false);
+    if (!result.ok) {
+      setError(result.error ?? 'Could not create that list.');
+      return;
+    }
+    close();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(next) => !next && close()}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>New watchlist</DialogTitle>
+          <DialogDescription>
+            Start from an index or a sector — it becomes your own list to edit — or name an empty
+            one.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex flex-col gap-4">
+          <StarterLists
+            compact
+            busyId={creatingTemplateId}
+            onPick={(template) => {
+              void onPickTemplate(template).then((ok) => {
+                if (ok) close();
+              });
+            }}
+          />
+
+          <div className="flex items-center gap-3">
+            <span className="h-px flex-1 bg-border" aria-hidden />
+            <Text variant="caption">or an empty list</Text>
+            <span className="h-px flex-1 bg-border" aria-hidden />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="new-watchlist-name">Name</Label>
+            <div className="flex gap-2">
+              <Input
+                id="new-watchlist-name"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') void commit();
+                }}
+                placeholder="Swing trading"
+                maxLength={60}
+              />
+              <Button onClick={() => void commit()} disabled={name.trim() === '' || busy}>
+                Create
+              </Button>
+            </div>
+            {error !== null && (
+              <Text variant="caption" className="text-destructive">
+                {error}
+              </Text>
+            )}
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="ghost" onClick={close}>
+            Cancel
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

@@ -1,6 +1,12 @@
 import 'server-only';
 import { getProviderCredential } from '@equitywise/db';
-import { PathCircuitBreaker, RateLimiter } from '@equitywise/fyers';
+import {
+  createSdkTransport,
+  type FyersSdk,
+  loadFyersSdk,
+  PathCircuitBreaker,
+  RateLimiter,
+} from '@equitywise/fyers';
 import type { MarketDataProvider } from '@equitywise/market-data';
 import { createFyersProvider, PROVIDER_ID } from '@equitywise/providers-fyers';
 import { getDatabase, isDatabaseConfigured } from './db';
@@ -38,6 +44,30 @@ const rateLimiter = new RateLimiter();
 const circuitBreaker = new PathCircuitBreaker();
 
 let cached: { provider: MarketDataProvider; credential: string } | null = null;
+
+/**
+ * Streaming is on unless switched off. `FYERS_STREAM=0` is the operator's
+ * kill switch: the watchlist then falls back to the server-side quote poll in
+ * `live-quotes.ts` and nothing else changes.
+ */
+function streamingEnabled(): boolean {
+  return process.env.FYERS_STREAM !== '0';
+}
+
+let sdkPromise: Promise<FyersSdk | null> | null = null;
+
+/**
+ * The socket SDK, loaded once per process. A missing or broken install is
+ * "no streaming", not a failed provider: every REST path keeps working and
+ * the watchlist falls back to the server-side poll.
+ */
+function fyersSdk(): Promise<FyersSdk | null> {
+  sdkPromise ??= loadFyersSdk().catch((error: unknown) => {
+    console.warn('[provider] live tick socket unavailable; polling instead', error);
+    return null;
+  });
+  return sdkPromise;
+}
 
 /**
  * How long a credential read is trusted before going back to the database.
@@ -102,6 +132,7 @@ export async function getProvider(): Promise<MarketDataProvider> {
 
   if (cached !== null && cached.credential === credential) return cached.provider;
 
+  const sdk = streamingEnabled() ? await fyersSdk() : null;
   const provider = createFyersProvider({
     appId,
     accessToken,
@@ -115,6 +146,11 @@ export async function getProvider(): Promise<MarketDataProvider> {
     // actually recovers a live price, not a longer wait on this request.
     attempts: 2,
     timeoutMs: 6_000,
+    // The live tick socket, for the watchlist's per-second prices. The
+    // provider is rebuilt whenever the credential changes (above), so a
+    // transport built here always carries the current token; the socket
+    // singleton behind it rebuilds itself on a new credential too.
+    ...(sdk === null ? {} : { createTransport: () => createSdkTransport({ sdk, credential }) }),
   });
   cached = { provider, credential };
   return provider;

@@ -11,14 +11,16 @@ Surfaced by the watchlist build rather than discovered in review: **market cap,
 P/E, P/B, EPS and dividend yield have no source anywhere in this system.** The
 provider serves quotes and OHLCV history; nothing serves fundamentals.
 
-They are declared in `apps/web/src/lib/watchlist-columns.ts` with `source: null`,
-which makes them visible-but-disabled in the column picker with the reason
-attached, and automatically disables the two quick views that need them
-("High dividend", "Valuation"). Their accessors return `null` and a test asserts
-they never return anything else — an invented P/E is worse than a visible gap.
+They used to be declared in `apps/web/src/lib/watchlist-columns.ts` with
+`source: null` (visible-but-disabled in the column picker, with two disabled
+quick views). As of 2026-09-14 those declarations are removed: nearly half the
+picker was greyed out, which reads as an unfinished product rather than an
+honest gap. The registry now only declares columns that have a source, and
+migration `0019` stripped the dead ids from stored layouts and saved views.
 
-**Done when.** A fundamentals source exists and each accessor is filled in. The
-column definitions, the filter ranges, the quick views and the UI states are all
-already in place and will light up on their own.
+**Done when.** A fundamentals source exists. Re-add the columns (a `valuation`
+and `fundamentals` group, with accessors over the new source) and the
+"High dividend" / "Valuation" quick views at that point — the git history at
+`7f302a2^` has the previous declarations to start from.
 
 ---

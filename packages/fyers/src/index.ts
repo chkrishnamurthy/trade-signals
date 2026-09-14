@@ -76,6 +76,8 @@ export {
   DOCUMENTED_LIMITS,
   RateLimiter,
 } from './rate-limit.js';
+export type { FyersSdk, SdkTransportOptions } from './sdk-transport.js';
+export { createSdkTransport, loadFyersSdk } from './sdk-transport.js';
 export type { StreamOptions, StreamState, TickStream, TickTransport } from './stream.js';
 export {
   FYERS_DATA_SOCKET_URL,

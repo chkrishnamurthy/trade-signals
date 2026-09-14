@@ -8,13 +8,11 @@ import {
   ensureInstruments,
   getWatchlistLayout,
   getWatchlistMembers,
-  type InstrumentSetup,
   type InstrumentSignal,
   latestIndicatorsForInstruments,
   latestSignalsForInstruments,
   listWatchlists,
   listWatchlistViews,
-  liveSetupsForInstruments,
   removeWatchlistItems,
   renameWatchlist,
   reorderWatchlistItems,
@@ -24,11 +22,9 @@ import {
   setDefaultWatchlist,
 } from '@equitywise/db';
 import type { InstrumentRef, Quote, QuotesResult } from '@equitywise/market-data';
-import { istDateKey } from '@equitywise/shared';
 import type { SignalDirection } from '@/lib/dashboard-types';
 import { type ReturnCloses, returnAnchors } from '@/lib/return-windows';
 import type {
-  RowSetupDto,
   RowSignalDto,
   SavedViewDto,
   WatchlistDetailDto,
@@ -53,7 +49,6 @@ import { resolveSymbol, warmInstrumentCache } from './search';
  *   quotes      the provider, live, one batched call for the whole list
  *   indicators  `daily_indicators`, written by the worker's end-of-day pass
  *   signals     the daily engine's stored verdict, read never recomputed
- *   setups      today's live intraday signals, for the level columns
  *   returns     anchor closes from `daily_candles`, for the trailing windows
  *
  * The indicator half costs one indexed query rather than one history call per
@@ -188,13 +183,12 @@ export async function getWatchlistDetail(id: number): Promise<WatchlistDetailDto
           }));
 
   // The indicator read still decides whether this call succeeds, as it always
-  // has. The three added sources only enrich a column group each — no signals
+  // has. The two added sources only enrich a column group each — no signals
   // written yet, a candle table not backfilled that far — so each degrades to
   // an empty map rather than taking a working watchlist down with it.
-  const [indicators, signals, setups, returnCloses, quoteResult] = await Promise.all([
+  const [indicators, signals, returnCloses, quoteResult] = await Promise.all([
     latestIndicatorsForInstruments(db, instrumentIds),
     latestSignalsForInstruments(db, instrumentIds).catch(() => new Map<number, InstrumentSignal>()),
-    liveSetupsFor(db, instrumentIds, now),
     closesAsOf(db, { instrumentIds, anchors: returnAnchors(now) }).catch(
       () => new Map<number, Map<string, number>>(),
     ),
@@ -244,7 +238,6 @@ export async function getWatchlistDetail(id: number): Promise<WatchlistDetailDto
 
       returnCloses: toReturnCloses(returnCloses.get(member.instrumentId)),
       signal: toRowSignal(signals.get(member.instrumentId)),
-      setup: toRowSetup(setups.get(member.instrumentId)),
     };
   });
 
@@ -269,28 +262,6 @@ export async function getWatchlistDetail(id: number): Promise<WatchlistDetailDto
     quotesStale,
     refreshAfterSeconds: market?.isOpen === true ? REFRESH_OPEN_SECONDS : REFRESH_CLOSED_SECONDS,
   };
-}
-
-/**
- * Today's live intraday setups, keyed by instrument.
- *
- * Only TODAY's, and only non-terminal ones: a setup that ended on Friday is not
- * a level worth showing beside Monday's price.
- *
- * The intraday tables may be empty, or the engine may never have run for this
- * name; that is an absent setup, not an error, and it must not fail the whole
- * watchlist.
- */
-async function liveSetupsFor(
-  db: ReturnType<typeof getDatabase>,
-  instrumentIds: readonly number[],
-  now: Date,
-): Promise<Map<number, InstrumentSetup>> {
-  try {
-    return await liveSetupsForInstruments(db, istDateKey(now), instrumentIds);
-  } catch {
-    return new Map();
-  }
 }
 
 const SIGNAL_DIRECTIONS: readonly SignalDirection[] = [
@@ -318,24 +289,6 @@ function toRowSignal(stored: InstrumentSignal | undefined): RowSignalDto | null 
     strength: stored.strength,
     setups: stored.setups,
     tradingDate: stored.tradingDate,
-  };
-}
-
-/** The level columns of a live setup. Levels only — never an order. */
-function toRowSetup(stored: InstrumentSetup | undefined): RowSetupDto | null {
-  if (stored === undefined) return null;
-  return {
-    kind: stored.kind,
-    direction: stored.direction,
-    state: stored.state,
-    score: stored.score,
-    quality: stored.quality,
-    entryLow: stored.entryLow,
-    entryHigh: stored.entryHigh,
-    invalidationLevel: stored.invalidationLevel,
-    target1: stored.target1,
-    // NET of the modelled round trip: the gross figure must never be published.
-    netRiskReward: stored.netRiskReward,
   };
 }
 
@@ -371,6 +324,27 @@ function toSavedViewDto(view: {
     sort: (view.sort ?? []) as SavedViewDto['sort'],
     filters: (view.filters ?? {}) as WatchlistFilterStateDto,
   };
+}
+
+/**
+ * The instrument refs of one watchlist, for the live feed — nothing else.
+ *
+ * Ownership is checked the same way the detail read checks it; `null` for a
+ * list the user does not own, so the route can 404 identically for "not
+ * yours" and "not there".
+ */
+export async function getWatchlistLiveRefs(id: number): Promise<InstrumentRef[] | null> {
+  const db = getDatabase();
+  const ownerId = await requireOwnerId();
+  const owned = await listWatchlists(db, ownerId);
+  if (!owned.some((entry) => entry.id === id)) return null;
+
+  const members = await getWatchlistMembers(db, ownerId, id);
+  return members.map((member) => ({
+    symbol: member.symbol,
+    exchange: 'NSE',
+    kind: member.kind === 'index' ? 'index' : 'equity',
+  }));
 }
 
 export interface DefaultMembersDto {

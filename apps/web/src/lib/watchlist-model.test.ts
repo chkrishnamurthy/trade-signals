@@ -4,7 +4,6 @@ import {
   DEFAULT_COLUMN_IDS,
   getColumn,
   groupedColumns,
-  isColumnAvailable,
   PINNED_COLUMN_ID,
   reorderColumnIds,
   resolveColumns,
@@ -14,15 +13,13 @@ import {
 import {
   activeFilterChips,
   applyWatchlistFilters,
-  isFlagAvailable,
   removeWatchlistFilter,
   setRange,
   toggleFacet,
-  WATCHLIST_FLAGS,
 } from './watchlist-filters';
 import { exchangesIn, sectorsIn, sortRows, summarise, toggleSort } from './watchlist-summary';
 import type { WatchlistRowDto } from './watchlist-types';
-import { isQuickViewAvailable, missingSourcesFor, QUICK_VIEWS } from './watchlist-views';
+import { QUICK_VIEWS } from './watchlist-views';
 
 /**
  * The watchlist model.
@@ -76,18 +73,6 @@ function row(overrides: Partial<WatchlistRowDto> = {}): WatchlistRowDto {
       setups: ['Golden cross'],
       tradingDate: '2026-08-23',
     },
-    setup: {
-      kind: 'breakout',
-      direction: 'long',
-      state: 'active',
-      score: 74,
-      quality: 'strong',
-      entryLow: 250000,
-      entryHigh: 250500,
-      invalidationLevel: 247000,
-      target1: 256000,
-      netRiskReward: 1.8,
-    },
     ...overrides,
   };
 }
@@ -103,51 +88,30 @@ describe('column registry', () => {
     expect(pinned.map((column) => column.id)).toEqual([PINNED_COLUMN_ID]);
   });
 
-  it('defaults to columns that all exist and are all available', () => {
+  it('defaults to columns that all exist', () => {
     for (const id of DEFAULT_COLUMN_IDS) {
-      const column = getColumn(id);
-      expect(column, `default column ${id} is not in the registry`).not.toBeNull();
-      expect(isColumnAvailable(column!), `default column ${id} has no data source`).toBe(true);
+      expect(getColumn(id), `default column ${id} is not in the registry`).not.toBeNull();
     }
   });
 
-  it('declares the fundamentals columns as having no source, and returns null for them', () => {
+  it('declares no column this application has no source for', () => {
+    // Fundamentals, circuit limits, delivery % and the removed intraday setups
+    // are deliberately NOT in the registry: a column that can only ever render
+    // an em dash is noise in the picker, not a feature (see the module comment).
     for (const id of [
       'marketCap',
       'peRatio',
-      'forwardPeRatio',
-      'pbRatio',
-      'pegRatio',
-      'evEbitda',
-      'eps',
-      'revenue',
-      'roe',
-      'promoterPledge',
       'dividendYield',
+      'deliveryPercent',
+      'upperCircuit',
+      'sma200',
+      'adx14',
+      'setupState',
+      'setupScore',
+      'entryZone',
+      'support',
     ]) {
-      const column = getColumn(id);
-      expect(column).not.toBeNull();
-      expect(column!.source).toBeNull();
-      // The load-bearing half: an unavailable column must never invent a number.
-      expect(column!.value(row())).toBeNull();
-    }
-  });
-
-  it('gives every unavailable column a reason, and no available one a reason', () => {
-    for (const column of WATCHLIST_COLUMNS) {
-      if (column.source === null) {
-        expect(column.unavailableReason, `${column.id} is unavailable with no reason`).toBeTruthy();
-      } else {
-        expect(column.unavailableReason, `${column.id} has a source and a reason`).toBeUndefined();
-      }
-    }
-  });
-
-  it('never invents a value for a column with no source', () => {
-    const populated = row();
-    for (const column of WATCHLIST_COLUMNS) {
-      if (column.source !== null) continue;
-      expect(column.value(populated), `${column.id} produced a value`).toBeNull();
+      expect(getColumn(id), `${id} should not be registered`).toBeNull();
     }
   });
 
@@ -159,14 +123,12 @@ describe('column registry', () => {
     }
   });
 
-  it('offers each of the eight advertised groups', () => {
+  it('offers each of the seven advertised groups', () => {
     const labels = groupedColumns().map((group) => group.label);
     expect(labels).toEqual([
       'Price',
       'Performance',
       'Volume & Liquidity',
-      'Valuation',
-      'Fundamentals',
       '52-Week Position',
       'Technical Indicators',
       'Trading Signals',
@@ -198,12 +160,12 @@ describe('column registry', () => {
     const flatten = (query: string): string[] =>
       groupedColumns(query).flatMap((group) => group.columns.map((column) => column.id));
 
-    expect(flatten('dividend')).toContain('dividendYield');
+    expect(flatten('relative strength')).toContain('rsi14');
     expect(flatten('exponential moving average')).toEqual(
       expect.arrayContaining(['ema20', 'ema50', 'ema200']),
     );
     // Group name matches too.
-    expect(flatten('valuation')).toEqual(expect.arrayContaining(['peRatio', 'pbRatio']));
+    expect(flatten('52-week position')).toEqual(expect.arrayContaining(['high52w', 'low52w']));
     expect(flatten('no such column')).toEqual([]);
   });
 
@@ -319,25 +281,6 @@ describe('derived column values', () => {
     expect(signal.value(row({ signal: null }))).toBeNull();
   });
 
-  it('marks the live intraday setup columns as unavailable, never inventing a level', () => {
-    // The engine that wrote these was removed, so the columns are declared
-    // source-less: even with a fully-populated `setup` on the row, they must
-    // render nothing rather than a stale level.
-    const populated = row();
-    for (const id of [
-      'setupState',
-      'setupScore',
-      'entryZone',
-      'setupTarget',
-      'setupInvalidation',
-      'setupRiskReward',
-    ]) {
-      const column = getColumn(id)!;
-      expect(column.source, id).toBeNull();
-      expect(column.value(populated), id).toBeNull();
-    }
-  });
-
   it('counts EMAs the price is above', () => {
     const trend = getColumn('trend')!;
     expect(trend.value(row({ ltp: 250000 }))).toBe(3);
@@ -415,12 +358,6 @@ describe('filters', () => {
 
   it('ignores an unknown flag id rather than filtering everything out', () => {
     expect(applyWatchlistFilters(rows, { flags: ['no_such_flag'] })).toHaveLength(4);
-  });
-
-  it('reports every flag as available, since all read columns we have', () => {
-    for (const flag of WATCHLIST_FLAGS) {
-      expect(isFlagAvailable(flag), `${flag.id} reads a column with no source`).toBe(true);
-    }
   });
 });
 
@@ -645,31 +582,11 @@ describe('quick views', () => {
     }
   });
 
-  it('marks the views whose columns have no source as unavailable, with a reason', () => {
-    // Fundamentals (no feed) and the live intraday setups (engine removed).
-    for (const id of ['high_dividend', 'valuation', 'live_setups']) {
-      const view = QUICK_VIEWS.find((entry) => entry.id === id)!;
-      expect(isQuickViewAvailable(view)).toBe(false);
-      expect(missingSourcesFor(view).length).toBeGreaterThan(0);
-    }
-  });
-
-  it('marks every price, volume and technical view as available', () => {
-    for (const id of [
-      'overview',
-      'top_gainers',
-      'top_losers',
-      'most_active',
-      'near_52w_high',
-      'near_52w_low',
-      'strong_momentum',
-      'oversold',
-      'volatility',
-      'performance',
-      'daily_signals',
-    ]) {
-      const view = QUICK_VIEWS.find((entry) => entry.id === id)!;
-      expect(isQuickViewAvailable(view), `${id}: ${missingSourcesFor(view).join(', ')}`).toBe(true);
+  it('only ever references registered columns', () => {
+    for (const view of QUICK_VIEWS) {
+      for (const id of view.columns) {
+        expect(getColumn(id), `view ${view.id} lists unknown column ${id}`).not.toBeNull();
+      }
     }
   });
 

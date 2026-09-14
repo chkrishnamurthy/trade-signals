@@ -83,3 +83,8 @@ export const saveViewSchema = z.object({
   sort: z.array(sortRuleSchema).max(5),
   filters: filterStateSchema,
 });
+
+export const fromTemplateSchema = z.object({
+  templateId: z.string().min(1).max(80),
+  name: z.string().trim().min(1).max(60).optional(),
+});

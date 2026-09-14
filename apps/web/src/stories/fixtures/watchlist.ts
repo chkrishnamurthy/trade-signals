@@ -61,7 +61,6 @@ const RELIANCE: WatchlistRowDto = {
     setups: ['Golden cross'],
     tradingDate: '2026-09-05',
   },
-  setup: null,
 };
 
 const TCS: WatchlistRowDto = {
@@ -105,7 +104,6 @@ const TCS: WatchlistRowDto = {
     return1y: 372000,
   },
   signal: { direction: 'bearish', strength: 38, setups: [], tradingDate: '2026-09-05' },
-  setup: null,
 };
 
 const ITC: WatchlistRowDto = {
@@ -149,7 +147,6 @@ const ITC: WatchlistRowDto = {
     return1y: 41200,
   },
   signal: null,
-  setup: null,
 };
 
 /** Added this morning: no quote yet, and no indicator session at all. */
@@ -187,7 +184,6 @@ const NEWSTOCK: WatchlistRowDto = {
   previousVolume: null,
   returnCloses: {},
   signal: null,
-  setup: null,
 };
 
 export const WATCHLIST_ROWS: readonly WatchlistRowDto[] = [RELIANCE, TCS, ITC, NEWSTOCK];

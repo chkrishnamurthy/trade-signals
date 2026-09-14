@@ -214,15 +214,15 @@ Surfaced by the watchlist build rather than discovered in review: **market cap,
 P/E, P/B, EPS and dividend yield have no source anywhere in this system.** The
 provider serves quotes and OHLCV history; nothing serves fundamentals.
 
-They are declared in `apps/web/src/lib/watchlist-columns.ts` with `source: null`,
-which makes them visible-but-disabled in the column picker with the reason
-attached, and automatically disables the two quick views that need them
-("High dividend", "Valuation"). Their accessors return `null` and a test asserts
-they never return anything else — an invented P/E is worse than a visible gap.
+*Updated 2026-09-14:* the `source: null` placeholder columns (fundamentals,
+circuit limits, delivery %, the uncomputed indicators and the removed intraday
+setup levels — 34 in all) are no longer declared. Nearly half the column picker
+was greyed out, which reads as unfinished rather than honest. Migration `0019`
+stripped the dead ids from stored layouts and saved views and dropped the last
+intraday table. See `issues/no-fundamentals-data-source.md`.
 
-**Done when.** A fundamentals source exists and each accessor is filled in. The
-column definitions, the filter ranges, the quick views and the UI states are all
-already in place and will light up on their own.
+**Done when.** A fundamentals source exists; re-add the columns and the two quick
+views against it at that point.
 
 ---
 

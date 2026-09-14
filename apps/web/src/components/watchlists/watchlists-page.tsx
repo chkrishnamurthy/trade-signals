@@ -16,9 +16,19 @@ import {
   PageHeading,
   PageTitle,
 } from '@/components/layout/page';
+import { LiveIndicator } from '@/components/market/market-status';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardToolbar } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { useToast } from '@/components/ui/toast';
 import { Text } from '@/components/ui/typography';
 import { StockDetailDrawer } from '@/components/watchlists/stock-drawer';
 import type { MoverDto } from '@/lib/dashboard-types';
@@ -36,6 +46,7 @@ import { AddStocks } from './add-stocks';
 import { ColumnPanel } from './column-panel';
 import { FilterPanel } from './filter-panel';
 import { QuickViews } from './quick-views';
+import { StarterLists } from './starter-lists';
 import { SummaryBar } from './summary-bar';
 import { WatchlistTable } from './watchlist-table';
 import { WatchlistTabs } from './watchlist-tabs';
@@ -59,9 +70,11 @@ export function WatchlistsPage() {
     detail,
     activeId,
     isRefreshing,
+    liveState,
     setActiveId,
     refresh,
     createList,
+    createFromTemplate,
     renameList,
     deleteList,
     makeDefault,
@@ -75,6 +88,30 @@ export function WatchlistsPage() {
   } = useWatchlists();
 
   const [selected, setSelected] = useState<WatchlistRowDto | null>(null);
+  // Removal is a single menu click with no undo, so it asks first — the same
+  // way deleting a whole list does in `WatchlistTabs`.
+  const [pendingRemove, setPendingRemove] = useState<WatchlistRowDto | null>(null);
+  const [creatingTemplate, setCreatingTemplate] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  const pickTemplate = useCallback(
+    async (templateId: string, name: string) => {
+      setCreatingTemplate(templateId);
+      const result = await createFromTemplate(templateId);
+      setCreatingTemplate(null);
+      if (result.ok) {
+        toast({ variant: 'success', title: `Created “${result.data.name}”` });
+      } else {
+        toast({
+          variant: 'destructive',
+          title: `Could not create “${name}”`,
+          description: result.error.error,
+        });
+      }
+      return result.ok;
+    },
+    [createFromTemplate, toast],
+  );
 
   const allLists = lists.status === 'ready' ? lists.data : [];
   const data = detail.status === 'ready' ? detail.data : null;
@@ -198,6 +235,21 @@ export function WatchlistsPage() {
 
           {hasList && (
             <PageActions>
+              {/* Where the prices are coming from, in one honest word. "Live"
+                  is claimed only while ticks are actually streaming. */}
+              <LiveIndicator
+                live={liveState === 'streaming'}
+                label={
+                  liveState === 'streaming'
+                    ? 'Live'
+                    : liveState === 'polling'
+                      ? 'Updating every few seconds'
+                      : data.market.isOpen
+                        ? 'Connecting…'
+                        : 'Market closed'
+                }
+                className="mr-1"
+              />
               {/* Refreshing THIS list's prices is page functionality, so it sits
                   with the page's own actions. The header bar owns market state,
                   not per-page reloads. */}
@@ -237,18 +289,28 @@ export function WatchlistsPage() {
           onDelete={(id) => void deleteList(id)}
           onMakeDefault={(id) => void makeDefault(id)}
           onReorder={(ids) => void reorderLists(ids)}
+          onPickTemplate={(template) => pickTemplate(template.id, template.name)}
+          creatingTemplateId={creatingTemplate}
         />
 
         <PageContent className="mt-4 min-w-0">
           {loadingList && <WatchlistPageSkeleton />}
 
           {!loadingList && !hasList && lists.status === 'ready' && allLists.length === 0 && (
-            <Card className="px-4 py-12 text-center">
-              <Text variant="section-title">No watchlists yet</Text>
-              <Text variant="caption" className="mx-auto mt-1 max-w-sm text-balance">
-                Create a list — a sector, a strategy, a theme — and add the stocks you want to keep
-                an eye on.
-              </Text>
+            <Card className="px-4 py-8 sm:px-6">
+              <div className="text-center">
+                <Text variant="section-title">Start with a ready-made list</Text>
+                <Text variant="caption" className="mx-auto mt-1 max-w-md text-balance">
+                  Pick an index or a sector and it becomes your own watchlist — add or remove names
+                  as you like. Or create an empty list from the + above and add stocks by search or
+                  paste.
+                </Text>
+              </div>
+              <StarterLists
+                className="mt-5"
+                busyId={creatingTemplate}
+                onPick={(template) => void pickTemplate(template.id, template.name)}
+              />
             </Card>
           )}
 
@@ -371,7 +433,7 @@ export function WatchlistsPage() {
                       )
                     }
                     onSortChange={onSortChange}
-                    onRemove={(row) => void removeSymbols([row.instrumentId])}
+                    onRemove={setPendingRemove}
                     onOpenDetail={setSelected}
                     onAddToList={(watchlistId, symbol) => void addSymbolsTo(watchlistId, [symbol])}
                   />
@@ -390,6 +452,35 @@ export function WatchlistsPage() {
         isLive={data?.market.isOpen ?? false}
         onClose={() => setSelected(null)}
       />
+
+      <Dialog
+        open={pendingRemove !== null}
+        onOpenChange={(open) => !open && setPendingRemove(null)}
+      >
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Remove {pendingRemove?.symbol ?? ''} from this watchlist?</DialogTitle>
+            <DialogDescription>
+              {pendingRemove?.name ?? ''} stays on any other list it is on. You can add it back from
+              search at any time.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setPendingRemove(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (pendingRemove !== null) void removeSymbols([pendingRemove.instrumentId]);
+                setPendingRemove(null);
+              }}
+            >
+              Remove
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }

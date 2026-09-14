@@ -517,3 +517,30 @@
     display: none;
   }
 }
+
+/* A live price that just moved. The cell's background pulses in the direction
+   of the move and fades in under a second, so a table of fifty names reads as
+   alive without any one cell holding attention. The animation restarts on
+   every change because the class is re-applied with a fresh key. */
+@keyframes price-flash-up {
+  from {
+    background-color: var(--bullish-soft);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+@keyframes price-flash-down {
+  from {
+    background-color: var(--bearish-soft);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+@utility price-flash-up {
+  animation: price-flash-up 900ms ease-out;
+}
+@utility price-flash-down {
+  animation: price-flash-down 900ms ease-out;
+}
