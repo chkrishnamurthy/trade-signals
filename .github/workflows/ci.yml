@@ -43,6 +43,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # The workspace packages resolve through their compiled dist/*.d.ts
+      # (see each package's "exports"), so they must be built before the web
+      # app can typecheck them. Same selector `pnpm --filter web build` uses.
+      - name: Build workspace dependencies
+        run: pnpm --filter "@equitywise/web^..." build
+
       - name: Typecheck (web)
         run: pnpm --filter @equitywise/web typecheck
 
@@ -84,6 +90,11 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      # Cross-package imports resolve through each package's dist/ (no source
+      # aliases in vitest.config.ts), so the tree must be built before testing.
+      - name: Build workspace packages
+        run: pnpm --filter "./packages/**" build
 
       # The Vitest global setup migrates the database on the first run; this
       # keeps that cost out of the suite's own timing and fails fast on a bad
