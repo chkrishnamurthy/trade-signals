@@ -1,7 +1,7 @@
 import type { Resolution } from '@equitywise/market-data';
 import { NextResponse } from 'next/server';
 import { MarketDataError, toMarketError } from '@/server/errors';
-import { getBars } from '@/server/history';
+import { getBars, latestSession } from '@/server/history';
 import { resolveSymbol } from '@/server/search';
 
 /**
@@ -10,12 +10,19 @@ import { resolveSymbol } from '@/server/search';
  * Timeframes map to a (resolution, lookback) pair chosen so each request stays
  * inside typical provider per-request range limits: ~100 days for minute
  * resolutions, ~366 for daily. The adapter chunks anything larger.
+ *
+ * `1D` is one trading session at minute resolution, so the chart's cursor
+ * steps 10:00, 10:01, 10:02. Its lookback is still a few calendar days so that
+ * a long weekend or a holiday still finds the last session; the response is
+ * then trimmed to that session (375 bars at most) and carries its fixed
+ * 09:15-15:30 window, which the chart draws against so a live session reads
+ * as partly filled.
  */
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const TIMEFRAMES: Record<string, { resolution: Resolution; days: number }> = {
-  '1D': { resolution: '5m', days: 5 },
+const TIMEFRAMES: Record<string, { resolution: Resolution; days: number; session?: true }> = {
+  '1D': { resolution: '1m', days: 5, session: true },
   '5D': { resolution: '15m', days: 9 },
   '1M': { resolution: '1h', days: 34 },
   '3M': { resolution: '1d', days: 95 },
@@ -53,7 +60,7 @@ export async function GET(
 
   try {
     const now = new Date();
-    const bars = await getBars(
+    const fetched = await getBars(
       {
         ref: { symbol: resolved.symbol, kind: resolved.kind },
         resolution: spec.resolution,
@@ -65,6 +72,8 @@ export async function GET(
       },
       now,
     );
+    const trimmed = spec.session === true ? latestSession(fetched) : null;
+    const bars = trimmed?.bars ?? fetched;
 
     return NextResponse.json(
       {
@@ -72,6 +81,7 @@ export async function GET(
         name: resolved.name,
         timeframe,
         resolution: spec.resolution,
+        ...(trimmed === null ? {} : { session: trimmed.session }),
         bars: bars.map((b) => ({
           t: b.timestamp,
           o: b.open,

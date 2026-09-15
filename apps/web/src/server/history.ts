@@ -1,6 +1,6 @@
 import 'server-only';
 import type { Bar, InstrumentRef, Resolution } from '@equitywise/market-data';
-import { istDateKey } from '@equitywise/shared';
+import { istDateKey, sessionClose, sessionOpen } from '@equitywise/shared';
 import { getProvider } from './provider';
 
 /**
@@ -75,6 +75,43 @@ export async function getBars(request: HistoryRequest, now = new Date()): Promis
 
   inFlight.set(cacheKey, task);
   return task;
+}
+
+/** The fixed trading-session window a 1D chart is drawn against, epoch ms. */
+export interface SessionWindow {
+  /** 09:15 IST. */
+  readonly open: number;
+  /** 15:30 IST. */
+  readonly close: number;
+}
+
+/**
+ * Keeps only the bars of the latest trading session present in `bars`, with
+ * that session's fixed 09:15-15:30 IST window.
+ *
+ * The 1D chart is drawn against the whole session, not against the bars that
+ * happen to exist: mid-session the line stops at "now" and the rest of the
+ * plot stays empty, exactly like the exchange clock. The session is the one
+ * the LAST bar falls on rather than today's date, so a weekend, a holiday or
+ * the pre-open shows the last completed session instead of an empty plot. A
+ * session cannot straddle IST midnight, so the IST date key identifies it.
+ *
+ * Returns `null` when there are no bars at all.
+ */
+export function latestSession(
+  bars: readonly Bar[],
+): { bars: readonly Bar[]; session: SessionWindow } | null {
+  const last = bars.at(-1);
+  if (last === undefined) return null;
+  const lastInstant = new Date(last.timestamp);
+  const key = istDateKey(lastInstant);
+  return {
+    bars: bars.filter((bar) => istDateKey(new Date(bar.timestamp)) === key),
+    session: {
+      open: sessionOpen(lastInstant).getTime(),
+      close: sessionClose(lastInstant).getTime(),
+    },
+  };
 }
 
 /** Daily bars covering roughly `days` calendar days back from today. */
