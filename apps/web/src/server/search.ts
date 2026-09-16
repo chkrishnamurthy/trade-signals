@@ -162,3 +162,131 @@ export async function resolveSymbol(symbol: string): Promise<ResolvedSymbol | nu
   }
   return null;
 }
+
+// ---------------------------------------------------------------------------
+// Import resolution
+// ---------------------------------------------------------------------------
+
+/** One line of a pasted list or a broker export, as the browser parsed it. */
+export interface ImportCandidate {
+  readonly symbol?: string | undefined;
+  readonly isin?: string | undefined;
+  readonly name?: string | undefined;
+}
+
+export type ImportResolution =
+  | {
+      readonly status: 'matched';
+      readonly symbol: string;
+      readonly name: string;
+      readonly via: 'symbol' | 'isin' | 'name';
+    }
+  | {
+      readonly status: 'ambiguous';
+      readonly candidates: readonly { symbol: string; name: string }[];
+    }
+  | { readonly status: 'unknown' };
+
+/**
+ * Resolves import rows to instruments, one verdict per row, in input order.
+ *
+ * Three keys are tried in order of how unambiguous they are:
+ *
+ *   symbol   exact, as everywhere else in the app
+ *   isin     exact, from the provider's instrument master — this is what makes
+ *            a Groww export work, since Groww writes company names, not tickers
+ *   name     normalised exact match first ("Reliance Industries" ≡ "RELIANCE
+ *            INDUSTRIES LTD"), then a unique prefix. Two or more prefix hits
+ *            are returned as `ambiguous` for the user to pick from, never
+ *            guessed: a watchlist that silently gained the wrong "Tata" is
+ *            worse than one that asked.
+ *
+ * Only equities resolve by ISIN or name; an index has neither in any export.
+ */
+export async function resolveImport(
+  candidates: readonly ImportCandidate[],
+): Promise<ImportResolution[]> {
+  let universe: readonly Instrument[] = [];
+  try {
+    universe = (await load()).instruments;
+  } catch {
+    // Symbol resolution still works from the configured universe; ISIN and
+    // name lookups will simply come back unknown.
+  }
+  const byIsin = new Map<string, Instrument>();
+  const byName = new Map<string, Instrument>();
+  for (const instrument of universe) {
+    if (instrument.kind !== 'equity') continue;
+    if (instrument.isin !== null && !byIsin.has(instrument.isin))
+      byIsin.set(instrument.isin, instrument);
+    const key = normaliseName(instrument.name);
+    if (key !== '' && !byName.has(key)) byName.set(key, instrument);
+  }
+
+  const results: ImportResolution[] = [];
+  for (const candidate of candidates) {
+    results.push(await resolveOne(candidate, byIsin, byName, universe));
+  }
+  return results;
+}
+
+async function resolveOne(
+  candidate: ImportCandidate,
+  byIsin: ReadonlyMap<string, Instrument>,
+  byName: ReadonlyMap<string, Instrument>,
+  universe: readonly Instrument[],
+): Promise<ImportResolution> {
+  if (candidate.symbol !== undefined && candidate.symbol !== '') {
+    const match = await resolveSymbol(candidate.symbol);
+    if (match !== null) {
+      return { status: 'matched', symbol: match.symbol, name: match.name, via: 'symbol' };
+    }
+  }
+
+  if (candidate.isin !== undefined && candidate.isin !== '') {
+    const match = byIsin.get(candidate.isin.toUpperCase());
+    if (match !== undefined) {
+      return { status: 'matched', symbol: match.symbol, name: match.name, via: 'isin' };
+    }
+  }
+
+  if (candidate.name !== undefined && candidate.name.trim() !== '') {
+    const key = normaliseName(candidate.name);
+    const exact = byName.get(key);
+    if (exact !== undefined) {
+      return { status: 'matched', symbol: exact.symbol, name: exact.name, via: 'name' };
+    }
+    if (key.length >= 4) {
+      const hits = universe.filter(
+        (instrument) =>
+          instrument.kind === 'equity' && normaliseName(instrument.name).startsWith(key),
+      );
+      const [only] = hits;
+      if (hits.length === 1 && only !== undefined) {
+        return { status: 'matched', symbol: only.symbol, name: only.name, via: 'name' };
+      }
+      if (hits.length > 1) {
+        return {
+          status: 'ambiguous',
+          candidates: hits.slice(0, 5).map((hit) => ({ symbol: hit.symbol, name: hit.name })),
+        };
+      }
+    }
+  }
+
+  return { status: 'unknown' };
+}
+
+/**
+ * A company name reduced to what identifies it: uppercase, no punctuation,
+ * no corporate suffix. "Reliance Industries Ltd." and "RELIANCE INDUSTRIES
+ * LIMITED" both become "RELIANCE INDUSTRIES".
+ */
+export function normaliseName(name: string): string {
+  return name
+    .toUpperCase()
+    .replace(/[^A-Z0-9& ]+/g, ' ')
+    .replace(/\b(LIMITED|LTD|LTD\.|PVT|PRIVATE|CO|COMPANY|CORP|CORPORATION|INC)\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}

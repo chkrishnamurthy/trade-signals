@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils';
  * replaces did none of that.
  */
 const sheetVariants = cva(
-  'fixed z-50 flex flex-col gap-0 border-border bg-surface shadow-overlay data-[state=open]:animate-in data-[state=closed]:animate-out',
+  'fixed z-50 flex flex-col gap-0 border-border bg-surface shadow-overlay data-[state=open]:animate-in data-[state=closed]:animate-out motion-reduce:data-[state=open]:animate-none motion-reduce:data-[state=closed]:animate-none',
   {
     variants: {
       side: {
@@ -59,7 +59,7 @@ function SheetContent({
     <SheetPrimitive.Portal>
       <SheetPrimitive.Overlay
         data-slot="sheet-overlay"
-        className="fixed inset-0 z-50 bg-background/70 backdrop-blur-sm data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0"
+        className="fixed inset-0 z-50 bg-background/70 backdrop-blur-sm data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 motion-reduce:data-[state=open]:animate-none motion-reduce:data-[state=closed]:animate-none"
       />
       <SheetPrimitive.Content
         data-slot="sheet-content"

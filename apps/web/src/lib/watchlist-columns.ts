@@ -21,25 +21,16 @@ import type { WatchlistRowDto } from './watchlist-types';
  * P/E, ATR), and nowhere else: a header nobody can read costs more than the
  * pixels it saves.
  *
- * ## Columns with no data source
+ * ## Only columns with a data source
  *
- * Fundamentals, circuit limits, delivery percentages and the indicators the
- * end-of-day pass does not compute are declared here with `source: null` and a
- * reason. This app's market-data provider serves quotes and OHLCV history; it
- * has no fundamentals feed, and neither does anything else in the system.
- * They are declared rather than omitted so that:
- *
- *   1. the "Customize columns" panel can show them as unavailable with the
- *      actual reason, instead of the user wondering where P/E went;
- *   2. a quick view that needs them can disable itself automatically;
- *   3. adding a source later means filling in one accessor each, not designing
- *      the group from scratch.
- *
- * What they must never do is render a number. CLAUDE.md is explicit that this
- * product does not display a figure it cannot substantiate, and a plausible
- * invented P/E is worse than a visible gap. For the same reason none of them
- * appears in the default layout: a column that can only ever show an em dash
- * earns its place in the panel, not in the table.
+ * Every column here is backed by something this application actually has —
+ * the live quote, the end-of-day indicator pass, the stored daily signal, or a
+ * derivation of those. Fundamentals (P/E, market cap, dividend yield…), circuit
+ * limits, delivery percentages and indicators the daily pass does not compute
+ * are NOT declared: CLAUDE.md is explicit that this product does not display a
+ * figure it cannot substantiate, and a column that can only ever render an em
+ * dash is noise in the picker, not a feature. When a source for one of them
+ * lands, add the column with its accessor then — not before.
  */
 
 export type ColumnGroup =
@@ -47,8 +38,6 @@ export type ColumnGroup =
   | 'price'
   | 'performance'
   | 'volume'
-  | 'valuation'
-  | 'fundamentals'
   | 'range52w'
   | 'technical'
   | 'signals'
@@ -59,8 +48,6 @@ export const COLUMN_GROUP_LABEL: Record<ColumnGroup, string> = {
   price: 'Price',
   performance: 'Performance',
   volume: 'Volume & Liquidity',
-  valuation: 'Valuation',
-  fundamentals: 'Fundamentals',
   range52w: '52-Week Position',
   technical: 'Technical Indicators',
   signals: 'Trading Signals',
@@ -73,16 +60,14 @@ export const COLUMN_GROUP_ORDER: readonly ColumnGroup[] = [
   'price',
   'performance',
   'volume',
-  'valuation',
-  'fundamentals',
   'range52w',
   'technical',
   'signals',
   'market',
 ];
 
-/** Where a column's number comes from. `null` = this app has no source. */
-export type ColumnSource = 'quote' | 'indicators' | 'instrument' | 'signals' | 'derived' | null;
+/** Where a column's number comes from. */
+export type ColumnSource = 'quote' | 'indicators' | 'instrument' | 'signals' | 'derived';
 
 export interface WatchlistColumn {
   readonly id: string;
@@ -92,12 +77,6 @@ export interface WatchlistColumn {
   readonly description: string;
   readonly group: ColumnGroup;
   readonly source: ColumnSource;
-  /**
-   * Why this application cannot supply the column. Set only when `source` is
-   * null, and shown verbatim in the customize panel — "no data source" without
-   * a reason just moves the user's question one step along.
-   */
-  readonly unavailableReason?: string;
   /** Right-aligns and applies tabular figures. */
   readonly numeric: boolean;
   /**
@@ -129,19 +108,6 @@ function positionIn(value: number | null, low: number | null, high: number | nul
   if (value === null || low === null || high === null || high === low) return null;
   return ((value - low) / (high - low)) * 100;
 }
-
-// --- Reasons a column cannot be supplied ------------------------------------
-
-const NO_FUNDAMENTALS =
-  'No fundamentals feed — this application’s data provider serves quotes and OHLCV history only';
-const NO_CIRCUITS = 'The quote feed does not carry the exchange’s circuit limits';
-const NO_DELIVERY =
-  'Delivery figures come from the exchange’s end-of-day bhavcopy, which this application does not ingest';
-const NOT_COMPUTED = 'Not part of the stored end-of-day indicator set';
-const PER_SIGNAL_ONLY =
-  'The intraday engine publishes levels per signal, not per stock — open the signal for them';
-const NO_INTRADAY_ENGINE =
-  'The intraday engine that published live setups has been removed — no source currently writes these levels';
 
 /** Sort order for the five signal directions: bearish low, bullish high. */
 const DIRECTION_RANK: Record<string, number> = {
@@ -285,28 +251,6 @@ const COLUMNS: readonly WatchlistColumn[] = [
     hideBelow: 'xl',
     value: (row) => row.averagePrice,
   },
-  {
-    id: 'upperCircuit',
-    label: 'Upper Circuit',
-    description: 'Highest price the exchange will accept today',
-    group: 'price',
-    source: null,
-    unavailableReason: NO_CIRCUITS,
-    numeric: true,
-    unit: 'paise',
-    value: () => null,
-  },
-  {
-    id: 'lowerCircuit',
-    label: 'Lower Circuit',
-    description: 'Lowest price the exchange will accept today',
-    group: 'price',
-    source: null,
-    unavailableReason: NO_CIRCUITS,
-    numeric: true,
-    unit: 'paise',
-    value: () => null,
-  },
 
   // --- Performance ----------------------------------------------------------
   ...RETURN_COLUMNS,
@@ -367,208 +311,6 @@ const COLUMNS: readonly WatchlistColumn[] = [
     unit: 'paise',
     hideBelow: 'xl',
     value: (row) => (row.ltp === null || row.volume === null ? null : row.ltp * row.volume),
-  },
-  {
-    id: 'deliveryPercent',
-    label: 'Delivery %',
-    description: 'Share of traded volume that settled as delivery rather than intraday',
-    group: 'volume',
-    source: null,
-    unavailableReason: NO_DELIVERY,
-    numeric: true,
-    unit: 'percent',
-    value: () => null,
-  },
-
-  // --- Valuation (no source — see the module comment) ------------------------
-  {
-    id: 'marketCap',
-    label: 'Market Cap',
-    description: 'Shares outstanding × price',
-    group: 'valuation',
-    source: null,
-    unavailableReason: NO_FUNDAMENTALS,
-    numeric: true,
-    unit: 'paise',
-    value: () => null,
-  },
-  {
-    id: 'peRatio',
-    label: 'P/E',
-    description: 'Price to trailing earnings',
-    group: 'valuation',
-    source: null,
-    unavailableReason: NO_FUNDAMENTALS,
-    numeric: true,
-    unit: 'ratio',
-    value: () => null,
-  },
-  {
-    id: 'forwardPeRatio',
-    label: 'Forward P/E',
-    description: 'Price to forecast earnings',
-    group: 'valuation',
-    source: null,
-    unavailableReason: NO_FUNDAMENTALS,
-    numeric: true,
-    unit: 'ratio',
-    value: () => null,
-  },
-  {
-    id: 'pbRatio',
-    label: 'P/B',
-    description: 'Price to book value',
-    group: 'valuation',
-    source: null,
-    unavailableReason: NO_FUNDAMENTALS,
-    numeric: true,
-    unit: 'ratio',
-    value: () => null,
-  },
-  {
-    id: 'pegRatio',
-    label: 'PEG',
-    description: 'Price/earnings against the earnings growth rate',
-    group: 'valuation',
-    source: null,
-    unavailableReason: NO_FUNDAMENTALS,
-    numeric: true,
-    unit: 'ratio',
-    value: () => null,
-  },
-  {
-    id: 'evEbitda',
-    label: 'EV/EBITDA',
-    description: 'Enterprise value against operating earnings',
-    group: 'valuation',
-    source: null,
-    unavailableReason: NO_FUNDAMENTALS,
-    numeric: true,
-    unit: 'ratio',
-    value: () => null,
-  },
-  {
-    id: 'dividendYield',
-    label: 'Dividend Yield',
-    description: 'Trailing dividend as a percentage of price',
-    group: 'valuation',
-    source: null,
-    unavailableReason: NO_FUNDAMENTALS,
-    numeric: true,
-    unit: 'percent',
-    value: () => null,
-  },
-
-  // --- Fundamentals (no source) ---------------------------------------------
-  {
-    id: 'eps',
-    label: 'EPS',
-    description: 'Trailing earnings per share',
-    group: 'fundamentals',
-    source: null,
-    unavailableReason: NO_FUNDAMENTALS,
-    numeric: true,
-    unit: 'paise',
-    value: () => null,
-  },
-  {
-    id: 'epsGrowth',
-    label: 'EPS Growth',
-    description: 'Year-on-year growth in earnings per share',
-    group: 'fundamentals',
-    source: null,
-    unavailableReason: NO_FUNDAMENTALS,
-    numeric: true,
-    unit: 'percent',
-    value: () => null,
-  },
-  {
-    id: 'revenue',
-    label: 'Revenue',
-    description: 'Trailing twelve-month revenue',
-    group: 'fundamentals',
-    source: null,
-    unavailableReason: NO_FUNDAMENTALS,
-    numeric: true,
-    unit: 'paise',
-    value: () => null,
-  },
-  {
-    id: 'revenueGrowth',
-    label: 'Revenue Growth',
-    description: 'Year-on-year growth in revenue',
-    group: 'fundamentals',
-    source: null,
-    unavailableReason: NO_FUNDAMENTALS,
-    numeric: true,
-    unit: 'percent',
-    value: () => null,
-  },
-  {
-    id: 'profitGrowth',
-    label: 'Profit Growth',
-    description: 'Year-on-year growth in net profit',
-    group: 'fundamentals',
-    source: null,
-    unavailableReason: NO_FUNDAMENTALS,
-    numeric: true,
-    unit: 'percent',
-    value: () => null,
-  },
-  {
-    id: 'roe',
-    label: 'ROE',
-    description: 'Return on equity',
-    group: 'fundamentals',
-    source: null,
-    unavailableReason: NO_FUNDAMENTALS,
-    numeric: true,
-    unit: 'percent',
-    value: () => null,
-  },
-  {
-    id: 'roce',
-    label: 'ROCE',
-    description: 'Return on capital employed',
-    group: 'fundamentals',
-    source: null,
-    unavailableReason: NO_FUNDAMENTALS,
-    numeric: true,
-    unit: 'percent',
-    value: () => null,
-  },
-  {
-    id: 'debtToEquity',
-    label: 'Debt/Equity',
-    description: 'Borrowings against shareholders’ funds',
-    group: 'fundamentals',
-    source: null,
-    unavailableReason: NO_FUNDAMENTALS,
-    numeric: true,
-    unit: 'ratio',
-    value: () => null,
-  },
-  {
-    id: 'promoterHolding',
-    label: 'Promoter Holding',
-    description: 'Share of equity held by the promoter group',
-    group: 'fundamentals',
-    source: null,
-    unavailableReason: NO_FUNDAMENTALS,
-    numeric: true,
-    unit: 'percent',
-    value: () => null,
-  },
-  {
-    id: 'promoterPledge',
-    label: 'Promoter Pledge',
-    description: 'Share of the promoter holding pledged against borrowing',
-    group: 'fundamentals',
-    source: null,
-    unavailableReason: NO_FUNDAMENTALS,
-    numeric: true,
-    unit: 'percent',
-    value: () => null,
   },
 
   // --- 52-week position -----------------------------------------------------
@@ -703,28 +445,6 @@ const COLUMNS: readonly WatchlistColumn[] = [
     value: (row) => row.sma50,
   },
   {
-    id: 'sma100',
-    label: 'SMA 100',
-    description: '100-period simple moving average',
-    group: 'technical',
-    source: null,
-    unavailableReason: NOT_COMPUTED,
-    numeric: true,
-    unit: 'paise',
-    value: () => null,
-  },
-  {
-    id: 'sma200',
-    label: 'SMA 200',
-    description: '200-period simple moving average',
-    group: 'technical',
-    source: null,
-    unavailableReason: `${NOT_COMPUTED} — the 200-period EMA is stored instead`,
-    numeric: true,
-    unit: 'paise',
-    value: () => null,
-  },
-  {
     id: 'ema20',
     label: 'EMA 20',
     description: '20-period exponential moving average',
@@ -779,39 +499,6 @@ const COLUMNS: readonly WatchlistColumn[] = [
     hideBelow: 'xl',
     value: (row) =>
       row.atr14 === null || row.ltp === null || row.ltp === 0 ? null : (row.atr14 / row.ltp) * 100,
-  },
-  {
-    id: 'adx14',
-    label: 'ADX',
-    description: '14-period average directional index — trend strength',
-    group: 'technical',
-    source: null,
-    unavailableReason: NOT_COMPUTED,
-    numeric: true,
-    unit: 'points',
-    value: () => null,
-  },
-  {
-    id: 'stochastic',
-    label: 'Stochastic',
-    description: 'Stochastic oscillator %K',
-    group: 'technical',
-    source: null,
-    unavailableReason: NOT_COMPUTED,
-    numeric: true,
-    unit: 'points',
-    value: () => null,
-  },
-  {
-    id: 'bollingerBands',
-    label: 'Bollinger Bands',
-    description: 'Position between the upper and lower Bollinger bands',
-    group: 'technical',
-    source: null,
-    unavailableReason: NOT_COMPUTED,
-    numeric: true,
-    unit: 'percent',
-    value: () => null,
   },
 
   // --- Trading signals ------------------------------------------------------
@@ -869,114 +556,6 @@ const COLUMNS: readonly WatchlistColumn[] = [
       return emas.filter((ema) => ema !== null && ltp > ema).length;
     },
   },
-  {
-    id: 'momentum',
-    label: 'Momentum',
-    description: 'Rate of change in price over a trailing window',
-    group: 'signals',
-    source: null,
-    unavailableReason:
-      'Needs a momentum series across sessions, which the watchlist does not load — RSI and the MACD histogram are the stored readings',
-    numeric: true,
-    unit: 'points',
-    value: () => null,
-  },
-  // The live intraday setup columns. The engine that WROTE these was removed,
-  // so nothing currently populates them — they are declared `source: null` with
-  // a reason (like the fundamentals columns) rather than advertised as available
-  // and then rendering an em dash for every row forever. The row DTO still
-  // carries `setup`, and the read stays wired in the DB layer, so restoring
-  // these is a one-line-each change the day an engine repopulates the table.
-  {
-    id: 'setupState',
-    label: 'Setup',
-    description:
-      'Today’s live intraday setup and its state — breakout, VWAP reclaim, momentum and the rest',
-    group: 'signals',
-    source: null,
-    unavailableReason: NO_INTRADAY_ENGINE,
-    numeric: false,
-    value: () => null,
-  },
-  {
-    id: 'setupScore',
-    label: 'Setup Score',
-    description: 'Confluence score of today’s live intraday setup, 0-100',
-    group: 'signals',
-    source: null,
-    unavailableReason: NO_INTRADAY_ENGINE,
-    numeric: true,
-    unit: 'points',
-    value: () => null,
-  },
-  {
-    id: 'entryZone',
-    label: 'Entry Zone',
-    description: 'Technical entry zone of the live setup, as a price band',
-    group: 'signals',
-    source: null,
-    unavailableReason: NO_INTRADAY_ENGINE,
-    numeric: true,
-    unit: 'paise',
-    value: () => null,
-  },
-  {
-    id: 'setupTarget',
-    label: 'Target',
-    description: 'First target level of the live setup',
-    group: 'signals',
-    source: null,
-    unavailableReason: NO_INTRADAY_ENGINE,
-    numeric: true,
-    unit: 'paise',
-    value: () => null,
-  },
-  {
-    id: 'setupInvalidation',
-    label: 'Invalidation',
-    description: 'The level at which the live setup stops being valid',
-    group: 'signals',
-    source: null,
-    unavailableReason: NO_INTRADAY_ENGINE,
-    numeric: true,
-    unit: 'paise',
-    value: () => null,
-  },
-  {
-    id: 'setupRiskReward',
-    label: 'Net R:R',
-    description:
-      'Reward-to-risk of the live setup, NET of the modelled round-trip transaction cost',
-    group: 'signals',
-    source: null,
-    unavailableReason: NO_INTRADAY_ENGINE,
-    numeric: true,
-    unit: 'ratio',
-    value: () => null,
-  },
-  {
-    id: 'support',
-    label: 'Support',
-    description: 'Nearest support level below the price',
-    group: 'signals',
-    source: null,
-    unavailableReason: PER_SIGNAL_ONLY,
-    numeric: true,
-    unit: 'paise',
-    value: () => null,
-  },
-  {
-    id: 'resistance',
-    label: 'Resistance',
-    description: 'Nearest resistance level above the price',
-    group: 'signals',
-    source: null,
-    unavailableReason: PER_SIGNAL_ONLY,
-    numeric: true,
-    unit: 'paise',
-    value: () => null,
-  },
-
   // --- Market information ---------------------------------------------------
   {
     id: 'sector',
@@ -1039,15 +618,9 @@ export const PINNED_COLUMN_ID = 'symbol';
 /**
  * The default view: dense enough to be useful, short enough to scan.
  *
- * Nine columns rather than the sixty available, and every one of them backed by
- * a real source. A default that shows everything is not a more powerful
- * product, it is one where the user's first action is always to turn things
- * off; a default that shows a column this app cannot fill is worse still.
- *
- * Market Cap and P/E belong in this list on merit and are deliberately absent:
- * there is no fundamentals feed, so both would be a column of em dashes. They
- * are one click away in the customize panel, and they will join the default the
- * day a source exists.
+ * Nine columns rather than the forty available. A default that shows everything
+ * is not a more powerful product, it is one where the user's first action is
+ * always to turn things off.
  */
 export const DEFAULT_COLUMN_IDS: readonly string[] = [
   'symbol',
@@ -1060,11 +633,6 @@ export const DEFAULT_COLUMN_IDS: readonly string[] = [
   'rsi14',
   'signal',
 ];
-
-/** True when this application has a source for the column at all. */
-export function isColumnAvailable(column: WatchlistColumn): boolean {
-  return column.source !== null;
-}
 
 /**
  * Turns stored ids into columns.

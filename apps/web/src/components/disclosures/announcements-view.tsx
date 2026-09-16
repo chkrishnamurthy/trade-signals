@@ -3,7 +3,7 @@
 import { ANNOUNCEMENT_CATEGORIES, ANNOUNCEMENT_STATUSES } from '@equitywise/core';
 import { ExternalLinkIcon, SearchIcon, StarIcon, XIcon, ZapIcon } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { EmptyState } from '@/components/data-display/states';
 import { AppShell } from '@/components/layout/app-shell';
 import {
@@ -595,10 +595,14 @@ function FilterSelect({
   options: Readonly<Record<string, string>>;
   onChange: (value: string) => void;
 }) {
+  const id = useId();
   return (
-    <label className="block space-y-2 text-sm font-medium">
-      <span>{label}</span>
+    <div className="space-y-2 text-sm font-medium">
+      <label htmlFor={id} className="block">
+        {label}
+      </label>
       <select
+        id={id}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         className="w-full rounded-md border border-border bg-surface p-2 text-foreground"
@@ -609,6 +613,6 @@ function FilterSelect({
           </option>
         ))}
       </select>
-    </label>
+    </div>
   );
 }

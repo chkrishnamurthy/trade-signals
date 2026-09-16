@@ -6,7 +6,11 @@ import { API_ROUTES } from './api-routes';
 import type { Feed } from './feed';
 import type { MarketErrorDto } from './market-types';
 import { redirectToLoginIfUnauthenticated } from './session-guard';
+import { applyLiveQuotes, overlayNewerQuotes } from './watchlist-live';
 import type {
+  LiveBatchDto,
+  LiveQuoteDto,
+  LiveSourceState,
   SavedViewDto,
   WatchlistDetailDto,
   WatchlistLayoutDto,
@@ -26,6 +30,12 @@ import type {
  * instant and must not spend a round trip per keystroke in the column search
  * box; the server is the durable copy, not the source of truth for the frame
  * currently on screen.
+ *
+ * Prices have a THIRD path while the market is open: a server-sent event
+ * stream (`/api/watchlists/:id/live`) that pushes price changes about once a
+ * second. Those are merged into the detail rows in place (`watchlist-live`),
+ * and the detail poll slows down while the stream is delivering — it still
+ * runs, because a tick carries a price and a volume and nothing else.
  */
 
 const LAYOUT_SAVE_DEBOUNCE_MS = 600;
@@ -75,11 +85,24 @@ async function request<T>(url: string, init?: RequestInit): Promise<MutationResu
   }
 }
 
+/** Shortest time the refresh icon spins, so a fast response is still seen. */
+const MIN_SPIN_MS = 500;
+
+/** Detail poll floor while the live stream is delivering prices. */
+const LIVE_POLL_FLOOR_SECONDS = 60;
+
 export function useWatchlists() {
   const [lists, setLists] = useState<Feed<readonly WatchlistSummaryDto[]>>({ status: 'loading' });
   const [activeId, setActiveId] = useState<number | null>(null);
   const [detail, setDetail] = useState<Feed<WatchlistDetailDto>>({ status: 'loading' });
   const [isRefreshing, setIsRefreshing] = useState(false);
+  /** Where live prices are coming from; null until the stream has said. */
+  const [liveState, setLiveState] = useState<LiveSourceState | null>(null);
+  // The last live price per symbol, kept outside React state: it is read when
+  // a poll lands (to overlay newer ticks) and never rendered directly.
+  const liveQuotes = useRef<Map<string, LiveQuoteDto>>(new Map());
+  const liveStateRef = useRef<LiveSourceState | null>(null);
+  liveStateRef.current = liveState;
 
   const mounted = useRef(true);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -141,9 +164,17 @@ export function useWatchlists() {
         return error.retryAfterSeconds ?? 30;
       }
 
-      const data = payload as WatchlistDetailDto;
+      const polled = payload as WatchlistDetailDto;
+      // A poll that raced a tick must not step a price backwards.
+      const data: WatchlistDetailDto = {
+        ...polled,
+        rows: overlayNewerQuotes(polled.rows, liveQuotes.current, polled.fetchedAt),
+      };
       setDetail({ status: 'ready', data, stale: data.quotesStale });
-      return data.refreshAfterSeconds;
+      const live = liveStateRef.current;
+      return live === 'streaming' || live === 'polling'
+        ? Math.max(data.refreshAfterSeconds, LIVE_POLL_FLOOR_SECONDS)
+        : data.refreshAfterSeconds;
     } catch (error) {
       if (controller.signal.aborted || !mounted.current) return 60;
       setDetail({
@@ -211,9 +242,75 @@ export function useWatchlists() {
     };
   }, [loadLists, tick]);
 
+  // --- Live prices ------------------------------------------------------------
+
+  const marketPhase = detail.status === 'ready' ? detail.data.market.phase : null;
+  const wantsLive = marketPhase === 'open' || marketPhase === 'pre_open';
+
+  /**
+   * One EventSource per open list, while the session is live and the tab is
+   * visible. Closing on a hidden tab matters more here than for the poll: a
+   * stream costs the server a subscription for as long as it is open.
+   */
+  useEffect(() => {
+    if (activeId === null || !wantsLive || typeof EventSource === 'undefined') {
+      setLiveState(null);
+      return;
+    }
+
+    let source: EventSource | null = null;
+
+    const open = (): void => {
+      if (source !== null) return;
+      source = new EventSource(API_ROUTES.watchlistLive(activeId));
+      source.onmessage = (event: MessageEvent<string>) => {
+        let batch: LiveBatchDto;
+        try {
+          batch = JSON.parse(event.data) as LiveBatchDto;
+        } catch {
+          return;
+        }
+        setLiveState(batch.state);
+        if (batch.quotes.length === 0) return;
+        for (const quote of batch.quotes) liveQuotes.current.set(quote.symbol, quote);
+        setDetail((current) => {
+          if (current.status !== 'ready') return current;
+          const rows = applyLiveQuotes(current.data.rows, batch.quotes);
+          return rows === current.data.rows
+            ? current
+            : { ...current, data: { ...current.data, rows } };
+        });
+      };
+      // The browser reconnects on its own; nothing to do but stop claiming
+      // the prices are live in the meantime.
+      source.onerror = () => setLiveState(null);
+    };
+
+    const close = (): void => {
+      source?.close();
+      source = null;
+      setLiveState(null);
+    };
+
+    const onVisibility = (): void => {
+      if (document.hidden) close();
+      else open();
+    };
+
+    if (!document.hidden) open();
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      close();
+      liveQuotes.current.clear();
+    };
+  }, [activeId, wantsLive]);
+
   // Switching lists: load immediately and restart the poll.
   useEffect(() => {
     if (activeId === null) return;
+    liveQuotes.current.clear();
     setDetail({ status: 'loading' });
     void (async () => {
       const next = await loadDetail(activeId);
@@ -221,9 +318,25 @@ export function useWatchlists() {
     })();
   }, [activeId, loadDetail, schedule]);
 
+  /**
+   * The user's explicit refresh. Unlike the background poll it is NOT quiet:
+   * the button must visibly spin, and for long enough to register — a quote
+   * fetch can finish in under 100 ms, which reads as "nothing happened".
+   */
   const refresh = useCallback(() => {
-    void tick();
-  }, [tick]);
+    const id = activeIdRef.current;
+    if (id === null) return;
+    setIsRefreshing(true);
+    void (async () => {
+      const [next] = await Promise.all([
+        loadDetail(id, true),
+        new Promise((resolve) => setTimeout(resolve, MIN_SPIN_MS)),
+      ]);
+      if (!mounted.current) return;
+      setIsRefreshing(false);
+      schedule(next);
+    })();
+  }, [loadDetail, schedule]);
 
   // --- Mutations ------------------------------------------------------------
 
@@ -239,6 +352,21 @@ export function useWatchlists() {
         method: 'POST',
         body: JSON.stringify({ name }),
       });
+      if (!result.ok) return result;
+      await loadLists();
+      setActiveId(result.data.watchlist.id);
+      return { ok: true, data: result.data.watchlist };
+    },
+    [loadLists],
+  );
+
+  /** Creates a watchlist from a starter list, already filled, and opens it. */
+  const createFromTemplate = useCallback(
+    async (templateId: string): Promise<MutationResult<WatchlistSummaryDto>> => {
+      const result = await request<{ watchlist: WatchlistSummaryDto; added: number }>(
+        API_ROUTES.watchlistFromTemplate,
+        { method: 'POST', body: JSON.stringify({ templateId }) },
+      );
       if (!result.ok) return result;
       await loadLists();
       setActiveId(result.data.watchlist.id);
@@ -489,9 +617,11 @@ export function useWatchlists() {
     detail,
     activeId,
     isRefreshing,
+    liveState,
     setActiveId,
     refresh,
     createList,
+    createFromTemplate,
     renameList,
     deleteList,
     makeDefault,

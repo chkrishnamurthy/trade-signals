@@ -117,8 +117,6 @@ export {
   resolveInstrumentIds,
   syncInstruments,
 } from './instruments.js';
-export type { InstrumentSetup } from './intraday-signals.js';
-export { liveSetupsForInstruments } from './intraday-signals.js';
 export type { ProfilePatch } from './profile.js';
 export {
   deleteOtherSessionsForUser,

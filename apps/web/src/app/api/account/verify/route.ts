@@ -1,9 +1,9 @@
-import { createToken, writeAudit } from '@equitywise/db';
+import { createToken } from '@equitywise/db';
 import type { NextResponse } from 'next/server';
 import { sendVerificationEmail } from '@/server/auth/email';
 import { fail, json } from '@/server/auth/http';
 import { checkLock, recordFailure } from '@/server/auth/rate-limit';
-import { clientIp, isSameOrigin } from '@/server/auth/request';
+import { isSameOrigin } from '@/server/auth/request';
 import { getSessionUser } from '@/server/auth/require-user';
 import { generateSessionToken, hashToken } from '@/server/auth/session-token';
 import { getDatabase } from '@/server/db';
@@ -48,11 +48,6 @@ export async function POST(request: Request): Promise<NextResponse> {
     expiresAt: new Date(Date.now() + VERIFY_TTL_MS),
   });
   await sendVerificationEmail(user.email, token);
-  await writeAudit(db, {
-    event: 'verification_resent',
-    userId: user.id,
-    ipAddress: clientIp(request),
-  });
 
   return json({ ok: true });
 }

@@ -1,6 +1,12 @@
 # Market-data scaling — serving many users from one Fyers account
 
-Status: **proposal / for later** · Date: 2026-09-06 · Scope: design only, not started.
+Status: **partially delivered** · Date: 2026-09-06, updated 2026-09-14 · Scope: the
+**live-price path is done** — `apps/web/src/server/live-quotes.ts` holds one Fyers
+socket per web process and fans ticks out over server-sent events, so live load
+scales with distinct symbols, not users (see `docs/operations/deployment.md` §5).
+The polled detail read (`/api/watchlists/:id`) still calls Fyers REST per user, at
+a 60 s floor while the stream is delivering; moving that behind the worker is the
+remaining work below.
 Related: [authentication-plan.md](authentication-plan.md) §4.2 · [../operations/deployment.md](../operations/deployment.md) §5 ·
 [../../issues/serve-daily-signals-from-the-database.md](../../issues/serve-daily-signals-from-the-database.md)
 

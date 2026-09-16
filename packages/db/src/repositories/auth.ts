@@ -356,17 +356,16 @@ export interface AuditEntry {
   readonly event: string;
   readonly userId?: number | null;
   readonly ipAddress?: string | null;
-  readonly userAgent?: string | null;
   readonly detail?: Record<string, unknown> | null;
 }
 
-/** Append a security event. `detail` must never carry a password, token, or seed. */
+/** Append a security event. `detail` must never carry a password, token, email, or seed. */
 export async function writeAudit(db: Database, entry: AuditEntry): Promise<void> {
   await db.insert(authAudit).values({
     event: entry.event,
     userId: entry.userId ?? null,
     ipAddress: entry.ipAddress ?? null,
-    userAgent: entry.userAgent ?? null,
+    userAgent: null,
     detail: entry.detail ?? null,
   });
 }

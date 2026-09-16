@@ -111,6 +111,12 @@ export const API_ROUTES = {
   search: (query: string): string => `/api/search?q=${encodeURIComponent(query)}`,
 
   /**
+   * POST /api/search/resolve — resolve pasted/imported rows (symbol, ISIN or
+   * company name) to instruments, for the import preview.
+   */
+  searchResolve: '/api/search/resolve',
+
+  /**
    * GET /api/history/{symbol}?tf={tf}&days={days}
    * Retrieve historical closed candle data for charting.
    */
@@ -151,6 +157,11 @@ export const API_ROUTES = {
    */
   watchlist: (id: number | string): string => `/api/watchlists/${id}`,
 
+  /** GET /api/watchlists/templates — starter lists (indices and sectors from config). */
+  watchlistTemplates: '/api/watchlists/templates',
+  /** POST /api/watchlists/from-template — create a watchlist from a starter list, filled. */
+  watchlistFromTemplate: '/api/watchlists/from-template',
+
   /**
    * POST /api/watchlists/{id}/items — Add symbols to watchlist.
    * PUT /api/watchlists/{id}/items — Reorder symbols inside watchlist.
@@ -163,6 +174,12 @@ export const API_ROUTES = {
    * Persist user's column configuration, widths, and visible fields for the watchlist table.
    */
   watchlistLayout: (id: number | string): string => `/api/watchlists/${id}/layout`,
+
+  /**
+   * GET /api/watchlists/{id}/live — server-sent events of price changes,
+   * one frame per second at most. See `use-watchlists.ts`.
+   */
+  watchlistLive: (id: number | string): string => `/api/watchlists/${id}/live`,
 
   /**
    * POST /api/watchlists/{id}/views

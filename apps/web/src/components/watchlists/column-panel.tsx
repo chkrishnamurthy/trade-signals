@@ -24,7 +24,6 @@ import {
   DEFAULT_COLUMN_IDS,
   getColumn,
   groupedColumns,
-  isColumnAvailable,
   PINNED_COLUMN_ID,
   type WatchlistColumn,
 } from '@/lib/watchlist-columns';
@@ -41,10 +40,6 @@ import {
  * A single list that is both a picker and a sorter has to show forty rows in a
  * drag-ordered list, and finding the one you want in it is worse than either
  * job done separately.
- *
- * Columns with no data source render disabled with the reason attached, rather
- * than being hidden. A user looking for P/E should find out that this product
- * has no fundamentals feed — not silently fail to find the column.
  */
 export function ColumnPanel({
   columnIds,
@@ -144,21 +139,16 @@ export function ColumnPanel({
 
                       <div className="grid gap-0.5 sm:grid-cols-2">
                         {group.columns.map((column) => {
-                          const available = isColumnAvailable(column);
                           const id = `column-${column.id}`;
                           return (
                             <div
                               key={column.id}
-                              className={cn(
-                                'flex items-start gap-2 rounded-md px-2 py-1.5 transition-colors',
-                                available ? 'hover:bg-muted/60' : 'opacity-60',
-                              )}
+                              className="flex items-start gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-muted/60"
                             >
                               <Checkbox
                                 id={id}
                                 className="mt-0.5"
                                 checked={selected.has(column.id)}
-                                disabled={!available}
                                 onCheckedChange={(checked) => toggle(column.id, checked === true)}
                               />
                               <div className="min-w-0 flex-1">
@@ -166,17 +156,7 @@ export function ColumnPanel({
                                   {column.label}
                                 </Label>
                                 <p className="text-2xs leading-snug text-muted-foreground">
-                                  {available ? (
-                                    column.description
-                                  ) : (
-                                    /* The column's own reason, not one blanket
-                                       sentence: "no fundamentals feed" is wrong
-                                       for a circuit limit and useless for an
-                                       indicator the daily pass never computes. */
-                                    <span className="text-warning-foreground">
-                                      {column.unavailableReason ?? 'No data source in this app'}
-                                    </span>
-                                  )}
+                                  {column.description}
                                 </p>
                               </div>
                             </div>

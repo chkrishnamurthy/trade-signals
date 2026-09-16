@@ -32,32 +32,6 @@ export interface RowSignalDto {
   readonly tradingDate: string;
 }
 
-/**
- * Today's live intraday setup for a name, if the worker has one open.
- *
- * Every price here is a technical LEVEL on a chart, in paise — never an order,
- * a position or a quantity (CLAUDE.md). `netRiskReward` is net of the modelled
- * round-trip cost, which is the only reward-to-risk figure this product is
- * allowed to publish.
- */
-export interface RowSetupDto {
-  /** `breakout`, `vwap_reclaim`, … */
-  readonly kind: string;
-  /** `long` or `short`. Rendered as BUY / SELL, and nothing more. */
-  readonly direction: string;
-  /** `watching` | `armed` | `active` … */
-  readonly state: string;
-  /** 0-100 confluence score. */
-  readonly score: number;
-  /** `exceptional` | `strong` | `good` | `watch`. */
-  readonly quality: string;
-  readonly entryLow: number;
-  readonly entryHigh: number;
-  readonly invalidationLevel: number;
-  readonly target1: number;
-  readonly netRiskReward: number | null;
-}
-
 export interface WatchlistRowDto {
   readonly instrumentId: number;
   readonly symbol: string;
@@ -120,7 +94,44 @@ export interface WatchlistRowDto {
 
   // --- Signals --------------------------------------------------------------
   readonly signal: RowSignalDto | null;
-  readonly setup: RowSetupDto | null;
+}
+
+/**
+ * One price change from the live feed (`GET /api/watchlists/:id/live`).
+ *
+ * Only what a tick carries: the last traded price and, when the source has
+ * it, the session's volume. Everything else on the row — day range, previous
+ * close, the indicators — comes from the polled detail and stays put.
+ */
+export interface LiveQuoteDto {
+  readonly symbol: string;
+  /** Last traded price, paise. */
+  readonly ltp: number;
+  readonly volume: number | null;
+  /** ISO instant the server saw it. */
+  readonly at: string;
+}
+
+/** Where the live prices are coming from, as told to the client. */
+export type LiveSourceState = 'streaming' | 'polling' | 'closed';
+
+/** One server-sent frame. Empty `quotes` means the state changed, nothing else. */
+export interface LiveBatchDto {
+  readonly state: LiveSourceState;
+  readonly quotes: readonly LiveQuoteDto[];
+}
+
+/**
+ * A starter list: a ready-made watchlist the user can create in one click.
+ * Derived from `config/indices.yaml` — an index, or a sector across the
+ * configured indices. Creating one makes a COPY the user then owns.
+ */
+export interface WatchlistTemplateDto {
+  readonly id: string;
+  readonly kind: 'index' | 'sector';
+  readonly name: string;
+  readonly description: string;
+  readonly symbols: readonly string[];
 }
 
 export interface WatchlistSummaryDto {

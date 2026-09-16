@@ -1,5 +1,3 @@
-import { getColumn } from './watchlist-columns';
-import { isFlagAvailable, WATCHLIST_FLAGS } from './watchlist-filters';
 import type { SortRuleDto, WatchlistFilterStateDto } from './watchlist-types';
 
 /**
@@ -142,44 +140,11 @@ const VIEWS: readonly QuickView[] = [
     filters: {},
   },
   {
-    id: 'live_setups',
-    label: 'Live setups',
-    description: 'Today’s open intraday setups and their levels',
-    columns: [
-      'ltp',
-      'changePercent',
-      'setupState',
-      'setupScore',
-      'entryZone',
-      'setupTarget',
-      'setupInvalidation',
-      'setupRiskReward',
-    ],
-    sort: [{ columnId: 'setupScore', direction: 'desc' }],
-    filters: {},
-  },
-  {
     id: 'daily_signals',
     label: 'Daily signals',
     description: 'The daily engine’s latest verdict, strongest first',
     columns: ['ltp', 'changePercent', 'signal', 'signalStrength', 'signalSetups', 'trend', 'rsi14'],
     sort: [{ columnId: 'signalStrength', direction: 'desc' }],
-    filters: {},
-  },
-  {
-    id: 'high_dividend',
-    label: 'High dividend',
-    description: 'Ranked by trailing dividend yield',
-    columns: [...PRICE_CORE, 'dividendYield', 'eps', 'marketCap', 'sector'],
-    sort: [{ columnId: 'dividendYield', direction: 'desc' }],
-    filters: {},
-  },
-  {
-    id: 'valuation',
-    label: 'Valuation',
-    description: 'Earnings and book multiples against market cap',
-    columns: [...PRICE_CORE, 'peRatio', 'pbRatio', 'eps', 'marketCap', 'sector'],
-    sort: [{ columnId: 'peRatio', direction: 'asc' }],
     filters: {},
   },
 ];
@@ -190,32 +155,4 @@ const BY_ID = new Map(VIEWS.map((view) => [view.id, view]));
 
 export function getQuickView(id: string): QuickView | null {
   return BY_ID.get(id) ?? null;
-}
-
-/**
- * Column ids the view needs that this application cannot supply.
- *
- * Empty means the view works. Non-empty is rendered as the reason it is
- * disabled, so "High dividend" explains itself instead of just being greyed.
- */
-export function missingSourcesFor(view: QuickView): string[] {
-  const missing = new Set<string>();
-
-  for (const id of view.columns) {
-    const column = getColumn(id);
-    if (column !== null && column.source === null) missing.add(column.label);
-  }
-  for (const rule of view.sort) {
-    const column = getColumn(rule.columnId);
-    if (column !== null && column.source === null) missing.add(column.label);
-  }
-  for (const flagId of view.filters.flags ?? []) {
-    const flag = WATCHLIST_FLAGS.find((entry) => entry.id === flagId);
-    if (flag !== undefined && !isFlagAvailable(flag)) missing.add(flag.label);
-  }
-  return [...missing];
-}
-
-export function isQuickViewAvailable(view: QuickView): boolean {
-  return missingSourcesFor(view).length === 0;
 }

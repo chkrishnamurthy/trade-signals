@@ -1,98 +1,96 @@
+import { ShieldCheckIcon } from 'lucide-react';
+import type { Route } from 'next';
 import Link from 'next/link';
 import { Brand } from '@/components/layout/brand';
+
+/** One footer link column. Every href points at a route that exists — a dead
+ *  link in the footer reads as neglect on the page that has to earn trust. */
+const COLUMNS: ReadonlyArray<{ title: string; links: ReadonlyArray<[string, Route]> }> = [
+  {
+    title: 'Product',
+    links: [
+      ['Market brief', '/today'],
+      ['My watchlists', '/watchlists'],
+      ['Signals', '/signals'],
+      ['Announcements', '/announcements'],
+      ['Institutional flow', '/flows'],
+    ],
+  },
+  {
+    title: 'Learn',
+    links: [
+      ['Methodology', '/methodology'],
+      ['Data sources', '/data-sources'],
+      ['About EquityWise', '/about'],
+      ['Contact & support', '/contact'],
+    ],
+  },
+  {
+    title: 'Legal',
+    links: [
+      ['Terms of service', '/terms'],
+      ['Privacy policy', '/privacy'],
+      ['Regulatory disclaimer', '/disclaimer'],
+    ],
+  },
+];
 
 export function PublicFooter() {
   const currentYear = new Date().getFullYear();
 
   return (
     <footer className="border-t border-border bg-surface/50 text-muted-foreground">
-      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 gap-8 md:grid-cols-3 lg:grid-cols-4">
-          {/* Brand & Mission */}
-          <div className="space-y-4 md:col-span-2">
-            <Brand showWordmark={true} />
-            <p className="max-w-sm text-xs leading-relaxed text-muted-foreground">
-              EquityWise provides high-precision technical tracking and indicator analysis for
-              National Stock Exchange (NSE) equities. Decision support, not execution.
+      <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
+        {/* The one line that reframes what this product is — given room, not
+            buried in the fine print. */}
+        <div className="mb-10 flex items-start gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3.5">
+          <ShieldCheckIcon className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden />
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            <strong className="font-semibold text-foreground">
+              EquityWise is not a broker and never places orders.
+            </strong>{' '}
+            Everything here is technical decision-support and educational information — not
+            investment advice, and not a recommendation to buy or sell. Markets carry risk; do your
+            own research.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-8 md:grid-cols-5">
+          {/* Brand & mission */}
+          <div className="col-span-2 space-y-4">
+            <Brand href="/" showWordmark={true} />
+            <p className="max-w-xs text-sm leading-relaxed text-muted-foreground">
+              Clear technical reads on NSE equities — watchlists, signals, corporate filings and
+              money-flow, recomputed at every market close with zero lookahead bias.
             </p>
-            <div className="text-xs text-subtle-foreground">
-              Data synchronized daily at market close (15:30 IST).
+            <div className="flex items-center gap-2 text-xs text-subtle-foreground">
+              <span className="size-1.5 rounded-full bg-bullish" aria-hidden />
+              Data synced daily at market close · 15:30 IST
             </div>
           </div>
 
-          {/* Quick Links */}
-          <div className="space-y-3">
-            <h4 className="text-xs font-semibold tracking-wider text-foreground uppercase">
-              Product
-            </h4>
-            <ul className="space-y-2 text-xs">
-              <li>
-                <Link href="/watchlists" className="transition-colors hover:text-foreground">
-                  My Watchlists
-                </Link>
-              </li>
-              <li>
-                <Link href="/methodology" className="transition-colors hover:text-foreground">
-                  Indicator Methodology
-                </Link>
-              </li>
-              <li>
-                <Link href="/data-sources" className="transition-colors hover:text-foreground">
-                  Market Data Sources
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          {/* Trust, Methodology & Legal */}
-          <div className="space-y-3">
-            <h4 className="text-xs font-semibold tracking-wider text-foreground uppercase">
-              Trust & Legal
-            </h4>
-            <ul className="space-y-2 text-xs">
-              <li>
-                <Link href="/about" className="transition-colors hover:text-foreground">
-                  About EquityWise
-                </Link>
-              </li>
-              <li>
-                <Link href="/methodology" className="transition-colors hover:text-foreground">
-                  Indicator Methodology
-                </Link>
-              </li>
-              <li>
-                <Link href="/data-sources" className="transition-colors hover:text-foreground">
-                  Market Data Sources
-                </Link>
-              </li>
-              <li>
-                <Link href="/disclaimer" className="transition-colors hover:text-foreground">
-                  SEBI Regulatory Disclaimer
-                </Link>
-              </li>
-              <li>
-                <Link href="/privacy" className="transition-colors hover:text-foreground">
-                  Privacy Policy
-                </Link>
-              </li>
-              <li>
-                <Link href="/terms" className="transition-colors hover:text-foreground">
-                  Terms of Service
-                </Link>
-              </li>
-              <li>
-                <Link href="/contact" className="transition-colors hover:text-foreground">
-                  Contact & Support
-                </Link>
-              </li>
-            </ul>
-          </div>
+          {COLUMNS.map((column) => (
+            <div key={column.title} className="space-y-3">
+              <h4 className="text-2xs font-semibold uppercase tracking-wider text-subtle-foreground">
+                {column.title}
+              </h4>
+              <ul className="space-y-2.5 text-sm">
+                {column.links.map(([label, href]) => (
+                  <li key={href}>
+                    <Link href={href} className="transition-colors hover:text-primary">
+                      {label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </div>
 
-        {/* Regulatory SEBI Disclaimer */}
-        <div className="mt-10 border-t border-border/80 pt-6">
+        {/* Regulatory SEBI disclaimer — kept in full; it is load-bearing. */}
+        <div className="mt-12 border-t border-border/80 pt-6">
           <p className="text-2xs leading-normal text-muted-foreground/80">
-            <strong className="font-semibold text-foreground/90">Regulatory Disclaimer:</strong>{' '}
+            <strong className="font-semibold text-foreground/90">Regulatory disclaimer:</strong>{' '}
             EquityWise is a technical data screening and analytical decision-support tool. It is not
             an investment adviser, portfolio manager, or research analyst as defined by SEBI.
             EquityWise does not offer execution, brokerage, or order placement services. Content and
@@ -101,10 +99,8 @@ export function PublicFooter() {
             investments in equity securities are subject to market risks. Read all related scheme
             and company documents carefully before investing.
           </p>
-          <div className="mt-4 flex flex-col items-center justify-between gap-2 sm:flex-row text-3xs text-subtle-foreground">
-            <div>
-              &copy; {currentYear} EquityWise. All rights reserved. Built for Indian equity markets.
-            </div>
+          <div className="mt-4 flex flex-col items-center justify-between gap-2 text-3xs text-subtle-foreground sm:flex-row">
+            <div>&copy; {currentYear} EquityWise. Built for Indian equity markets. 🇮🇳</div>
             <div>Prices in integer paise. UTC timestamps converted to IST at presentation.</div>
           </div>
         </div>

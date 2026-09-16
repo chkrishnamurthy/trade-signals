@@ -6,7 +6,7 @@ import { fail, json } from '@/server/auth/http';
 import { hashPassword } from '@/server/auth/password';
 import { validatePassword } from '@/server/auth/password-policy';
 import { isPwned } from '@/server/auth/pwned';
-import { clientIp, isSameOrigin, userAgent } from '@/server/auth/request';
+import { clientIp, isSameOrigin } from '@/server/auth/request';
 import { signUpSchema } from '@/server/auth/schemas';
 import { startSession } from '@/server/auth/session';
 import { generateSessionToken, hashToken } from '@/server/auth/session-token';
@@ -117,7 +117,6 @@ export async function POST(request: Request): Promise<NextResponse> {
       event: 'signup',
       userId: user.id,
       ipAddress: clientIp(request),
-      userAgent: userAgent(request),
     });
   } catch (error) {
     console.error('[sign-up] audit write failed (non-fatal):', error);

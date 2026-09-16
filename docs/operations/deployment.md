@@ -152,6 +152,33 @@ per account**. The worker owns this:
 4. Make sure **nothing else** is logged into Fyers with the same account (a second
    worker, a `pnpm fyers:login` elsewhere, the trading app).
 
+### Live prices — the tick socket and the fan-in hub
+
+The watchlist's per-second prices come from **one Fyers data socket per web
+process**, opened by `apps/web/src/server/live-quotes.ts` and fanned out to every
+open watchlist over server-sent events (`GET /api/watchlists/:id/live`). Fyers load
+scales with the number of **distinct symbols on screen**, not the number of users —
+this is the fan-in from `docs/planning/market-data-scaling-plan.md`, delivered for
+the live-price path.
+
+- The socket is the official `fyers-api-v3` SDK, wrapped by `packages/fyers`
+  (`sdk-transport.ts`). It uses the **same token** as REST, so everything in this
+  section about expiry and single-session applies to it too. When the worker
+  re-mints, the web app's provider is rebuilt and the socket reconnects with the
+  new token on its own.
+- **Automatic fallback.** While the socket is not delivering (connecting, silent
+  for 10 s, over the 200-symbol cap, SDK missing, or `FYERS_STREAM=0`), the hub
+  polls REST every 3 s for the uncovered symbols. The page shows *"Updating every
+  few seconds"* instead of *"Live"*. Nothing breaks; it is just slower.
+- **Kill switch:** `FYERS_STREAM=0` in the web app's environment disables the
+  socket entirely (restart the web process). Use it if the socket is suspected of
+  tripping the account's limits.
+- **Nginx:** the route sets `X-Accel-Buffering: no` and pings every 15 s, which is
+  enough for the default `proxy_read_timeout` (60 s). If a custom location block
+  sets `proxy_buffering on` explicitly for `/api/`, exempt `/api/watchlists/*/live`.
+- **One process only.** The hub is a per-process singleton; running `next start` in
+  PM2 cluster mode would open one socket per instance. Keep it in fork mode.
+
 ---
 
 ## 6. Backups

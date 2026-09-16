@@ -32,11 +32,6 @@ import { cellFor } from './watchlist-cells';
  * `WatchlistRowDto` the collapsed row already has, through the same
  * `cellFor` renderers the table columns use — a RSI reading here and in the
  * table column are the same call, not two chances to disagree.
- *
- * Fundamentals (P/E, ROE, ROCE, …) show one explained absence rather than a
- * column of dashes: this application has no fundamentals feed (see
- * `watchlist-columns.ts`), and a summary that cannot substantiate a number
- * does not print one.
  */
 
 const PERFORMANCE_WINDOW_IDS = ['return1w', 'return1m', 'return1y'] as const;
@@ -101,7 +96,7 @@ export function WatchlistRowDetail({
       </div>
 
       {/* Compact analysis — same values as the table columns, reorganised. */}
-      <div className="mt-4 grid grid-cols-1 gap-x-6 gap-y-4 lg:grid-cols-4">
+      <div className="mt-4 grid grid-cols-1 gap-x-6 gap-y-4 lg:grid-cols-3">
         <SummarySection title="Technical">
           <DefinitionGrid columns={1}>
             <DefinitionRow label="RSI (14)" value={cellFor('rsi14')(row)} />
@@ -119,13 +114,6 @@ export function WatchlistRowDetail({
               <DefinitionRow key={window.id} label={window.label} value={cellFor(window.id)(row)} />
             ))}
           </DefinitionGrid>
-        </SummarySection>
-
-        <SummarySection title="Fundamentals">
-          <span className="text-xs text-subtle-foreground">
-            No fundamentals feed for this instrument — this application's data provider serves
-            quotes and OHLCV history only.
-          </span>
         </SummarySection>
 
         <SummarySection title="Signal">

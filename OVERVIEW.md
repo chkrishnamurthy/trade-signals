@@ -210,8 +210,6 @@ integer-paise invariants do **not** apply here:
 - `signals`, `signal_factors` (the factor breakdown behind every signal),
   `strategy_versions` (immutable, versioned).
 - `provider_credentials` — the daily Fyers token row (written by the worker, read by web).
-- `intraday_signals` — a **leftover** table from the removed intraday engine; not fed
-  by any running job.
 
 **Watchlists** (`schema/watchlists.ts`) — the product surface, fully **per-user**:
 - `watchlists` — `owner_id` FK → `auth_users` (cascade). Name unique **per owner**; at

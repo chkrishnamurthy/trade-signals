@@ -62,7 +62,6 @@ export async function DELETE(request: Request): Promise<NextResponse> {
     event: 'account_deleted',
     userId: user.id,
     ipAddress: clientIp(request),
-    detail: { email: user.email },
   });
   await deleteUser(db, user.id);
   await deleteAvatarByUrl(avatar);

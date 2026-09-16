@@ -1,10 +1,8 @@
-import { writeAudit } from '@equitywise/db';
 import type { NextResponse } from 'next/server';
 import { fail, json } from '@/server/auth/http';
-import { clientIp, isSameOrigin, userAgent } from '@/server/auth/request';
+import { isSameOrigin } from '@/server/auth/request';
 import { getSessionUser } from '@/server/auth/require-user';
 import { endAllSessions, endCurrentSession } from '@/server/auth/session';
-import { getDatabase } from '@/server/db';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -23,13 +21,5 @@ export async function POST(request: Request): Promise<NextResponse> {
     await endCurrentSession();
   }
 
-  if (user !== null) {
-    await writeAudit(getDatabase(), {
-      event: 'logout',
-      userId: user.id,
-      ipAddress: clientIp(request),
-      userAgent: userAgent(request),
-    });
-  }
   return json({ ok: true });
 }
