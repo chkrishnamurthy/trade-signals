@@ -19,9 +19,9 @@ export interface SignOutOptions {
 }
 
 export const API_ROUTES = {
-  signals: '/api/signals',
-  signal: (id: number): string => `/api/signals/${id}`,
-  signalSummary: '/api/signals/summary',
+  intradayToday: '/api/intraday/today',
+  intradayDay: (date: string): string => `/api/intraday/day/${date}`,
+  intradayRules: '/api/intraday/rules',
   paperStudies: '/api/paper-trades',
   // ---------------------------------------------------------------------------
   // Authentication & Session (/api/auth/*)

@@ -11,6 +11,7 @@ without reorganisation.
 | [planning/](planning/) | Where the product is going — roadmap, backlog, and design plans for work not yet built |
 | [guides/](guides/) | How-to and task-oriented documentation for developers |
 | [reference/](reference/) | Look-up material — configuration, schema, and API reference |
+| [mobile/](mobile/) | The Android app (Expo / React Native) — numbered per-phase documents; discovery complete, no mobile code in the tree yet |
 
 ## Conventions
 

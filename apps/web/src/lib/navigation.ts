@@ -54,10 +54,10 @@ export const NAVIGATION: readonly NavGroup[] = [
     items: [
       {
         status: 'ready',
-        href: '/signals',
-        label: 'Signals',
+        href: '/intraday',
+        label: 'Intraday',
         icon: ActivityIcon,
-        description: 'Confirmed VWAP Trend Pullback setups',
+        description: 'One rule-based intraday strategy, its signals and paper trades',
       },
       {
         status: 'ready',

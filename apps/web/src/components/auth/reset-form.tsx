@@ -7,6 +7,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { API_ROUTES } from '@/lib/api-routes';
+import { PASSWORD_RULE_HINT } from '@/server/auth/password-policy';
 import { AuthCard } from './auth-card';
 
 /** With a `token` it sets a new password; without one it emails a reset link. */
@@ -172,10 +173,7 @@ function SetNewPassword({ token }: { token: string }) {
                 onChange={(e) => setPassword(e.target.value)}
               />
             </FormControl>
-            <FormDescription>
-              At least 12 characters. A few memorable words work well — avoid common or reused
-              passwords.
-            </FormDescription>
+            <FormDescription>{PASSWORD_RULE_HINT}</FormDescription>
           </FormField>
           <Button type="submit" className="w-full" disabled={busy}>
             {busy ? 'Saving…' : 'Reset password'}

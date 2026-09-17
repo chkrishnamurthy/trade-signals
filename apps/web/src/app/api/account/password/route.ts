@@ -9,7 +9,6 @@ import { sendPasswordChangedNotice } from '@/server/auth/email';
 import { fail, json } from '@/server/auth/http';
 import { hashPassword, verifyPassword } from '@/server/auth/password';
 import { validatePassword } from '@/server/auth/password-policy';
-import { isPwned } from '@/server/auth/pwned';
 import { clientIp, isSameOrigin } from '@/server/auth/request';
 import { getSessionUser } from '@/server/auth/require-user';
 import { startSession } from '@/server/auth/session';
@@ -61,11 +60,6 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   const strength = validatePassword(newPassword);
   if (!strength.ok) return fail(strength.reason, 400, { code: 'WEAK_PASSWORD' });
-  if (await isPwned(newPassword)) {
-    return fail('That password has appeared in a data breach — please choose another.', 400, {
-      code: 'BREACHED_PASSWORD',
-    });
-  }
 
   await updatePassword(db, user.id, await hashPassword(newPassword));
   await deleteAllSessionsForUser(db, user.id);

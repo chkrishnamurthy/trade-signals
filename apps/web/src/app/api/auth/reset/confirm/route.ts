@@ -3,7 +3,6 @@ import type { NextResponse } from 'next/server';
 import { fail, json } from '@/server/auth/http';
 import { hashPassword } from '@/server/auth/password';
 import { validatePassword } from '@/server/auth/password-policy';
-import { isPwned } from '@/server/auth/pwned';
 import { clientIp, isSameOrigin } from '@/server/auth/request';
 import { resetConfirmSchema } from '@/server/auth/schemas';
 import { hashToken } from '@/server/auth/session-token';
@@ -32,11 +31,6 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   const strength = validatePassword(password);
   if (!strength.ok) return fail(strength.reason, 400, { code: 'WEAK_PASSWORD' });
-  if (await isPwned(password)) {
-    return fail('That password has appeared in a data breach — please choose another.', 400, {
-      code: 'BREACHED_PASSWORD',
-    });
-  }
 
   const db = getDatabase();
   const userId = await consumeToken(db, hashToken(token), 'password_reset');

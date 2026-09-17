@@ -38,6 +38,7 @@ historical intent; that intraday code no longer exists in the tree.
 Design & architecture docs: `docs/README.md`, `docs/architecture.md` (topology & stack),
 `docs/domain-and-contracts.md` (schema, indicators & invariants), `docs/api-reference.md`,
 `docs/operations-runbook.md`, and `docs/planning/storybook-plan.md`.
+Android app (Expo / React Native, planned, not yet in the tree): `docs/mobile/README.md`.
 
 ## Stack
 
