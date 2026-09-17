@@ -80,6 +80,7 @@ function provider(id: string, bars: Record<string, Bar[]>): MarketDataProvider {
       historyStart: null,
       maxStreamSymbols: null,
       marketStatus: false,
+      derivatives: false,
     },
     listInstruments: async () => [],
     fetchQuotes: async () => ({ quotes: new Map(), missing: [] }),

@@ -28,6 +28,7 @@ export {
   chunkRange,
   DAILY_HISTORY_START,
   fetchCandles,
+  fetchFuturesCandles,
   INTRADAY_HISTORY_YEARS,
   INTRADAY_RESOLUTIONS,
   intradayHistoryStart,
@@ -116,6 +117,8 @@ export {
   streamTicks,
 } from './stream.js';
 export {
+  FUTURES_INSTRUMENT,
+  FUTURES_SEGMENT,
   INDEX_ALIASES,
   instrumentTypeFor,
   internalSymbolFor,
@@ -127,6 +130,8 @@ export type {
   ChartsResponse,
   EnvelopeError,
   ExchangeSegment,
+  FuturesCandle,
+  FuturesContract,
   Instrument,
   InstrumentKind,
   InstrumentType,
@@ -146,4 +151,5 @@ export {
   quoteValueSchema,
   securityKey,
   toCandles,
+  toFuturesCandles,
 } from './types.js';

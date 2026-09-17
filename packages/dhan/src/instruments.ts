@@ -2,7 +2,13 @@ import { rupeesToPaise } from '@equitywise/shared';
 import { z } from 'zod';
 import type { DhanHttpClient } from './http.js';
 import { internalSymbolFor } from './symbols.js';
-import type { ExchangeSegment, Instrument, InstrumentKind, SecurityRef } from './types.js';
+import type {
+  ExchangeSegment,
+  FuturesContract,
+  Instrument,
+  InstrumentKind,
+  SecurityRef,
+} from './types.js';
 import { securityKey } from './types.js';
 
 /**
@@ -36,6 +42,8 @@ export const COLUMNS = {
   series: 'SERIES',
   lotSize: 'LOT_SIZE',
   tickSize: 'TICK_SIZE',
+  underlyingSecurityId: 'UNDERLYING_SECURITY_ID',
+  expiry: 'SM_EXPIRY_DATE',
 } as const;
 
 /**
@@ -47,8 +55,20 @@ export const COLUMNS = {
  */
 export const EQUITY_SERIES: ReadonlySet<string> = new Set(['EQ', 'BE', 'BZ']);
 
-/** `SEGMENT` codes in the master: `E` cash, `I` index (D/C/M are derivatives etc.). */
-const SEGMENT_CODE = { equity: 'E', index: 'I' } as const;
+/** `SEGMENT` codes in the master: `E` cash, `I` index, `D` NSE derivatives (C/M are currency/commodity). */
+const SEGMENT_CODE = { equity: 'E', index: 'I', derivatives: 'D' } as const;
+
+/** The one `INSTRUMENT` value kept from the derivatives segment. */
+const STOCK_FUTURES = 'FUTSTK';
+
+const futuresRowSchema = z.object({
+  securityId: z.string().regex(/^\d+$/),
+  underlyingSecurityId: z.string().regex(/^\d+$/),
+  ticker: z.string().min(1),
+  name: z.string().min(1),
+  expiry: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  lotSize: z.number().int().positive(),
+});
 
 const rowSchema = z.object({
   securityId: z.string().regex(/^\d+$/),
@@ -112,6 +132,8 @@ export function tickSizePaise(raw: number, kind: InstrumentKind): number {
 
 export interface ParseInstrumentsResult {
   readonly instruments: Instrument[];
+  /** NSE stock-futures contracts, every listed expiry. */
+  readonly futures: FuturesContract[];
   /** Lines that could not be parsed, with the reason. Never silently dropped. */
   readonly skipped: { readonly line: number; readonly reason: string }[];
 }
@@ -119,10 +141,11 @@ export interface ParseInstrumentsResult {
 /**
  * Parses the detailed scrip master into normalised instruments.
  *
- * Keeps NSE cash equities (series in {@link EQUITY_SERIES}) and NSE indices;
- * everything else — derivatives, currency, commodity, BSE, debt, SME — is
- * filtered out silently because it is out of scope, not malformed. Rows that
- * *are* in scope but malformed land in `skipped` rather than throwing.
+ * Keeps NSE cash equities (series in {@link EQUITY_SERIES}), NSE indices and
+ * NSE stock-futures contracts; everything else — options, currency,
+ * commodity, BSE, debt, SME — is filtered out silently because it is out of
+ * scope, not malformed. Rows that *are* in scope but malformed land in
+ * `skipped` rather than throwing.
  */
 export function parseScripMaster(csv: string): ParseInstrumentsResult {
   const lines = csv.split(/\r?\n/);
@@ -136,12 +159,15 @@ export function parseScripMaster(csv: string): ParseInstrumentsResult {
     securityId: col(COLUMNS.securityId),
     isin: col(COLUMNS.isin),
     ticker: col(COLUMNS.ticker),
+    instrument: col(COLUMNS.instrument),
     symbolName: col(COLUMNS.symbolName),
     displayName: col(COLUMNS.displayName),
     instrumentType: col(COLUMNS.instrumentType),
     series: col(COLUMNS.series),
     lotSize: col(COLUMNS.lotSize),
     tickSize: col(COLUMNS.tickSize),
+    underlyingSecurityId: col(COLUMNS.underlyingSecurityId),
+    expiry: col(COLUMNS.expiry),
   };
   const missing = Object.entries(idx)
     .filter(([, i]) => i < 0)
@@ -151,6 +177,7 @@ export function parseScripMaster(csv: string): ParseInstrumentsResult {
   }
 
   const instruments: Instrument[] = [];
+  const futures: FuturesContract[] = [];
   const skipped: { line: number; reason: string }[] = [];
 
   for (let n = 1; n < lines.length; n += 1) {
@@ -161,6 +188,32 @@ export function parseScripMaster(csv: string): ParseInstrumentsResult {
 
     if (cell(idx.exchange) !== 'NSE') continue;
     const segmentCode = cell(idx.segment);
+    if (segmentCode === SEGMENT_CODE.derivatives) {
+      if (cell(idx.instrument) !== STOCK_FUTURES) continue;
+      const parsed = futuresRowSchema.safeParse({
+        securityId: cell(idx.securityId),
+        underlyingSecurityId: cell(idx.underlyingSecurityId),
+        ticker: cell(idx.ticker),
+        name: cell(idx.symbolName) || cell(idx.displayName),
+        expiry: cell(idx.expiry),
+        lotSize: Number(cell(idx.lotSize)),
+      });
+      if (!parsed.success) {
+        skipped.push({ line: n + 1, reason: parsed.error.issues.map((i) => i.message).join('; ') });
+        continue;
+      }
+      const row = parsed.data;
+      futures.push({
+        securityId: row.securityId,
+        segment: 'NSE_FNO',
+        underlyingSymbol: internalSymbolFor(row.ticker, 'equity'),
+        underlyingSecurityId: row.underlyingSecurityId,
+        expiry: row.expiry,
+        lotSize: row.lotSize,
+        name: row.name,
+      });
+      continue;
+    }
     let kind: InstrumentKind;
     if (segmentCode === SEGMENT_CODE.equity) {
       if (!EQUITY_SERIES.has(cell(idx.series))) continue;
@@ -204,7 +257,7 @@ export function parseScripMaster(csv: string): ParseInstrumentsResult {
     });
   }
 
-  return { instruments, skipped };
+  return { instruments, futures, skipped };
 }
 
 /** Downloads and parses the detailed master. Unauthenticated; not rate limited. */
@@ -227,8 +280,9 @@ export async function listInstruments(http: DhanHttpClient): Promise<ParseInstru
 export class InstrumentIndex {
   private readonly bySymbol = new Map<string, Instrument>();
   private readonly byKey = new Map<string, Instrument>();
+  private readonly futuresBySymbol = new Map<string, FuturesContract[]>();
 
-  constructor(instruments: readonly Instrument[]) {
+  constructor(instruments: readonly Instrument[], futures: readonly FuturesContract[] = []) {
     for (const instrument of instruments) {
       // Symbol collisions (a ticker listed under both EQ and BE) resolve to
       // the first row seen, which in the published order is EQ.
@@ -236,10 +290,28 @@ export class InstrumentIndex {
       if (!this.bySymbol.has(symbolKey)) this.bySymbol.set(symbolKey, instrument);
       this.byKey.set(securityKey(instrument), instrument);
     }
+    for (const contract of futures) {
+      const list = this.futuresBySymbol.get(contract.underlyingSymbol) ?? [];
+      list.push(contract);
+      this.futuresBySymbol.set(contract.underlyingSymbol, list);
+    }
+    for (const list of this.futuresBySymbol.values()) {
+      list.sort((a, b) => (a.expiry < b.expiry ? -1 : a.expiry > b.expiry ? 1 : 0));
+    }
   }
 
   get size(): number {
     return this.byKey.size;
+  }
+
+  /** Every listed futures contract on a stock, nearest expiry first. Empty when not in F&O. */
+  futuresFor(symbol: string): readonly FuturesContract[] {
+    return this.futuresBySymbol.get(symbol.trim().toUpperCase()) ?? [];
+  }
+
+  /** Every symbol with at least one listed futures contract. */
+  futuresUnderlyings(): readonly string[] {
+    return [...this.futuresBySymbol.keys()];
   }
 
   /** `RELIANCE` / `equity` → the instrument, or null when unknown. */

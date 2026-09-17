@@ -26,6 +26,10 @@ export function instrumentTypeFor(kind: InstrumentKind): InstrumentType {
   return kind === 'index' ? 'INDEX' : 'EQUITY';
 }
 
+/** The segment and `instrument` enum a stock-futures request carries. */
+export const FUTURES_SEGMENT: ExchangeSegment = 'NSE_FNO';
+export const FUTURES_INSTRUMENT: InstrumentType = 'FUTSTK';
+
 /**
  * Index tickers whose normalised form still differs from our symbol.
  *

@@ -20,15 +20,22 @@ export type {
   DealType,
   DisclosureSource,
   InstitutionParticipant,
+  OiBucket,
+  OiParticipant,
   RawAnnouncement,
   RawDeal,
+  RawDeliveryStat,
   RawFiiDiiFlow,
+  RawParticipantOi,
   RawShareholding,
 } from './disclosures.js';
+export { OI_BUCKETS } from './disclosures.js';
 export type { MarketDataFailure } from './errors.js';
 export { isMarketDataProviderError, MarketDataProviderError } from './errors.js';
 export type {
   BarsRequest,
+  FuturesOiBar,
+  FuturesOiRequest,
   MarketDataProvider,
   ProviderCapabilities,
   StreamRequest,

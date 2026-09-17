@@ -52,6 +52,50 @@ export interface MarketDataProvider {
    * `capabilities.streaming` is true.
    */
   streamTicks?(request: StreamRequest): TickSubscription;
+
+  /**
+   * Daily stock-futures open interest. Present only when
+   * `capabilities.derivatives` is true.
+   *
+   * Returns one bar per listed contract per session, so a caller sees every
+   * expiry and decides how to combine them. Closed sessions only, like
+   * `fetchBars` (hard rule 2).
+   */
+  fetchFuturesOpenInterest?(request: FuturesOiRequest): Promise<readonly FuturesOiBar[]>;
+
+  /**
+   * Every stock with a listed futures contract, by our symbol. Present with
+   * `fetchFuturesOpenInterest`; it is how a caller learns the F&O universe
+   * without asking for 2,000 names and catching `not_found` on most.
+   */
+  listDerivativeUnderlyings?(): Promise<readonly string[]>;
+}
+
+export interface FuturesOiRequest {
+  /** The UNDERLYING stock, by our symbol. Always an equity. */
+  readonly ref: InstrumentRef;
+  readonly range: DateRange;
+  /** Wall clock, injected so "is the last bar still forming" stays testable. */
+  readonly now?: Date;
+}
+
+/**
+ * One contract's daily bar with its open interest at the close.
+ *
+ * `timestamp` follows the daily-bar convention (epoch ms, UTC). `expiry` is
+ * an IST date key so a caller can pick the near month without a clock.
+ */
+export interface FuturesOiBar {
+  readonly timestamp: number;
+  /** `YYYY-MM-DD`. */
+  readonly expiry: string;
+  readonly open: number;
+  readonly high: number;
+  readonly low: number;
+  readonly close: number;
+  readonly volume: number;
+  /** Open interest in the exchange's unit (shares for stock futures). A count. */
+  readonly openInterest: number;
 }
 
 export interface BarsRequest {
@@ -105,4 +149,6 @@ export interface ProviderCapabilities {
   readonly maxStreamSymbols: number | null;
   /** Authoritative session state, vs inferring from a clock. */
   readonly marketStatus: boolean;
+  /** Stock-futures open interest history (`fetchFuturesOpenInterest`). */
+  readonly derivatives: boolean;
 }

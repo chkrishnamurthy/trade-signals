@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { resolveTestDatabaseUrl } from '../../../../test/db';
 import { createDatabase, type Database, type DatabaseHandle } from '../client.js';
 import {
   addWatchlistItems,
@@ -17,7 +18,6 @@ import {
   saveWatchlistView,
   setDefaultWatchlist,
 } from '../repositories/watchlists.js';
-import { resolveTestDatabaseUrl } from '../../../../test/db';
 
 /**
  * The watchlist schema, against a real Postgres.

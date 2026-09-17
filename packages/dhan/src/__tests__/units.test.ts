@@ -20,7 +20,7 @@ import { backoffDelay, DEFAULT_LIMITS, DOCUMENTED_LIMITS } from '../http.js';
 import { InstrumentIndex, parseScripMaster, splitCsvLine, tickSizePaise } from '../instruments.js';
 import { chunkRefs, parseTradeTime, toQuote, toQuoteRequestBody } from '../quotes.js';
 import { instrumentTypeFor, internalSymbolFor, normaliseTicker, segmentFor } from '../symbols.js';
-import { envelopeError, securityKey, toCandles } from '../types.js';
+import { envelopeError, securityKey, toCandles, toFuturesCandles } from '../types.js';
 import { fixture, jsonFixture } from './helpers.js';
 
 describe('TOTP', () => {
@@ -249,6 +249,34 @@ describe('scrip master', () => {
     expect(index.byRef({ segment: 'NSE_EQ', securityId: '11536' })?.symbol).toBe('TCS');
     expect(index.byRef({ segment: 'NSE_EQ', securityId: '0' })).toBeNull();
   });
+
+  it('keeps stock-futures contracts and indexes them by underlying, nearest expiry first', () => {
+    const { futures, instruments } = parseScripMaster(fixture('scrip-master-excerpt.csv'));
+    // Three RELIANCE months; the NIFTY index future and the PAGEIND option are not FUTSTK.
+    expect(futures).toHaveLength(3);
+    expect(futures.every((f) => f.segment === 'NSE_FNO' && f.underlyingSymbol === 'RELIANCE')).toBe(
+      true,
+    );
+    const index = new InstrumentIndex(instruments, futures);
+    expect(index.futuresFor('reliance').map((f) => f.expiry)).toEqual([
+      '2026-09-29',
+      '2026-10-27',
+      '2026-11-23',
+    ]);
+    expect(index.futuresFor('RELIANCE')[0]).toEqual({
+      securityId: '68777',
+      segment: 'NSE_FNO',
+      underlyingSymbol: 'RELIANCE',
+      underlyingSecurityId: '2885',
+      expiry: '2026-09-29',
+      lotSize: 500,
+      name: 'RELIANCE-Sep2026-FUT',
+    });
+    expect(index.futuresFor('TCS')).toEqual([]);
+    expect(index.futuresUnderlyings()).toEqual(['RELIANCE']);
+    // Futures do not pollute the cash-instrument lookups.
+    expect(index.size).toBe(instruments.length);
+  });
 });
 
 describe('candles', () => {
@@ -310,6 +338,21 @@ describe('candles', () => {
       volume: 8123456,
     });
     expect(candles[2]?.close).toBe(124690);
+  });
+
+  it('zips open interest onto futures candles and rejects its absence', () => {
+    const daily = jsonFixture<Record<string, number[]>>('charts-daily.json');
+    const withOi = { ...daily, open_interest: [129406500, 128790500, 126435500] };
+    const candles = toFuturesCandles(withOi);
+    expect(candles).toHaveLength(3);
+    expect(candles[0]?.openInterest).toBe(129_406_500);
+    expect(candles[2]?.openInterest).toBe(126_435_500);
+    expect(candles[0]?.close).toBe(123810);
+    expect(() => toFuturesCandles(daily)).toThrow(/open_interest/);
+    expect(() => toFuturesCandles({ ...daily, open_interest: [1] })).toThrow(/open_interest/);
+    expect(() => toFuturesCandles({ ...daily, open_interest: [1, -1, 1] })).toThrow(
+      /open interest/,
+    );
   });
 
   it('rejects ragged columns and bad values', () => {

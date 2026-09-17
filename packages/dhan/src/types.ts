@@ -12,18 +12,19 @@ import { z } from 'zod';
 export type InstrumentKind = 'equity' | 'index';
 
 /**
- * The two exchange segments this product speaks.
+ * The three exchange segments this product speaks.
  *
  * Dhan addresses everything by `(exchangeSegment, securityId)`; there is no
  * ticker-string form. NSE equities live in `NSE_EQ`; every index — NSE or
- * BSE — lives in the pseudo-segment `IDX_I`.
+ * BSE — lives in the pseudo-segment `IDX_I`; NSE stock futures (the one
+ * derivative the product reads, for open interest) live in `NSE_FNO`.
  */
-export type ExchangeSegment = 'NSE_EQ' | 'IDX_I';
+export type ExchangeSegment = 'NSE_EQ' | 'IDX_I' | 'NSE_FNO';
 
-export const EXCHANGE_SEGMENTS: readonly ExchangeSegment[] = ['NSE_EQ', 'IDX_I'];
+export const EXCHANGE_SEGMENTS: readonly ExchangeSegment[] = ['NSE_EQ', 'IDX_I', 'NSE_FNO'];
 
-/** Dhan's `instrument` enum, restricted to what the equities product uses. */
-export type InstrumentType = 'EQUITY' | 'INDEX';
+/** Dhan's `instrument` enum, restricted to what the product uses. */
+export type InstrumentType = 'EQUITY' | 'INDEX' | 'FUTSTK';
 
 /** How a request names one instrument. */
 export interface SecurityRef {
@@ -58,6 +59,26 @@ export interface Instrument {
   readonly series: string | null;
 }
 
+/**
+ * One stock-futures contract from the scrip master.
+ *
+ * A stock has up to three listed at once (near, next, far month). The
+ * underlying is named by OUR symbol so a caller never touches a Dhan ticker.
+ */
+export interface FuturesContract {
+  readonly securityId: string;
+  readonly segment: 'NSE_FNO';
+  /** Our symbol for the underlying: `RELIANCE`. */
+  readonly underlyingSymbol: string;
+  /** The underlying's own `NSE_EQ` security id. */
+  readonly underlyingSecurityId: string;
+  /** `YYYY-MM-DD`. */
+  readonly expiry: string;
+  readonly lotSize: number;
+  /** `RELIANCE-Oct2026-FUT`, for logs. */
+  readonly name: string;
+}
+
 /** One OHLCV bar. `timestamp` is the bar's open instant. Prices in paise. */
 export interface Candle {
   readonly timestamp: Date;
@@ -67,6 +88,12 @@ export interface Candle {
   readonly close: number;
   /** Shares traded. A count, not money — stays a plain integer. */
   readonly volume: number;
+}
+
+/** A derivatives bar: a candle plus the contract's open interest at the close. */
+export interface FuturesCandle extends Candle {
+  /** Open interest in the exchange's unit (shares for stock futures). A count. */
+  readonly openInterest: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -183,6 +210,26 @@ export const chartsResponseSchema = z
   );
 
 export type ChartsResponse = z.infer<typeof chartsResponseSchema>;
+
+/**
+ * Zips the columnar response into futures candles: {@link toCandles} plus the
+ * `open_interest` column, which must be present and the same length.
+ */
+export function toFuturesCandles(response: ChartsResponse): FuturesCandle[] {
+  const oi = response.open_interest;
+  if (oi === undefined || oi.length !== response.timestamp.length) {
+    throw new RangeError('toFuturesCandles: open_interest column missing or ragged');
+  }
+  return toCandles(response).map((candle, i) => {
+    const value = oi[i];
+    if (value === undefined || !Number.isFinite(value) || value < 0) {
+      throw new RangeError(
+        `toFuturesCandles: invalid open interest ${String(value)} at index ${i}`,
+      );
+    }
+    return { ...candle, openInterest: Math.round(value) };
+  });
+}
 
 /** Zips the columnar response into candles, converting rupees to paise. */
 export function toCandles(response: ChartsResponse): Candle[] {

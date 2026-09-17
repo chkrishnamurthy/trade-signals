@@ -212,6 +212,22 @@ export async function listOwnerWatchedInstrumentIds(
   return rows.map((row) => row.instrumentId);
 }
 
+/**
+ * Every instrument on ANY user's watchlist, with its symbol — the demand set
+ * for per-symbol feeds the worker fetches on everyone's behalf (shareholding).
+ * Not owner-scoped on purpose: the worker serves all users; the WEB app never
+ * calls this.
+ */
+export async function listAllWatchedInstruments(
+  db: Database,
+): Promise<{ id: number; symbol: string }[]> {
+  return db
+    .selectDistinct({ id: instruments.id, symbol: instruments.symbol })
+    .from(watchlistItems)
+    .innerJoin(instruments, eq(instruments.id, watchlistItems.instrumentId))
+    .orderBy(instruments.symbol);
+}
+
 export interface WatchlistMember {
   readonly instrumentId: number;
   readonly symbol: string;

@@ -1,6 +1,8 @@
 import { MarketDataProviderError } from './errors.js';
 import type {
   BarsRequest,
+  FuturesOiBar,
+  FuturesOiRequest,
   MarketDataProvider,
   ProviderCapabilities,
   StreamRequest,
@@ -30,7 +32,14 @@ import { isDailyOrSlower } from './types.js';
  * the composition roots' decision, read from the environment.
  */
 
-export type RouteName = 'bars' | 'intradayBars' | 'quotes' | 'instruments' | 'status' | 'stream';
+export type RouteName =
+  | 'bars'
+  | 'intradayBars'
+  | 'quotes'
+  | 'instruments'
+  | 'status'
+  | 'stream'
+  | 'derivatives';
 
 export const ROUTE_NAMES: readonly RouteName[] = [
   'bars',
@@ -39,6 +48,7 @@ export const ROUTE_NAMES: readonly RouteName[] = [
   'instruments',
   'status',
   'stream',
+  'derivatives',
 ];
 
 /** Which provider id answers each route. */
@@ -154,6 +164,7 @@ export function createRoutedProvider(options: RoutedProviderOptions): RoutedProv
   const intraday = primary('intradayBars');
   const status = primary('status');
   const stream = primary('stream');
+  const derivatives = primary('derivatives');
 
   const resolutions: Resolution[] = [
     ...intraday.capabilities.resolutions.filter((r) => !isDailyOrSlower(r)),
@@ -167,6 +178,8 @@ export function createRoutedProvider(options: RoutedProviderOptions): RoutedProv
     historyStart: daily.capabilities.historyStart,
     maxStreamSymbols: stream.capabilities.maxStreamSymbols,
     marketStatus: status.capabilities.marketStatus,
+    derivatives:
+      derivatives.capabilities.derivatives && derivatives.fetchFuturesOpenInterest !== undefined,
   };
 
   const provider: RoutedProvider = {
@@ -194,17 +207,31 @@ export function createRoutedProvider(options: RoutedProviderOptions): RoutedProv
     },
   };
 
+  // Derivatives history is a capability only one provider has; there is no
+  // second opinion to fall back to, so it delegates as-is and is absent when
+  // the routed provider lacks it (the OI job then reports "not available").
+  const withDerivatives: RoutedProvider =
+    derivatives.fetchFuturesOpenInterest !== undefined && derivatives.capabilities.derivatives
+      ? {
+          ...provider,
+          fetchFuturesOpenInterest: (request: FuturesOiRequest): Promise<readonly FuturesOiBar[]> =>
+            derivatives.fetchFuturesOpenInterest?.(request) ?? Promise.resolve([]),
+          listDerivativeUnderlyings: (): Promise<readonly string[]> =>
+            derivatives.listDerivativeUnderlyings?.() ?? Promise.resolve([]),
+        }
+      : provider;
+
   // Streaming is a subscription, not a request: there is no sensible
   // "fall back" mid-stream, so it delegates to the stream provider as-is and
   // is absent when that provider has no socket (the hub then polls).
   if (stream.streamTicks !== undefined && stream.capabilities.streaming) {
     const streamTicks = stream.streamTicks.bind(stream);
     return {
-      ...provider,
+      ...withDerivatives,
       streamTicks(request: StreamRequest): TickSubscription {
         return streamTicks(request);
       },
     };
   }
-  return provider;
+  return withDerivatives;
 }

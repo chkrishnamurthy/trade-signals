@@ -17,6 +17,27 @@ export type DealType = 'bulk' | 'block';
 export type DealSide = 'buy' | 'sell';
 export type InstitutionParticipant = 'fii' | 'dii';
 
+/** Who holds a derivatives position, as the exchange classifies clients. */
+export type OiParticipant = 'fii' | 'dii' | 'pro' | 'client';
+
+/** The six product buckets the exchange reports participant-wise OI in. */
+export type OiBucket =
+  | 'index_fut'
+  | 'stock_fut'
+  | 'index_ce'
+  | 'index_pe'
+  | 'stock_ce'
+  | 'stock_pe';
+
+export const OI_BUCKETS: readonly OiBucket[] = [
+  'index_fut',
+  'stock_fut',
+  'index_ce',
+  'index_pe',
+  'stock_ce',
+  'stock_pe',
+];
+
 export interface RawAnnouncement {
   readonly source: string;
   /** The source's stable id for this filing — the dedup key with `source`. */
@@ -70,12 +91,41 @@ export interface RawShareholding {
   readonly publicPercent: number | null;
 }
 
+/** One stock's delivery data for one session, from the exchange's full bhavdata. */
+export interface RawDeliveryStat {
+  readonly source: string;
+  /** IST trading date, `YYYY-MM-DD`. */
+  readonly tradingDate: string;
+  readonly symbol: string;
+  /** Shares traded and shares delivered. Counts, not money. */
+  readonly tradedQty: number;
+  readonly deliverableQty: number;
+  /** As published, 0–100. */
+  readonly deliveryPercent: number;
+  readonly closePaise: number;
+  readonly prevClosePaise: number;
+  readonly avgPricePaise: number;
+  readonly turnoverPaise: number;
+  readonly trades: number;
+}
+
+/** One participant's long and short contracts in one bucket for one session. */
+export interface RawParticipantOi {
+  readonly source: string;
+  readonly tradingDate: string;
+  readonly participant: OiParticipant;
+  readonly bucket: OiBucket;
+  readonly longContracts: number;
+  readonly shortContracts: number;
+}
+
 /**
  * A source of exchange/regulator disclosures.
  *
- * Methods return provider-neutral shapes. Announcement failures must throw so
- * the worker can distinguish unavailable data from a successful empty fetch.
- * The scheduler isolates job failures; other legacy disclosure methods fail soft.
+ * Methods return provider-neutral shapes. Every method THROWS on a transport
+ * or shape failure so the worker can record it against the feed's health and
+ * the page can say why a dataset is stale; an empty array means the source
+ * answered and had nothing (a holiday, a session with no block deals).
  */
 export interface DisclosureSource {
   readonly id: string;
@@ -83,4 +133,8 @@ export interface DisclosureSource {
   fetchFiiDii(options: { from: Date; to: Date }): Promise<readonly RawFiiDiiFlow[]>;
   fetchDeals(options: { date: Date }): Promise<readonly RawDeal[]>;
   fetchShareholding(options: { symbols: readonly string[] }): Promise<readonly RawShareholding[]>;
+  /** The session's full bhavdata: every listed stock's delivery figures. */
+  fetchDeliveryStats(options: { date: Date }): Promise<readonly RawDeliveryStat[]>;
+  /** The session's participant-wise open interest, market-wide. */
+  fetchParticipantOi(options: { date: Date }): Promise<readonly RawParticipantOi[]>;
 }

@@ -4,7 +4,8 @@ import { getInstitutionalFlow } from '@/server/disclosures';
 
 export const metadata: Metadata = {
   title: 'Institutional Flow — EquityWise',
-  description: 'FII/DII activity, bulk & block deals, and shareholding from the exchanges.',
+  description:
+    'FII/DII flows, futures positioning, delivery and bulk & block deals from the exchanges.',
   robots: { index: false, follow: false },
 };
 

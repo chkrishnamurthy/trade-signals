@@ -5,6 +5,7 @@ import {
   type DhanSession,
   type FeedMode,
   fetchCandles,
+  fetchFuturesCandles,
   fetchQuotes,
   InstrumentIndex,
   listInstruments,
@@ -17,6 +18,8 @@ import {
 import type {
   Bar,
   BarsRequest,
+  FuturesOiBar,
+  FuturesOiRequest,
   Instrument,
   InstrumentRef,
   MarketDataProvider,
@@ -42,6 +45,7 @@ import {
   aggregateWeekly,
   inferMarketStatus,
   toBar,
+  toFuturesOiBar,
   toInstrument,
   toQuote,
 } from './mapping.js';
@@ -89,6 +93,8 @@ export interface DhanProviderOptions {
   readonly instrumentCacheTtlMs?: number;
   /** Injectable clock, for the cache TTL, the forming-bar rule and market status. */
   readonly now?: () => Date;
+  /** Injectable pause, so tests of the paced derivatives loop do not wait. */
+  readonly sleep?: (ms: number) => Promise<void>;
   /**
    * Enables the live tick socket (Phase 7). Absent means no streaming: the
    * product's hub then polls `fetchQuotes`, exactly as before.
@@ -106,6 +112,17 @@ export interface DhanProviderOptions {
 
 const DEFAULT_INSTRUMENT_TTL_MS = 24 * 60 * 60 * 1_000;
 
+/**
+ * Gap between one stock's contract requests.
+ *
+ * Dhan counts chart calls in a ROLLING second (observed 2026-09-17: three
+ * back-to-back calls at the end of one limiter window plus one at the start
+ * of the next earned `HTTP 429`, at a steady 2.8/s nothing did). The shared
+ * limiter's fixed windows cannot express that, so the one place that fires
+ * several chart calls in a row spaces them itself.
+ */
+const CONTRACT_PACE_MS = 400;
+
 function capabilities(streaming: boolean): ProviderCapabilities {
   return {
     streaming,
@@ -120,6 +137,8 @@ function capabilities(streaming: boolean): ProviderCapabilities {
     // No market-status endpoint. `fetchMarketStatus` infers from the clock and
     // says so here, so nothing badges "Live" on a trading holiday because of us.
     marketStatus: false,
+    // `/charts/historical` with `oi: true` on an `NSE_FNO` stock future.
+    derivatives: true,
   };
 }
 
@@ -127,6 +146,7 @@ export function createDhanProvider(options: DhanProviderOptions): MarketDataProv
   const { accessToken } = options;
   const readToken = typeof accessToken === 'function' ? accessToken : (): string => accessToken;
   const now = options.now ?? ((): Date => new Date());
+  const sleep = options.sleep ?? ((ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms)));
 
   const missing: string[] = [];
   if (options.clientId === '') missing.push('DHAN_CLIENT_ID');
@@ -172,8 +192,8 @@ export function createDhanProvider(options: DhanProviderOptions): MarketDataProv
     // rather than each pulling 35 MB.
     loading ??= (async () => {
       try {
-        const { instruments } = await listInstruments(http);
-        const index = new InstrumentIndex(instruments);
+        const { instruments, futures } = await listInstruments(http);
+        const index = new InstrumentIndex(instruments, futures);
         cached = { index, loadedAt: now().getTime() };
         return index;
       } catch (error) {
@@ -268,6 +288,50 @@ export function createDhanProvider(options: DhanProviderOptions): MarketDataProv
 
     async fetchMarketStatus(): Promise<MarketStatus> {
       return inferMarketStatus(now());
+    },
+
+    async listDerivativeUnderlyings(): Promise<readonly string[]> {
+      try {
+        const index = await instrumentIndex();
+        // Only underlyings that are also listed cash equities: a futures row
+        // on a name the master has no `NSE_EQ` row for is not screenable.
+        return index
+          .futuresUnderlyings()
+          .filter((symbol) => index.lookup(symbol, 'equity') !== null)
+          .sort();
+      } catch (error) {
+        throw toProviderError(error);
+      }
+    },
+
+    async fetchFuturesOpenInterest(request: FuturesOiRequest): Promise<readonly FuturesOiBar[]> {
+      const { ref, range } = request;
+      const at = request.now ?? now();
+      try {
+        const index = await instrumentIndex();
+        // A stock outside F&O is a `not_found` like an unknown symbol — the
+        // caller asked for something this market does not list.
+        const contracts = index.futuresFor(ref.symbol);
+        if (contracts.length === 0) throw unknownInstrumentError(ref.symbol, ref.kind);
+
+        const bars: FuturesOiBar[] = [];
+        for (const [i, contract] of contracts.entries()) {
+          if (i > 0) await sleep(CONTRACT_PACE_MS);
+          const candles = await fetchFuturesCandles({ http, session: session() }, contract, {
+            from: range.from,
+            to: range.to,
+          });
+          const mapped = candles.map((candle) => toFuturesOiBar(candle, contract.expiry));
+          // Closed sessions only, per contract: the same rule as `fetchBars`.
+          bars.push(...dropFormingBar(mapped, '1d', at));
+        }
+        return bars.sort(
+          (a, b) =>
+            a.timestamp - b.timestamp || (a.expiry < b.expiry ? -1 : a.expiry > b.expiry ? 1 : 0),
+        );
+      } catch (error) {
+        throw toProviderError(error);
+      }
     },
   };
 
@@ -440,11 +504,11 @@ function weekKey(timestamp: number): string {
  * by IST trading date. Weekly bars are decided by trading WEEK: a bar stamped
  * Monday is forming all the way to Friday's close.
  */
-export function dropFormingBar(
-  bars: readonly Bar[],
+export function dropFormingBar<T extends Bar>(
+  bars: readonly T[],
   resolution: Resolution,
   now: Date,
-): readonly Bar[] {
+): readonly T[] {
   const last = bars.at(-1);
   if (last === undefined) return bars;
 

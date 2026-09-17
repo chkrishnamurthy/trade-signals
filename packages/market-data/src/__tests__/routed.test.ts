@@ -9,10 +9,14 @@ const bar: Bar = { timestamp: 0, open: 1, high: 2, low: 1, close: 2, volume: 10 
 
 function stub(
   id: string,
-  overrides: Partial<MarketDataProvider> & { marketStatus?: boolean; streaming?: boolean } = {},
+  overrides: Partial<MarketDataProvider> & {
+    marketStatus?: boolean;
+    streaming?: boolean;
+    derivatives?: boolean;
+  } = {},
 ): MarketDataProvider & { calls: string[] } {
   const calls: string[] = [];
-  const { marketStatus = false, streaming = false, ...rest } = overrides;
+  const { marketStatus = false, streaming = false, derivatives = false, ...rest } = overrides;
   const base: MarketDataProvider & { calls: string[] } = {
     calls,
     id,
@@ -24,6 +28,7 @@ function stub(
       historyStart: new Date(`2000-01-0${id === 'dhan' ? 1 : 2}T00:00:00Z`),
       maxStreamSymbols: streaming ? 200 : null,
       marketStatus,
+      derivatives,
     },
     async listInstruments() {
       calls.push('instruments');
@@ -102,9 +107,43 @@ describe('createRoutedProvider', () => {
       historyStart: new Date('2000-01-01T00:00:00Z'), // from the daily-bars provider
       maxStreamSymbols: 200,
       marketStatus: true,
+      derivatives: false,
     });
     expect(routed.providerFor('quotes').id).toBe('dhan');
     expect(routed.streamTicks).toBeDefined();
+  });
+
+  it('delegates futures open interest to the derivatives provider, and has none without it', async () => {
+    const fetchFuturesOpenInterest = vi.fn(async () => [
+      {
+        timestamp: 0,
+        expiry: '2026-09-29',
+        open: 1,
+        high: 1,
+        low: 1,
+        close: 1,
+        volume: 1,
+        openInterest: 5,
+      },
+    ]);
+    const dhan = stub('dhan', {
+      derivatives: true,
+      fetchFuturesOpenInterest,
+      listDerivativeUnderlyings: async () => ['RELIANCE'],
+    });
+    const routed = router(stub('fyers'), dhan);
+    expect(routed.capabilities.derivatives).toBe(true);
+    expect(await routed.listDerivativeUnderlyings?.()).toEqual(['RELIANCE']);
+    const bars = await routed.fetchFuturesOpenInterest?.({
+      ref: { symbol: 'RELIANCE', kind: 'equity' },
+      range: { from: new Date(0), to: new Date(1) },
+    });
+    expect(bars?.[0]?.openInterest).toBe(5);
+    expect(fetchFuturesOpenInterest).toHaveBeenCalledTimes(1);
+
+    const without = router(stub('fyers'), stub('dhan'));
+    expect(without.capabilities.derivatives).toBe(false);
+    expect(without.fetchFuturesOpenInterest).toBeUndefined();
   });
 
   it('has no socket when the stream provider has none, so the hub polls', () => {

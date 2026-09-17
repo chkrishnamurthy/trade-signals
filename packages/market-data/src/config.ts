@@ -62,6 +62,7 @@ export const ROUTE_ENV_VARS: Readonly<Record<RouteName, string>> = {
   instruments: 'MARKET_DATA_ROUTE_INSTRUMENTS',
   status: 'MARKET_DATA_ROUTE_STATUS',
   stream: 'MARKET_DATA_ROUTE_STREAM',
+  derivatives: 'MARKET_DATA_ROUTE_DERIVATIVES',
 };
 
 /** `MARKET_DATA_FALLBACK=0` disables the second opinion (for measurement). */
@@ -86,6 +87,8 @@ export const DEFAULT_ROUTES: RoutingTable = {
   instruments: 'dhan',
   status: 'fyers',
   stream: 'fyers',
+  // Stock-futures open interest: only Dhan serves derivatives history.
+  derivatives: 'dhan',
 };
 
 export interface RoutingConfig {

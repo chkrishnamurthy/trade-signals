@@ -15,6 +15,9 @@ const ATTEMPT_RETENTION_MS = 24 * 60 * 60 * 1000;
 export async function authMaintenance(context: WorkerContext, log: Logger): Promise<void> {
   const sessions = await deleteExpiredSessions(context.db);
   const tokens = await deleteExpiredTokens(context.db);
-  const attempts = await deleteStaleAttempts(context.db, new Date(Date.now() - ATTEMPT_RETENTION_MS));
+  const attempts = await deleteStaleAttempts(
+    context.db,
+    new Date(Date.now() - ATTEMPT_RETENTION_MS),
+  );
   log.info('auth maintenance complete', { sessions, tokens, attempts });
 }

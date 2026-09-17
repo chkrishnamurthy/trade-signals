@@ -61,6 +61,7 @@ function fakeProvider(options: { streaming: boolean }) {
       historyStart: null,
       maxStreamSymbols: 200,
       marketStatus: true,
+      derivatives: false,
     },
     listInstruments: vi.fn(),
     fetchBars: vi.fn(),

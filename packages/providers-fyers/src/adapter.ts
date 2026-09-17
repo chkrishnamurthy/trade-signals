@@ -73,6 +73,7 @@ const CAPABILITIES_BASE = {
   historyStart: HISTORY_EPOCH_START,
   maxStreamSymbols: MAX_SUBSCRIPTION_SYMBOLS,
   marketStatus: true,
+  derivatives: false,
 } as const;
 
 export function createFyersProvider(options: FyersProviderOptions): MarketDataProvider {

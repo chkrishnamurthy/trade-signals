@@ -6,11 +6,15 @@ import { computeIndicators } from './jobs/compute-indicators.js';
 import { crossCheckProviders } from './jobs/cross-check-bars.js';
 import { ingestDailyCandles } from './jobs/ingest-daily.js';
 import {
+  backfillFlowFeeds,
   ingestAnnouncements,
   ingestDeals,
+  ingestDeliveryStats,
   ingestFiiDii,
+  ingestParticipantOi,
   ingestShareholding,
 } from './jobs/ingest-disclosures.js';
+import { ingestFuturesOi } from './jobs/ingest-futures-oi.js';
 import { createIntradayJobs } from './jobs/intraday-orb.js';
 import { refreshProviderCredential } from './jobs/refresh-credential.js';
 import { createLogger, errorFields } from './log.js';
@@ -80,8 +84,21 @@ const SCHEDULES = {
   ingestFiiDii: '45 19 * * 1-5',
   /** Bulk & block deals are published after close. */
   ingestDeals: '50 18 * * 1-5',
+  /**
+   * NSE's full bhavdata (delivery) and participant-wise OI files land
+   * ~18:30–19:30 IST. A second pass at 20:30 catches a late publish; the
+   * upsert makes the repeat harmless.
+   */
+  ingestDelivery: '10 19,20 * * 1-5',
+  ingestParticipantOi: '20 19,20 * * 1-5',
   /** Shareholding changes quarterly; a weekly sweep is ample. */
   ingestShareholding: '15 6 * * 6',
+  /**
+   * Stock-futures OI for the PREVIOUS session, the morning after: the
+   * provider treats a session's daily bar as forming until the next IST date
+   * (the same rule as the daily-candle pass). Tue–Sat covers Mon–Fri sessions.
+   */
+  ingestFuturesOi: '45 6 * * 2-6',
 } as const;
 
 function buildScheduler(context: WorkerContext): Scheduler {
@@ -154,10 +171,41 @@ function buildScheduler(context: WorkerContext): Scheduler {
         },
       },
       {
+        name: 'ingest-delivery',
+        schedule: SCHEDULES.ingestDelivery,
+        run: async () => {
+          await ingestDeliveryStats(context, log.child('ingest-delivery'));
+        },
+      },
+      {
+        name: 'ingest-participant-oi',
+        schedule: SCHEDULES.ingestParticipantOi,
+        run: async () => {
+          await ingestParticipantOi(context, log.child('ingest-participant-oi'));
+        },
+      },
+      {
         name: 'ingest-shareholding',
         schedule: SCHEDULES.ingestShareholding,
         run: async () => {
           await ingestShareholding(context, log.child('ingest-shareholding'));
+        },
+      },
+      {
+        name: 'ingest-futures-oi',
+        schedule: SCHEDULES.ingestFuturesOi,
+        run: async () => {
+          await ingestFuturesOi(context, log.child('ingest-futures-oi'));
+        },
+      },
+      {
+        // On demand only (`--once backfill-flows`): walks ~45 days of the
+        // delivery and participant-OI archives so the flow page has its
+        // trailing averages from day one. Idempotent. Never scheduled.
+        name: 'backfill-flows',
+        schedule: '0 0 31 2 *',
+        run: async () => {
+          await backfillFlowFeeds(context, log.child('backfill-flows'));
         },
       },
       {
@@ -273,7 +321,11 @@ async function main(): Promise<void> {
           'ingest-announcements',
           'ingest-fii-dii',
           'ingest-deals',
+          'ingest-delivery',
+          'ingest-participant-oi',
           'ingest-shareholding',
+          'ingest-futures-oi',
+          'backfill-flows',
         ],
       });
       process.exitCode = 1;

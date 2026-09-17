@@ -1,10 +1,12 @@
 import type {
   Candle as DhanCandle,
+  FuturesCandle as DhanFuturesCandle,
   Instrument as DhanInstrument,
   Quote as DhanQuote,
 } from '@equitywise/dhan';
 import type {
   Bar,
+  FuturesOiBar,
   Instrument,
   MarketPhase,
   MarketStatus,
@@ -60,6 +62,11 @@ export function toBar(candle: DhanCandle, resolution: Resolution): Bar {
     close: candle.close,
     volume: candle.volume,
   };
+}
+
+/** A futures candle onto the product's daily-bar convention, keeping its expiry and OI. */
+export function toFuturesOiBar(candle: DhanFuturesCandle, expiry: string): FuturesOiBar {
+  return { ...toBar(candle, '1d'), expiry, openInterest: candle.openInterest };
 }
 
 export function toInstrument(instrument: DhanInstrument): Instrument {

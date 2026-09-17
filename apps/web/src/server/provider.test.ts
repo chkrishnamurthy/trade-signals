@@ -95,6 +95,7 @@ describe('getProvider', () => {
         { route: 'instruments', provider: 'Dhan' },
         { route: 'status', provider: 'Fyers' },
         { route: 'stream', provider: 'Fyers' },
+        { route: 'derivatives', provider: 'Dhan' },
       ],
     });
   });

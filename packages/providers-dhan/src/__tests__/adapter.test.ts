@@ -17,9 +17,8 @@ import {
 import { planResolution, SUPPORTED_RESOLUTIONS } from '../resolution.js';
 import { fixture, jsonFixture, routedFetch } from './helpers.js';
 
-const index = new InstrumentIndex(
-  parseScripMaster(fixture('scrip-master-excerpt.csv')).instruments,
-);
+const master = parseScripMaster(fixture('scrip-master-excerpt.csv'));
+const index = new InstrumentIndex(master.instruments, master.futures);
 
 const instant = (): RateLimiter =>
   new RateLimiter({
@@ -43,6 +42,7 @@ function provider(
     // Pre-loaded unless a test wants to exercise the download path.
     ...(extra.download === true ? {} : { instruments: index }),
     now: () => extra.now ?? new Date('2026-09-16T12:00:00Z'), // 17:30 IST, after close
+    sleep: async () => {},
   });
   return { p, stub };
 }
@@ -56,7 +56,9 @@ describe('capabilities', () => {
     expect(p.capabilities.marketStatus).toBe(false);
     expect(p.capabilities.intradayHistory).toBe(true);
     expect(p.capabilities.resolutions).toEqual(SUPPORTED_RESOLUTIONS);
+    expect(p.capabilities.derivatives).toBe(true);
     expect(p.streamTicks).toBeUndefined();
+    expect(p.fetchFuturesOpenInterest).toBeDefined();
   });
 
   it('plans native and derived resolutions', () => {
@@ -298,6 +300,58 @@ describe('fetchBars', () => {
     token = 'fresh';
     await p.fetchBars(request);
     expect((stub.headers[0] as Record<string, string>)['access-token']).toBe('fresh');
+  });
+});
+
+describe('fetchFuturesOpenInterest', () => {
+  const withOi = {
+    ...jsonFixture<Record<string, number[]>>('charts-daily.json'),
+    open_interest: [129406500, 128790500, 126435500],
+  };
+
+  it('asks every listed contract by its own NSE_FNO id with oi on, and keeps closed sessions only', async () => {
+    const { p, stub } = provider({ '/v2/charts/historical': { body: withOi } });
+    const bars = await p.fetchFuturesOpenInterest?.({
+      ref: { symbol: 'RELIANCE', kind: 'equity' },
+      range: { from: new Date('2026-09-13T18:30:00Z'), to: new Date('2026-09-15T18:30:00Z') },
+    });
+    // Three contracts × (3 bars − today's forming one) = 6, ascending by date then expiry.
+    expect(bars).toHaveLength(6);
+    expect(bars?.slice(0, 3).map((b) => b.expiry)).toEqual([
+      '2026-09-29',
+      '2026-10-27',
+      '2026-11-23',
+    ]);
+    expect(bars?.[0]).toMatchObject({
+      timestamp: Date.UTC(2026, 8, 14),
+      close: 123810,
+      openInterest: 129_406_500,
+    });
+    const bodies = stub.bodies.map((b) => JSON.parse(b) as Record<string, unknown>);
+    expect(bodies).toHaveLength(3);
+    expect(bodies[0]).toMatchObject({
+      securityId: '68777',
+      exchangeSegment: 'NSE_FNO',
+      instrument: 'FUTSTK',
+      oi: true,
+    });
+  });
+
+  it('lists the F&O underlyings that are also cash equities', async () => {
+    const { p } = provider({});
+    expect(await p.listDerivativeUnderlyings?.()).toEqual(['RELIANCE']);
+  });
+
+  it('is a not_found for a stock without listed futures', async () => {
+    const { p } = provider({});
+    await expect(
+      p.fetchFuturesOpenInterest?.({
+        ref: { symbol: 'TCS', kind: 'equity' },
+        range: { from: new Date(0), to: new Date(1) },
+      }),
+    ).rejects.toSatisfy(
+      (error: unknown) => isMarketDataProviderError(error) && error.failure === 'not_found',
+    );
   });
 });
 

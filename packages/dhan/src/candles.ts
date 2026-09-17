@@ -1,12 +1,15 @@
 import { istDateKey, istParts } from '@equitywise/shared';
 import { authHeaders, DHAN_API_BASE, type DhanHttpClient, type DhanSession } from './http.js';
-import { instrumentTypeFor } from './symbols.js';
+import { FUTURES_INSTRUMENT, instrumentTypeFor } from './symbols.js';
 import {
   type Candle,
   chartsResponseSchema,
+  type FuturesCandle,
+  type FuturesContract,
   type InstrumentKind,
   type SecurityRef,
   toCandles,
+  toFuturesCandles,
 } from './types.js';
 
 /**
@@ -179,6 +182,49 @@ export async function fetchCandles(
     for (const candle of toCandles(response)) {
       // Clip to the inclusive range asked for: the request over-reaches by a
       // unit at each exclusive end (see `requestDates`) and must not leak it.
+      const at = candle.timestamp.getTime();
+      if (at < range.from.getTime() || at > range.to.getTime()) continue;
+      byTimestamp.set(at, candle);
+    }
+  }
+
+  return [...byTimestamp.values()].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+}
+
+/**
+ * Daily bars WITH open interest for one stock-futures contract.
+ *
+ * Same endpoint and chunking as the daily branch of {@link fetchCandles},
+ * with `oi: true` and the `FUTSTK` instrument type. `expiryCode` is 0 because
+ * the contract is already named by its own security id; the code is only
+ * meaningful when a request names an underlying instead.
+ */
+export async function fetchFuturesCandles(
+  fetcher: CandleFetcher,
+  contract: FuturesContract,
+  range: DateRange,
+): Promise<FuturesCandle[]> {
+  const byTimestamp = new Map<number, FuturesCandle>();
+
+  for (const chunk of chunkRange(range, 'D')) {
+    const response = await fetcher.http.request(
+      `${DHAN_API_BASE}/charts/historical`,
+      chartsResponseSchema,
+      {
+        method: 'POST',
+        headers: authHeaders(fetcher.session),
+        body: {
+          securityId: contract.securityId,
+          exchangeSegment: contract.segment,
+          instrument: FUTURES_INSTRUMENT,
+          expiryCode: 0,
+          oi: true,
+          ...requestDates(chunk, 'D'),
+        },
+      },
+    );
+
+    for (const candle of toFuturesCandles(response)) {
       const at = candle.timestamp.getTime();
       if (at < range.from.getTime() || at > range.to.getTime()) continue;
       byTimestamp.set(at, candle);

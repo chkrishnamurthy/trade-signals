@@ -192,6 +192,18 @@ export async function listCorporateActions(
     .limit(limit);
 }
 
+/** Id, symbol and name for a set of instrument ids. Unknown ids are absent. */
+export async function listInstrumentsById(
+  db: Database,
+  ids: readonly number[],
+): Promise<{ id: number; symbol: string; name: string }[]> {
+  if (ids.length === 0) return [];
+  return db
+    .select({ id: instruments.id, symbol: instruments.symbol, name: instruments.name })
+    .from(instruments)
+    .where(inArray(instruments.id, [...ids]));
+}
+
 export async function getInstrumentBySymbol(
   db: Database,
   symbol: string,
