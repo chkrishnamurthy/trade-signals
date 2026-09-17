@@ -79,19 +79,33 @@ suite('intraday strategy persistence on real PostgreSQL', () => {
         sql`select id from strategy_signals where instrument_id=${instrument}`,
       )
     ).rows;
-    await expect(
+    // drizzle wraps the driver error ("Failed query: …"); the trigger's message is the cause.
+    const rejects = async (query: Promise<unknown>, pattern: RegExp) => {
+      const error = await query.then(
+        () => null,
+        (e: unknown) => e,
+      );
+      expect(error).toBeInstanceOf(Error);
+      const cause = (error as Error & { cause?: unknown }).cause;
+      const text = `${(error as Error).message} ${cause instanceof Error ? cause.message : ''}`;
+      expect(text).toMatch(pattern);
+    };
+    await rejects(
       handle.db.execute(
         sql`update strategy_signals set evidence = evidence || '{"vwap":1}' where id=${row!.id}`,
       ),
-    ).rejects.toThrow(/immutable/);
-    await expect(
+      /immutable/,
+    );
+    await rejects(
       handle.db.execute(
         sql`update strategy_signal_events set reason='x' where signal_id=${row!.id}`,
       ),
-    ).rejects.toThrow();
-    await expect(
+      /append-only/,
+    );
+    await rejects(
       handle.db.execute(sql`update strategy_signals set ended_at=now() where id=${row!.id}`),
-    ).rejects.toThrow(/strategy_signals_ended_terminal/);
+      /strategy_signals_ended_terminal/,
+    );
   });
   it('fills, books half at Target 1, exits at Target 2 and records the worked example result', async () => {
     const observe = (at: number, price: number) =>
@@ -103,6 +117,7 @@ suite('intraday strategy persistence on real PostgreSQL', () => {
         null,
         book,
       );
+    // Samples must stay within the 15 s coverage window, as the live 5 s cycle does.
     await observe(publishedAt - 4_000, 295_600); // establishes continuity
     await observe(publishedAt + 1_000, 295_650);
     let [s] = await listIntradaySignals(handle.db, evidence.sessionDate);
@@ -113,8 +128,8 @@ suite('intraday strategy persistence on real PostgreSQL', () => {
       taken: true,
     });
     await observe(publishedAt + 1_000, 300_000); // stale: ignored
-    await observe(ist(SESSION, 10, 35), 297_830);
-    await observe(ist(SESSION, 12, 40), 300_020);
+    await observe(publishedAt + 11_000, 297_830); // Target 1
+    await observe(publishedAt + 21_000, 300_020); // Target 2
     [s] = await listIntradaySignals(handle.db, evidence.sessionDate);
     expect(s?.projection.status).toBe('TARGET_2_HIT');
     expect(s?.realisedNetPaise).toBe(506_531);
@@ -140,7 +155,7 @@ suite('intraday strategy persistence on real PostgreSQL', () => {
       lossHalted: false,
     });
     // Terminal: further prices change nothing.
-    await observe(ist(SESSION, 13, 0), 100);
+    await observe(publishedAt + 31_000, 100);
     expect((await listIntradaySignals(handle.db, evidence.sessionDate))[0]?.projection.status).toBe(
       'TARGET_2_HIT',
     );
