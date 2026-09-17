@@ -1,5 +1,6 @@
 import 'server-only';
 import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { ORB_CONFIG, orbRules } from '@equitywise/core';
 import {
   intradayBookFromSignals,
@@ -33,10 +34,10 @@ import { describeDataSources } from './provider';
 const settingsSchema = z
   .object({ enabled: z.boolean(), capitalPaise: z.number().int().positive() })
   .passthrough();
+/** Repo root, from apps/web at runtime — the same convention as indices.ts. */
+const CONFIG_PATH = join(process.cwd(), '..', '..', 'config', 'intraday-orb.yaml');
 async function settings() {
-  return settingsSchema.parse(
-    parse(await readFile(new URL('../../../../config/intraday-orb.yaml', import.meta.url), 'utf8')),
-  );
+  return settingsSchema.parse(parse(await readFile(CONFIG_PATH, 'utf8')));
 }
 const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD.');
 
@@ -47,7 +48,13 @@ async function authenticated(run: () => Promise<unknown>): Promise<NextResponse>
     return NextResponse.json(await run(), { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     const invalid = error instanceof z.ZodError;
-    // Never expose database errors, query text or connection details to clients.
+    // The cause goes to the server log only; never expose database errors,
+    // query text, file paths or connection details to clients.
+    if (!invalid)
+      console.error('[intraday] snapshot failed', {
+        errorName: error instanceof Error ? error.name : 'Error',
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
     return NextResponse.json(
       {
         error: invalid
