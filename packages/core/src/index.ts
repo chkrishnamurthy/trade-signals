@@ -9,9 +9,8 @@
 
 export * from './announcement-interpretation.js';
 export * from './indicators/index.js';
+export * from './intraday/index.js';
 export * from './paper-journal.js';
-export * from './signal-lifecycle.js';
 export * from './signals/index.js';
 export type { Bar, Series } from './types.js';
 export { at, latest } from './types.js';
-export * from './vwap-strategy.js';

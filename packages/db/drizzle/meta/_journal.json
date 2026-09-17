@@ -141,6 +141,13 @@
       "when": 1789371600000,
       "tag": "0019_trim_low_value_audit_logs",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1789380000000,
+      "tag": "0020_intraday_strategy",
+      "breakpoints": true
     }
   ]
 }

@@ -1,10 +1,12 @@
-import type { PaperCosts } from '@equitywise/core';
-import type {
-  PaperSizing,
-  ScannerSnapshot,
-  SignalEvidence,
-  SignalProjection,
-} from '@equitywise/shared';
+/**
+ * Retained from the removed Confirmed VWAP Trend Pullback page. `minute_candles`,
+ * `signal_quotes` and `signal_observations` are live (the intraday strategy reads
+ * and writes them). The `vwap_*` and `paper_*` tables hold that page's history
+ * and are dropped after their export (intraday-strategy-dhan-plan.md, phase 6);
+ * their JSON columns are untyped here because the contracts no longer exist.
+ */
+type Retained = Record<string, unknown>;
+
 import { sql } from 'drizzle-orm';
 import {
   bigint,
@@ -64,8 +66,8 @@ export const vwapSignals = pgTable(
     sector: text(),
     publishedAt: timestamp({ withTimezone: true }).notNull(),
     expiresAt: timestamp({ withTimezone: true }).notNull(),
-    evidence: jsonb().$type<SignalEvidence>().notNull(),
-    projection: jsonb().$type<SignalProjection>().notNull(),
+    evidence: jsonb().$type<Retained>().notNull(),
+    projection: jsonb().$type<Retained>().notNull(),
     sequence: integer().notNull().default(1),
     endedAt: timestamp({ withTimezone: true }),
   },
@@ -99,7 +101,7 @@ export const vwapSignalEvents = pgTable(
 );
 export const signalScanRuns = pgTable('signal_scan_runs', {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
-  snapshot: jsonb().$type<ScannerSnapshot>().notNull(),
+  snapshot: jsonb().$type<Retained>().notNull(),
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });
 export const signalQuotes = pgTable('signal_quotes', {
@@ -143,10 +145,10 @@ export const paperStudies = pgTable(
     requestHash: text().notNull(),
     capitalPaise: bigint({ mode: 'number' }).notNull(),
     riskBps: integer().notNull(),
-    sizing: jsonb().$type<PaperSizing>().notNull(),
-    costs: jsonb().$type<PaperCosts>().notNull(),
+    sizing: jsonb().$type<Retained>().notNull(),
+    costs: jsonb().$type<Retained>().notNull(),
     moveToBreakeven: boolean().notNull(),
-    projection: jsonb().$type<SignalProjection>().notNull(),
+    projection: jsonb().$type<Retained>().notNull(),
     sequence: integer().notNull().default(1),
     createdAt: timestamp({ withTimezone: true }).notNull(),
     endedAt: timestamp({ withTimezone: true }),
@@ -169,7 +171,7 @@ export const paperStudyEvents = pgTable(
       .notNull()
       .references(() => paperStudies.id),
     sequence: integer().notNull(),
-    projection: jsonb().$type<SignalProjection>().notNull(),
+    projection: jsonb().$type<Retained>().notNull(),
     at: timestamp({ withTimezone: true }).notNull(),
     netPaise: bigint({ mode: 'number' }),
   },

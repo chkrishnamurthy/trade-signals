@@ -1,8 +1,0 @@
-# Intraday research; a private journal never contacts a broker execution API.
-enabled: true
-universe: nifty50
-historyDays: 14
-historyConcurrency: 4
-observationModel: sampled_quotes_5s
-strategyRevision: 1
-# Changing evaluator thresholds requires a new strategy revision and tests.

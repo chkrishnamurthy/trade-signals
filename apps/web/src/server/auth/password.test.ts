@@ -37,20 +37,25 @@ describe('password hashing', () => {
 
 describe('validatePassword', () => {
   it('rejects too-short passwords', () => {
-    expect(validatePassword('short').ok).toBe(false);
+    expect(validatePassword('ab1').ok).toBe(false);
   });
 
-  it('rejects a common password', () => {
-    expect(validatePassword('passw0rd').ok).toBe(false);
+  it('rejects letters-only and numbers-only passwords', () => {
+    expect(validatePassword('onlyletters').ok).toBe(false);
+    expect(validatePassword('1234567890').ok).toBe(false);
   });
 
-  it('accepts a strong passphrase', () => {
-    const result = validatePassword('a perfectly reasonable passphrase');
-    expect(result.ok).toBe(true);
+  it('accepts a simple letters-plus-number password', () => {
+    expect(validatePassword('krishna1').ok).toBe(true);
+    expect(validatePassword('a perfectly reasonable passphrase 2026').ok).toBe(true);
+  });
+
+  it('counts non-Latin letters and digits', () => {
+    expect(validatePassword('कृष्ण१२३४५').ok).toBe(true);
   });
 
   it('enforces the documented minimum length', () => {
-    expect(validatePassword('x'.repeat(MIN_PASSWORD_LENGTH - 1)).ok).toBe(false);
-    expect(validatePassword('x'.repeat(MIN_PASSWORD_LENGTH)).ok).toBe(true);
+    expect(validatePassword(`a${'1'.repeat(MIN_PASSWORD_LENGTH - 2)}`).ok).toBe(false);
+    expect(validatePassword(`a${'1'.repeat(MIN_PASSWORD_LENGTH - 1)}`).ok).toBe(true);
   });
 });

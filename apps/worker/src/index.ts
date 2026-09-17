@@ -11,8 +11,8 @@ import {
   ingestFiiDii,
   ingestShareholding,
 } from './jobs/ingest-disclosures.js';
+import { createIntradayJobs } from './jobs/intraday-orb.js';
 import { refreshProviderCredential } from './jobs/refresh-credential.js';
-import { createSignalJobs } from './jobs/vwap-signals.js';
 import { createLogger, errorFields } from './log.js';
 import { createScheduler, type Scheduler } from './scheduler.js';
 
@@ -85,13 +85,16 @@ const SCHEDULES = {
 } as const;
 
 function buildScheduler(context: WorkerContext): Scheduler {
-  const signals = createSignalJobs(context, log.child('signals'));
+  const intraday = createIntradayJobs(context, log.child('intraday'));
   return createScheduler(
     [
-      { name: 'signal-reconcile', schedule: '20 * * * * *', run: signals.reconcile },
-      { name: 'signal-quotes', schedule: '*/5 * 9-15 * * *', run: signals.quoteCycle },
-      { name: 'signal-scan', schedule: '2,17 */5 9-15 * * *', run: signals.scan },
-      { name: 'signal-warmup', schedule: '0 50 8 * * 1-5', run: signals.warmup },
+      // ORB-VC: warm up 1m history at 08:50, evaluate each closed 5m candle at
+      // +2s (and +17s for late bars), sample quotes every 5s for the lifecycle,
+      // and close anything the session left unresolved.
+      { name: 'intraday-reconcile', schedule: '20 * * * * *', run: intraday.reconcile },
+      { name: 'intraday-quotes', schedule: '*/5 * 9-15 * * 1-5', run: intraday.quoteCycle },
+      { name: 'intraday-scan', schedule: '2,17 */5 9-14 * * 1-5', run: intraday.scan },
+      { name: 'intraday-warmup', schedule: '0 50 8 * * 1-5', run: intraday.warmup },
       {
         name: 'refresh-credential',
         schedule: SCHEDULES.refreshCredential,

@@ -20,7 +20,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
 import { API_ROUTES } from '@/lib/api-routes';
-import { MIN_PASSWORD_LENGTH, validatePassword } from '@/server/auth/password-policy';
+import { PASSWORD_RULE_HINT, validatePassword } from '@/server/auth/password-policy';
 import { sendJson } from './request';
 
 /** Change password while signed in. Requires the current password; signs out other devices. */
@@ -95,7 +95,7 @@ export function ChangePassword() {
             <FormDescription>
               {strength !== null && !strength.ok
                 ? strength.reason
-                : `At least ${MIN_PASSWORD_LENGTH} characters.`}
+                : PASSWORD_RULE_HINT}
             </FormDescription>
           </FormField>
           <FormField invalid={mismatch}>

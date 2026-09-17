@@ -5,7 +5,6 @@ import { authSessionSecret, signupEnabled } from '@/server/auth/env';
 import { fail, json } from '@/server/auth/http';
 import { hashPassword } from '@/server/auth/password';
 import { validatePassword } from '@/server/auth/password-policy';
-import { isPwned } from '@/server/auth/pwned';
 import { clientIp, isSameOrigin } from '@/server/auth/request';
 import { signUpSchema } from '@/server/auth/schemas';
 import { startSession } from '@/server/auth/session';
@@ -54,11 +53,6 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   const strength = validatePassword(password);
   if (!strength.ok) return fail(strength.reason, 400, { code: 'WEAK_PASSWORD' });
-  if (await isPwned(password)) {
-    return fail('That password has appeared in a data breach — please choose another.', 400, {
-      code: 'BREACHED_PASSWORD',
-    });
-  }
 
   // Verify required config BEFORE any write. Establishing the session (below)
   // needs this secret; checking it now means a server misconfiguration can never

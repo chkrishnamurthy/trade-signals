@@ -29,6 +29,7 @@
     "dhan:probe": "tsx scripts/dhan-probe.ts",
     "clean": "pnpm -r clean && rm -rf apps/web/.next",
     "data:coverage": "tsx scripts/coverage.ts",
+    "replay:intraday": "tsx scripts/replay-intraday.ts",
     "data:seed-disclosures": "tsx scripts/seed-disclosures.ts"
   },
   "devDependencies": {

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { API_ROUTES } from '@/lib/api-routes';
+import { PASSWORD_RULE_HINT } from '@/server/auth/password-policy';
 import { AuthCard } from './auth-card';
 
 export function SignupForm() {
@@ -105,10 +106,7 @@ export function SignupForm() {
               onChange={(e) => setPassword(e.target.value)}
             />
           </FormControl>
-          <FormDescription>
-            At least 12 characters. A few memorable words work well — avoid common or reused
-            passwords, which are rejected for your safety.
-          </FormDescription>
+          <FormDescription>{PASSWORD_RULE_HINT}</FormDescription>
         </FormField>
         <label
           htmlFor="accept-terms"

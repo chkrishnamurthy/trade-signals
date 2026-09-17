@@ -42,7 +42,9 @@ export const WithDescription: Story = {
       <FormControl>
         <Input type="password" />
       </FormControl>
-      <FormDescription>At least 12 characters.</FormDescription>
+      <FormDescription>
+        At least 8 characters, with at least one letter and one number.
+      </FormDescription>
     </FormField>
   ),
 };

@@ -117,6 +117,8 @@ export {
   resolveInstrumentIds,
   syncInstruments,
 } from './instruments.js';
+export * from './intraday.js';
+export * from './minute-bars.js';
 export type { ProfilePatch } from './profile.js';
 export {
   deleteOtherSessionsForUser,
@@ -140,7 +142,6 @@ export {
   registerStrategy,
   saveSignal,
 } from './signals.js';
-export * from './vwap-signals.js';
 export type {
   StoredLayout,
   StoredView,

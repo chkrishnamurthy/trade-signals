@@ -17,7 +17,8 @@ Status: **implemented (dev) — see status below** · Date: 2026-09-06
 | Area | Status |
 | --- | --- |
 | Sign-up, log in, log out, closed-by-default route gate | ✅ |
-| Argon2id password hashing + breached-password check | ✅ |
+| Argon2id password hashing | ✅ |
+| Password policy — **relaxed 2026-09-17** to 8+ chars with a letter and a number; the 12-char minimum, blocklist and breached-password check were removed because sign-up friction was losing users (`apps/web/src/server/auth/password-policy.ts`) | ✅ |
 | Sessions — `__Host-` cookie, HMAC-signed, DB-backed, revocable, idle+absolute expiry | ✅ |
 | CSRF (Origin check) · rate-limit + progressive lockout | ✅ |
 | Email verification + password reset via **Resend** (live; sends from `support@equitywise.io`) | ✅ |
