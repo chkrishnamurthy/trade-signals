@@ -1,3 +1,8 @@
+import {
+  createReconnectingStream,
+  type StreamState as SharedStreamState,
+  type TickTransport as SharedTickTransport,
+} from '@equitywise/shared';
 import { internalSymbolFor } from './symbols.js';
 import { rawLiteTickSchema, type Tick, toTick } from './types.js';
 
@@ -19,15 +24,7 @@ export const FYERS_DATA_SOCKET_URL = 'wss://socket.fyers.in/hsm/v1-5/prod';
 export const MAX_SUBSCRIPTION_SYMBOLS = 200;
 
 /** The minimum a transport must provide. Matches the official SDK's surface. */
-export interface TickTransport {
-  connect(): void;
-  close(): void;
-  subscribe(symbols: string[]): void;
-  unsubscribe(symbols: string[]): void;
-  on(event: 'message', handler: (payload: unknown) => void): void;
-  on(event: 'connect' | 'close', handler: () => void): void;
-  on(event: 'error', handler: (error: unknown) => void): void;
-}
+export type TickTransport = SharedTickTransport<string>;
 
 export interface StreamOptions {
   /** Builds a fresh transport. Called again on every reconnect. */
@@ -47,7 +44,7 @@ export interface StreamOptions {
   readonly random?: () => number;
 }
 
-export type StreamState = 'idle' | 'connecting' | 'live' | 'reconnecting' | 'closed';
+export type StreamState = SharedStreamState;
 
 export interface TickStream {
   /** Adds symbols to the subscription and pushes them to the socket if live. */
@@ -62,183 +59,25 @@ export interface TickStream {
 /**
  * Opens a lite-mode tick stream.
  *
- * Reconnect semantics: on close or heartbeat timeout the transport is discarded
- * and a new one built after a jittered backoff. The full symbol set is
- * resubscribed on every (re)connect — the socket keeps no state across
- * connections, so anything less silently loses feeds after the first drop.
+ * The reconnect / resubscribe / heartbeat machinery is the shared
+ * `createReconnectingStream`; what is Fyers-specific here is the 200-symbol
+ * cap and turning a lite-mode payload into a tick. Acks and control frames
+ * share the message channel and decode to null.
  */
 export function streamTicks(
   initialSymbols: string[],
   onTick: (tick: Tick) => void,
   options: StreamOptions,
 ): TickStream {
-  const {
-    createTransport,
-    heartbeatTimeoutMs = 30_000,
-    reconnectDelayMs = 1_000,
-    maxReconnectDelayMs = 60_000,
-    maxReconnectAttempts = Number.POSITIVE_INFINITY,
-    onError,
-    onStateChange,
-    setTimeoutImpl = setTimeout,
-    clearTimeoutImpl = clearTimeout,
-    random = Math.random,
-  } = options;
-
-  const subscribed = new Set(initialSymbols);
-  if (subscribed.size > MAX_SUBSCRIPTION_SYMBOLS) {
-    throw new RangeError(
-      `streamTicks: ${subscribed.size} symbols exceeds the ${MAX_SUBSCRIPTION_SYMBOLS}-symbol socket limit`,
-    );
-  }
-
-  let transport: TickTransport | null = null;
-  let state: StreamState = 'idle';
-  let attempts = 0;
-  let heartbeatTimer: ReturnType<typeof setTimeout> | null = null;
-  let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-  let stopped = false;
-
-  const setState = (next: StreamState): void => {
-    if (state === next) return;
-    state = next;
-    onStateChange?.(next);
-  };
-
-  const clearHeartbeat = (): void => {
-    if (heartbeatTimer !== null) {
-      clearTimeoutImpl(heartbeatTimer);
-      heartbeatTimer = null;
-    }
-  };
-
-  /**
-   * Restarts the watchdog. A live market socket is never silent for long; if it
-   * goes quiet the TCP connection is usually half-open, which no 'close' event
-   * will ever tell us about.
-   */
-  const armHeartbeat = (): void => {
-    clearHeartbeat();
-    if (stopped) return;
-    heartbeatTimer = setTimeoutImpl(() => {
-      onError?.(new Error(`No tick for ${heartbeatTimeoutMs}ms; assuming the socket is dead`));
-      cycle();
-    }, heartbeatTimeoutMs);
-  };
-
-  const teardown = (): void => {
-    clearHeartbeat();
-    if (transport !== null) {
-      try {
-        transport.close();
-      } catch {
-        // A transport that throws on close is already gone.
-      }
-      transport = null;
-    }
-  };
-
-  /** Drops the current connection and schedules a fresh one. */
-  const cycle = (): void => {
-    if (stopped) return;
-    teardown();
-
-    attempts += 1;
-    if (attempts > maxReconnectAttempts) {
-      onError?.(new Error(`Giving up after ${attempts - 1} reconnect attempts`));
-      setState('closed');
-      stopped = true;
-      return;
-    }
-
-    setState('reconnecting');
-    const ceiling = Math.min(reconnectDelayMs * 2 ** (attempts - 1), maxReconnectDelayMs);
-    const delay = Math.round(ceiling * (0.5 + random() * 0.5));
-    reconnectTimer = setTimeoutImpl(connect, delay);
-  };
-
-  function connect(): void {
-    if (stopped) return;
-    reconnectTimer = null;
-    setState(state === 'idle' ? 'connecting' : 'reconnecting');
-
-    const next = createTransport();
-    transport = next;
-
-    next.on('connect', () => {
-      attempts = 0;
-      setState('live');
-      // The socket remembers nothing across connections: always resubscribe.
-      if (subscribed.size > 0) next.subscribe([...subscribed]);
-      armHeartbeat();
-    });
-
-    next.on('message', (payload: unknown) => {
-      armHeartbeat();
+  return createReconnectingStream<string, Tick>(initialSymbols, onTick, {
+    ...options,
+    maxSymbols: MAX_SUBSCRIPTION_SYMBOLS,
+    decode: (payload) => {
       const parsed = rawLiteTickSchema.safeParse(payload);
-      if (!parsed.success) return; // acks and control frames share this channel
-      const tick = toTick(parsed.data, safeInternalSymbol);
-      if (tick !== null) onTick(tick);
-    });
-
-    next.on('error', (error: unknown) => {
-      onError?.(error);
-    });
-
-    next.on('close', () => {
-      if (stopped) return;
-      cycle();
-    });
-
-    try {
-      next.connect();
-    } catch (error) {
-      onError?.(error);
-      cycle();
-    }
-  }
-
-  connect();
-
-  return {
-    subscribe(symbols: string[]): void {
-      const added: string[] = [];
-      for (const symbol of symbols) {
-        if (!subscribed.has(symbol)) {
-          subscribed.add(symbol);
-          added.push(symbol);
-        }
-      }
-      if (subscribed.size > MAX_SUBSCRIPTION_SYMBOLS) {
-        throw new RangeError(
-          `subscribe: ${subscribed.size} symbols exceeds the ${MAX_SUBSCRIPTION_SYMBOLS}-symbol socket limit`,
-        );
-      }
-      if (added.length > 0 && state === 'live' && transport !== null) {
-        transport.subscribe(added);
-      }
+      if (!parsed.success) return null;
+      return toTick(parsed.data, safeInternalSymbol);
     },
-
-    unsubscribe(symbols: string[]): void {
-      const removed = symbols.filter((symbol) => subscribed.delete(symbol));
-      if (removed.length > 0 && state === 'live' && transport !== null) {
-        transport.unsubscribe(removed);
-      }
-    },
-
-    symbols: () => [...subscribed],
-    state: () => state,
-
-    close(): void {
-      stopped = true;
-      if (reconnectTimer !== null) {
-        clearTimeoutImpl(reconnectTimer);
-        reconnectTimer = null;
-      }
-      teardown();
-      setState('closed');
-    },
-  };
+  });
 }
 
 /** Falls back to the raw symbol when it does not parse, rather than throwing mid-stream. */

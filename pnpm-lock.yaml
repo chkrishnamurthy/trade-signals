@@ -17,9 +17,15 @@ importers:
       '@equitywise/db':
         specifier: workspace:*
         version: link:packages/db
+      '@equitywise/dhan':
+        specifier: workspace:*
+        version: link:packages/dhan
       '@equitywise/fyers':
         specifier: workspace:*
         version: link:packages/fyers
+      '@equitywise/providers-dhan':
+        specifier: workspace:*
+        version: link:packages/providers-dhan
       '@equitywise/shared':
         specifier: workspace:*
         version: link:packages/shared
@@ -50,9 +56,15 @@ importers:
       '@equitywise/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@equitywise/dhan':
+        specifier: workspace:*
+        version: link:../../packages/dhan
       '@equitywise/market-data':
         specifier: workspace:*
         version: link:../../packages/market-data
+      '@equitywise/providers-dhan':
+        specifier: workspace:*
+        version: link:../../packages/providers-dhan
       '@equitywise/providers-fyers':
         specifier: workspace:*
         version: link:../../packages/providers-fyers
@@ -183,6 +195,9 @@ importers:
       '@equitywise/market-data':
         specifier: workspace:*
         version: link:../../packages/market-data
+      '@equitywise/providers-dhan':
+        specifier: workspace:*
+        version: link:../../packages/providers-dhan
       '@equitywise/providers-fyers':
         specifier: workspace:*
         version: link:../../packages/providers-fyers
@@ -259,6 +274,15 @@ importers:
         specifier: ^0.31.6
         version: 0.31.10
 
+  packages/dhan:
+    dependencies:
+      '@equitywise/shared':
+        specifier: workspace:*
+        version: link:../shared
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
+
   packages/fyers:
     dependencies:
       '@equitywise/shared':
@@ -273,6 +297,18 @@ importers:
 
   packages/market-data:
     dependencies:
+      '@equitywise/shared':
+        specifier: workspace:*
+        version: link:../shared
+
+  packages/providers-dhan:
+    dependencies:
+      '@equitywise/dhan':
+        specifier: workspace:*
+        version: link:../dhan
+      '@equitywise/market-data':
+        specifier: workspace:*
+        version: link:../market-data
       '@equitywise/shared':
         specifier: workspace:*
         version: link:../shared

@@ -104,6 +104,13 @@ operations — is **`docs/operations/deployment.md`**. Read it before touching i
 - The Fyers market-data token is minted by the worker into `provider_credentials`
   and **self-heals** when invalidated early (Fyers is single-session; a manual
   trading login kills it). See `docs/operations/deployment.md` §5.
+- **Dhan is a second provider** (2026-09-17): `MARKET_DATA_PROVIDER=fyers|dhan|routed`
+  selects it in both processes; the worker mints its token nightly (01:35 IST)
+  into the same table under `provider_id='dhan'`. `routed` is the intended
+  production shape — daily bars/quotes/instruments from Dhan, intraday bars/
+  status/socket from Fyers, each falling back to the other. Dhan's own live
+  socket exists (`MARKET_DATA_ROUTE_STREAM=dhan`, 5,000 symbols vs 200). Plan
+  and evidence: `docs/planning/dhan-provider-plan.md`.
 
 ## Conventions
 

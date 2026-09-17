@@ -3,6 +3,7 @@ import { config as loadEnv } from 'dotenv';
 import { createContext, type WorkerContext } from './context.js';
 import { authMaintenance } from './jobs/auth-maintenance.js';
 import { computeIndicators } from './jobs/compute-indicators.js';
+import { crossCheckProviders } from './jobs/cross-check-bars.js';
 import { ingestDailyCandles } from './jobs/ingest-daily.js';
 import {
   ingestAnnouncements,
@@ -51,8 +52,22 @@ const SCHEDULES = {
    * expire the same morning and lasts only minutes. Minting at 07:05 dates it to
    * the following 07:00 IST — a full day. Weekdays only: a token that lapses over
    * the weekend is refreshed on Monday before anything needs it.
+   *
+   * Every held provider is refreshed here; the Fyers reasoning above sets the
+   * hour and is harmless for the rest.
    */
   refreshCredential: '5 7 * * 1-5',
+  /**
+   * Nightly rollover at 01:35 for providers whose token lasts 24 h from its
+   * mint rather than to a fixed hour (Dhan). Left to the 07:05 job alone, a
+   * token minted at 07:05 dies at 07:04 the next morning — mid pre-open, with
+   * the morning check the one to discover it. Rolling it over at 01:35 (renewed
+   * without the secrets when it still has life, minted otherwise) moves the
+   * daily gap to the middle of the night, where nothing is reading. Every day,
+   * not weekdays: a 24 h token does not survive a weekend. Providers whose
+   * token is dated to a fixed hour (Fyers) are skipped.
+   */
+  credentialRollover: '35 1 * * *',
   ingestDaily: '15 16 * * 1-5',
   computeIndicators: '45 16 * * 1-5',
   /** A second attempt, in case the first ran while the credential was stale. */
@@ -82,6 +97,15 @@ function buildScheduler(context: WorkerContext): Scheduler {
         schedule: SCHEDULES.refreshCredential,
         run: async () => {
           await refreshProviderCredential(context, log.child('refresh-credential'));
+        },
+      },
+      {
+        name: 'credential-rollover',
+        schedule: SCHEDULES.credentialRollover,
+        run: async () => {
+          await refreshProviderCredential(context, log.child('credential-rollover'), {
+            rolloverOnly: true,
+          });
         },
       },
       {
@@ -131,6 +155,16 @@ function buildScheduler(context: WorkerContext): Scheduler {
         schedule: SCHEDULES.ingestShareholding,
         run: async () => {
           await ingestShareholding(context, log.child('ingest-shareholding'));
+        },
+      },
+      {
+        // On demand only (`--once cross-check-bars`): it reads both providers'
+        // budgets and writes nothing. The schedule is a placeholder that never
+        // fires — 31 February does not exist.
+        name: 'cross-check-bars',
+        schedule: '0 0 31 2 *',
+        run: async () => {
+          await crossCheckProviders(context, log.child('cross-check-bars'));
         },
       },
       {
@@ -206,6 +240,11 @@ async function main(): Promise<void> {
   await waitForDatabase(context);
   log.info('database ready');
 
+  log.info('market data', {
+    provider: context.providerId,
+    held: [...context.providers.keys()],
+  });
+
   // Before any job runs: a worker started after 07:00 IST has an expired token
   // in its environment, and every fetch would fail upstream until the refresh.
   // Failure is logged rather than fatal — the schedule below will try again,
@@ -223,9 +262,11 @@ async function main(): Promise<void> {
       log.error('--once requires a job name', {
         available: [
           'refresh-credential',
+          'credential-rollover',
           'ingest-daily',
           'compute-indicators',
           'ingest-retry',
+          'cross-check-bars',
           'ingest-announcements',
           'ingest-fii-dii',
           'ingest-deals',

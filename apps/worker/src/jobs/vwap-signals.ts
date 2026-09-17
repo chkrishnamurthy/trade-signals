@@ -54,17 +54,28 @@ export function createSignalJobs(context: WorkerContext, log: Logger) {
   let evaluatedBoundary = 0;
   const evaluatedSymbols = new Set<string>();
   let retryAt = 0;
-  let lastCredentialRecovery = 0;
+  /**
+   * Last self-heal per provider. A rejected token is re-minted at most once
+   * per ten minutes: enough to recover from an early invalidation (Fyers is
+   * single-session) without a genuine outage turning into a login storm, and
+   * comfortably above Dhan's two-minute mint throttle.
+   */
+  const lastCredentialRecovery = new Map<string, number>();
   const upstreamFailure = async (error: unknown) => {
     if (!(error instanceof MarketDataProviderError)) return;
     if (error.failure === 'rate_limit')
       retryAt = Date.now() + Math.max(error.retryAfterMs ?? 60_000, 60_000);
     if (error.failure === 'auth') {
       retryAt = Date.now() + 60_000;
-      if (Date.now() - lastCredentialRecovery >= 600_000) {
-        lastCredentialRecovery = Date.now();
-        await invalidateProviderCredential(context.db, context.providerId);
-        await refreshProviderCredential(context, log);
+      // The error names the provider whose token was rejected — under a
+      // routed provider that is one of several, and only ITS row is expired.
+      const providerId = context.providers.has(error.providerId)
+        ? error.providerId
+        : context.providerId;
+      if (Date.now() - (lastCredentialRecovery.get(providerId) ?? 0) >= 600_000) {
+        lastCredentialRecovery.set(providerId, Date.now());
+        await invalidateProviderCredential(context.db, providerId);
+        await refreshProviderCredential(context, log, { providerId });
         market = null;
       }
     }
@@ -185,7 +196,7 @@ export function createSignalJobs(context: WorkerContext, log: Logger) {
             db,
             closed.map((b) => ({
               instrumentId,
-              providerId: context.providerId,
+              providerId: context.providerIdFor('intradayBars'),
               ts: new Date(b.timestamp),
               open: b.open,
               high: b.high,

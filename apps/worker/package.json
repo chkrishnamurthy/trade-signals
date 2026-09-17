@@ -15,6 +15,7 @@
     "@equitywise/core": "workspace:*",
     "@equitywise/db": "workspace:*",
     "@equitywise/market-data": "workspace:*",
+    "@equitywise/providers-dhan": "workspace:*",
     "@equitywise/providers-fyers": "workspace:*",
     "@equitywise/shared": "workspace:*",
     "croner": "^9.0.0",

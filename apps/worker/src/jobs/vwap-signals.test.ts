@@ -52,6 +52,8 @@ function setup(isOpen = true) {
   const context = {
     db: {},
     providerId: 'test',
+    providerIdFor: () => 'test',
+    providers: new Map([['test', { fetchBars, fetchMarketStatus }]]),
     provider: { fetchBars, fetchMarketStatus },
   } as unknown as WorkerContext;
   const log = { warn: vi.fn(), info: vi.fn(), error: vi.fn() } as unknown as Logger;

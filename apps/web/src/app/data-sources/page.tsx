@@ -7,11 +7,12 @@ import { JsonLd } from '@/components/seo/json-ld';
 import { Badge } from '@/components/ui/badge';
 import { generateBreadcrumbSchema, SITE_URL } from '@/lib/seo/schema';
 import { getSessionUser } from '@/server/auth/require-user';
+import { describeDataSources } from '@/server/provider';
 
 export const metadata: Metadata = {
   title: 'Market Data Sources & Update Frequency | EquityWise',
   description:
-    'Transparency on EquityWise market data feeds: National Stock Exchange (NSE) quotes, licensed data provider integration (Fyers API), and daily EOD ingestion passes.',
+    'Transparency on EquityWise market data feeds: National Stock Exchange (NSE) quotes, licensed data provider integrations (Fyers API, Dhan API), and daily EOD ingestion passes.',
   alternates: {
     canonical: '/data-sources',
   },
@@ -23,8 +24,26 @@ export const metadata: Metadata = {
   },
 };
 
+/** Plain words for each question the app asks a market-data source. */
+const ROUTE_LABELS: Record<string, string> = {
+  bars: 'Daily & weekly history',
+  intradayBars: 'Intraday history (1m–1h)',
+  quotes: 'Snapshot quotes',
+  instruments: 'Instrument master',
+  status: 'Market open / closed',
+  stream: 'Live tick socket',
+};
+
 export default async function DataSourcesPage() {
   const user = await getSessionUser();
+  // Which provider answers what. A misconfigured selection is an operator
+  // problem surfaced in the logs, not a reason for a public page to fail.
+  let sources: ReturnType<typeof describeDataSources> | null = null;
+  try {
+    sources = describeDataSources();
+  } catch {
+    sources = null;
+  }
 
   const breadcrumbs = [
     { name: 'Home', path: '/' },
@@ -78,14 +97,41 @@ export default async function DataSourcesPage() {
               EquityWise tracks equities and indices listed exclusively on the{' '}
               <strong>National Stock Exchange of India (NSE)</strong>. Market data feeds, historical
               OHLCV bars, and quotes are consumed via official API integrations with licensed
-              SEBI-registered broker data infrastructures (specifically Fyers API v3).
+              SEBI-registered broker data infrastructures (Fyers API v3 and Dhan API v2).
             </p>
             <p>
-              <strong>Broker-Independent Architecture:</strong> While Fyers supplies raw market
+              <strong>Broker-Independent Architecture:</strong> While the brokers supply raw market
               feeds, EquityWise is completely broker-independent. Our application logic interacts
               only with a standardized, normalized <code>MarketDataProvider</code> abstraction. No
-              proprietary vendor fields or execution APIs enter the core analytical domain.
+              proprietary vendor fields or execution APIs enter the core analytical domain. Each
+              question the app asks is routed to the source best placed to answer it, with the other
+              as fallback.
             </p>
+            {sources !== null ? (
+              <div className="overflow-x-auto rounded-lg border border-border/80 bg-surface/40">
+                <table className="w-full text-xs">
+                  <caption className="px-4 py-2 text-left font-semibold text-foreground">
+                    Which source answers what{' '}
+                    <span className="font-normal text-muted-foreground">
+                      (active: {sources.active})
+                    </span>
+                  </caption>
+                  <tbody>
+                    {sources.routes.map((entry) => (
+                      <tr key={entry.route} className="border-t border-border/60">
+                        <th
+                          scope="row"
+                          className="px-4 py-1.5 text-left font-medium text-foreground"
+                        >
+                          {ROUTE_LABELS[entry.route] ?? entry.route}
+                        </th>
+                        <td className="px-4 py-1.5 text-muted-foreground">{entry.provider}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
           </section>
 
           <section className="space-y-3">

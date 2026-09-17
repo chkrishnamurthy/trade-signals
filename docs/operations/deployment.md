@@ -121,7 +121,7 @@ branch → PR → merge to main → GitHub Actions (.github/workflows/deploy.yml
 
 ---
 
-## 5. Market-data credential (Fyers) — the part that breaks
+## 5. Market-data credentials (Fyers, Dhan) — the part that breaks
 
 Fyers tokens **expire daily** (~07:00 IST) and Fyers allows **one active session
 per account**. The worker owns this:
@@ -152,6 +152,62 @@ per account**. The worker owns this:
 4. Make sure **nothing else** is logged into Fyers with the same account (a second
    worker, a `pnpm fyers:login` elsewhere, the trading app).
 
+### Dhan — the second provider (added 2026-09-17)
+
+Dhan is wired in beside Fyers as a second `MarketDataProvider` (plan and evidence:
+`docs/planning/dhan-provider-plan.md`). What differs operationally:
+
+- **Selection.** `MARKET_DATA_PROVIDER=fyers|dhan|routed` in **both** processes'
+  environments (default `fyers`). `routed` is the production shape: daily/weekly
+  bars, quotes and the instrument master from Dhan; intraday bars, market status
+  and the tick socket from Fyers; either provider answers for the other on an
+  auth / rate-limit / upstream failure. Per-route overrides are
+  `MARKET_DATA_ROUTE_*` (see `.env.example`). `/data-sources` shows the live table.
+- **Credential.** The worker holds `DHAN_CLIENT_ID` + `DHAN_PIN` + `DHAN_TOTP_SECRET`
+  and mints a token (documented TOTP endpoint) **at 01:35 IST daily and at
+  startup**, into `provider_credentials` row `provider_id='dhan'` (`app_id` = the
+  client id). A Dhan token lives **24 h from its mint** — not to a fixed hour like
+  Fyers — which is why the rollover runs at night rather than with the 07:05
+  Fyers refresh. `RenewToken` does not apply to TOTP-minted tokens (verified);
+  the worker simply re-mints. The web host needs only `DHAN_CLIENT_ID`.
+- **Not single-session.** Logging into the Dhan app or web does **not** kill the
+  worker's token. The self-heal still covers Dhan (a rejected token is re-minted
+  at most once per 10 min per provider); it just has far less to do.
+- **Mint throttle.** Dhan allows one mint per **2 minutes**; a second attempt
+  surfaces as `RATE_LIMIT` with `retryAfterMs: 120000`, never as an auth failure.
+  A correct TOTP is occasionally rejected once ("Invalid TOTP") when a code is
+  reused inside its 30 s window — the worker never does that.
+- **Rate limits.** Data calls are self-throttled to 3/s (Dhan documents 5/s but
+  bans at ~4/s bursts, `HTTP 429 DH-904`); quotes 1/s. A ban trips the same
+  circuit breaker as Fyers (`Blocked upstream for another 60s`). Auth traffic
+  appears to share the data budget — one more reason never to mint in a loop.
+- **Subscription.** The Data API is **₹499 + GST per 30 days, auto-debited from
+  the trading balance**. If the debit fails every Dhan call answers with an
+  authorisation error whose remedy names the subscription. Check: web.dhan.co →
+  DhanHQ Trading APIs → Data APIs, or `pnpm dhan:probe` (prints
+  `dataPlan`/`dataValidity`). Under `routed`, a lapsed subscription degrades to
+  "everything answered by Fyers" with a warning per call, not an outage.
+- **Known gap.** Dhan's **equity 1-minute history ends at 15:14 IST** (the closing
+  15 minutes and the closing auction are absent; index minutes are complete;
+  daily bars are complete). That is why intraday bars default to Fyers.
+- **Live socket.** Dhan's feed is a documented binary websocket
+  (`wss://api-feed.dhan.co`), spoken directly by `packages/dhan/src/stream.ts` over
+  Node's built-in `WebSocket` — no SDK. **5,000 symbols per connection** (Fyers: 200),
+  five connections per account. It is built, tested and live-verified but **not the
+  default**: `MARKET_DATA_ROUTE_STREAM=dhan` moves the watchlist's live prices onto
+  it; `DHAN_STREAM=0` is its kill switch. It uses the same token as REST, so a feed
+  disconnect with reason 807–810 is a dead token (the hub then polls; the worker's
+  next refresh fixes it) and 806 is the subscription. The feed's trade times are
+  IST wall-clock seconds, not UTC — the adapter corrects them.
+
+**To force a fresh Dhan token now:**
+`sudo -u postgres psql -d nse_signals -c "UPDATE provider_credentials SET expires_at = now() - interval '1 minute' WHERE provider_id='dhan';"`
+then `node apps/worker/dist/index.js --once refresh-credential` (or wait for the next cycle).
+
+**To compare the two providers' bars** (run here — the only host with a live Fyers token):
+`node apps/worker/dist/index.js --once cross-check-bars` — logs per-symbol agreement in paise
+for NIFTY 50 + a sample of constituents, 60 days of 1d and 5 sessions of 1m. Writes nothing.
+
 ### Live prices — the tick socket and the fan-in hub
 
 The watchlist's per-second prices come from **one Fyers data socket per web
@@ -178,6 +234,10 @@ the live-price path.
   sets `proxy_buffering on` explicitly for `/api/`, exempt `/api/watchlists/*/live`.
 - **One process only.** The hub is a per-process singleton; running `next start` in
   PM2 cluster mode would open one socket per instance. Keep it in fork mode.
+- **Dhan instead of Fyers for the socket:** `MARKET_DATA_ROUTE_STREAM=dhan` under
+  `MARKET_DATA_PROVIDER=routed` — see the Dhan sub-section above. Everything in
+  this section about the hub, fallback polling and Nginx applies unchanged; only
+  the per-process symbol cap changes (200 → 5,000).
 
 ---
 
@@ -275,7 +335,9 @@ logs; a browser certificate warning; no fresh signals during market hours.
 - `/opt/equitywise/scripts/restore-drill.sh` — restore verification (VPS).
 - `/etc/nginx/sites-available/equitywise` — reverse proxy + TLS (VPS).
 - `/etc/ssh/sshd_config.d/00-hardening.conf` — SSH hardening (VPS).
-- `apps/worker/src/jobs/refresh-credential.ts` — mints the Fyers token.
+- `apps/worker/src/jobs/refresh-credential.ts` — mints every held provider's token
+  (`apps/worker/src/credentials.ts` holds the per-provider strategies).
+- `apps/worker/src/jobs/cross-check-bars.ts` — Fyers-vs-Dhan bar comparison (`--once`).
 - `apps/worker/src/jobs/intraday-signals.ts` — the cycle + credential self-heal.
 - `packages/db/src/repositories/credentials.ts` — `provider_credentials` access,
   incl. `invalidateProviderCredential`.

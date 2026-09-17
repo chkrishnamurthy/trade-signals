@@ -1,3 +1,9 @@
+export {
+  DEFAULT_COOLDOWN_MS,
+  MAX_COOLDOWN_MS,
+  PathCircuitBreaker,
+  parseRetryAfter,
+} from './circuit.js';
 export type { FormatPaiseOptions } from './money.js';
 export {
   assertPaise,
@@ -7,6 +13,15 @@ export {
   paiseToRupees,
   rupeesToPaise,
 } from './money.js';
+export type { RateLimits, TokenBucketOptions } from './rate-limit.js';
+export { RateLimiter } from './rate-limit.js';
+export type {
+  ReconnectingStream,
+  ReconnectingStreamOptions,
+  StreamState,
+  TickTransport,
+} from './stream.js';
+export { createReconnectingStream } from './stream.js';
 export type { IstInput, IstParts } from './time.js';
 export {
   fromIstParts,

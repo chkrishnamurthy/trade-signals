@@ -1,0 +1,49 @@
+{
+  "data": {
+    "NSE_EQ": {
+      "2885": {
+        "average_price": 1243.37,
+        "buy_quantity": 15234,
+        "depth": {
+          "buy": [
+            { "quantity": 120, "orders": 3, "price": 1246.85 },
+            { "quantity": 0, "orders": 0, "price": 0 }
+          ],
+          "sell": [
+            { "quantity": 55, "orders": 1, "price": 1246.95 },
+            { "quantity": 0, "orders": 0, "price": 0 }
+          ]
+        },
+        "last_price": 1246.9,
+        "last_quantity": 10,
+        "last_trade_time": "16/09/2026 15:29:58",
+        "lower_circuit_limit": 1111.8,
+        "net_change": 11.6,
+        "ohlc": { "open": 1240.0, "close": 1235.3, "high": 1252.0, "low": 1236.6 },
+        "oi": 0,
+        "sell_quantity": 9876,
+        "upper_circuit_limit": 1358.8,
+        "volume": 8123456
+      },
+      "11915": {
+        "last_price": 23.14,
+        "last_trade_time": "01/01/1980 00:00:00",
+        "ohlc": { "open": 0, "close": 23.14, "high": 0, "low": 0 },
+        "depth": { "buy": [{ "quantity": 0, "orders": 0, "price": 0 }], "sell": [] },
+        "volume": 0
+      },
+      "99999": {
+        "last_price": 0,
+        "ohlc": { "open": 0, "close": 0, "high": 0, "low": 0 }
+      }
+    },
+    "IDX_I": {
+      "13": {
+        "last_price": 25123.45,
+        "net_change": -87.3,
+        "ohlc": { "open": 25200.1, "close": 25210.75, "high": 25260.0, "low": 25090.2 }
+      }
+    }
+  },
+  "status": "success"
+}

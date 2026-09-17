@@ -15,7 +15,9 @@
   "dependencies": {
     "@equitywise/core": "workspace:*",
     "@equitywise/db": "workspace:*",
+    "@equitywise/dhan": "workspace:*",
     "@equitywise/market-data": "workspace:*",
+    "@equitywise/providers-dhan": "workspace:*",
     "@equitywise/providers-fyers": "workspace:*",
     "@equitywise/shared": "workspace:*",
     "@node-rs/argon2": "^2.2.0",

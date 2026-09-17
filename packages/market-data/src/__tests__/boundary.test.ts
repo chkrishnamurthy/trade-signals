@@ -16,10 +16,12 @@ const REPO_ROOT = new URL('../../../../', import.meta.url).pathname;
 
 /** Files allowed to name a concrete provider, and why. */
 const ALLOWED = [
-  // The adapter. Its entire job is to hold both vocabularies at once.
+  // The adapters. Their entire job is to hold both vocabularies at once.
   'packages/providers-fyers/',
-  // The provider package itself.
+  'packages/providers-dhan/',
+  // The provider packages themselves.
   'packages/fyers/',
+  'packages/dhan/',
   // Composition roots: they pick which provider to construct.
   'apps/web/src/server/provider.ts',
   // Operator scripts that drive the login flow directly.
@@ -65,6 +67,16 @@ function offenders(pattern: string): string[] {
 describe('provider boundary', () => {
   it('nothing outside the adapter imports the Fyers package', () => {
     expect(offenders("from '@equitywise/fyers'")).toEqual([]);
+  });
+
+  it('nothing outside the adapter imports the Dhan package', () => {
+    expect(offenders("from '@equitywise/dhan'")).toEqual([]);
+  });
+
+  it('no Dhan addressing leaks into product code', () => {
+    // `securityId` and the segment codes are Dhan's vocabulary. The product
+    // speaks `RELIANCE` and `equity`.
+    expect(offenders("securityId|'NSE_EQ'|'IDX_I'")).toEqual([]);
   });
 
   it('no provider symbol format leaks into product code', () => {

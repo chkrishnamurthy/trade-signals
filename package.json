@@ -26,6 +26,7 @@
     "db:studio": "pnpm --filter @equitywise/db db:studio",
     "verify:adjustment": "tsx scripts/verify-adjustment.ts",
     "fyers:login": "tsx scripts/fyers-login.ts",
+    "dhan:probe": "tsx scripts/dhan-probe.ts",
     "clean": "pnpm -r clean && rm -rf apps/web/.next",
     "data:coverage": "tsx scripts/coverage.ts",
     "data:seed-disclosures": "tsx scripts/seed-disclosures.ts"
@@ -34,6 +35,8 @@
     "@biomejs/biome": "^2.5.11",
     "@equitywise/core": "workspace:*",
     "@equitywise/db": "workspace:*",
+    "@equitywise/dhan": "workspace:*",
+    "@equitywise/providers-dhan": "workspace:*",
     "@equitywise/fyers": "workspace:*",
     "@equitywise/shared": "workspace:*",
     "@types/node": "^26.4.0",
