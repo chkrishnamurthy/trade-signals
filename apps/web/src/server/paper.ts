@@ -16,6 +16,7 @@ import {
   ensurePaperPortfolio,
   getExchangeSession,
   getWorkerCheckpoint,
+  getWorkerCheckpointRow,
   latestSignalQuoteAt,
   listClosedPaperTrades,
   listPaperAudit,
@@ -92,6 +93,27 @@ async function sessionOn(tradingDate: string): Promise<ExchangeSession> {
   const stored = await getExchangeSession(getDatabase(), tradingDate);
   return stored ?? sessionFor(tradingDate, await calendar());
 }
+
+/** The worker's last self-report of its socket (`worker_checkpoints('feed')`). */
+async function socketReport(): Promise<PaperOverview['feed']['socket']> {
+  const row = await getWorkerCheckpointRow(getDatabase(), 'feed');
+  if (!row) return null;
+  const c = row.cursor;
+  return {
+    provider: typeof c.provider === 'string' ? c.provider : null,
+    state: typeof c.state === 'string' ? c.state : 'unknown',
+    lastTickAt: typeof c.lastTickAt === 'number' ? c.lastTickAt : null,
+    reportedAt: row.updatedAt,
+    note: typeof c.note === 'string' ? c.note : null,
+  };
+}
+const PROVIDER_NAMES: Record<string, string> = { dhan: 'Dhan', fyers: 'Fyers' };
+/** The worker's socket provider when it has reported one; else the quotes route the web app reads. */
+const feedName = (socket: PaperOverview['feed']['socket']) => {
+  if (socket?.provider) return PROVIDER_NAMES[socket.provider] ?? socket.provider;
+  const sources = describeDataSources();
+  return sources.routes.find((r) => r.route === 'quotes')?.provider ?? sources.active;
+};
 
 const strategies = () =>
   STRATEGY_CATALOGUE.map((s) => ({
@@ -226,18 +248,29 @@ export async function paperOverview(userId: number, now: number): Promise<PaperO
   const db = getDatabase();
   const view = await ensurePaperPortfolio(db, userId, now);
   const tradingDate = istDateKey(new Date(now));
-  const [session, status, balancesRow, live, today, decisions, halts, lastQuoteAt, monitor] =
-    await Promise.all([
-      sessionOn(tradingDate),
-      getMarketStatus(),
-      paperLedgerBalances(db, view.portfolio.id),
-      listPaperTradesDetailed(db, userId, { live: true }),
-      listPaperTradesDetailed(db, userId, { tradingDate }),
-      listPaperDecisions(db, userId, tradingDate),
-      listUserRiskEvents(db, userId, 10),
-      latestSignalQuoteAt(db),
-      getWorkerCheckpoint(db, 'paper-monitor'),
-    ]);
+  const [
+    session,
+    status,
+    balancesRow,
+    live,
+    today,
+    decisions,
+    halts,
+    lastQuoteAt,
+    monitor,
+    socket,
+  ] = await Promise.all([
+    sessionOn(tradingDate),
+    getMarketStatus(),
+    paperLedgerBalances(db, view.portfolio.id),
+    listPaperTradesDetailed(db, userId, { live: true }),
+    listPaperTradesDetailed(db, userId, { tradingDate }),
+    listPaperDecisions(db, userId, tradingDate),
+    listUserRiskEvents(db, userId, 10),
+    latestSignalQuoteAt(db),
+    getWorkerCheckpoint(db, 'paper-monitor'),
+    socketReport(),
+  ]);
   const openTrades = await tradesWithMarks(live);
   const snapshot = equitySnapshot(
     balancesRow.balances,
@@ -252,8 +285,6 @@ export async function paperOverview(userId: number, now: number): Promise<PaperO
   const closedToday = today.filter((t) => t.position.status === 'CLOSED');
   const realised = closedToday.reduce((s, t) => s + t.position.netRealisedPaise, 0);
   const unrealised = snapshot.unrealisedPaise;
-  const sources = describeDataSources();
-  const feedName = sources.routes.find((r) => r.route === 'stream')?.provider ?? sources.active;
   const phase = phaseAt(now, session, status?.isOpen ?? null);
   const inSession = phase !== 'CLOSED' && phase !== 'PRE_OPEN';
   const workerCycleAt = typeof monitor?.lastRunAt === 'number' ? monitor.lastRunAt : null;
@@ -277,11 +308,12 @@ export async function paperOverview(userId: number, now: number): Promise<PaperO
     session,
     phase,
     feed: {
-      name: feedName,
+      name: feedName(socket),
       mode,
       lastQuoteAt,
       workerCycleAt,
       workerDelayed: inSession && (workerCycleAt === null || now - workerCycleAt > 30_000),
+      socket,
     },
     balances: snapshot,
     today: {
@@ -436,10 +468,11 @@ export async function paperPerformanceReport(
 export async function paperHealthReport(now: number): Promise<PaperHealth> {
   const db = getDatabase();
   const tradingDate = istDateKey(new Date(now));
-  const [session, config, lastQuoteAt] = await Promise.all([
+  const [session, config, lastQuoteAt, socket] = await Promise.all([
     sessionOn(tradingDate),
     calendar(),
     latestSignalQuoteAt(db),
+    socketReport(),
   ]);
   const health = await paperHealth(db, session.closeAt);
   const inSession =
@@ -463,6 +496,7 @@ export async function paperHealthReport(now: number): Promise<PaperHealth> {
             ? 'UNAVAILABLE'
             : 'STALE',
       lastQuoteAt,
+      socket,
     },
     ...health,
   });

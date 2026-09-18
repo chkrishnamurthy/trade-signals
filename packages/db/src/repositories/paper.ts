@@ -863,6 +863,14 @@ export async function getWorkerCheckpoint(
   const [row] = await db.select().from(workerCheckpoints).where(eq(workerCheckpoints.job, job));
   return row?.cursor ?? null;
 }
+/** The checkpoint with its write time — for "how old is this report". */
+export async function getWorkerCheckpointRow(
+  db: Database,
+  job: string,
+): Promise<{ cursor: Record<string, unknown>; updatedAt: number } | null> {
+  const [row] = await db.select().from(workerCheckpoints).where(eq(workerCheckpoints.job, job));
+  return row ? { cursor: row.cursor, updatedAt: row.updatedAt.getTime() } : null;
+}
 export async function setWorkerCheckpoint(
   db: Database,
   job: string,

@@ -34,6 +34,13 @@ export function PaperHealthView({ health }: { health: PaperHealth }) {
           : 'destructive',
     ],
     [
+      'Worker socket',
+      health.feed.socket === null
+        ? 'not reported (worker not on this build, or never started the feed)'
+        : `${health.feed.socket.provider ?? '?'} · ${health.feed.socket.state} · last tick ${ago(health.feed.socket.lastTickAt, health.serverNow)} · reported ${ago(health.feed.socket.reportedAt, health.serverNow)}${health.feed.socket.note ? ` · ${health.feed.socket.note}` : ''}`,
+      health.feed.socket?.state === 'live' ? 'bullish' : 'warning',
+    ],
+    [
       'Portfolios',
       `${health.portfolios.total} total · ${health.portfolios.enabled} on · ${health.portfolios.withLiveTrades} with live paper trades`,
       'neutral',

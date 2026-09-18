@@ -122,6 +122,13 @@ export function simulatedOverview(overrides: Partial<PaperOverview> = {}): Paper
       lastQuoteAt: now - 2_000,
       workerCycleAt: now - 1_000,
       workerDelayed: false,
+      socket: {
+        provider: 'dhan',
+        state: 'live',
+        lastTickAt: now - 1_500,
+        reportedAt: now - 1_000,
+        note: null,
+      },
     },
     balances: {
       cashPaise: 12_565_000,

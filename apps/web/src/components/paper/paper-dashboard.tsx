@@ -88,12 +88,18 @@ export function StateBanners({ data }: { data: PaperOverview }) {
       tone: 'destructive',
     });
   if (data.phase !== 'CLOSED' && data.phase !== 'PRE_OPEN') {
-    if (data.feed.mode === 'STALE' || data.feed.mode === 'UNAVAILABLE')
+    if (data.feed.mode === 'STALE' || data.feed.mode === 'UNAVAILABLE') {
+      const s = data.feed.socket;
+      const report =
+        s === null
+          ? 'The worker has not reported its price socket yet — is it running the current build?'
+          : `Worker socket: ${s.provider ?? 'unknown'} · ${s.state} · last tick ${s.lastTickAt === null ? 'never' : `${time(s.lastTickAt)} IST`} · reported ${time(s.reportedAt)} IST${s.note ? ` · ${s.note}` : ''}`;
       banners.push({
         title: data.feed.mode === 'STALE' ? 'Price feed stale' : 'Price feed unavailable',
-        body: 'Entries and exits wait for a covered price. Any trade whose coverage broke for more than 15 s ends as "unavailable" rather than guessed.',
+        body: `Entries and exits wait for a covered price; any trade whose coverage broke for more than 15 s ends as "unavailable" rather than guessed. ${report}`,
         tone: 'destructive',
       });
+    }
     if (data.feed.workerDelayed)
       banners.push({
         title: 'Worker delayed',

@@ -2,6 +2,7 @@ import { type IntradayObservation, ORB_CONFIG } from '@equitywise/core';
 import {
   invalidateProviderCredential,
   observeIntradayPrice,
+  setWorkerCheckpoint,
   signalUniverseInstruments,
   upsertInstrumentProviderRef,
 } from '@equitywise/db';
@@ -46,6 +47,8 @@ export interface FeedStatus {
   dropped: number;
   reconnects: number;
   subscribed: number;
+  /** Why the feed is not delivering, in one line, when it is not. */
+  note: string | null;
 }
 
 export interface FeedJob {
@@ -99,7 +102,27 @@ export function createFeedJob(
     dropped: 0,
     reconnects: 0,
     subscribed: 0,
+    note: null,
   };
+  /**
+   * The feed's state is written to `worker_checkpoints('feed')` so the page
+   * and the health view can say "Dhan · reconnecting · last tick 40 s ago"
+   * instead of guessing from the absence of prices. At most one write per 5 s.
+   */
+  let lastPublished = 0;
+  const publish = async (force = false) => {
+    const at = now();
+    if (!force && at - lastPublished < 5_000) return;
+    lastPublished = at;
+    try {
+      await setWorkerCheckpoint(db(), 'feed', { ...status }, at);
+    } catch (error) {
+      log.warn('feed status not recorded', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  };
+  const db = () => context.db;
   const instrumentBySymbol = new Map<string, number>();
   /** The newest usable tick per instrument since the last flush. */
   const pending = new Map<number, Omit<IntradayObservation, 'continuous'>>();
@@ -135,6 +158,7 @@ export function createFeedJob(
       let next = 0;
       await Promise.all(
         Array.from({ length: 4 }, async () => {
+          // (one writer per instrument at a time; four in flight overall)
           while (next < batch.length) {
             const item = batch[next++];
             if (!item) break;
@@ -155,11 +179,14 @@ export function createFeedJob(
       );
     } finally {
       flushing = false;
+      void publish();
     }
   };
 
   const onError = async (error: MarketDataProviderError) => {
     log.warn('feed error', { failure: error.failure, error: error.message });
+    status.note = `${error.failure}: ${error.message}`.slice(0, 200);
+    void publish();
     if (error.failure !== 'auth' || provider === null) return;
     if (now() - lastCredentialRecovery < 600_000) return;
     lastCredentialRecovery = now();
@@ -205,11 +232,19 @@ export function createFeedJob(
     async start() {
       if (status.running) return;
       if (provider === null || provider.streamTicks === undefined) {
+        status.note =
+          'No streaming provider is built (DHAN_CLIENT_ID missing?); the 5-second quote sweep is the only source.';
         log.warn('no streaming provider; the 5-second quote sweep remains the only source');
+        await publish(true);
         return;
       }
       const config = await loadIntradaySettings();
-      if (!config.enabled) return;
+      if (!config.enabled) {
+        status.note = 'The intraday scanner is disabled in config/intraday-orb.yaml.';
+        await publish(true);
+        return;
+      }
+      status.note = null;
       const universe = await loadIndexConstituents(config.universe);
       const instruments = await signalUniverseInstruments(context.db);
       instrumentBySymbol.clear();
@@ -230,11 +265,13 @@ export function createFeedJob(
           if (state === 'reconnecting') status.reconnects += 1;
           status.state = state;
           log.info('feed state', { state, reconnects: status.reconnects });
+          void publish(true);
         },
         onError: (error) => void onError(error),
       });
       timer = setIntervalImpl(() => void flush(), flushIntervalMs);
       log.info('feed started', { provider: provider.id, subscribed: refs.length });
+      await publish(true);
       void refreshProviderRefs(refs);
     },
     stop() {
@@ -247,6 +284,7 @@ export function createFeedJob(
       status.running = false;
       status.state = 'stopped';
       log.info('feed stopped', { ticks: status.ticks, observations: status.observations });
+      void publish(true);
     },
     status: () => ({ ...status }),
     healthy: (at = now()) =>

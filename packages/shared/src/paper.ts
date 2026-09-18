@@ -403,6 +403,16 @@ export const paperOverviewSchema = z.object({
     /** The paper monitor's last completed cycle; null before its first. */
     workerCycleAt: z.number().int().nullable(),
     workerDelayed: z.boolean(),
+    /** The worker's own report of its socket: state, last tick, and why not, if not. */
+    socket: z
+      .object({
+        provider: z.string().nullable(),
+        state: z.string(),
+        lastTickAt: z.number().int().nullable(),
+        reportedAt: z.number().int(),
+        note: z.string().nullable(),
+      })
+      .nullable(),
   }),
   balances: paperBalancesSchema,
   today: z.object({
@@ -531,7 +541,19 @@ export const paperHealthSchema = z.object({
   serverNow: z.number().int(),
   session: exchangeSessionSchema,
   calendar: z.object({ verifiedThrough: z.string(), expiresSoon: z.boolean() }),
-  feed: z.object({ mode: paperFeedModeSchema, lastQuoteAt: z.number().int().nullable() }),
+  feed: z.object({
+    mode: paperFeedModeSchema,
+    lastQuoteAt: z.number().int().nullable(),
+    socket: z
+      .object({
+        provider: z.string().nullable(),
+        state: z.string(),
+        lastTickAt: z.number().int().nullable(),
+        reportedAt: z.number().int(),
+        note: z.string().nullable(),
+      })
+      .nullable(),
+  }),
   portfolios: z.object({
     total: z.number().int(),
     enabled: z.number().int(),
