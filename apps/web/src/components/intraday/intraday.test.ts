@@ -6,7 +6,6 @@ import { exitSummary, notTakenLabel, statusOf, timesRisked } from './format';
 import { OverviewCard } from './overview-card';
 import { RulesCard } from './rules-card';
 import { SignalsCard } from './signals-card';
-import { TradesCard } from './trades-card';
 
 const today = simulatedToday();
 const html = (el: Parameters<typeof renderToStaticMarkup>[0]) => renderToStaticMarkup(el);
@@ -33,15 +32,6 @@ describe('intraday cards', () => {
     expect(out).not.toMatch(/\b(order|quantity|position|entry price)\b/i);
     expect(out).not.toMatch(/\d(\.\d)?R\b/);
   });
-  it('trades card lists only taken, filled trades with simulated results', () => {
-    const out = html(createElement(TradesCard, { data: today }));
-    expect(out).toContain('RELIANCE');
-    expect(out).toContain('HDFCBANK');
-    expect(out).not.toContain('>INFY<');
-    expect(out).toContain('+₹5,065.31'); // the worked example, net of charges
-    expect(out).toContain('Target 1 → Target 2');
-    expect(out).toContain('the amount risked');
-  });
   it('empty and forming states are distinct', () => {
     expect(
       html(
@@ -53,16 +43,11 @@ describe('intraday cards', () => {
     expect(
       html(createElement(SignalsCard, { data: simulatedToday({ phase: 'SESSION', signals: [] }) })),
     ).toContain('No signals yet today');
-    expect(html(createElement(TradesCard, { data: simulatedToday({ signals: [] }) }))).toContain(
-      'No paper trades yet today',
-    );
   });
   it('overview and rules render from the versioned config', () => {
-    const overview = html(
-      createElement(OverviewCard, { rules: today.rules, capital: '₹5,00,000' }),
-    );
+    const overview = html(createElement(OverviewCard, { rules: today.rules }));
     expect(overview).toContain('Opening Range Breakout');
-    expect(overview).toContain('1% of ₹5,00,000');
+    expect(overview).toContain('1% of your paper portfolio&#x27;s equity');
     const rules = html(createElement(RulesCard, { rules: today.rules }));
     expect(rules).toContain('0.25%–1% wide');
     expect(rules).toContain('At most 5 trades a day and 3 open at once');

@@ -14,7 +14,6 @@ import {
 import { createDatabase, type DatabaseHandle } from '../client.js';
 import {
   hasIntradaySignal,
-  intradayBookFromSignals,
   listIntradaySignals,
   observeIntradayPrice,
   publishIntradaySignal,
@@ -31,7 +30,6 @@ suite('intraday strategy persistence on real PostgreSQL', () => {
   let version: number;
   let evidence: IntradayEvidence;
   const publishedAt = BUY_SIGNAL_AT + 2_000;
-  const book = { capitalPaise: 50_000_000, riskBps: 100 };
   const base = () => ({
     instrumentId: instrument,
     strategyVersionId: version,
@@ -107,23 +105,18 @@ suite('intraday strategy persistence on real PostgreSQL', () => {
       /strategy_signals_ended_terminal/,
     );
   });
-  it('fills, books half at Target 1, exits at Target 2 and records the worked example result', async () => {
+  it('tracks the levels with one reference share: fill, Target 1, Target 2', async () => {
     const observe = (at: number, price: number) =>
-      observeIntradayPrice(
-        handle.db,
-        instrument,
-        { at, receivedAt: at + 500, price },
-        null,
-        null,
-        book,
-      );
+      observeIntradayPrice(handle.db, instrument, { at, receivedAt: at + 500, price }, null, null);
     // Samples must stay within the 15 s coverage window, as the live 5 s cycle does.
     await observe(publishedAt - 4_000, 295_600); // establishes continuity
     await observe(publishedAt + 1_000, 295_650);
     let [s] = await listIntradaySignals(handle.db, evidence.sessionDate);
+    // One reference share (LEVEL_TRACKER): the row records which levels were
+    // observed; money is per user in the paper tables.
     expect(s?.projection).toMatchObject({
       status: 'ACTIVE',
-      shares: 169,
+      shares: 1,
       fill: 295_710,
       taken: true,
     });
@@ -132,8 +125,10 @@ suite('intraday strategy persistence on real PostgreSQL', () => {
     await observe(publishedAt + 21_000, 300_020); // Target 2
     [s] = await listIntradaySignals(handle.db, evidence.sessionDate);
     expect(s?.projection.status).toBe('TARGET_2_HIT');
-    expect(s?.realisedNetPaise).toBe(506_531);
-    expect(s?.initialRiskPaise).toBe(381_940);
+    // 1 share: gross 2999.55 − 2957.10 = ₹42.45, net of estimated charges.
+    expect(s?.realisedNetPaise).toBeGreaterThan(0);
+    expect(s?.realisedNetPaise).toBeLessThan(4_245);
+    expect(s?.initialRiskPaise).toBe(2_260);
     const events = await handle.db.execute<{
       sequence: number;
       status: string;
@@ -143,17 +138,10 @@ suite('intraday strategy persistence on real PostgreSQL', () => {
     );
     expect(events.rows.map((r) => [r.sequence, r.status, r.shares])).toEqual([
       [1, 'PENDING', null],
-      [2, 'ACTIVE', 169],
-      [3, 'TARGET_1_HIT', 84],
-      [4, 'TARGET_2_HIT', 85],
+      [2, 'ACTIVE', 1],
+      [3, 'TARGET_1_HIT', null],
+      [4, 'TARGET_2_HIT', 1],
     ]);
-    const summary = intradayBookFromSignals([s!], book.capitalPaise);
-    expect(summary).toMatchObject({
-      tradesToday: 1,
-      openTrades: 0,
-      realisedNetPaise: 506_531,
-      lossHalted: false,
-    });
     // Terminal: further prices change nothing.
     await observe(publishedAt + 31_000, 100);
     expect((await listIntradaySignals(handle.db, evidence.sessionDate))[0]?.projection.status).toBe(

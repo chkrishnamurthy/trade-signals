@@ -9,14 +9,14 @@ import {
 } from '@/components/ui/card';
 
 /** What the strategy does, in the words of the plan's one-minute summary, plus its key numbers. */
-export function OverviewCard({ rules, capital }: { rules: IntradayRules; capital: string }) {
+export function OverviewCard({ rules }: { rules: IntradayRules }) {
   const p = rules.parameters;
   const items: [string, string][] = [
     ['Timeframe', rules.timeframe],
     ['Universe', rules.universe],
     ['Indicators', 'Opening range (09:15–09:30), session VWAP, relative volume'],
     ['Signal window', `${p.signalWindow}`],
-    ['Risk per trade', `${Number(p.riskBps) / 100}% of ${capital}`],
+    ['Risk per trade', `${Number(p.riskBps) / 100}% of your paper portfolio's equity`],
     [
       'Stop level',
       `Just beyond the far side of the opening range (${p.minRiskBps}–${p.maxRiskBps} bps from the signal close)`,

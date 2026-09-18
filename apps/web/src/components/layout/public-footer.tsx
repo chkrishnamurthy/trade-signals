@@ -12,6 +12,7 @@ const COLUMNS: ReadonlyArray<{ title: string; links: ReadonlyArray<[string, Rout
       ['Market brief', '/today'],
       ['My watchlists', '/watchlists'],
       ['Intraday', '/intraday'],
+      ['Paper Trading', '/paper-trading'],
       ['Announcements', '/announcements'],
       ['Institutional flow', '/flows'],
     ],

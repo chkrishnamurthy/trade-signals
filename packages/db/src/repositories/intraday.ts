@@ -10,7 +10,6 @@ import {
   stepProjection,
 } from '@equitywise/core';
 import {
-  type IntradayBook,
   type IntradayEvidence,
   type IntradayProjection,
   type IntradayRejectReason,
@@ -120,35 +119,17 @@ export async function hasIntradaySignal(db: Database, instrumentId: number, trad
 }
 
 /**
- * Cash the book still has free on a session: capital minus what open, taken
- * trades hold at their fill. A pending taken signal reserves nothing until it
- * fills, so two fills in the same second are serialised by the instrument
- * locks and each sees the other's reservation only after it commits — the
- * allocation cap (§3.8) bounds the exposure meanwhile.
+ * The global signal row tracks LEVELS, not money: one reference share, never
+ * short of cash, so its projection says which of the fill, Target 1, Target 2,
+ * stop and square-off were observed. Money lives in each user's paper
+ * portfolio (`paper.ts`), which sizes and fills from the same observations.
  */
-async function availableCash(
-  db: Database,
-  tradingDate: string,
-  capitalPaise: number,
-  exceptId: number,
-) {
-  const rows = await db
-    .select({ projection: intradaySignals.projection, id: intradaySignals.id })
-    .from(intradaySignals)
-    .where(
-      and(
-        eq(intradaySignals.tradingDate, tradingDate),
-        eq(intradaySignals.taken, true),
-        isNull(intradaySignals.endedAt),
-      ),
-    );
-  let reserved = 0;
-  for (const r of rows) {
-    if (r.id === exceptId || r.projection.fill === null) continue;
-    reserved += r.projection.fill * r.projection.remainingShares;
-  }
-  return Math.max(0, capitalPaise - reserved);
-}
+export const LEVEL_TRACKER: BookAllocation = Object.freeze({
+  capitalPaise: 1_000_000_000_000,
+  availablePaise: 1_000_000_000_000,
+  riskBps: 10_000,
+  maxShares: 1,
+});
 
 /**
  * Record one sampled quote and advance every live signal on that instrument.
@@ -161,7 +142,6 @@ export async function observeIntradayPrice(
   observation: Omit<IntradayObservation, 'continuous'>,
   bid: number | null,
   ask: number | null,
-  book: { capitalPaise: number; riskBps: number },
   config: OrbConfig = ORB_CONFIG,
 ): Promise<void> {
   await db.transaction(async (tx) => {
@@ -200,13 +180,7 @@ export async function observeIntradayPrice(
       const evidence = intradayEvidenceSchema.parse(row.evidence);
       const previous = intradayProjectionSchema.parse(row.projection);
       const allocation: BookAllocation | null =
-        previous.status === 'PENDING' && previous.taken
-          ? {
-              capitalPaise: book.capitalPaise,
-              availablePaise: await availableCash(tx, row.tradingDate, book.capitalPaise, row.id),
-              riskBps: book.riskBps,
-            }
-          : null;
+        previous.status === 'PENDING' && previous.taken ? LEVEL_TRACKER : null;
       const next = stepProjection(
         evidence,
         previous,
@@ -273,39 +247,6 @@ export async function listIntradaySignals(
     .where(eq(intradaySignals.tradingDate, tradingDate))
     .orderBy(desc(intradaySignals.publishedAt), desc(intradaySignals.id));
   return rows.map((r) => dto(r.signal, r.quote));
-}
-
-/** The shared book's position for the session, derived from the signals. */
-export function intradayBookFromSignals(
-  signals: readonly IntradaySignalDto[],
-  capitalPaise: number,
-  config: OrbConfig = ORB_CONFIG,
-): IntradayBook {
-  const taken = signals.filter(
-    (s) => s.projection.taken || (s.projection.shares > 0 && s.projection.fill !== null),
-  );
-  const open = taken.filter((s) => s.projection.endedAt === null && s.projection.fill !== null);
-  const realised = taken.reduce((sum, s) => sum + (s.realisedNetPaise ?? 0), 0);
-  let mark: number | null = realised;
-  for (const s of open) {
-    if (s.markNetPaise === null || s.projection.resolution === 'UNAVAILABLE') {
-      mark = null;
-      break;
-    }
-    mark += s.markNetPaise - (s.realisedNetPaise ?? 0);
-  }
-  return {
-    capitalPaise,
-    riskBps: config.riskBps,
-    tradesToday: taken.length,
-    openTrades: open.length,
-    maxTradesPerDay: config.maxTradesPerDay,
-    maxOpenTrades: config.maxOpenTrades,
-    realisedNetPaise: realised,
-    markNetPaise: mark,
-    lossHalted:
-      (mark ?? realised) <= -Math.floor((capitalPaise * config.dailyLossHaltBps) / 10_000),
-  };
 }
 
 export async function recordIntradayExclusion(

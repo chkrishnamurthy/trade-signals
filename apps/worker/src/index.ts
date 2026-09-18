@@ -2,8 +2,15 @@ import { withRetry } from '@equitywise/db';
 import { config as loadEnv } from 'dotenv';
 import { createContext, type WorkerContext } from './context.js';
 import { authMaintenance } from './jobs/auth-maintenance.js';
+import {
+  calendarRefresh,
+  checkUnscheduledClosure,
+  isTradingSession,
+  sessionToday,
+} from './jobs/calendar-refresh.js';
 import { computeIndicators } from './jobs/compute-indicators.js';
 import { crossCheckProviders } from './jobs/cross-check-bars.js';
+import { createFeedJob, type FeedJob } from './jobs/feed.js';
 import { ingestDailyCandles } from './jobs/ingest-daily.js';
 import {
   backfillFlowFeeds,
@@ -16,6 +23,7 @@ import {
 } from './jobs/ingest-disclosures.js';
 import { ingestFuturesOi } from './jobs/ingest-futures-oi.js';
 import { createIntradayJobs } from './jobs/intraday-orb.js';
+import { createPaperJobs } from './jobs/paper.js';
 import { refreshProviderCredential } from './jobs/refresh-credential.js';
 import { createLogger, errorFields } from './log.js';
 import { createScheduler, type Scheduler } from './scheduler.js';
@@ -101,17 +109,109 @@ const SCHEDULES = {
   ingestFuturesOi: '45 6 * * 2-6',
 } as const;
 
-function buildScheduler(context: WorkerContext): Scheduler {
-  const intraday = createIntradayJobs(context, log.child('intraday'));
-  return createScheduler(
+interface Jobs {
+  scheduler: Scheduler;
+  feed: FeedJob;
+  paper: ReturnType<typeof createPaperJobs>;
+}
+
+function buildScheduler(context: WorkerContext): Jobs {
+  const feed = createFeedJob(context, log.child('feed'));
+  const intraday = createIntradayJobs(context, log.child('intraday'), {
+    feedHealthy: () => feed.healthy(),
+  });
+  const paper = createPaperJobs(context, log.child('paper'));
+  /**
+   * Calendar gating (plan §9.1): every in-session job first asks the exchange
+   * calendar. A holiday, weekend or detected closure is a logged no-op — the
+   * cron fields below say "Mon–Sat" only so the calendar can say the rest.
+   */
+  let cached: { at: number; session: Awaited<ReturnType<typeof sessionToday>> } | null = null;
+  const gated = (name: string, run: () => Promise<unknown>) => async (): Promise<void> => {
+    // The monitor asks every second; one calendar read a minute is plenty.
+    if (cached === null || Date.now() - cached.at > 60_000)
+      cached = { at: Date.now(), session: await sessionToday(context) };
+    const { session } = cached;
+    if (!isTradingSession(session)) {
+      log.debug('outside a trading session', { job: name, kind: session.kind });
+      return;
+    }
+    await run();
+  };
+  const scheduler = createScheduler(
     [
+      // The exchange calendar: today's session row at 06:30, and the
+      // unscheduled-closure cross-check five minutes after the open.
+      {
+        name: 'calendar-refresh',
+        schedule: '0 30 6 * * *',
+        run: async () => {
+          await calendarRefresh(context, log.child('calendar-refresh'));
+        },
+      },
+      {
+        name: 'calendar-check',
+        schedule: '0 20 9 * * 1-6',
+        run: async () => {
+          await checkUnscheduledClosure(context, log.child('calendar-check'));
+        },
+      },
+      // The live socket: open at 09:05, closed at 15:35. The quote sweep below
+      // stands down while the socket is healthy and takes over when it is not.
+      { name: 'feed-start', schedule: '0 5 9 * * 1-6', run: gated('feed-start', feed.start) },
+      { name: 'feed-stop', schedule: '0 35 15 * * 1-6', run: async () => feed.stop() },
       // ORB-VC: warm up 1m history at 08:50, evaluate each closed 5m candle at
       // +2s (and +17s for late bars), sample quotes every 5s for the lifecycle,
       // and close anything the session left unresolved.
       { name: 'intraday-reconcile', schedule: '20 * * * * *', run: intraday.reconcile },
-      { name: 'intraday-quotes', schedule: '*/5 * 9-15 * * 1-5', run: intraday.quoteCycle },
-      { name: 'intraday-scan', schedule: '2,17 */5 9-14 * * 1-5', run: intraday.scan },
-      { name: 'intraday-warmup', schedule: '0 50 8 * * 1-5', run: intraday.warmup },
+      {
+        name: 'intraday-quotes',
+        schedule: '*/5 * 9-15 * * 1-6',
+        run: gated('intraday-quotes', intraday.quoteCycle),
+      },
+      {
+        name: 'intraday-scan',
+        schedule: '2,17 */5 9-14 * * 1-6',
+        run: gated('intraday-scan', async () => {
+          await intraday.scan();
+          // Decisions follow the scan on the same tick, so an intent is decided
+          // before its next-candle entry window has moved on.
+          await paper.entries();
+        }),
+      },
+      {
+        name: 'intraday-warmup',
+        schedule: '0 50 8 * * 1-6',
+        run: gated('intraday-warmup', intraday.warmup),
+      },
+      // Per-user paper trading (plan §9.1).
+      {
+        name: 'paper-entries',
+        schedule: '30 * 9-14 * * 1-6',
+        run: gated('paper-entries', paper.entries),
+      },
+      {
+        name: 'paper-monitor',
+        schedule: '* * 9-15 * * 1-6',
+        run: gated('paper-monitor', paper.monitor),
+      },
+      {
+        name: 'paper-squareoff',
+        schedule: '*/15 15-59 15 * * 1-6',
+        run: gated('paper-squareoff', paper.squareOff),
+      },
+      {
+        name: 'paper-snapshot',
+        schedule: '0 */5 9-15 * * 1-6',
+        run: gated('paper-snapshot', paper.snapshot),
+      },
+      {
+        name: 'paper-reconcile',
+        schedule: '0 45 6,15 * * *',
+        run: async () => {
+          await paper.reconcile();
+        },
+      },
       {
         name: 'refresh-credential',
         schedule: SCHEDULES.refreshCredential,
@@ -236,6 +336,7 @@ function buildScheduler(context: WorkerContext): Scheduler {
     ],
     log,
   );
+  return { scheduler, feed, paper };
 }
 
 /** Confirms the database answers before scheduling anything against it. */
@@ -255,6 +356,7 @@ async function main(): Promise<void> {
 
   let shuttingDown = false;
   let scheduler: Scheduler | null = null;
+  let feed: FeedJob | null = null;
 
   /**
    * Graceful shutdown.
@@ -269,6 +371,7 @@ async function main(): Promise<void> {
     log.info('shutting down', { signal });
 
     scheduler?.stop();
+    feed?.stop();
     await scheduler?.drain();
     await context.close();
     log.info('stopped');
@@ -326,15 +429,24 @@ async function main(): Promise<void> {
           'ingest-shareholding',
           'ingest-futures-oi',
           'backfill-flows',
+          'calendar-refresh',
+          'calendar-check',
+          'paper-entries',
+          'paper-monitor',
+          'paper-squareoff',
+          'paper-snapshot',
+          'paper-reconcile',
         ],
       });
       process.exitCode = 1;
       await context.close();
       return;
     }
-    scheduler = buildScheduler(context);
+    const jobs = buildScheduler(context);
+    scheduler = jobs.scheduler;
     scheduler.stop(); // one-shot: do not also arm the schedules
     await scheduler.trigger(jobName);
+    jobs.feed.stop();
     await context.close();
     return;
   }
@@ -347,8 +459,30 @@ async function main(): Promise<void> {
     return;
   }
 
-  scheduler = buildScheduler(context);
+  const jobs = buildScheduler(context);
+  scheduler = jobs.scheduler;
+  feed = jobs.feed;
   log.info('worker running; ctrl-c to stop');
+
+  // Restart recovery (plan §9.3): today's session row, then — if the session
+  // is under way — the socket, a decision pass for intents still inside their
+  // window, and the square-off in case the worker was down at 15:15. The
+  // monitor's checkpoint makes the observation replay idempotent.
+  try {
+    const session = await calendarRefresh(context, log.child('calendar-refresh'));
+    const now = Date.now();
+    if (isTradingSession(session) && session.openAt !== null && session.closeAt !== null) {
+      if (now >= session.openAt - 10 * 60_000 && now < session.closeAt + 5 * 60_000)
+        await jobs.feed.start();
+      if (now >= session.openAt) {
+        await jobs.paper.entries(now);
+        await jobs.paper.monitor(now);
+        await jobs.paper.squareOff(now);
+      }
+    }
+  } catch (error) {
+    log.warn('startup recovery incomplete', errorFields(error));
+  }
 }
 
 main().catch((error: unknown) => {

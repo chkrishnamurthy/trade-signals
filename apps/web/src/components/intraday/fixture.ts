@@ -127,17 +127,6 @@ export function simulatedToday(overrides: Partial<IntradayToday> = {}): Intraday
     },
     rules: orbRules(),
     signals,
-    book: {
-      capitalPaise: 50_000_000,
-      riskBps: 100,
-      tradesToday: 3,
-      openTrades: 1,
-      maxTradesPerDay: 5,
-      maxOpenTrades: 3,
-      realisedNetPaise: 506_531 - 380_000,
-      markNetPaise: 506_531 - 380_000 + 120_000,
-      lossHalted: false,
-    },
     exclusions: [
       { symbol: 'ADANIENT', reason: 'GAP', detail: null },
       { symbol: 'WIPRO', reason: 'OR_RANGE', detail: '18.2 bps' },

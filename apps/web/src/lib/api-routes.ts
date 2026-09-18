@@ -22,7 +22,36 @@ export const API_ROUTES = {
   intradayToday: '/api/intraday/today',
   intradayDay: (date: string): string => `/api/intraday/day/${date}`,
   intradayRules: '/api/intraday/rules',
-  paperStudies: '/api/paper-trades',
+  // ---------------------------------------------------------------------------
+  // Paper trading (/api/paper/*) — simulation only; nothing here places an order.
+  // ---------------------------------------------------------------------------
+  /** GET /api/paper/overview — settings, session, feed, balances, open paper trades. */
+  paperOverview: '/api/paper/overview',
+  /** GET/PUT /api/paper/settings — the paper toggle and limits (audited). */
+  paperSettings: '/api/paper/settings',
+  /** GET/PUT /api/paper/strategies — which strategies the portfolio runs. */
+  paperStrategies: '/api/paper/strategies',
+  /** POST /api/paper/emergency-stop — pause or resume new entries. */
+  paperEmergencyStop: '/api/paper/emergency-stop',
+  /** GET /api/paper/open-trades — open paper trades with marks. */
+  paperOpenTrades: '/api/paper/open-trades',
+  /** GET /api/paper/activity?date= — decisions and events for a session. */
+  paperActivity: (date?: string): string =>
+    date ? `/api/paper/activity?date=${encodeURIComponent(date)}` : '/api/paper/activity',
+  /** GET /api/paper/trades?… — closed paper trades, filtered and paged (format=csv streams). */
+  paperTrades: (query?: Record<string, string | number | undefined>): string => {
+    const sp = new URLSearchParams();
+    for (const [k, v] of Object.entries(query ?? {}))
+      if (v !== undefined && v !== '') sp.set(k, String(v));
+    const qs = sp.toString();
+    return `/api/paper/trades${qs ? `?${qs}` : ''}`;
+  },
+  /** GET /api/paper/performance?range=7d|30d|90d|all */
+  paperPerformance: (range = '30d'): string => `/api/paper/performance?range=${range}`,
+  /** GET /api/paper/audit — the user's own audit trail. */
+  paperAudit: '/api/paper/audit',
+  /** GET /api/admin/paper/health — operator view (admin). */
+  adminPaperHealth: '/api/admin/paper/health',
   // ---------------------------------------------------------------------------
   // Authentication & Session (/api/auth/*)
   // ---------------------------------------------------------------------------

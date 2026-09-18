@@ -1,5 +1,5 @@
 'use client';
-import { formatPaise, type IntradayToday, intradayTodaySchema } from '@equitywise/shared';
+import { type IntradayToday, intradayTodaySchema } from '@equitywise/shared';
 import { PauseIcon, PlayIcon, RefreshCwIcon } from 'lucide-react';
 import { useState } from 'react';
 import { AppShell } from '@/components/layout/app-shell';
@@ -13,16 +13,15 @@ import {
   PageHeading,
   PageTitle,
 } from '@/components/layout/page';
+import { PaperStatusCard } from '@/components/paper/paper-status-card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { API_ROUTES } from '@/lib/api-routes';
 import { OverviewCard } from './overview-card';
-import { PaperControlsCard } from './paper-controls-card';
 import { RulesCard } from './rules-card';
 import { SignalsCard } from './signals-card';
-import { TradesCard } from './trades-card';
 import { usePolledResource } from './use-polled-resource';
 
 const PHASE: Record<IntradayToday['phase'], string> = {
@@ -74,14 +73,15 @@ export function IntradayDashboard() {
     intradayTodaySchema,
     paused,
   );
-  const capital = data ? formatPaise(data.book.capitalPaise) : '₹5,00,000';
   return (
     <AppShell>
       <PageContainer>
         <PageHeader className="flex-col sm:flex-row">
           <PageHeading className="w-full sm:w-auto">
             <PageTitle>Intraday Strategies</PageTitle>
-            <PageDescription>Paper trading ready, clean signals, fixed targets.</PageDescription>
+            <PageDescription>
+              One rule-based strategy, clean signals, fixed targets.
+            </PageDescription>
             {data ? (
               <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                 <Badge variant="outline">{PHASE[data.phase]}</Badge>
@@ -134,11 +134,10 @@ export function IntradayDashboard() {
           ) : null}
           {data ? (
             <>
-              <OverviewCard rules={data.rules} capital={capital} />
+              <PaperStatusCard />
+              <OverviewCard rules={data.rules} />
               <SignalsCard data={data} />
-              <TradesCard data={data} />
               <RulesCard rules={data.rules} />
-              <PaperControlsCard capital={capital} />
             </>
           ) : error ? null : (
             <div className="space-y-4" aria-busy role="status">
@@ -150,7 +149,7 @@ export function IntradayDashboard() {
           <PageDisclaimer>
             Signals are generated using predefined technical rules for educational and research
             purposes. They are not guaranteed to be profitable and are not investment advice. Every
-            price shown is a technical level; shares and results are simulated.
+            price shown is a technical level. Simulated trades live on the paper-trading page.
           </PageDisclaimer>
         </PageContent>
       </PageContainer>

@@ -14,6 +14,7 @@ export {
   paiseToRupees,
   rupeesToPaise,
 } from './money.js';
+export * from './paper.js';
 export type { RateLimits, TokenBucketOptions } from './rate-limit.js';
 export { RateLimiter } from './rate-limit.js';
 export type {

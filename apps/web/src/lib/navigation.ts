@@ -1,6 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 import {
   ActivityIcon,
+  FlaskConicalIcon,
   LandmarkIcon,
   ListIcon,
   MegaphoneIcon,
@@ -58,6 +59,13 @@ export const NAVIGATION: readonly NavGroup[] = [
         label: 'Intraday',
         icon: ActivityIcon,
         description: 'One rule-based intraday strategy, its signals and paper trades',
+      },
+      {
+        status: 'ready',
+        href: '/paper-trading',
+        label: 'Paper Trading',
+        icon: FlaskConicalIcon,
+        description: 'Your strategies simulated automatically on virtual capital',
       },
       {
         status: 'ready',

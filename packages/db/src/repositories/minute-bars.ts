@@ -87,3 +87,10 @@ export async function getScannerQuote(db: Database, instrumentId: number) {
     .where(eq(signalQuotes.instrumentId, instrumentId));
   return row ?? null;
 }
+/** The newest sampled price across every instrument; null before the first. */
+export async function latestSignalQuoteAt(db: Database): Promise<number | null> {
+  const [row] = await db
+    .select({ at: sql<string | null>`max(${signalQuotes.observedAt})` })
+    .from(signalQuotes);
+  return row?.at ? new Date(row.at).getTime() : null;
+}

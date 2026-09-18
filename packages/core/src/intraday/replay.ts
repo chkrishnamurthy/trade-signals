@@ -25,6 +25,7 @@ import {
 export interface ReplayStock {
   symbol: string;
   companyName: string;
+  sector?: string | null;
   tickSize: number;
   /** Closed 5m bars incl. warm-up sessions, ascending. */
   bars: readonly Bar[];
@@ -57,7 +58,7 @@ export interface ReplayResult {
   exclusions: { symbol: string; reason: string }[];
 }
 
-function minuteObservations(bar: Bar, direction: 'BUY' | 'SELL'): IntradayObservation[] {
+export function minuteObservations(bar: Bar, direction: 'BUY' | 'SELL'): IntradayObservation[] {
   const adverse = direction === 'BUY' ? bar.low : bar.high;
   const favourable = direction === 'BUY' ? bar.high : bar.low;
   return [bar.open, adverse, favourable, bar.close].map((price, i) => ({

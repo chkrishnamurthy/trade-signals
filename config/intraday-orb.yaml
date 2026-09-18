@@ -2,12 +2,11 @@
 # thresholds live in packages/core/src/intraday/config.ts and are versioned;
 # these settings are hashed into the same strategy_versions row.
 #
-# Signals only. The paper book below is a simulation in our own database; the
-# worker never contacts a broker execution API (CLAUDE.md).
+# Signals only. Simulated money is per user (paper_portfolios, ₹2,00,000 each;
+# docs/planning/paper-trading-plan.md); the worker never contacts a broker
+# execution API (CLAUDE.md).
 enabled: true
 universe: nifty50
 historyDays: 14
 historyConcurrency: 4
-# Shared paper book until per-user controls exist (plan §10, phase 4). ₹5,00,000.
-capitalPaise: 50000000
 strategyRevision: 1

@@ -153,6 +153,8 @@ export {
 } from './instruments.js';
 export * from './intraday.js';
 export * from './minute-bars.js';
+export * from './paper.js';
+export * from './paper-ops.js';
 export type { ProfilePatch } from './profile.js';
 export {
   deleteOtherSessionsForUser,

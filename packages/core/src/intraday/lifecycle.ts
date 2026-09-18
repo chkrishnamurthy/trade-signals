@@ -28,6 +28,8 @@ export interface BookAllocation {
   capitalPaise: number;
   availablePaise: number;
   riskBps: number;
+  /** A ceiling decided earlier (the paper engine's sizing); sizing never exceeds it. */
+  maxShares?: number | undefined;
 }
 
 export function pendingIntradayProjection(
@@ -150,7 +152,12 @@ export function stepProjection(
         reason: `First observed price was more than ${config.maxSlipBps / 100}% past the signal close.`,
       };
     const shares =
-      previous.taken && allocation ? sizeTrade(fill, levels.stop, allocation, costs) : 0;
+      previous.taken && allocation
+        ? Math.min(
+            sizeTrade(fill, levels.stop, allocation, costs),
+            allocation.maxShares ?? Number.MAX_SAFE_INTEGER,
+          )
+        : 0;
     const taken = previous.taken && shares > 0;
     return {
       ...next,
