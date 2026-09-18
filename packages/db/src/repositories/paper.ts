@@ -220,7 +220,11 @@ export async function updatePaperSettings(
     if (!current) throw new PaperConflict('No paper settings.', 404);
     if (current.settingsVersion !== options.expectedVersion)
       throw new PaperConflict('Settings changed elsewhere; reload and try again.', 409);
-    const limits = paperLimitsSchema.parse({ ...settingsView(current), ...stripFlags(patch) });
+    // The limits schema is strict: feed it only the limit columns, never the flags.
+    const limits = paperLimitsSchema.parse({
+      ...limitsOf(settingsView(current)),
+      ...stripFlags(patch),
+    });
     const now = new Date(options.now);
     const audit: { event: string; detail: Record<string, unknown> }[] = [];
     const set: Partial<typeof paperSettings.$inferInsert> = {
@@ -273,6 +277,17 @@ const stripFlags = (patch: SettingsPatch): Partial<PaperLimits> => {
   const { enabled: _e, entriesPaused: _p, ...limits } = patch;
   return limits;
 };
+const limitsOf = (s: PaperSettings): PaperLimits => ({
+  riskBps: s.riskBps,
+  maxOpenPositions: s.maxOpenPositions,
+  maxTradesPerDay: s.maxTradesPerDay,
+  maxPositionExposureBps: s.maxPositionExposureBps,
+  maxPortfolioExposureBps: s.maxPortfolioExposureBps,
+  maxStockExposureBps: s.maxStockExposureBps,
+  maxSectorExposureBps: s.maxSectorExposureBps,
+  dailyLossHaltBps: s.dailyLossHaltBps,
+  maxDrawdownHaltBps: s.maxDrawdownHaltBps,
+});
 const assignmentsOf = async (db: Database, portfolioId: number) =>
   (
     await db
