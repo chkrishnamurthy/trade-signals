@@ -1,55 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import type { Bar } from '../types.js';
-import { buySession, dailyBars, ist, SESSION, SESSION_OPEN } from './fixture.js';
+import {
+  buySession,
+  dailyBars,
+  ist,
+  workedExampleMinutes as minutes,
+  SESSION,
+  SESSION_OPEN,
+} from './fixture.js';
 import { replaySession } from './replay.js';
 
-/** Minute bars for the fixture session: flat until 09:50, then the worked example's path. */
-function minutes(): Bar[] {
-  const out: Bar[] = [];
-  const flat = (t: number, p: number) => ({
-    timestamp: t,
-    open: p,
-    high: p,
-    low: p,
-    close: p,
-    volume: 1_000,
-  });
-  for (let t = SESSION_OPEN; t < ist(SESSION, 9, 50); t += 60_000) out.push(flat(t, 294_500));
-  // 09:50 opens at 2956.50 → fill 2957.10
-  out.push({
-    timestamp: ist(SESSION, 9, 50),
-    open: 295_650,
-    high: 295_900,
-    low: 295_600,
-    close: 295_800,
-    volume: 1_000,
-  });
-  for (let t = ist(SESSION, 9, 51); t < ist(SESSION, 10, 35); t += 60_000)
-    out.push(flat(t, 296_000));
-  // 10:35 touches Target 1 (2978.30) → 84 out at 2977.70, stop to 2957.10
-  out.push({
-    timestamp: ist(SESSION, 10, 35),
-    open: 297_000,
-    high: 297_900,
-    low: 296_900,
-    close: 297_500,
-    volume: 1_000,
-  });
-  for (let t = ist(SESSION, 10, 36); t < ist(SESSION, 12, 40); t += 60_000)
-    out.push(flat(t, 298_000));
-  // 12:40 touches Target 2 (3000.20) → 85 out at 2999.55
-  out.push({
-    timestamp: ist(SESSION, 12, 40),
-    open: 299_500,
-    high: 300_100,
-    low: 299_400,
-    close: 300_000,
-    volume: 1_000,
-  });
-  for (let t = ist(SESSION, 12, 41); t < ist(SESSION, 15, 30); t += 60_000)
-    out.push(flat(t, 300_000));
-  return out;
-}
 const stock = (symbol = 'RELIANCE') => ({
   symbol,
   companyName: 'Reliance Industries',

@@ -1,6 +1,10 @@
 -- Hand-written. Two things, both cleanup after the watchlist column registry
 -- stopped declaring columns this application has no data source for.
 --
+-- History: written as 0019 but never added to meta/_journal.json, so it never
+-- ran (found during the paper-trading audit, 2026-09-17). Renumbered 0022 and
+-- journaled; the SQL is unchanged and idempotent (IF EXISTS, no-op UPDATEs).
+--
 -- 1. `intraday_signals` was the last table of the removed intraday engine
 --    (its factors/reasons/events/runs went in 0012). Nothing writes it and the
 --    one reader — the watchlist's live-setup columns — is gone with this change.

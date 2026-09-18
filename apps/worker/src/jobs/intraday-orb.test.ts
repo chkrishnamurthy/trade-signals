@@ -18,14 +18,13 @@ const mock = vi.hoisted(() => ({
   stored: vi.fn(),
   aggregated: vi.fn(),
   daily: vi.fn(),
-  listed: vi.fn(),
   has: vi.fn(),
   refresh: vi.fn(),
   enabled: true,
 }));
 vi.mock('node:fs/promises', () => ({
   readFile: async () =>
-    `enabled: ${mock.enabled}\nuniverse: nifty50\nhistoryDays: 14\nhistoryConcurrency: 4\ncapitalPaise: 50000000\nstrategyRevision: 1`,
+    `enabled: ${mock.enabled}\nuniverse: nifty50\nhistoryDays: 14\nhistoryConcurrency: 4\nstrategyRevision: 1`,
 }));
 vi.mock('../universe.js', () => ({
   loadIndexConstituents: async () => [
@@ -33,18 +32,15 @@ vi.mock('../universe.js', () => ({
   ],
 }));
 vi.mock('./refresh-credential.js', () => ({ refreshProviderCredential: mock.refresh }));
-vi.mock('@equitywise/db', async () => {
-  const actual = await vi.importActual<typeof import('@equitywise/db')>('@equitywise/db');
+vi.mock('@equitywise/db', () => {
   return {
     getDailyBars: mock.daily,
     getSignalBars: mock.aggregated,
     getSignalMinutes: mock.stored,
     hasIntradaySignal: mock.has,
     insertSignalMinutes: mock.insert,
-    intradayBookFromSignals: actual.intradayBookFromSignals,
     invalidateProviderCredential: vi.fn(),
     listCorporateActions: vi.fn(async () => []),
-    listIntradaySignals: mock.listed,
     observeIntradayPrice: vi.fn(),
     publishIntradaySignal: mock.publish,
     reconcileIntradayDeadlines: vi.fn(),
@@ -85,7 +81,6 @@ beforeEach(() => {
   ]);
   mock.stored.mockResolvedValue([]);
   mock.has.mockResolvedValue(false);
-  mock.listed.mockResolvedValue([]);
   mock.publish.mockResolvedValue(11);
   // Benchmark: previous close 25,000.00; 09:25 candle closes at 25,050.00 → +20 bps.
   mock.daily.mockImplementation(async (_db: unknown, q: { instrumentId: number }) =>
@@ -185,34 +180,6 @@ describe('intraday ORB scanner', () => {
     // The same candle is not evaluated twice within its window.
     await jobs.scan();
     expect(mock.publish).toHaveBeenCalledOnce();
-  });
-  it('publishes but does not take a signal once the day’s trade limit is reached', async () => {
-    const taken = (id: number) => ({
-      id,
-      instrumentId: 100 + id,
-      symbol: `S${id}`,
-      companyName: 'x',
-      strategyVersionId: 7,
-      publishedAt: now - 60_000,
-      evidence: {},
-      projection: {
-        taken: true,
-        endedAt: now - 1,
-        fill: 100,
-        remainingShares: 0,
-        resolution: 'OBSERVED',
-        shares: 1,
-      },
-      realisedNetPaise: 0,
-      markNetPaise: 0,
-      initialRiskPaise: 1,
-      lastPrice: null,
-      quoteAt: null,
-    });
-    mock.listed.mockResolvedValue([1, 2, 3, 4, 5].map(taken));
-    const { jobs } = setup();
-    await jobs.scan();
-    expect(mock.publish.mock.calls[0]?.[1]).toMatchObject({ skipReason: 'DAILY_LIMIT' });
   });
   it('records a session exclusion when the index gapped', async () => {
     mock.daily.mockImplementation(async (_db: unknown, q: { instrumentId: number }) =>

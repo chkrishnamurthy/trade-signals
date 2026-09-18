@@ -2,12 +2,7 @@ import 'server-only';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { ORB_CONFIG, orbRules } from '@equitywise/core';
-import {
-  intradayBookFromSignals,
-  latestIntradayScan,
-  listIntradayExclusions,
-  listIntradaySignals,
-} from '@equitywise/db';
+import { latestIntradayScan, listIntradayExclusions, listIntradaySignals } from '@equitywise/db';
 import {
   type IntradayToday,
   intradayRulesSchema,
@@ -31,9 +26,7 @@ import { describeDataSources } from './provider';
  * candle, never sizes a share and never calls a provider for prices: it reads
  * what the worker persisted and asks the exchange whether it is open.
  */
-const settingsSchema = z
-  .object({ enabled: z.boolean(), capitalPaise: z.number().int().positive() })
-  .passthrough();
+const settingsSchema = z.object({ enabled: z.boolean() }).passthrough();
 /** Repo root, from apps/web at runtime — the same convention as indices.ts. */
 const CONFIG_PATH = join(process.cwd(), '..', '..', 'config', 'intraday-orb.yaml');
 async function settings() {
@@ -118,7 +111,6 @@ export async function intradaySnapshot(tradingDate: string, now: number): Promis
     scanner: today ? scanner : null,
     rules,
     signals,
-    book: intradayBookFromSignals(signals, config.capitalPaise),
     exclusions,
   });
 }

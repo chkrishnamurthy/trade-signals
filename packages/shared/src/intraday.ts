@@ -285,7 +285,6 @@ export const intradayTodaySchema = z.object({
   scanner: intradayScannerSchema.nullable(),
   rules: intradayRulesSchema,
   signals: z.array(intradaySignalDtoSchema),
-  book: intradayBookSchema,
   /** Stocks with no signal today and the day-level reason. */
   exclusions: z.array(
     z.object({ symbol: z.string(), reason: z.string(), detail: z.string().nullable() }),

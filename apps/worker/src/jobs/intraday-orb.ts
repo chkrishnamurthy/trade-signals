@@ -1,7 +1,5 @@
 import { readFile } from 'node:fs/promises';
 import {
-  allocateCandidates,
-  type Candidate,
   evaluateOrb,
   type IntradayObservation,
   ORB_CONFIG,
@@ -14,10 +12,8 @@ import {
   getSignalMinutes,
   hasIntradaySignal,
   insertSignalMinutes,
-  intradayBookFromSignals,
   invalidateProviderCredential,
   listCorporateActions,
-  listIntradaySignals,
   observeIntradayPrice,
   publishIntradaySignal,
   reconcileIntradayDeadlines,
@@ -49,7 +45,6 @@ const settingsSchema = z
     universe: z.literal('nifty50'),
     historyDays: z.number().int().min(7).max(30),
     historyConcurrency: z.number().int().min(1).max(4),
-    capitalPaise: z.number().int().positive().max(1_000_000_000_000),
     strategyRevision: z.literal(ORB_CONFIG.revision),
   })
   .strict();
@@ -71,10 +66,23 @@ const SESSION_EXCLUSIONS: readonly IntradayRejectReason[] = [
 ];
 
 /**
- * One account-level worker feed for the ORB-VC strategy. Browsers read the
- * persisted signals and snapshots; nothing here fans out per user.
+ * One account-level worker feed for the ORB-VC strategy: history, evaluation
+ * and the global level outcomes. Money is per user and lives in `paper.ts`.
  */
-export function createIntradayJobs(context: WorkerContext, log: Logger) {
+export interface IntradayJobOptions {
+  /**
+   * True while the socket feed is delivering observations. The 5-second quote
+   * sweep then stands down and becomes the fallback: it resumes on its own the
+   * moment the socket is silent for longer than the coverage window.
+   */
+  feedHealthy?: () => boolean;
+}
+
+export function createIntradayJobs(
+  context: WorkerContext,
+  log: Logger,
+  options: IntradayJobOptions = {},
+) {
   let market: MarketStatus | null = null;
   let evaluatedBoundary = 0;
   const evaluatedSymbols = new Set<string>();
@@ -106,6 +114,7 @@ export function createIntradayJobs(context: WorkerContext, log: Logger) {
   /** Sampled quotes every five seconds drive fills, targets, stops and the 15:15 square-off. */
   const quoteCycle = async () => {
     if (Date.now() < retryAt) return;
+    if (options.feedHealthy?.()) return;
     const config = await loadIntradaySettings();
     if (!config.enabled) return;
     const now = Date.now();
@@ -116,7 +125,6 @@ export function createIntradayJobs(context: WorkerContext, log: Logger) {
     const universe = await loadIndexConstituents(config.universe);
     const instruments = await signalUniverseInstruments(context.db);
     const result = await context.provider.fetchQuotes(universe);
-    const book = { capitalPaise: config.capitalPaise, riskBps: ORB_CONFIG.riskBps };
     for (const item of universe) {
       const instrument = instruments.find((i) => i.symbol === item.symbol && i.kind === 'equity');
       const q = result.quotes.get(item.symbol);
@@ -139,7 +147,6 @@ export function createIntradayJobs(context: WorkerContext, log: Logger) {
         observation,
         q.bid ?? null,
         q.ask ?? null,
-        book,
       );
     }
   };
@@ -271,7 +278,6 @@ export function createIntradayJobs(context: WorkerContext, log: Logger) {
           instrument: { id: number; tickSize: number };
           item: { symbol: string; name: string };
           evidence: IntradayEvidence;
-          candidate: Candidate;
         }[] = [];
         let next = 0;
         await Promise.all(
@@ -320,15 +326,7 @@ export function createIntradayJobs(context: WorkerContext, log: Logger) {
                 if (bars.at(-1)?.timestamp === boundary - ORB_CONFIG.barMs)
                   evaluatedSymbols.add(item.symbol);
                 if (decision.kind === 'SIGNAL') {
-                  decisions.push({
-                    instrument,
-                    item,
-                    evidence: decision.evidence,
-                    candidate: {
-                      symbol: item.symbol,
-                      relativeVolume: decision.evidence.relativeVolume,
-                    },
-                  });
+                  decisions.push({ instrument, item, evidence: decision.evidence });
                 } else {
                   reason(decision.reason);
                   if (SESSION_EXCLUSIONS.includes(decision.reason))
@@ -358,34 +356,20 @@ export function createIntradayJobs(context: WorkerContext, log: Logger) {
             }
           }),
         );
-        // The book decides which of this candle's signals it takes; every signal is published.
-        if (decisions.length > 0) {
-          const book = intradayBookFromSignals(
-            await listIntradaySignals(db, tradingDate),
-            config.capitalPaise,
-          );
-          const allocation = allocateCandidates(
-            decisions.map((d) => d.candidate),
-            {
-              capitalPaise: book.capitalPaise,
-              tradesToday: book.tradesToday,
-              openTrades: book.openTrades,
-              dayNetPaise: book.markNetPaise ?? book.realisedNetPaise,
-            },
-          );
-          for (const d of decisions) {
-            const id = await publishIntradaySignal(db, {
-              instrumentId: d.instrument.id,
-              strategyVersionId: version,
-              symbol: d.item.symbol,
-              companyName: d.item.name,
-              publishedAt: Date.now(),
-              evidence: d.evidence,
-              skipReason: allocation.get(d.item.symbol) ?? null,
-            });
-            if (id !== null) snapshot.published++;
-            else reason('PUBLICATION_MISSED');
-          }
+        // Every signal is published as a global trade intent; each user's paper
+        // portfolio decides for itself whether to take it (plan §6).
+        for (const d of decisions) {
+          const id = await publishIntradaySignal(db, {
+            instrumentId: d.instrument.id,
+            strategyVersionId: version,
+            symbol: d.item.symbol,
+            companyName: d.item.name,
+            publishedAt: Date.now(),
+            evidence: d.evidence,
+            skipReason: null,
+          });
+          if (id !== null) snapshot.published++;
+          else reason('PUBLICATION_MISSED');
         }
         snapshot.message = warmup
           ? 'History warm-up completed; awaiting a live session.'

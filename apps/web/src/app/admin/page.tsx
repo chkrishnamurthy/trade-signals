@@ -50,6 +50,9 @@ export default async function AdminPage() {
           </PageHeading>
           <PageActions>
             <Button asChild variant="outline" size="sm">
+              <Link href="/admin/paper">Paper trading health</Link>
+            </Button>
+            <Button asChild variant="outline" size="sm">
               <Link href="/watchlists">
                 <ArrowLeftIcon />
                 Back to app

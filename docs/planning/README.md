@@ -13,4 +13,6 @@ that is proposed or in progress but not yet built.
 | [upstox-provider-plan.md](upstox-provider-plan.md) | Plan for adding Upstox as a second market-data provider behind the provider boundary |
 | [dhan-provider-plan.md](dhan-provider-plan.md) | Dhan vs Fyers research (pricing, limits, auth, history), the run-both-route-by-strength verdict, and the phased migration plan — 2026-09-16 |
 | [intraday-strategy-dhan-plan.md](intraday-strategy-dhan-plan.md) | Replace `/signals` with one rule-based intraday strategy (ORB with VWAP + volume confirmation) on Dhan data — numeric rules, page redesign, paper-trading path, replay/backtest, phases — 2026-09-17 |
+| [paper-trading-plan.md](paper-trading-plan.md) | Per-user intraday paper trading (₹2,00,000 virtual portfolios, shared-capital allocation, ledger, Dhan feed, square-off, `/paper-trading` page) — findings, architecture, DB/API/worker design and phases 0–6 — 2026-09-17 |
+| [finmagine-competitive-analysis.md](finmagine-competitive-analysis.md) | FinMagine vs EquityWise competitive analysis — feature inventory, UX, gaps by tier, recommendations, 4-phase roadmap and horizon-segmented nav — 2026-09-17 |
 | [storybook-plan.md](storybook-plan.md) | Plan for introducing Storybook for the web component library |

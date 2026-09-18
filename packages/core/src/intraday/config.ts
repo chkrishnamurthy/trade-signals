@@ -24,7 +24,7 @@ export const ORB_CONFIG = Object.freeze({
   firstSignalCloseMinute: 575,
   lastSignalCloseMinute: 870,
   /** Simulated square-off on the first covered quote at or after 15:15. */
-  squareOffMinute: 915,
+  squareOffMinute: 915 as number,
   /** A candle published later than this after its close is not tradeable. */
   maxPublicationDelayMs: 30_000,
 

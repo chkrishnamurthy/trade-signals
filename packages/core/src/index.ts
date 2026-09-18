@@ -11,6 +11,7 @@ export * from './announcement-interpretation.js';
 export * from './flows.js';
 export * from './indicators/index.js';
 export * from './intraday/index.js';
+export * from './paper/index.js';
 export * from './paper-journal.js';
 export * from './signals/index.js';
 export type { Bar, Series } from './types.js';

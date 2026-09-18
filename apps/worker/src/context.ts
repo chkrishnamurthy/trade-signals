@@ -118,6 +118,11 @@ export function createContext(env: NodeJS.ProcessEnv = process.env): WorkerConte
         accessToken: tokenFor(DHAN),
         attempts: WORKER_ATTEMPTS,
         timeoutMs: WORKER_TIMEOUT_MS,
+        // The live socket for the paper-trading feed job. Declaring it costs
+        // nothing until `streamTicks` is called; the transport is built with
+        // the current token on every (re)connect, so a rotated credential
+        // reaches the socket without rebuilding the provider.
+        stream: { mode: 'ticker' },
       }),
     );
   }

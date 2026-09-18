@@ -1,0 +1,59 @@
+# NSE exchange calendar (docs/planning/paper-trading-plan.md §9.4).
+#
+# Versioned config, not a database table. The worker's `calendar-refresh` job
+# reads this file every morning and writes the day's `exchange_sessions` row;
+# every in-session job then asks that row whether the exchange is open.
+#
+# OPERATOR-VERIFIED. The NSE website refuses non-browser clients, so this
+# list is maintained by hand from NSE's published circular each December and
+# on any mid-year circular. `verifiedThrough` is the last date this file was
+# checked against the exchange's list; the worker logs a warning every day
+# once that date is fewer than 14 days away, and the admin health page shows
+# it in red. Extend the list, then move the date forward.
+#
+# Times are IST, HH:MM. Dates are YYYY-MM-DD. Weekends are closed implicitly.
+exchange: NSE
+verifiedThrough: 2026-12-31
+
+timings:
+  open: "09:15"
+  close: "15:30"
+  # Last candle close that may produce a signal (§11).
+  entryCutoff: "14:30"
+  # Compulsory square-off: fifteen minutes before the close, clear of the
+  # closing-price window and of last-minute liquidity thinning.
+  squareOff: "15:15"
+
+# Equity-segment trading holidays 2026 (NSE circular; cross-checked 2026-09-18
+# against a broker's published calendar). Saturdays/Sundays are omitted.
+holidays:
+  - { date: 2026-01-15, name: Municipal Corporation Elections in Maharashtra }
+  - { date: 2026-01-26, name: Republic Day }
+  - { date: 2026-03-03, name: Holi }
+  - { date: 2026-03-26, name: Shri Ram Navami }
+  - { date: 2026-03-31, name: Shri Mahavir Jayanti }
+  - { date: 2026-04-03, name: Good Friday }
+  - { date: 2026-04-14, name: Dr. Baba Saheb Ambedkar Jayanti }
+  - { date: 2026-05-01, name: Maharashtra Day }
+  - { date: 2026-05-28, name: Bakri Eid }
+  - { date: 2026-06-26, name: Moharram }
+  - { date: 2026-09-14, name: Ganesh Chaturthi }
+  - { date: 2026-10-02, name: Mahatma Gandhi Jayanti }
+  - { date: 2026-10-20, name: Dussehra }
+  - { date: 2026-11-10, name: Diwali-Balipratipada }
+  - { date: 2026-11-24, name: Prakash Gurpurb Sri Guru Nanak Dev }
+  - { date: 2026-12-25, name: Christmas }
+
+# Sessions with their own timings. Muhurat 2026 falls on a Sunday; the exact
+# hour is announced by circular a few weeks before — update it then. Until it
+# is confirmed the paper engine treats the session as one where entries close
+# thirty minutes after the open and everything squares off ten minutes before
+# the close (§9.4), so a wrong guess here cannot leave a trade open overnight.
+specialSessions:
+  - date: 2026-11-08
+    kind: MUHURAT
+    name: Diwali-Laxmi Pujan (Muhurat trading; timings to be confirmed by circular)
+    open: "18:15"
+    close: "19:15"
+    entryCutoff: "18:45"
+    squareOff: "19:05"

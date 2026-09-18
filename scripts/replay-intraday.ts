@@ -4,6 +4,7 @@
  *
  *   pnpm replay:intraday --date 2026-09-17
  *   pnpm replay:intraday --from 2026-09-01 --to 2026-09-17 [--symbol RELIANCE] [--csv out.csv]
+ *   pnpm replay:intraday --date 2026-09-17 --portfolio [--capital 200000]   # per-user paper book
  *
  * The daily check (plan §9): after the close, the replay for today must match
  * the live page on every signal, level and reason. Fills may differ (sampled
@@ -11,7 +12,14 @@
  */
 import { appendFileSync, writeFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
-import { ORB_CONFIG, replaySession } from '@equitywise/core';
+import {
+  ORB_CONFIG,
+  ORB_STRATEGY_ID,
+  PAPER_DEFAULT_LIMITS,
+  PAPER_STARTING_CAPITAL_PAISE,
+  replayPortfolio,
+  replaySession,
+} from '@equitywise/core';
 import {
   createDatabase,
   getDailyBars,
@@ -33,6 +41,9 @@ const { values } = parseArgs({
     to: { type: 'string' },
     symbol: { type: 'string' },
     csv: { type: 'string' },
+    /** Also run the session through a ₹2,00,000 paper portfolio (plan §9, Phase 1). */
+    portfolio: { type: 'boolean', default: false },
+    capital: { type: 'string' },
   },
 });
 const day = (s: string) => {
@@ -44,6 +55,62 @@ const from = day(values.from ?? values.date ?? istDateKey(new Date()));
 const to = day(values.to ?? values.date ?? istDateKey(new Date()));
 const ist = (ms: number) =>
   new Date(ms).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false });
+
+/**
+ * The same session through one paper portfolio: ₹2,00,000 (or --capital in
+ * rupees), default limits, switched on at the session open. Decisions, the
+ * ledger and the result the page will show — before any page exists.
+ */
+function printPortfolio(
+  date: string,
+  open: number,
+  stocks: Parameters<typeof replayPortfolio>[0]['stocks'],
+  indexMoveBps: number | null,
+) {
+  const capitalPaise = values.capital
+    ? Math.round(Number(values.capital) * 100)
+    : PAPER_STARTING_CAPITAL_PAISE;
+  const end = sessionOpen(new Date(open)).getTime() + 375 * 60_000;
+  const r = replayPortfolio({
+    sessionOpenMs: open,
+    stocks,
+    indexMoveBps,
+    capitalPaise,
+    settings: {
+      ...PAPER_DEFAULT_LIMITS,
+      enabled: true,
+      enabledAt: open,
+      entriesPaused: false,
+      settingsVersion: 1,
+    },
+    assignments: [{ strategyId: ORB_STRATEGY_ID, enabled: true, priority: 10 }],
+    session: {
+      tradingDate: date,
+      kind: 'NORMAL',
+      openAt: open,
+      closeAt: end,
+      entryCutoffAt: open + 315 * 60_000,
+      squareOffAt: open + 360 * 60_000,
+      note: null,
+    },
+  });
+  console.log(
+    `\n  Paper portfolio ${formatPaise(capitalPaise)} · ${r.decisions.filter((d) => d.accepted).length} taken of ${r.decisions.length} signals · net ${formatPaise(r.performance.netPaise)} · ledger ${r.ledgerMismatches === 0 ? 'balanced' : `${r.ledgerMismatches} MISMATCHES`}`,
+  );
+  for (const d of r.decisions) {
+    const i = r.intents.find((x) => x.id === d.intentId);
+    console.log(
+      `    ${(i?.symbol ?? '?').padEnd(12)} ${d.accepted ? `TAKEN ${d.shares} shares (${d.sizing?.bindingCap})` : `${d.reasonCode}: ${d.reasonText}`}`,
+    );
+  }
+  for (const p of r.positions)
+    console.log(
+      `    ${p.symbol.padEnd(12)} ${p.status.padEnd(7)} ${p.exitReason ?? ''} fill ${p.projection.fill === null ? '—' : formatPaise(p.projection.fill)} × ${p.projection.shares}  gross ${formatPaise(p.grossRealisedPaise)}  charges ${formatPaise(p.chargesPaise)}  net ${formatPaise(p.netRealisedPaise)}`,
+    );
+  console.log(
+    `    cash ${formatPaise(r.balances.cashPaise)} · reserved ${formatPaise(r.balances.reservedPaise)} · locked ${formatPaise(r.balances.lockedPaise)} · equity ${r.snapshot.equityPaise === null ? 'n/a' : formatPaise(r.snapshot.equityPaise)}`,
+  );
+}
 
 async function main() {
   const settings = await loadIntradaySettings();
@@ -107,7 +174,11 @@ async function main() {
         sessionOpenMs: open,
         stocks,
         indexMoveBps,
-        capitalPaise: settings.capitalPaise,
+        // The shared-book replay is a reference run over the same capital the
+        // per-user portfolios start with (--capital overrides both).
+        capitalPaise: values.capital
+          ? Math.round(Number(values.capital) * 100)
+          : PAPER_STARTING_CAPITAL_PAISE,
       });
       sessions += 1;
       total += r.netPaise;
@@ -148,6 +219,7 @@ async function main() {
             ].join(',')}\n`,
           );
       }
+      if (values.portfolio) printPortfolio(date, open, stocks, indexMoveBps);
     }
     console.log(
       `\n${sessions} sessions · net ${formatPaise(total)} (simulated, ${ORB_CONFIG.shortName} rev ${ORB_CONFIG.revision})`,

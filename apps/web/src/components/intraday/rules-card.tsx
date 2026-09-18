@@ -38,9 +38,9 @@ export function RulesCard({ rules }: { rules: IntradayRules }) {
     {
       title: 'Risk',
       items: [
-        `Risk per trade: ${n('riskBps') / 100}% of capital. Shares = risk budget ÷ (entry − stop), capped by the cash free — no leverage.`,
+        `Risk per trade: ${n('riskBps') / 100}% of the paper portfolio's equity. Shares = risk budget ÷ (entry − stop), capped by the cash free — no leverage.`,
         `At most ${n('maxTradesPerDay')} trades a day and ${n('maxOpenTrades')} open at once. Extra signals are shown but not taken.`,
-        `No new trades once the day is down ${n('dailyLossHaltBps') / 100}% of capital.`,
+        `No new trades once the day is down ${n('dailyLossHaltBps') / 100}% of the day's starting equity.`,
         'When several signals fire on the same candle, the strongest relative volume goes first.',
       ],
     },

@@ -323,6 +323,60 @@ pm2 logs equitywise-worker --lines 40 --nostream
 root over ~85%; repeated DB errors or `credential`/`Blocked upstream` in the worker
 logs; a browser certificate warning; no fresh signals during market hours.
 
+### Paper trading (per-user simulation; docs/planning/paper-trading-plan.md)
+
+**What runs.** On trading days the worker opens the Dhan socket at 09:05
+(`feed`), writes one sampled price per stock per second into
+`signal_observations`, and the 5-second REST quote sweep stands down while the
+socket is healthy (it resumes on its own after 15 s of silence). The paper jobs
+then read those rows: `paper-entries` decides every new signal for every
+switched-on portfolio (with the scan, and each minute as a sweep),
+`paper-monitor` applies observations to live paper trades every second from a
+checkpoint (`worker_checkpoints`), `paper-squareoff` runs from 15:15 every
+15 s, `paper-snapshot` every 5 minutes, `paper-reconcile` at 15:45 and 06:45.
+`calendar-refresh` (06:30) writes the day's `exchange_sessions` row from
+`config/nse-calendar.yaml`; `calendar-check` (09:20) marks the day
+`CLOSED_UNSCHEDULED` if the provider says closed and no price arrived.
+
+**No orders, no funds.** Nothing in the tree can reach an order, positions,
+holdings or funds endpoint — `packages/market-data/src/__tests__/no-execution.test.ts`
+fails the build otherwise. Keep the Dhan account empty of funds and, if the
+platform allows, with API order permissions off.
+
+**Calendar upkeep (yearly, and on any NSE circular).** Edit
+`config/nse-calendar.yaml`: holidays, special sessions (Muhurat timings), then
+move `verifiedThrough` forward. The worker warns daily (and `/admin/paper`
+shows red) from 14 days before that date. The Muhurat row is a placeholder
+until the circular lands — confirm its times.
+
+**Reading the health page (`/admin/paper`, admin only).** Session and
+calendar, feed mode and last sample age, portfolios on / with live trades,
+"open after the close" (must be 0 by 15:30:15), ledger mismatches (must be 0),
+and each job's last cycle. Every red item is also a `paper_risk_events` row
+and an `error` log line in `pm2 logs equitywise-worker`.
+
+**Reading a declined signal.** The paper page's activity list shows each
+decision with its reason in plain words; the stored code is on
+`paper_orders.reason_code` (list in `packages/shared/src/paper.ts`). "Signal
+came before you switched on" is the activation rule: only intents whose
+candle closed after `enabled_at` are taken.
+
+**What "Unavailable" means.** The price coverage broke for more than 15 s
+while a paper trade was live, or no covered price arrived before the close.
+The trade is closed at the last sampled price, flagged `resolution =
+UNAVAILABLE`, kept in the history and excluded from every performance rate —
+never guessed, never carried overnight.
+
+**Replay after close.** `pnpm replay:intraday --date YYYY-MM-DD --portfolio`
+re-runs the stored session through a ₹2,00,000 book with default limits and
+prints decisions, ledger and result; a live portfolio with the same settings
+must show the same decisions and levels (fills differ only by data tier).
+
+**One-off before merging migration 0024:** `pnpm data:export-legacy --out
+/opt/equitywise/backups/legacy-$(date +%F)` on the VPS. The migration drops the
+retired `vwap_*`, `signal_scan_runs` and `paper_stud*`/`paper_equity_marks`
+tables; the export is the only copy afterwards.
+
 ---
 
 ## 10. File map (where things live)
@@ -331,6 +385,10 @@ logs; a browser certificate warning; no fresh signals during market hours.
 - `/opt/equitywise/repo/` — the deployed checkout of `main` (VPS).
 - `/opt/equitywise/repo/.env` — production secrets (VPS, not in git).
 - `/opt/equitywise/scripts/deploy.sh` — pull + build + migrate + restart (VPS).
+- `pnpm dhan:feed-probe --minutes 30 --out <file>` — measures the Dhan live socket during a session (tick gaps, skew, reconnects); read-only. Paper trading (docs/planning/paper-trading-plan.md) never places orders: the Dhan account should hold no funds and the `no-execution` test fails the build on any order code.
+- `config/nse-calendar.yaml` — the exchange calendar the paper engine gates on (operator-verified; see §9).
+- `apps/worker/src/jobs/{feed,calendar-refresh,paper}.ts` — the socket feed, the calendar service and the per-user paper jobs.
+- `pnpm data:export-legacy --out <dir>` — exports the retired VWAP-page tables before migration 0024 drops them.
 - `/opt/equitywise/scripts/backup-db.sh` — nightly dump (VPS, cron 02:30).
 - `/opt/equitywise/scripts/restore-drill.sh` — restore verification (VPS).
 - `/etc/nginx/sites-available/equitywise` — reverse proxy + TLS (VPS).
