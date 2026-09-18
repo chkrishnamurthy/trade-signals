@@ -55,20 +55,6 @@ export const NAVIGATION: readonly NavGroup[] = [
     items: [
       {
         status: 'ready',
-        href: '/intraday',
-        label: 'Intraday',
-        icon: ActivityIcon,
-        description: 'One rule-based intraday strategy, its signals and paper trades',
-      },
-      {
-        status: 'ready',
-        href: '/paper-trading',
-        label: 'Paper Trading',
-        icon: FlaskConicalIcon,
-        description: 'Your strategies simulated automatically on virtual capital',
-      },
-      {
-        status: 'ready',
         href: '/today',
         label: 'Market Brief',
         icon: SunriseIcon,
@@ -113,5 +99,28 @@ export const NAVIGATION: readonly NavGroup[] = [
         description: 'Your details, preferences and account security',
       },
     ],
+  },
+];
+
+/**
+ * Admin-only destinations. `/intraday` and `/paper-trading` are under
+ * evaluation and are not offered to users: their pages redirect a non-admin to
+ * `/watchlists` and their APIs answer 403. They are reached from the user menu
+ * and `/admin`, never from the primary bar or the footer.
+ */
+export const ADMIN_NAVIGATION: readonly ReadyNavItem[] = [
+  {
+    status: 'ready',
+    href: '/intraday',
+    label: 'Intraday',
+    icon: ActivityIcon,
+    description: 'One rule-based intraday strategy, its signals and paper trades',
+  },
+  {
+    status: 'ready',
+    href: '/paper-trading',
+    label: 'Paper Trading',
+    icon: FlaskConicalIcon,
+    description: 'Strategies simulated automatically on virtual capital',
   },
 ];

@@ -1,6 +1,7 @@
 # Intraday paper trading — implementation plan
 
-**Status:** Plan agreed 2026-09-17. **Phase 0 done** (§22, branch `feat/paper-trading-phase-0`). **Phase 1 implemented** on `feat/paper-trading-phase-1` (§23), pending review; phases 2–6 pending approval.
+**Status:** Plan agreed 2026-09-17. **Phase 0 done** (§22, branch `feat/paper-trading-phase-0`). **Phases 1–6 implemented** (§23–§24, merged in PR #23).
+**Access (2026-09-18): admin-only.** `/paper-trading`, `/intraday` and every `/api/paper/*` and `/api/intraday/*` endpoint answer only an `admin` session — a signed-in user is redirected to `/watchlists` (pages) or gets `403 FORBIDDEN` (APIs) — and neither page appears in the primary navigation or the footer; admins reach them from the user menu and `/admin`. The data model stays per-user (one portfolio per `user_id`), so opening the feature to users later is the one role check in `apps/web/src/server/paper.ts` / `intraday.ts` and the two page files, not a schema change.
 **Date:** 2026-09-17
 **Builds on:** [intraday-strategy-dhan-plan.md](intraday-strategy-dhan-plan.md) (the ORB-VC strategy and `/intraday` page, merged in PR #22) · [dhan-provider-plan.md](dhan-provider-plan.md) (Dhan adapter, router, socket — phases 0–7 complete) · [authentication-plan.md](authentication-plan.md) (per-user sessions).
 **Fixed product decisions (from the brief):** Dhan for intraday data · one paper portfolio per user · ₹2,00,000 starting virtual capital · all enabled strategies share that capital · fully automatic entries/exits · no manual edits to paper trades · compulsory square-off before close · paper trading OFF by default · **no real orders, ever**.
@@ -240,7 +241,7 @@ All `paper_*` tables carry `portfolio_id` → `paper_portfolios.id`, and every r
 
 ## 8. API design
 
-All under `/api/paper/*`, Node runtime, `no-store`, session-authenticated via `getSessionUser()`, Zod on input and output, same error envelope `{error, code, remedy?}`. Mutations require same-origin (`origin`/`sec-fetch-site`) and JSON, as the old `/api/paper-trades` did.
+All under `/api/paper/*`, Node runtime, `no-store`, **admin-only** (`getAdminUser()`: 401 when not signed in, `403 FORBIDDEN` for a non-admin — decided 2026-09-18, see the header), Zod on input and output, same error envelope `{error, code, remedy?}`. Mutations require same-origin (`origin`/`sec-fetch-site`) and JSON, as the old `/api/paper-trades` did.
 
 | Endpoint | Method | Purpose |
 | --- | --- | --- |
@@ -423,7 +424,7 @@ Computed by pure functions over closed trades (`resolution=OBSERVED` only; unres
 1. **No order code path.** `packages/dhan` has no order/portfolio/funds module and gets a `README` line saying so. A new test `packages/market-data/src/__tests__/no-execution.test.ts` greps the whole tree (excluding `docs/`) for `placeOrder`, `/v2/orders`, `orderRequest`, `modifyOrder`, `cancelOrder`, `positions`, `holdings`, `fundlimit`, `tradingPin`, `TRADING_PIN` and fails on any hit outside an allowlist of comments. Same for Fyers order endpoints.
 2. **No trading credentials.** `DHAN_PIN`/`DHAN_TOTP_SECRET` are the *login* PIN and TOTP that the documented data-token endpoint requires; no static IP, no order-API key. The runbook states the Dhan account must have **no funds** and, if the platform allows, API order permissions disabled.
 3. **Engine purity.** `packages/core/src/paper` cannot import providers (boundary test) and has no network capability by construction.
-4. **User isolation.** Repository functions resolve the portfolio by `userId` from the session; real-Postgres tests attempt cross-user reads/writes and expect empty results/403. Admin health endpoint exposes counts, never another user's trades.
+4. **User isolation.** Repository functions resolve the portfolio by `userId` from the session; real-Postgres tests attempt cross-user reads/writes and expect empty results/403. Admin health endpoint exposes counts, never another user's trades. **Role gate (2026-09-18):** on top of that, every paper and intraday page and endpoint requires the `admin` role while the feature is under evaluation; a normal user never sees the pages, the navigation entries or the data.
 5. **Mutations:** same-origin + JSON + size limit + idempotency key + optimistic version; rate-limited per user.
 6. **Audit:** every toggle/pause/strategy/settings change is an insert-only row with before/after and IP.
 
@@ -635,8 +636,8 @@ All on branch `feat/paper-trading-phase-1` (one branch for the whole feature; no
 
 | Item | Where |
 | --- | --- |
-| `/paper-trading` | `apps/web/src/components/paper/paper-dashboard.tsx`: header with "Simulation only — no real orders", phase, feed and worker badges; state banners (holiday/weekend/unscheduled closure, stale or missing feed, worker delayed, halts, reconcile mismatch, open after close); `ControlsCard` (toggle with the confirmation dialog of §4, emergency stop with confirm, strategy switches, limits summary); `SummaryCards` (value, free cash, today net, open count, drawdown); `OpenTradesCard`; `ActivityCard` (decisions with "why 23 shares" and "why declined", position events; newest first, live region); `HistoryCard` (filters, paging, CSV); `PerformanceCard` (range, Wilson interval, sample-size badge, equity curve, daily net, attribution by strategy/version/stock/exit). Tables ≥ md, stacked cards below. |
-| `/intraday` | `PaperStatusCard` replaces the shared ₹5,00,000 book and the "coming soon" controls; the page shows global level outcomes only (`LEVEL_TRACKER`: one reference share, never short of cash). `config/intraday-orb.yaml` lost `capitalPaise`; `intradayTodaySchema` lost `book`. |
+| `/paper-trading` | **Admin-only** (`app/paper-trading/page.tsx` redirects a non-admin to `/watchlists`; the nav entry lives in `ADMIN_NAVIGATION`, shown in the user menu and on `/admin`). `apps/web/src/components/paper/paper-dashboard.tsx`: header with "Simulation only — no real orders", phase, feed and worker badges; state banners (holiday/weekend/unscheduled closure, stale or missing feed, worker delayed, halts, reconcile mismatch, open after close); `ControlsCard` (toggle with the confirmation dialog of §4, emergency stop with confirm, strategy switches, limits summary); `SummaryCards` (value, free cash, today net, open count, drawdown); `OpenTradesCard`; `ActivityCard` (decisions with "why 23 shares" and "why declined", position events; newest first, live region); `HistoryCard` (filters, paging, CSV); `PerformanceCard` (range, Wilson interval, sample-size badge, equity curve, daily net, attribution by strategy/version/stock/exit). Tables ≥ md, stacked cards below. |
+| `/intraday` | **Admin-only** (same gate as `/paper-trading`; `/api/intraday/*` answers 403 to a non-admin). `PaperStatusCard` replaces the shared ₹5,00,000 book and the "coming soon" controls; the page shows global level outcomes only (`LEVEL_TRACKER`: one reference share, never short of cash). `config/intraday-orb.yaml` lost `capitalPaise`; `intradayTodaySchema` lost `book`. |
 | Contracts | `packages/shared/src/paper.ts` §"Page contracts": overview, settings response, activity, trades page, performance report, health. |
 | Tests | `apps/web/src/components/paper/paper.test.ts` (render tests over fixtures produced by the real engine; vocabulary guard), `paper.stories.tsx` (every state of §4). |
 

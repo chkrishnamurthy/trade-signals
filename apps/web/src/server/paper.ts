@@ -137,14 +137,17 @@ function fail(message: string, status: number, code: string, remedy?: string): N
     { status, headers: NO_STORE },
   );
 }
-async function authenticated(
-  run: (userId: number) => Promise<unknown>,
-  options: { admin?: boolean } = {},
-): Promise<NextResponse> {
+/**
+ * Every paper endpoint is admin-only while the simulation is under
+ * evaluation: a signed-in non-admin gets 403, nobody signed in gets 401. The
+ * portfolio is still the caller's own (`userId`), so opening it to users later
+ * is one line here and nothing in the repositories.
+ */
+async function authenticated(run: (userId: number) => Promise<unknown>): Promise<NextResponse> {
   try {
-    const user = options.admin ? await getAdminUser() : await getSessionUser();
-    if (!user)
-      return options.admin ? fail('Admin access required.', 403, 'FORBIDDEN') : unauthenticated();
+    if ((await getSessionUser()) === null) return unauthenticated();
+    const user = await getAdminUser();
+    if (user === null) return fail('Admin access required.', 403, 'FORBIDDEN');
     return NextResponse.json(await run(user.id), { headers: NO_STORE });
   } catch (error) {
     if (error instanceof z.ZodError)
@@ -599,8 +602,7 @@ export const readPaperAudit = () =>
       })),
     }),
   );
-export const readPaperHealth = () =>
-  authenticated(() => paperHealthReport(Date.now()), { admin: true });
+export const readPaperHealth = () => authenticated(() => paperHealthReport(Date.now()));
 
 /** The same filtered set as the JSON page, as CSV. Money in rupees with two decimals. */
 export function tradesCsv(trades: readonly PaperOpenTrade[]): string {

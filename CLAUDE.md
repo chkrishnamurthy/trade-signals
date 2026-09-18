@@ -35,6 +35,12 @@ intraday cycle, and the backtest scripts). New feature pages will be built on th
 base later. The design docs above still describe the fuller original product as
 historical intent; that intraday code no longer exists in the tree.
 
+> **Update (2026-09-18):** an intraday strategy (`/intraday`, ORB-VC on Dhan data) and
+> per-user paper trading (`/paper-trading`) have since been built — see
+> `docs/planning/intraday-strategy-dhan-plan.md` and `docs/planning/paper-trading-plan.md`.
+> **Both are admin-only:** the pages redirect a non-admin, their APIs answer 403, and
+> they are not in the primary navigation. Do not expose them to users without a decision.
+
 Design & architecture docs: `docs/README.md`, `docs/architecture.md` (topology & stack),
 `docs/domain-and-contracts.md` (schema, indicators & invariants), `docs/api-reference.md`,
 `docs/operations-runbook.md`, and `docs/planning/storybook-plan.md`.

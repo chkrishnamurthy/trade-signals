@@ -338,6 +338,14 @@ checkpoint (`worker_checkpoints`), `paper-squareoff` runs from 15:15 every
 `config/nse-calendar.yaml`; `calendar-check` (09:20) marks the day
 `CLOSED_UNSCHEDULED` if the provider says closed and no price arrived.
 
+**Who can see it.** `/intraday`, `/paper-trading`, `/admin/paper` and every
+`/api/intraday/*` and `/api/paper/*` endpoint are **admin-only** (2026-09-18):
+a normal user is redirected to `/watchlists` or gets `403`, and neither page is
+in the navigation or the footer. Admins find them in the user menu and on
+`/admin`. Promote an account with the users list on `/admin`. The worker still
+runs for every switched-on portfolio regardless of role; today only admins can
+switch one on.
+
 **No orders, no funds.** Nothing in the tree can reach an order, positions,
 holdings or funds endpoint — `packages/market-data/src/__tests__/no-execution.test.ts`
 fails the build otherwise. Keep the Dhan account empty of funds and, if the

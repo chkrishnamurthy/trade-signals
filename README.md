@@ -26,13 +26,15 @@ docs/             what is built, what is not — see pending-features.md
 which parts of the system are finished, which are built but unwired, and which
 are declared in the sidebar without an implementation behind them.
 
-## Intraday trade signals
+## Intraday strategy and paper trading (admin-only)
 
-`/signals` shows same-day intraday setups across the NIFTY 50, scored on
-confluence across trend, price action, momentum, volume, VWAP, market context,
-volatility and timeframe alignment. Every signal carries the factor breakdown
-that produced its score, the individual observations behind it, its invalidation
-conditions and a timeline of how it got there.
+`/intraday` shows one rule-based intraday strategy (opening-range breakout with
+VWAP and volume confirmation) on the NIFTY 50 and its signals for the day;
+`/paper-trading` simulates those signals automatically on a ₹2,00,000 virtual
+portfolio per account — no real orders, ever. **Both pages and their APIs are
+restricted to the `admin` role while the strategy is under evaluation**
+(`docs/planning/intraday-strategy-dhan-plan.md`, `docs/planning/paper-trading-plan.md`);
+a normal user is redirected to `/watchlists` and does not see them in the navigation.
 
 The engine (`packages/core/src/intraday`) is pure. The worker runs it every few
 minutes while the market is open and stores the results; the web app only reads.

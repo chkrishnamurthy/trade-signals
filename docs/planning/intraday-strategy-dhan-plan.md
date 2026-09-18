@@ -330,7 +330,11 @@ Capital ₹5,00,000 · risk 1 % = ₹5,000 · tick ₹0.05 · slippage 2 bps/sid
 ## 5. Page design
 
 Route: **`/intraday`** (new; `/signals` redirects to it during the switch, then is
-removed). Private, `noindex`, authenticated, one navigation entry replacing "Signals".
+removed). Private, `noindex`, **admin-only since 2026-09-18**: the page redirects a
+signed-in non-admin to `/watchlists`, `/api/intraday/*` answers `403 FORBIDDEN`, and the
+entry is not in the primary navigation or the footer — admins reach it from the user
+menu and `/admin` (`ADMIN_NAVIGATION` in `apps/web/src/lib/navigation.ts`). It stays
+admin-only until the strategy and the paper simulation have been evaluated.
 Built on `AppShell`, `PageContainer`, `Card`, `Badge`, existing tokens — no new design
 system, no new UI dependency.
 
@@ -422,7 +426,9 @@ boundary absorbs that too.
 
 ---
 
-## 8. API (protected, Node runtime, `no-store`, Zod on input and output)
+## 8. API (admin-only, Node runtime, `no-store`, Zod on input and output)
+
+401 when not signed in, `403 FORBIDDEN` for a signed-in non-admin (2026-09-18).
 
 | Endpoint | Returns |
 | --- | --- |

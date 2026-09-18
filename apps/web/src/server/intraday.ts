@@ -34,10 +34,16 @@ async function settings() {
 }
 const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD.');
 
+/** Admin-only while the strategy is under evaluation: 401 when not signed in, 403 otherwise. */
 async function authenticated(run: () => Promise<unknown>): Promise<NextResponse> {
   try {
     const user = await getSessionUser();
     if (!user) return unauthenticated();
+    if (user.role !== 'admin')
+      return NextResponse.json(
+        { error: 'Admin access required.', code: 'FORBIDDEN' },
+        { status: 403, headers: { 'Cache-Control': 'no-store' } },
+      );
     return NextResponse.json(await run(), { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     const invalid = error instanceof z.ZodError;

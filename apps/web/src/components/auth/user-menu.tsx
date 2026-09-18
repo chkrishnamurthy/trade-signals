@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { API_ROUTES } from '@/lib/api-routes';
+import { ADMIN_NAVIGATION } from '@/lib/navigation';
 
 interface SessionUser {
   email: string;
@@ -20,7 +21,7 @@ interface SessionUser {
   profile: { displayName: string; avatarUrl: string | null };
 }
 
-/** The account control in the topbar: identity, an admin link, and log out. */
+/** The account control in the topbar: identity, the admin links, and log out. */
 export function UserMenu() {
   const [user, setUser] = useState<SessionUser | null>(null);
 
@@ -81,11 +82,22 @@ export function UserMenu() {
           </Link>
         </DropdownMenuItem>
         {user.role === 'admin' ? (
-          <DropdownMenuItem asChild>
-            <Link href="/admin">
-              <Shield className="mr-2 size-4" /> Admin
-            </Link>
-          </DropdownMenuItem>
+          <>
+            <DropdownMenuItem asChild>
+              <Link href="/admin">
+                <Shield className="mr-2 size-4" /> Admin
+              </Link>
+            </DropdownMenuItem>
+            {/* Admin-only screens: not in the primary bar, so this is how an
+                admin reaches them from any page. */}
+            {ADMIN_NAVIGATION.map((item) => (
+              <DropdownMenuItem key={item.href} asChild>
+                <Link href={item.href}>
+                  <item.icon className="mr-2 size-4" /> {item.label}
+                </Link>
+              </DropdownMenuItem>
+            ))}
+          </>
         ) : null}
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => void logout(false)}>
