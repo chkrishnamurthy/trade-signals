@@ -1,6 +1,7 @@
 'use client';
 
-import { type ReactNode, useEffect, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
+import { FlashOnChange } from '@/components/market/flash-on-change';
 import {
   IndicatorValue,
   Percent,
@@ -33,39 +34,6 @@ import type { WatchlistRowDto } from '@/lib/watchlist-types';
  * missing data. A cell that formatted its own number would be the start of the
  * table disagreeing with the rest of the product.
  */
-
-/**
- * Pulses the cell background in the direction of a change to `value`.
- *
- * This is what makes the table visibly LIVE: every tick that moves a price
- * flashes green or red for under a second. The first render never flashes —
- * a page full of flashing cells on load says "everything just changed", which
- * is false — and an unchanged value never flashes either.
- */
-function FlashOnChange({ value, children }: { value: number | null; children: ReactNode }) {
-  const previous = useRef<number | null>(value);
-  const [flash, setFlash] = useState<{ tone: 'up' | 'down'; key: number } | null>(null);
-
-  useEffect(() => {
-    const before = previous.current;
-    previous.current = value;
-    if (before === null || value === null || before === value) return;
-    setFlash({ tone: value > before ? 'up' : 'down', key: Date.now() });
-  }, [value]);
-
-  return (
-    <span
-      key={flash?.key}
-      className={cn(
-        'inline-block rounded-sm px-1 -mx-1',
-        flash?.tone === 'up' && 'price-flash-up',
-        flash?.tone === 'down' && 'price-flash-down',
-      )}
-    >
-      {children}
-    </span>
-  );
-}
 
 /** Price against a reference line: toned by which side of it we are on. */
 function AgainstLine({ paise, reference }: { paise: number | null; reference: number | null }) {

@@ -40,7 +40,10 @@ export function PageContainer({
  *
  * Four parts in a fixed order — breadcrumb, title, description, actions — so a
  * user landing on any route reads where they are, what the page is for and what
- * they can do here in the same three places every time.
+ * they can do here in the same three places every time. It sits under the app
+ * chrome (top bar and the sticky market indices strip, both from `AppShell`)
+ * and scrolls away with the content: the bar's active item already says which
+ * page this is, so the title is read once, not pinned.
  *
  * It stays deliberately short. These are data screens; every row of pixels the
  * header takes is a row of the table the user actually came for. That budget is

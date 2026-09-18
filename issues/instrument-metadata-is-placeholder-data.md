@@ -1,8 +1,13 @@
 ---
+id: EW-107
 title: Instrument metadata is placeholder data
-type: issue
-status: backlog
+type: bug
+stage: ideas
 priority: medium
+area: [db, provider]
+created: 2026-08-24
+updated: 2026-09-06
+stage_since: 2026-09-06
 tier: "2.2"
 source: docs/planning/pending-features.md
 ---

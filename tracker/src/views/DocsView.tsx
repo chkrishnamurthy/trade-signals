@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { MarkdownDoc } from "../components/MarkdownDoc";
 import { Tree } from "../components/Tree";
 import { loadDoc, loadTree } from "../lib/api";
+import { navigate } from "../lib/router";
 import type { FileNode, TreeNode } from "../types";
 
 function firstFile(nodes: TreeNode[]): FileNode | null {
@@ -13,21 +14,23 @@ function firstFile(nodes: TreeNode[]): FileNode | null {
   return null;
 }
 
-export function DocsView() {
+export function DocsView({ path }: { path: string }) {
   const [tree, setTree] = useState<TreeNode[] | null>(null);
-  const [activePath, setActivePath] = useState<string | null>(null);
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(false);
+  const activePath = path || null;
 
   useEffect(() => {
-    loadTree("docs")
+    loadTree()
       .then((t) => {
         setTree(t);
-        const f = firstFile(t);
-        if (f) setActivePath(f.path);
+        if (!path) {
+          const f = firstFile(t);
+          if (f) navigate("docs", f.path);
+        }
       })
       .catch(() => setTree([]));
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!activePath) return;
@@ -46,13 +49,13 @@ export function DocsView() {
     <div className="split">
       <aside className="nav-pane">
         <div className="nav-pane-head">Documentation</div>
-        <Tree nodes={tree} activePath={activePath} onSelect={setActivePath} />
+        <Tree nodes={tree} activePath={activePath} onSelect={(p) => navigate("docs", p)} />
       </aside>
       <section className="read-pane">
         {activePath && (
           <div className="crumbs">
             {crumbs.map((c, i) => (
-              <span key={i}>
+              <span key={`${c}-${i}`}>
                 {i > 0 && <span className="sep">/</span>}
                 <span className={i === crumbs.length - 1 ? "cur" : ""}>{c}</span>
               </span>

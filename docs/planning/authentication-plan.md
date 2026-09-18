@@ -1,3 +1,16 @@
+---
+name: Authentication
+status: done
+horizon: none
+created: 2026-09-06
+updated: 2026-09-12
+board: EW-030
+area: [web, db]
+confidence: 3
+summary: First-party multi-user authentication on our own Postgres; Resend for email only. Implemented (dev).
+owner: krishna
+---
+
 # Authentication — multi-user architecture & implementation plan
 
 Status: **implemented (dev) — see status below** · Date: 2026-09-06

@@ -1,3 +1,17 @@
+---
+name: Profile page
+status: done
+horizon: none
+created: 2026-09-07
+updated: 2026-09-07
+board: EW-036
+area: [web]
+blocked_by: [authentication-plan]
+confidence: 3
+summary: The signed-in user's self-service surface at /profile — built.
+owner: krishna
+---
+
 # Profile page — design & as-built
 
 Status: **built** · Branch `feat/profile-page` (cut from `main`, auth foundation merged in) · Date: 2026-09-07

@@ -1,8 +1,13 @@
 ---
+id: EW-102
 title: Screener
-type: task
-status: todo
+type: feature
+stage: ideas
 priority: high
+area: [web]
+created: 2026-08-24
+updated: 2026-09-06
+stage_since: 2026-09-06
 tier: "1.2"
 source: docs/planning/pending-features.md
 ---

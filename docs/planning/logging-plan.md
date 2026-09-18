@@ -1,3 +1,16 @@
+---
+name: Logging
+status: approved
+horizon: next
+created: 2026-09-14
+updated: 2026-09-14
+board: EW-071
+area: [db, worker]
+confidence: 2
+summary: One durable, queryable record of the events that matter — account actions and the operational events that explain an outage.
+owner: krishna
+---
+
 # Logging plan — durable event log
 
 **Status:** plan, not yet built (2026-09-14). No code changes until this is approved.

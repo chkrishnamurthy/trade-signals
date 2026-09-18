@@ -1,3 +1,15 @@
+---
+name: Upstox provider
+status: superseded
+horizon: none
+created: 2026-09-04
+updated: 2026-09-16
+superseded_by: dhan-provider-plan
+area: [provider]
+summary: "Add Upstox as a second market-data provider. Superseded: Dhan chosen on 2026-09-16."
+owner: krishna
+---
+
 # Adding Upstox as a market-data provider
 
 **Status:** plan / not yet implemented

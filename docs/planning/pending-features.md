@@ -1,3 +1,14 @@
+---
+name: Pending features backlog
+status: reference
+horizon: none
+created: 2026-08-24
+updated: 2026-09-06
+area: [docs]
+summary: The backlog as of 2026-08-24 — built, half-built and declared-but-absent, ordered by cost-to-value. Predates the September work.
+owner: krishna
+---
+
 # Pending features
 
 A review of what is built, what is half-built, and what is declared but absent —

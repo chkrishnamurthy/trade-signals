@@ -1,8 +1,13 @@
 ---
+id: EW-108
 title: Trading calendar
-type: issue
-status: backlog
+type: feature
+stage: ideas
 priority: medium
+area: [core, db]
+created: 2026-08-24
+updated: 2026-09-06
+stage_since: 2026-09-06
 tier: "2.3"
 source: docs/planning/pending-features.md
 ---

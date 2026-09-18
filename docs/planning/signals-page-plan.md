@@ -1,3 +1,15 @@
+---
+name: /signals page (VWAP)
+status: superseded
+horizon: none
+created: 2026-09-12
+updated: 2026-09-17
+superseded_by: intraday-strategy-dhan-plan
+area: [web, core]
+summary: Design history of the removed /signals page (Confirmed VWAP Trend Pullback).
+owner: krishna
+---
+
 # Intraday Signals — prompt assessment and proposed build
 
 Status: **Implemented locally; live rollout validation remains.**

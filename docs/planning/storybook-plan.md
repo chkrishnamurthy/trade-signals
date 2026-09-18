@@ -1,3 +1,15 @@
+---
+name: Storybook 8 plan
+status: superseded
+horizon: none
+created: 2026-09-06
+updated: 2026-09-08
+superseded_by: design-system-plan
+area: [web]
+summary: Storybook 8 plan; targets components removed when the app was stripped to watchlists.
+owner: krishna
+---
+
 # Storybook Architecture & Implementation Plan
 
 This document establishes the architectural plan and technical roadmap for integrating **Storybook 8** into EquityWise (`apps/web`).

@@ -1,3 +1,20 @@
+---
+name: Institutional flow
+status: in-progress
+horizon: now
+created: 2026-09-17
+updated: 2026-09-17
+board: EW-082
+phases_total: 5
+phases_done: 4
+phase_names: [Verify, Free spine + health, Dhan futures OI, Page redesign, Options]
+area: [web, worker, db]
+blocked_by: [dhan-provider-plan]
+confidence: 2
+summary: "/flows rebuilt on Dhan + NSE archive files: delivery, participant OI, bulk/block deals, futures OI build-up. Phase 4 (option chain) optional."
+owner: krishna
+---
+
 # Institutional Flow (`/flows`) — research, verdict, and replan
 
 **Status:** **Phases 0–3 built** on branch `feat/institutional-flow` (2026-09-17), verified end-to-end against an ephemeral TimescaleDB with live NSE files and live Dhan calls · Phase 4 (option chain) not started · **Date:** 2026-09-17

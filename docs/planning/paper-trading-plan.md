@@ -1,3 +1,20 @@
+---
+name: Paper trading
+status: in-progress
+horizon: now
+created: 2026-09-17
+updated: 2026-09-18
+board: EW-090
+phases_total: 7
+phases_done: 7
+phase_names: [Audit + Dhan PoC, Core + ledger, Dhan ingestion, Strategy integration, Position mgmt + square-off, UI + analytics, Monitoring + beta]
+area: [core, db, worker, web]
+blocked_by: [intraday-strategy-dhan-plan, dhan-provider-plan]
+confidence: 3
+summary: Per-user ₹2,00,000 intraday paper portfolios on ORB-VC with Dhan data. Phases 1–6 merged in PR #23 (2026-09-18); admin-only until opened to users.
+owner: krishna
+---
+
 # Intraday paper trading — implementation plan
 
 **Status:** Plan agreed 2026-09-17. **Phase 0 done** (§22, branch `feat/paper-trading-phase-0`). **Phases 1–6 implemented** (§23–§24, merged in PR #23).

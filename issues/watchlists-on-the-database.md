@@ -1,8 +1,14 @@
 ---
+id: EW-103
 title: Watchlists on the database
-type: task
-status: done
+type: feature
+stage: done
 priority: low
+area: [web, db]
+created: 2026-08-24
+updated: 2026-09-06
+stage_since: 2026-09-06
+done_at: 2026-09-01
 tier: "1.3"
 source: docs/planning/pending-features.md
 ---

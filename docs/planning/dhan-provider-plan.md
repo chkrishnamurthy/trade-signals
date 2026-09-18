@@ -1,3 +1,20 @@
+---
+name: Dhan provider
+status: in-progress
+horizon: next
+created: 2026-09-16
+updated: 2026-09-17
+board: EW-075
+phases_total: 9
+phases_done: 8
+phase_names: [Probe, packages/dhan, providers-dhan, Credential lifecycle, Provider switch, Validation, Router + cut-over ready, Live socket, Production cut-over]
+area: [provider, worker, ops]
+supersedes: [upstox-provider-plan]
+confidence: 3
+summary: Run Dhan and Fyers both, routed by strength. All build phases complete; production cut-over (§10g) not yet executed.
+owner: krishna
+---
+
 # Dhan as a market-data provider — research, verdict, and migration plan
 
 **Status:** **All phases 0–7 complete** (2026-09-17, see §10a–§10h) · production cut-over not yet executed (procedure in §10g) · Dhan socket built and live-verified, not yet the default

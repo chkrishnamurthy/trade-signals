@@ -1,8 +1,13 @@
 ---
+id: EW-105
 title: Ingestion run tracking
-type: task
-status: todo
+type: chore
+stage: next
 priority: high
+area: [worker, db]
+created: 2026-08-24
+updated: 2026-09-06
+stage_since: 2026-09-06
 tier: "1.5"
 source: docs/planning/pending-features.md
 ---

@@ -1,8 +1,13 @@
 ---
+id: EW-104
 title: Alerts
-type: task
-status: todo
+type: feature
+stage: inbox
 priority: high
+area: [worker, web]
+created: 2026-08-24
+updated: 2026-09-18
+stage_since: 2026-09-18
 tier: "1.4"
 source: docs/planning/pending-features.md
 ---

@@ -1,7 +1,7 @@
 import 'server-only';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { InstrumentRef } from '@equitywise/market-data';
+import type { Exchange, InstrumentRef } from '@equitywise/market-data';
 import { parse } from 'yaml';
 import { z } from 'zod';
 
@@ -32,6 +32,8 @@ const headlineSchema = z.object({
   symbol: z.string().min(1),
   name: z.string().min(1),
   kind: z.string().optional(),
+  /** Listing exchange. Defaults to NSE; BSE waits on adapter support. */
+  exchange: z.enum(['NSE', 'BSE']).default('NSE'),
 });
 
 const configSchema = z.object({
@@ -52,6 +54,7 @@ export interface HeadlineIndex extends InstrumentRef {
   readonly symbol: string;
   readonly name: string;
   readonly kind: 'index';
+  readonly exchange: Exchange;
   /**
    * How the card renders. A VIX rise is risk-off, not "good", so it must not
    * be coloured green like an index gain.
@@ -107,12 +110,13 @@ async function loadAll(): Promise<Map<string, ResolvedIndex>> {
     symbol: h.symbol,
     name: h.name,
     kind: 'index' as const,
+    exchange: h.exchange,
     display: h.kind === 'volatility' ? ('volatility' as const) : ('index' as const),
   }));
   return resolved;
 }
 
-/** Indices shown across the top of the dashboard. */
+/** Indices shown in the market indices strip under every page header. */
 export async function getHeadlineIndices(): Promise<readonly HeadlineIndex[]> {
   await loadAll();
   return headlineCache ?? [];

@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Standalone project tracker for EquityWise — Kanban board, todos, and a docs reader. Not part of the pnpm workspace; never imported by the app.",
+  "description": "Standalone work tracker for EquityWise — board with WIP cap, journal, plan registry, roadmap, dependency graph, heatmap, docs reader. Reads and writes Markdown only. Not part of the pnpm workspace; never imported by the app.",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
@@ -26,6 +26,7 @@
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
+    "postcss-nesting": "^14.0.1",
     "typescript": "^5.6.3",
     "vite": "^5.4.11"
   },

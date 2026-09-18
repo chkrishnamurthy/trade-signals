@@ -125,7 +125,8 @@ function Hero({
 
         {headlineIndices.length > 0 && (
           <div className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {headlineIndices.map((idx) => (
+            {/* The first four of the strip's indices; the tiles are a 2×2 / 1×4 grid. */}
+            {headlineIndices.slice(0, 4).map((idx) => (
               <div
                 key={idx.symbol}
                 className="flex flex-col justify-between rounded-lg border border-border/70 bg-surface/50 p-4 transition-colors hover:border-border"

@@ -14,13 +14,23 @@ export const NSE_PREFIX = 'NSE:';
 const EQUITY_SUFFIX = '-EQ';
 const INDEX_SUFFIX = '-INDEX';
 
-/** `RELIANCE` -> `NSE:RELIANCE-EQ`; `NIFTY50` -> `NSE:NIFTY50-INDEX`. */
+/**
+ * `RELIANCE` -> `NSE:RELIANCE-EQ`; `NIFTY50` -> `NSE:NIFTY50-INDEX`.
+ *
+ * An index we name differently from Fyers (`NIFTYNEXT50` -> `NIFTYNXT50`) goes
+ * out under Fyers' ticker — the reverse of {@link SYMBOL_ALIASES} — so a quote
+ * or bars request for it does not answer -300 (invalid symbol).
+ */
 export function toFyersSymbol(symbol: string, kind: InstrumentKind): string {
   const bare = symbol.trim().toUpperCase();
   if (bare === '') {
     throw new RangeError('toFyersSymbol: symbol must not be empty');
   }
-  return `${NSE_PREFIX}${bare}${kind === 'index' ? INDEX_SUFFIX : EQUITY_SUFFIX}`;
+  if (kind === 'index') {
+    const aliased = FYERS_TICKER_FOR[bare];
+    return aliased ?? `${NSE_PREFIX}${bare}${INDEX_SUFFIX}`;
+  }
+  return `${NSE_PREFIX}${bare}${EQUITY_SUFFIX}`;
 }
 
 export interface ParsedFyersSymbol {
@@ -81,6 +91,11 @@ export const SYMBOL_ALIASES: Readonly<Record<string, string>> = {
   'NSE:NIFTYNXT50-INDEX': 'NIFTYNEXT50',
   'NSE:MIDCPNIFTY-INDEX': 'NIFTYMIDSELECT',
 };
+
+/** Our index symbol -> the full Fyers symbol, for the aliases above. */
+const FYERS_TICKER_FOR: Readonly<Record<string, string>> = Object.fromEntries(
+  Object.entries(SYMBOL_ALIASES).map(([fyersSymbol, ours]) => [ours, fyersSymbol]),
+);
 
 /** Applies {@link SYMBOL_ALIASES}, falling back to the parsed bare symbol. */
 export function internalSymbolFor(fyersSymbol: string): string {

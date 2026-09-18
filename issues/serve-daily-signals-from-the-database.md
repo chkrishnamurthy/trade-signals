@@ -1,8 +1,13 @@
 ---
+id: EW-101
 title: Serve daily signals from the database
-type: task
-status: todo
+type: feature
+stage: next
 priority: high
+area: [web, worker]
+created: 2026-08-24
+updated: 2026-09-06
+stage_since: 2026-09-06
 tier: "1.1"
 source: docs/planning/pending-features.md
 ---

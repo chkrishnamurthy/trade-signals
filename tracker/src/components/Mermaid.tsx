@@ -45,6 +45,9 @@ export function Mermaid({ chart }: { chart: string }) {
       theme,
       securityLevel: "strict",
       fontFamily: "inherit",
+      // On a bad diagram mermaid appends a "Syntax error" SVG to <body> that
+      // outlives the page; keep errors inside this component instead.
+      suppressErrorRendering: true,
     });
     mermaid
       .render(id, chart)
@@ -54,6 +57,8 @@ export function Mermaid({ chart }: { chart: string }) {
         if (ref.current) ref.current.innerHTML = svg;
       })
       .catch((e: unknown) => {
+        // Belt and braces for older mermaid builds: remove any stray error svg.
+        document.getElementById(`d${id}`)?.remove();
         if (cancelled) return;
         setError(e instanceof Error ? e.message : "diagram error");
       });

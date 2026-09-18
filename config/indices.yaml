@@ -8,13 +8,26 @@
 # Adding NIFTY100 / BANKNIFTY / a personal watchlist means adding a block here
 # and nothing else — the API route reads whatever this file defines.
 
-# Index instruments shown in the dashboard header. Fyers symbol is derived as
-# NSE:<symbol>-INDEX.
+# Index instruments shown in the market indices strip — the sticky row under
+# the app's top bar on every signed-in page (docs/reference/market-indices-strip.md).
+# Order here is the order on screen. The provider symbol is derived in the
+# adapters (Fyers: NSE:<ticker>-INDEX with the alias table in
+# packages/fyers/src/symbols.ts; Dhan: by ticker via packages/dhan/src/symbols.ts).
+#
+# `exchange` defaults to NSE. BSE indices (SENSEX) wait on BSE support in the
+# symbol layers — until then NIFTY NEXT 50 holds the second slot.
+# `kind: volatility` inverts the card's colour: a VIX rise is risk-off, not a gain.
+#
+# NIFTY SMALLCAP 100 is deliberately absent: its ticker is not yet verified on
+# either provider's symbol master. Add it here once it is; nothing else changes.
 headlineIndices:
-  - { symbol: NIFTY50,   name: NIFTY 50 }
-  - { symbol: NIFTYBANK, name: BANK NIFTY }
-  - { symbol: FINNIFTY,  name: FIN NIFTY }
-  - { symbol: INDIAVIX,  name: INDIA VIX, kind: volatility }
+  - { symbol: NIFTY50,        name: NIFTY 50,         exchange: NSE }
+  - { symbol: NIFTYNEXT50,    name: NIFTY NEXT 50,    exchange: NSE }
+  - { symbol: NIFTYBANK,      name: BANK NIFTY,       exchange: NSE }
+  - { symbol: FINNIFTY,       name: FIN NIFTY,        exchange: NSE }
+  - { symbol: NIFTYMIDCAP100, name: MIDCAP 100,       exchange: NSE }
+  - { symbol: NIFTYIT,        name: NIFTY IT,         exchange: NSE }
+  - { symbol: INDIAVIX,       name: INDIA VIX,        exchange: NSE, kind: volatility }
 
 indices:
   nifty50:

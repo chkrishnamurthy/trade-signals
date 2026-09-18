@@ -134,6 +134,18 @@ export const API_ROUTES = {
   // ---------------------------------------------------------------------------
 
   /**
+   * GET /api/market/indices — the indices strip snapshot (level, change,
+   * session sparkline per headline index), cached a few seconds server-side.
+   */
+  marketIndices: '/api/market/indices',
+
+  /**
+   * GET /api/market/indices/live — server-sent events of index level changes,
+   * same frame shape as `watchlistLive`. See `use-index-strip.ts`.
+   */
+  marketIndicesLive: '/api/market/indices/live',
+
+  /**
    * GET /api/search?q={query}
    * Search instruments in the symbol master database by ticker or company name.
    */

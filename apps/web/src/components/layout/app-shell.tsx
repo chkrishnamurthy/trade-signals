@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import type * as React from 'react';
 import { useCallback, useState } from 'react';
 import { UserMenu } from '@/components/auth/user-menu';
+import { IndexStrip } from '@/components/market/index-strip';
 import { StockSearch } from '@/components/market/stock-search';
 import { Button } from '@/components/ui/button';
 import {
@@ -34,6 +35,11 @@ import { Brand } from './brand';
  * state and theming without wiring anything. On `lg` and up the destinations
  * live in the bar; below that they move into a Sheet, which brings a focus trap
  * and Escape-to-close for free.
+ *
+ * Directly under the bar sits the market indices strip — sticky like the bar,
+ * rendered here exactly once so it cannot sit in a different place on two
+ * pages (`docs/reference/market-indices-strip.md`). A page's own header comes
+ * after it, inside `main`, and scrolls away like content.
  */
 export function AppShell({
   children,
@@ -127,6 +133,8 @@ export function AppShell({
             </nav>
           </SheetContent>
         </Sheet>
+
+        <IndexStrip />
 
         <main className="min-w-0 flex-1">{children}</main>
       </div>

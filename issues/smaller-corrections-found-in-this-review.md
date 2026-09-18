@@ -1,8 +1,13 @@
 ---
+id: EW-111
 title: Smaller corrections found in this review
-type: task
-status: backlog
+type: chore
+stage: ideas
 priority: low
+area: [web]
+created: 2026-08-24
+updated: 2026-09-06
+stage_since: 2026-09-06
 tier: "4.2"
 source: docs/planning/pending-features.md
 ---

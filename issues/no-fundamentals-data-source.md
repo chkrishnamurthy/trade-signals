@@ -1,8 +1,13 @@
 ---
+id: EW-109
 title: No fundamentals data source
-type: task
-status: backlog
+type: idea
+stage: ideas
 priority: low
+area: [provider]
+created: 2026-08-24
+updated: 2026-09-06
+stage_since: 2026-09-06
 tier: 3B.1
 source: docs/planning/pending-features.md
 ---

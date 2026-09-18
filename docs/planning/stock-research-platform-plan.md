@@ -1,3 +1,17 @@
+---
+name: Stock research platform
+status: draft
+horizon: later
+created: 2026-09-07
+updated: 2026-09-07
+board: EW-052
+area: [web, db]
+blocked_by: [market-data-scaling-plan, dhan-provider-plan]
+confidence: 1
+summary: Stock screener + stock detail/analysis platform — UX architecture, wireframes, data model and roadmap (deliverables A–G).
+owner: krishna
+---
+
 # EquityWise — Stock Screener + Stock Detail/Analysis Platform
 
 > **Status:** Plan. Nothing here is implemented. This is the architecture and roadmap

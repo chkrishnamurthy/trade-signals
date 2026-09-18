@@ -1,8 +1,13 @@
 ---
+id: EW-106
 title: Corporate action ingestion
-type: issue
-status: backlog
+type: chore
+stage: ideas
 priority: medium
+area: [worker, db]
+created: 2026-08-24
+updated: 2026-09-06
+stage_since: 2026-09-06
 tier: "2.1"
 source: docs/planning/pending-features.md
 ---

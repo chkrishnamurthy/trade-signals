@@ -58,3 +58,42 @@ export interface MarketErrorDto {
   /** Seconds to wait before retrying, when the upstream gave a deadline. */
   readonly retryAfterSeconds?: number;
 }
+
+// ---------------------------------------------------------------------------
+// Market indices strip — the row of index cards under every page header.
+// See docs/planning/market-indices-strip-plan.md.
+// ---------------------------------------------------------------------------
+
+/** One index card. */
+export interface IndexSnapshotDto {
+  /** Our symbol — `NIFTY50` — never a provider's. */
+  readonly symbol: string;
+  /** Display name — `NIFTY 50`. */
+  readonly name: string;
+  readonly exchange: 'NSE' | 'BSE';
+  /**
+   * How the card colours a move. A VIX rise is risk-off, so `volatility`
+   * inverts the tone; the number itself is never flipped.
+   */
+  readonly display: 'index' | 'volatility';
+  /** Index level, in paise (an index is not money, but the unit convention holds). */
+  readonly ltp: number;
+  /** Change vs previous close, paise, signed. */
+  readonly change: number | null;
+  readonly changePercent: number | null;
+  readonly open: number | null;
+  readonly high: number | null;
+  readonly low: number | null;
+  readonly previousClose: number | null;
+  /** ISO exchange feed instant. Null when the provider omitted it. */
+  readonly at: string | null;
+}
+
+export interface IndexStripDto {
+  readonly indices: readonly IndexSnapshotDto[];
+  readonly market: MarketStateDto;
+  /** ISO instant the snapshot was built. */
+  readonly asOf: string;
+  /** Present when the last good snapshot is being served through a provider fault. */
+  readonly stale?: { readonly reason: string };
+}

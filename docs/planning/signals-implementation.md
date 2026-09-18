@@ -1,3 +1,15 @@
+---
+name: /signals rollout notes
+status: superseded
+horizon: none
+created: 2026-09-13
+updated: 2026-09-17
+superseded_by: intraday-strategy-dhan-plan
+area: [web]
+summary: Rollout notes for the removed /signals page.
+owner: krishna
+---
+
 # Signals implementation and rollout
 
 Implemented locally on 13 September 2026 following approval to build the Signals

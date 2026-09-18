@@ -1,3 +1,16 @@
+---
+name: Announcement interpretation
+status: done
+horizon: none
+created: 2026-09-13
+updated: 2026-09-14
+board: EW-079
+area: [worker, web]
+confidence: 3
+summary: "Announcement interpretation: free sources, reuse rights, and the metadata-only first release (shipped 2026-09-14). Attachment interpretation deferred."
+owner: krishna
+---
+
 # Announcement interpretation: free sources, FYERS and delivery limits
 
 Assessed and implementation verified: **14 September 2026**. Status: the first

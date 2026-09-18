@@ -1,19 +1,37 @@
+import { execFile } from "node:child_process";
 import type { Dirent } from "node:fs";
-import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { dirname, extname, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 import react from "@vitejs/plugin-react";
 import type { Connect, Plugin } from "vite";
 import { defineConfig } from "vite";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, "..");
+const execFileP = promisify(execFile);
 
-// The three content roots that are the source of truth. Nothing is hand-listed.
-const CONTENT_ROOTS = { docs: "docs", features: "features", issues: "issues" } as const;
-type RootKey = keyof typeof CONTENT_ROOTS;
+/**
+ * Content roots — the Markdown folders that are the source of truth. Nothing is
+ * hand-listed; the tracker discovers files on every request.
+ *
+ *   docs/            the documentation tree (reader)
+ *   docs/planning/   plan docs; frontmatter carries lifecycle status + phases
+ *   docs/journal/    one file per day: shipped / decided / parked / tomorrow
+ *   issues/          one file per board card (idea, bug, feature, chore, plan-phase)
+ */
+const ROOTS = {
+  docs: "docs",
+  planning: "docs/planning",
+  journal: "docs/journal",
+  issues: "issues",
+} as const;
+type RootKey = keyof typeof ROOTS;
 // Repo-root Markdown files surfaced inside the Docs tree under "Project".
 const PROJECT_DOCS = ["CLAUDE.md", "README.md"];
+// Roots the tracker is allowed to write to. Never anything else.
+const WRITABLE: RootKey[] = ["issues", "planning", "journal"];
 
 const SKIP_DIRS = new Set([
   "node_modules",
@@ -59,13 +77,17 @@ function parseFrontmatter(content: string): Parsed {
   while (i < lines.length) {
     const line = lines[i] ?? "";
     i++;
-    if (!line.trim()) continue;
+    if (!line.trim() || line.trim().startsWith("#")) continue;
     const m = /^([A-Za-z0-9_-]+):\s*(.*)$/.exec(line);
     if (!m) continue;
     const key = m[1] as string;
-    const raw = (m[2] ?? "").trim();
+    let raw = (m[2] ?? "").trim();
+    // A quoted scalar keeps everything inside the quotes (so "#23" survives);
+    // an unquoted one drops a trailing ` # comment`.
+    const q = /^(["'])(.*)\1\s*(?:#.*)?$/.exec(raw);
+    if (q) raw = `${q[1]}${q[2]}${q[1]}`;
+    else raw = raw.replace(/\s+#.*$/, "");
     if (raw === "") {
-      // possible block list
       const list: string[] = [];
       while (i < lines.length && /^\s*-\s+/.test(lines[i] ?? "")) {
         list.push(strip((lines[i] as string).replace(/^\s*-\s+/, "")));
@@ -85,15 +107,25 @@ function parseFrontmatter(content: string): Parsed {
   return { meta, body };
 }
 
+function yamlScalar(v: unknown): string {
+  const s = String(v);
+  // Quote anything YAML would otherwise reinterpret (numbers, dates, colons, #).
+  if (/^[\d.]+$/.test(s) || /[:#]/.test(s) || /^(true|false|null|~)$/i.test(s) || s === "") {
+    return JSON.stringify(s);
+  }
+  return s;
+}
+
 function serializeFrontmatter(meta: Record<string, unknown>, body: string): string {
   const lines: string[] = ["---"];
   for (const [k, v] of Object.entries(meta)) {
+    if (v === undefined || v === null) continue;
     if (Array.isArray(v)) {
-      lines.push(`${k}:`);
-      for (const item of v) lines.push(`  - ${item}`);
-    } else if (v !== undefined && v !== null && v !== "") {
-      const needsQuote = /^[\d.]+$/.test(String(v)) && k === "tier";
-      lines.push(`${k}: ${needsQuote ? `"${v}"` : v}`);
+      lines.push(`${k}: [${v.map((x) => yamlScalar(x)).join(", ")}]`);
+    } else if (typeof v === "number") {
+      lines.push(`${k}: ${v}`);
+    } else if (String(v) !== "") {
+      lines.push(`${k}: ${yamlScalar(v)}`);
     }
   }
   lines.push("---", "");
@@ -108,6 +140,8 @@ interface FileNode {
   path: string; // repo-relative POSIX
   title: string;
   meta: Record<string, unknown>;
+  mtime: string;
+  body?: string;
 }
 interface DirNode {
   type: "dir";
@@ -126,19 +160,30 @@ function titleFrom(content: string, meta: Record<string, unknown>, name: string)
   return name.replace(/\.md$/i, "");
 }
 
-async function fileNode(abs: string, name: string): Promise<FileNode> {
+async function fileNode(abs: string, name: string, withBody = false): Promise<FileNode> {
   const relPath = relative(repoRoot, abs).split(sep).join("/");
   let content = "";
+  let mtime = "";
   try {
     content = await readFile(abs, "utf8");
+    mtime = (await stat(abs)).mtime.toISOString();
   } catch {
     /* unreadable */
   }
-  const { meta } = parseFrontmatter(content);
-  return { type: "file", name, path: relPath, title: titleFrom(content, meta, name), meta };
+  const { meta, body } = parseFrontmatter(content);
+  const node: FileNode = {
+    type: "file",
+    name,
+    path: relPath,
+    title: titleFrom(content, meta, name),
+    meta,
+    mtime,
+  };
+  if (withBody) node.body = body;
+  return node;
 }
 
-async function buildTree(absDir: string): Promise<TreeNode[]> {
+async function buildTree(absDir: string, withBody = false): Promise<TreeNode[]> {
   let entries: Dirent[];
   try {
     entries = await readdir(absDir, { withFileTypes: true });
@@ -151,7 +196,7 @@ async function buildTree(absDir: string): Promise<TreeNode[]> {
     const abs = resolve(absDir, entry.name);
     if (entry.isDirectory()) {
       if (SKIP_DIRS.has(entry.name) || entry.name.startsWith(".")) continue;
-      const children = await buildTree(abs);
+      const children = await buildTree(abs, withBody);
       if (children.length) {
         dirs.push({
           type: "dir",
@@ -161,7 +206,7 @@ async function buildTree(absDir: string): Promise<TreeNode[]> {
         });
       }
     } else if (entry.isFile() && extname(entry.name).toLowerCase() === ".md") {
-      files.push(await fileNode(abs, entry.name));
+      files.push(await fileNode(abs, entry.name, withBody));
     }
   }
   dirs.sort((a, b) => a.name.localeCompare(b.name));
@@ -169,7 +214,6 @@ async function buildTree(absDir: string): Promise<TreeNode[]> {
   return [...dirs, ...files];
 }
 
-/** Flatten a tree to its files (for Features/Issues, which are lists not trees). */
 function flatten(nodes: TreeNode[]): FileNode[] {
   const out: FileNode[] = [];
   for (const n of nodes) {
@@ -179,9 +223,23 @@ function flatten(nodes: TreeNode[]): FileNode[] {
   return out;
 }
 
+/** A flat list of one root's files (folder README indexes excluded). */
+async function listRoot(root: RootKey, withBody: boolean): Promise<FileNode[]> {
+  const tree = await buildTree(resolve(repoRoot, ROOTS[root]), withBody);
+  return flatten(tree).filter((f) => f.name.toLowerCase() !== "readme.md");
+}
+
 // ---------------------------------------------------------------- safety
 
-function safeContentPath(relPath: string): string | null {
+function rootOf(rel: string): RootKey | null {
+  const posix = rel.split(sep).join("/");
+  // Most specific first: docs/planning before docs.
+  const order: RootKey[] = ["planning", "journal", "issues", "docs"];
+  for (const key of order) if (posix.startsWith(`${ROOTS[key]}/`)) return key;
+  return null;
+}
+
+function safeContentPath(relPath: string, mustBeWritable = false): string | null {
   if (!relPath) return null;
   const abs = resolve(repoRoot, relPath);
   const rel = relative(repoRoot, abs);
@@ -189,13 +247,11 @@ function safeContentPath(relPath: string): string | null {
   if (extname(abs).toLowerCase() !== ".md") return null;
   const segs = rel.split(sep);
   if (segs.some((s) => SKIP_DIRS.has(s))) return null;
-  const top = segs[0] ?? "";
-  const allowed =
-    top === "docs" || top === "features" || top === "issues" || PROJECT_DOCS.includes(rel);
-  return allowed ? abs : null;
+  const root = rootOf(rel);
+  if (!root) return PROJECT_DOCS.includes(rel) && !mustBeWritable ? abs : null;
+  if (mustBeWritable && !WRITABLE.includes(root)) return null;
+  return abs;
 }
-
-// ---------------------------------------------------------------- generation
 
 function slugify(s: string): string {
   return s
@@ -206,64 +262,31 @@ function slugify(s: string): string {
     .slice(0, 60);
 }
 
-interface GenIssue {
-  title: string;
-  type: string;
-  status: string;
-  priority: string;
-  tier: string;
-  body: string;
+// ---------------------------------------------------------------- git (read-only)
+
+interface Commit {
+  hash: string;
+  date: string; // YYYY-MM-DD
+  subject: string;
 }
 
-/**
- * Derive issue files from the real backlog doc (docs/planning/pending-features.md).
- * Deterministic — parses its `### N.N Title` tier headings — so it is a projection
- * of real project data, never invented content.
- */
-async function issuesFromBacklog(): Promise<GenIssue[]> {
-  let doc = "";
+async function gitLog(args: string[]): Promise<Commit[]> {
   try {
-    doc = await readFile(resolve(repoRoot, "docs/planning/pending-features.md"), "utf8");
+    const { stdout } = await execFileP(
+      "git",
+      ["log", "--date=short", "--format=%h%x09%ad%x09%s", ...args],
+      { cwd: repoRoot, maxBuffer: 4 * 1024 * 1024 },
+    );
+    return stdout
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => {
+        const [hash = "", date = "", ...rest] = line.split("\t");
+        return { hash, date, subject: rest.join("\t") };
+      });
   } catch {
     return [];
   }
-  const lines = doc.split("\n");
-  const out: GenIssue[] = [];
-  let cur: { tier: string; title: string; done: boolean; body: string[] } | null = null;
-  const flush = () => {
-    if (!cur) return;
-    const major = cur.tier.split(".")[0] ?? "";
-    const status = cur.done ? "done" : major === "1" ? "todo" : "backlog";
-    const type = major === "2" ? "issue" : major === "1" ? "task" : major >= "3" ? "task" : "task";
-    const priority = cur.done ? "low" : major === "1" ? "high" : major === "2" ? "medium" : "low";
-    out.push({
-      title: cur.title,
-      type,
-      status,
-      priority,
-      tier: cur.tier,
-      body: cur.body.join("\n").trim(),
-    });
-    cur = null;
-  };
-  for (const line of lines) {
-    const h = /^###\s+(\d[\w.]*)\s+(.+?)\s*$/.exec(line);
-    if (h) {
-      flush();
-      const rawTitle = (h[2] as string).replace(/—\s*DONE\s*$/i, "").trim();
-      cur = {
-        tier: h[1] as string,
-        title: rawTitle,
-        done: /DONE/i.test(h[2] as string),
-        body: [],
-      };
-      continue;
-    }
-    if (/^##\s+/.test(line)) flush();
-    else if (cur) cur.body.push(line);
-  }
-  flush();
-  return out;
 }
 
 // ---------------------------------------------------------------- middleware
@@ -277,7 +300,8 @@ function readBody(req: Connect.IncomingMessage): Promise<string> {
   });
 }
 
-function json(res: Parameters<Connect.NextHandleFunction>[1], data: unknown, code = 200) {
+type Res = Parameters<Connect.NextHandleFunction>[1];
+function json(res: Res, data: unknown, code = 200) {
   res.statusCode = code;
   res.setHeader("content-type", "application/json");
   res.end(JSON.stringify(data));
@@ -294,29 +318,28 @@ function trackerApi(): Plugin {
         const params = new URLSearchParams(queryString ?? "");
 
         try {
-          // Content tree for a root.
-          const cm = /^\/api\/content\/(docs|features|issues)$/.exec(path);
-          if (cm && req.method === "GET") {
-            const root = cm[1] as RootKey;
-            const tree = await buildTree(resolve(repoRoot, CONTENT_ROOTS[root]));
-            if (root === "docs") {
-              const project: FileNode[] = [];
-              for (const name of PROJECT_DOCS) {
-                const node = await fileNode(resolve(repoRoot, name), name);
-                project.push({ ...node, title: name }); // known by filename
-              }
-              const projectDir: DirNode = {
-                type: "dir",
-                name: "Project",
-                path: "",
-                children: project,
-              };
-              json(res, { root, tree: [projectDir, ...tree] });
-            } else {
-              // Features/Issues are lists; drop the folder README indexes.
-              const files = flatten(tree).filter((f) => f.name.toLowerCase() !== "readme.md");
-              json(res, { root, files });
+          // Docs tree (reader).
+          if (path === "/api/content/docs" && req.method === "GET") {
+            const tree = await buildTree(resolve(repoRoot, ROOTS.docs));
+            const project: FileNode[] = [];
+            for (const name of PROJECT_DOCS) {
+              const node = await fileNode(resolve(repoRoot, name), name);
+              project.push({ ...node, title: name });
             }
+            json(res, {
+              root: "docs",
+              tree: [{ type: "dir", name: "Project", path: "", children: project }, ...tree],
+            });
+            return;
+          }
+
+          // Flat lists of the structured roots. Cards and decisions ship with
+          // their body (short); plans and journal entries too, since the views
+          // need summaries and sections without a second round-trip.
+          const lm = /^\/api\/list\/(issues|planning|journal)$/.exec(path);
+          if (lm && req.method === "GET") {
+            const root = lm[1] as RootKey;
+            json(res, { root, files: await listRoot(root, true) });
             return;
           }
 
@@ -329,41 +352,71 @@ function trackerApi(): Plugin {
             return;
           }
 
-          // Update an issue's frontmatter (e.g. status on drag). Body preserved.
-          if (path === "/api/issue" && req.method === "PATCH") {
-            const abs = safeContentPath(params.get("path") ?? "");
-            if (!abs || !relative(repoRoot, abs).startsWith("issues/")) {
-              return json(res, { error: "bad path" }, 400);
-            }
+          // Patch a file's frontmatter. Body preserved. `null` removes a key.
+          if (path === "/api/meta" && req.method === "PATCH") {
+            const abs = safeContentPath(params.get("path") ?? "", true);
+            if (!abs) return json(res, { error: "bad path" }, 400);
             const patch = JSON.parse(await readBody(req)) as Record<string, unknown>;
             const { meta, body } = parseFrontmatter(await readFile(abs, "utf8"));
-            await writeFile(abs, serializeFrontmatter({ ...meta, ...patch }, body), "utf8");
-            return json(res, { ok: true });
+            const next: Record<string, unknown> = { ...meta };
+            for (const [k, v] of Object.entries(patch)) {
+              if (v === null) delete next[k];
+              else next[k] = v;
+            }
+            await writeFile(abs, serializeFrontmatter(next, body), "utf8");
+            return json(res, { ok: true, meta: next });
           }
 
-          // Generate issue files from the backlog doc.
-          if (path === "/api/issues/generate" && req.method === "POST") {
-            const issuesDir = resolve(repoRoot, "issues");
-            await mkdir(issuesDir, { recursive: true });
-            const existing = flatten(await buildTree(issuesDir)).map((f) => f.name.toLowerCase());
-            const derived = await issuesFromBacklog();
-            let created = 0;
-            for (const it of derived) {
-              const fname = `${slugify(it.title)}.md`;
-              if (!fname || existing.includes(fname.toLowerCase())) continue;
-              const meta: Record<string, unknown> = {
-                title: it.title,
-                type: it.type,
-                status: it.status,
-                priority: it.priority,
-                tier: it.tier,
-                source: "docs/planning/pending-features.md",
-              };
-              const body = it.body || `_Generated from the backlog. See ${meta.source}._`;
-              await writeFile(resolve(issuesDir, fname), serializeFrontmatter(meta, body), "utf8");
-              created++;
+          // Create (or, with overwrite, replace) a Markdown file in a writable root.
+          if (path === "/api/file" && req.method === "POST") {
+            const input = JSON.parse(await readBody(req)) as {
+              path: string;
+              meta: Record<string, unknown>;
+              body: string;
+              overwrite?: boolean;
+            };
+            const abs = safeContentPath(input.path ?? "", true);
+            if (!abs) return json(res, { error: "bad path" }, 400);
+            let exists = false;
+            try {
+              await stat(abs);
+              exists = true;
+            } catch {
+              /* new file */
             }
-            return json(res, { created, total: derived.length });
+            if (exists && !input.overwrite) return json(res, { error: "exists" }, 409);
+            await mkdir(dirname(abs), { recursive: true });
+            await writeFile(abs, serializeFrontmatter(input.meta ?? {}, input.body ?? ""), "utf8");
+            return json(res, { ok: true, path: input.path });
+          }
+
+          // Next free card id (EW-nnn) — derived from the files, never stored.
+          if (path === "/api/next-id" && req.method === "GET") {
+            const cards = await listRoot("issues", false);
+            let max = 100;
+            for (const c of cards) {
+              const m = /^EW-(\d+)$/.exec(String(c.meta.id ?? ""));
+              if (m) max = Math.max(max, Number(m[1]));
+            }
+            return json(res, { id: `EW-${max + 1}` });
+          }
+
+          // Slug helper so the client names files the same way the server would.
+          if (path === "/api/slug" && req.method === "GET") {
+            return json(res, { slug: slugify(params.get("title") ?? "") });
+          }
+
+          // Git history, read-only. ?days=N for the recent log, ?path= for one file.
+          if (path === "/api/git/log" && req.method === "GET") {
+            const days = Math.min(Math.max(Number(params.get("days") ?? "56"), 1), 400);
+            const file = params.get("path");
+            const args = [`--since=${days} days ago`];
+            if (file) {
+              const abs = safeContentPath(file);
+              if (!abs) return json(res, { error: "bad path" }, 400);
+              args.push("--follow", "--", relative(repoRoot, abs));
+            }
+            return json(res, { commits: await gitLog(args) });
           }
 
           json(res, { error: "not found" }, 404);

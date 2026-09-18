@@ -1,8 +1,13 @@
 ---
+id: EW-110
 title: The authoritative design docs do not exist
-type: task
-status: backlog
+type: chore
+stage: ideas
 priority: low
+area: [docs]
+created: 2026-08-24
+updated: 2026-09-06
+stage_since: 2026-09-06
 tier: "4.1"
 source: docs/planning/pending-features.md
 ---

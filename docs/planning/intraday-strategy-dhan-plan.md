@@ -1,3 +1,21 @@
+---
+name: Intraday ORB-VC
+status: in-progress
+horizon: next
+created: 2026-09-17
+updated: 2026-09-17
+board: EW-088
+phases_total: 7
+phases_done: 4
+phase_names: [Review, Core strategy, Persistence + worker, Page, Paper controls, Dhan socket, Retire old]
+area: [core, db, worker, web]
+blocked_by: [dhan-provider-plan]
+supersedes: [signals-page-plan, signals-implementation]
+confidence: 3
+summary: "One rule-based intraday strategy (ORB with VWAP + volume confirmation) on Dhan data, replacing /signals. Phases 1–3 merged (PR #21, #22); 4–6 remain."
+owner: krishna
+---
+
 # Intraday Strategy (Dhan data) — one strategy, one clean page, paper-trading ready
 
 **Status:** Plan **agreed in review on 2026-09-17** (decisions below). **Phases 1–3 implemented** on branch `feat/intraday-orb-strategy` (see §13). Phases 4–6 remain.

@@ -1,3 +1,14 @@
+---
+name: FinMagine analysis
+status: reference
+horizon: none
+created: 2026-09-17
+updated: 2026-09-18
+area: [docs]
+summary: FinMagine vs EquityWise — feature inventory, UX, gaps by tier, nine recommendations and a phased roadmap.
+owner: krishna
+---
+
 # FinMagine vs EquityWise — Competitive Analysis
 
 > **Status:** Analysis, 2026-09-17 (rewritten into the repo 2026-09-18). No code

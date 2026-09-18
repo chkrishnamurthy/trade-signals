@@ -70,6 +70,14 @@ describe('symbols', () => {
     expect(internalSymbolFor('NSE:NIFTYNXT50-INDEX')).toBe('NIFTYNEXT50');
     expect(internalSymbolFor('NSE:RELIANCE-EQ')).toBe('RELIANCE');
   });
+
+  it('sends an aliased index out under the ticker Fyers knows, and round-trips it', () => {
+    expect(toFyersSymbol('NIFTYNEXT50', 'index')).toBe('NSE:NIFTYNXT50-INDEX');
+    expect(toFyersSymbol('NIFTYMIDSELECT', 'index')).toBe('NSE:MIDCPNIFTY-INDEX');
+    expect(internalSymbolFor(toFyersSymbol('NIFTYNEXT50', 'index'))).toBe('NIFTYNEXT50');
+    // An equity that happens to share an alias key is never rewritten.
+    expect(toFyersSymbol('NIFTYNEXT50', 'equity')).toBe('NSE:NIFTYNEXT50-EQ');
+  });
 });
 
 describe('toCandle', () => {

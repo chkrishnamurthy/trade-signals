@@ -1,3 +1,20 @@
+---
+name: Design system
+status: draft
+horizon: next
+created: 2026-09-08
+updated: 2026-09-08
+board: EW-058
+phases_total: 8
+phases_done: 0
+phase_names: [Audit, Tokens, Storybook install, Primitives, Domain components, App migration, Testing + a11y, Governance]
+area: [web]
+supersedes: [storybook-plan]
+confidence: 1
+summary: Formalise, document, test and govern the UI layer that already exists in apps/web, with Storybook around it.
+owner: krishna
+---
+
 # EquityWise Design System & Storybook — Strategy and Roadmap
 
 > **Status:** Plan. Nothing in here has been implemented. Supersedes the older

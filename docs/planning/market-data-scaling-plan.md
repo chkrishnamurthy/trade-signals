@@ -1,3 +1,20 @@
+---
+name: Market-data scaling
+status: in-progress
+horizon: next
+created: 2026-09-06
+updated: 2026-09-14
+board: EW-033
+phases_total: 2
+phases_done: 1
+phase_names: [Live-price fan-out, Polled reads behind worker]
+area: [worker, web]
+blocked_by: [authentication-plan]
+confidence: 2
+summary: Serve many users from one market-data account. Live path done; polled watchlist detail reads still call the provider per user.
+owner: krishna
+---
+
 # Market-data scaling — serving many users from one Fyers account
 
 Status: **partially delivered** · Date: 2026-09-06, updated 2026-09-14 · Scope: the

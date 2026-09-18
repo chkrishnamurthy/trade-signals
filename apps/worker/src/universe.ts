@@ -12,7 +12,12 @@ import { z } from 'zod';
 
 const configSchema = z.object({
   headlineIndices: z.array(
-    z.object({ symbol: z.string().min(1), name: z.string().min(1), kind: z.string().optional() }),
+    z.object({
+      symbol: z.string().min(1),
+      name: z.string().min(1),
+      kind: z.string().optional(),
+      exchange: z.enum(['NSE', 'BSE']).optional(),
+    }),
   ),
   indices: z.record(
     z.string(),

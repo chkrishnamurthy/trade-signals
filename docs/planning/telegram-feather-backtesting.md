@@ -1,3 +1,16 @@
+---
+name: Telegram backtests
+status: draft
+horizon: later
+created: 2026-09-04
+updated: 2026-09-13
+board: EW-060
+area: [core]
+confidence: 1
+summary: Telegram channel archives as a reproducible backtest source. Runtime (TS vs Perl) still open; downloader and run engine not built.
+owner: krishna
+---
+
 # Telegram archives and reproducible backtesting
 
 Status: discovery and initial format probe implemented; downloader, pages and run

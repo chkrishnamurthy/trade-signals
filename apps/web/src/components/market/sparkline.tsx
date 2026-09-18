@@ -18,6 +18,7 @@ export function Sparkline({
   width = 96,
   height = 28,
   fill = false,
+  label,
 }: {
   values: readonly number[];
   /** Overrides the derived tone. Used where a rise is bad news, e.g. INDIA VIX. */
@@ -26,6 +27,8 @@ export function Sparkline({
   width?: number | undefined;
   height?: number | undefined;
   fill?: boolean | undefined;
+  /** What the series is, for the accessible name. Defaults to "the last N sessions". */
+  label?: string | undefined;
 }) {
   if (values.length < 2) {
     return <div className={cn('h-7 w-24', className)} aria-hidden />;
@@ -63,7 +66,7 @@ export function Sparkline({
       className={cn('h-7 w-24 overflow-visible', className)}
       preserveAspectRatio="none"
       role="img"
-      aria-label={`Trend ${last >= first ? 'up' : 'down'} over the last ${values.length} sessions`}
+      aria-label={`Trend ${last >= first ? 'up' : 'down'} over ${label ?? `the last ${values.length} sessions`}`}
     >
       {fill && (
         <polygon

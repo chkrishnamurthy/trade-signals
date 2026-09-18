@@ -1,3 +1,19 @@
+---
+name: Mobile responsive
+status: in-progress
+horizon: later
+created: 2026-09-12
+updated: 2026-09-12
+board: EW-066
+phases_total: 5
+phases_done: 4
+phase_names: [Reproduce, Foundation fixes, Responsive data pattern, Profile sweep, Lock it in]
+area: [web]
+confidence: 3
+summary: "Mobile responsiveness remediation. Phases 0–3 done and merged (PR #10, #12); Phase 4 (prevention/governance) not started."
+owner: krishna
+---
+
 # EquityWise Mobile Responsiveness — Remediation Plan
 
 > **Status:** In progress on branch `fix/mobile-responsive`. Execution order is
