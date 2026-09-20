@@ -2,7 +2,7 @@ import 'server-only';
 import { NextResponse } from 'next/server';
 import type { ZodType } from 'zod';
 import { clearStaleSessionCookie } from './auth/http';
-import { MarketDataError, toMarketError } from './errors';
+import { isUserAuthenticationError, MarketDataError, toMarketError } from './errors';
 
 /**
  * Shared plumbing for the watchlist route handlers.
@@ -84,9 +84,10 @@ export async function handle(run: () => Promise<NextResponse>): Promise<NextResp
       code: failure.code,
       ...(failure.remedy === undefined ? {} : { remedy: failure.remedy }),
     });
-    // A rejected session leaves a dead cookie behind; clear it so the edge gate
-    // stops waving the user past it (see clearStaleSessionCookie).
-    return failure.status === 401 ? clearStaleSessionCookie(response) : response;
+    // Only an EquityWise session failure invalidates the browser cookie. An
+    // upstream provider credential failure also uses 401, but the user's
+    // session remains valid (see isUserAuthenticationError).
+    return isUserAuthenticationError(failure) ? clearStaleSessionCookie(response) : response;
   }
 }
 

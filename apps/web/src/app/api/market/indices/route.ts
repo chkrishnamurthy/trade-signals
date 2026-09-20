@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
 import { clearStaleSessionCookie } from '@/server/auth/http';
-import { canServeStale, MarketDataError, toMarketError } from '@/server/errors';
+import {
+  canServeStale,
+  isUserAuthenticationError,
+  MarketDataError,
+  toMarketError,
+} from '@/server/errors';
 import { getIndexStrip, getStaleIndexStrip } from '@/server/index-strip';
 
 /**
@@ -45,6 +50,6 @@ export async function GET(): Promise<NextResponse> {
       },
       { status: failure.status, headers: { ...NO_STORE, ...retryAfter } },
     );
-    return failure.status === 401 ? clearStaleSessionCookie(response) : response;
+    return isUserAuthenticationError(failure) ? clearStaleSessionCookie(response) : response;
   }
 }

@@ -76,3 +76,16 @@ export function toMarketError(error: unknown): MarketDataError {
 export function canServeStale(error: MarketDataError): boolean {
   return error.code !== 'NOT_CONFIGURED' && error.code !== 'AUTH';
 }
+
+/**
+ * Whether a 401 came from EquityWise's user session rather than the upstream
+ * market-data credential.
+ *
+ * Both failures currently use HTTP 401, but only UNAUTHENTICATED means the
+ * browser's session cookie is dead and may be cleared. Provider AUTH means the
+ * operator must refresh the shared market-data credential; clearing the user's
+ * valid cookie would create a post-login redirect loop.
+ */
+export function isUserAuthenticationError(error: MarketDataError): boolean {
+  return error.status === 401 && error.code === 'UNAUTHENTICATED';
+}

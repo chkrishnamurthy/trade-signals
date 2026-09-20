@@ -1,5 +1,5 @@
 import { clearStaleSessionCookie } from '@/server/auth/http';
-import { MarketDataError } from '@/server/errors';
+import { isUserAuthenticationError, MarketDataError } from '@/server/errors';
 import { type LiveBatch, liveQuoteHub } from '@/server/live-quotes';
 import { jsonError, parseId } from '@/server/watchlist-routes';
 import { getWatchlistLiveRefs, toMarketError } from '@/server/watchlists';
@@ -34,7 +34,7 @@ export async function GET(request: Request, { params }: Params): Promise<Respons
   } catch (error) {
     const failure = error instanceof MarketDataError ? error : toMarketError(error);
     const response = jsonError(failure.message, failure.status, { code: failure.code });
-    return failure.status === 401 ? clearStaleSessionCookie(response) : response;
+    return isUserAuthenticationError(failure) ? clearStaleSessionCookie(response) : response;
   }
   if (refs === null)
     return jsonError('That watchlist no longer exists.', 404, { code: 'NOT_FOUND' });
