@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
+  boolean,
   check,
   index,
   integer,
@@ -46,6 +47,8 @@ export const authUsers = pgTable(
     role: text().notNull().default('user'),
     /** `active` or `disabled`. An admin disables abusive accounts. */
     status: text().notNull().default('active'),
+    /** Incrementing this invalidates every older session/challenge for the account. */
+    securityVersion: integer().notNull().default(0),
     /** When the user accepted the Terms & Privacy Policy at signup. */
     termsAcceptedAt: timestamp({ withTimezone: true }),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
@@ -112,11 +115,85 @@ export const authSessions = pgTable(
     expiresAt: timestamp({ withTimezone: true }).notNull(),
     ipAddress: text(),
     userAgent: text(),
+    /** Security version captured when the session was issued. */
+    securityVersion: integer().notNull().default(0),
+    /** The locally-authorised first factor used for this session. */
+    authenticationMethod: text().notNull().default('password'),
+    /** OAuth identity provenance; null for password sessions. */
+    authIdentityId: integer().references(() => authIdentities.id, { onDelete: 'set null' }),
+    authenticatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    mfaVerifiedAt: timestamp({ withTimezone: true }),
+    reauthenticatedAt: timestamp({ withTimezone: true }),
   },
   (table) => [
     uniqueIndex('auth_sessions_token_idx').on(table.tokenHash),
     index('auth_sessions_user_idx').on(table.userId),
     index('auth_sessions_expires_idx').on(table.expiresAt),
+    index('auth_sessions_identity_idx').on(table.authIdentityId),
+    check(
+      'auth_sessions_authentication_method_check',
+      sql`${table.authenticationMethod} in ('password', 'google')`,
+    ),
+  ],
+);
+
+/** Immutable external principal mapping. Provider email is only a display snapshot. */
+export const authIdentities = pgTable(
+  'auth_identities',
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    userId: integer()
+      .notNull()
+      .references(() => authUsers.id, { onDelete: 'cascade' }),
+    providerType: text().notNull(),
+    providerSubject: text().notNull(),
+    providerEmail: text(),
+    providerEmailVerified: boolean().notNull().default(true),
+    metadata: jsonb().notNull().default(sql`'{}'::jsonb`),
+    disabledAt: timestamp({ withTimezone: true }),
+    lastUsedAt: timestamp({ withTimezone: true }),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('auth_identities_user_idx').on(table.userId),
+    uniqueIndex('auth_identities_principal_idx').on(
+      table.providerType,
+      table.providerSubject,
+    ),
+    check('auth_identities_provider_type_check', sql`${table.providerType} in ('google')`),
+  ],
+);
+
+/** Short-lived, one-use state for login, onboarding, MFA, and recent-auth grants. */
+export const authChallenges = pgTable(
+  'auth_challenges',
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    purpose: text().notNull(),
+    tokenHash: text().notNull(),
+    userId: integer().references(() => authUsers.id, { onDelete: 'cascade' }),
+    sessionId: integer().references(() => authSessions.id, { onDelete: 'cascade' }),
+    identityId: integer().references(() => authIdentities.id, { onDelete: 'cascade' }),
+    browserBindingHash: text(),
+    securityVersion: integer().notNull().default(0),
+    attempts: integer().notNull().default(0),
+    maxAttempts: integer().notNull().default(5),
+    data: jsonb().notNull().default(sql`'{}'::jsonb`),
+    expiresAt: timestamp({ withTimezone: true }).notNull(),
+    consumedAt: timestamp({ withTimezone: true }),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('auth_challenges_token_idx').on(table.tokenHash),
+    index('auth_challenges_user_idx').on(table.userId),
+    index('auth_challenges_expires_idx').on(table.expiresAt),
+    check(
+      'auth_challenges_purpose_check',
+      sql`${table.purpose} in ('google_oauth', 'mfa', 'reauth')`,
+    ),
+    check('auth_challenges_attempts_check', sql`${table.attempts} >= 0`),
+    check('auth_challenges_max_attempts_check', sql`${table.maxAttempts} between 1 and 10`),
   ],
 );
 
@@ -131,6 +208,8 @@ export const authMfa = pgTable('auth_mfa', {
   enabledAt: timestamp({ withTimezone: true }),
   /** SHA-256 hashes of one-time recovery codes — never the codes themselves. */
   recoveryCodes: text().array().notNull().default(sql`ARRAY[]::text[]`),
+  /** Greatest accepted 30-second counter; prevents TOTP replay. */
+  lastUsedStep: integer(),
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });

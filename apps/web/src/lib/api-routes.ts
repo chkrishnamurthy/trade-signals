@@ -68,6 +68,10 @@ export const API_ROUTES = {
    * Authenticate user credentials (email + password) and establish a session cookie.
    */
   authSignIn: '/api/auth/sign-in',
+  authGoogle: (next?: string): string =>
+    next ? `/api/auth/google?next=${encodeURIComponent(next)}` : '/api/auth/google',
+  authGoogleCallback: '/api/auth/google/callback',
+  authMfaVerify: '/api/auth/mfa/verify',
 
   /**
    * POST /api/auth/sign-out
@@ -125,6 +129,9 @@ export const API_ROUTES = {
 
   /** POST /api/account/verify — resend the email-verification link. */
   accountVerify: '/api/account/verify',
+  accountMfa: '/api/account/mfa',
+  accountIdentities: '/api/account/identities',
+  accountIdentity: (id: number): string => `/api/account/identities/${id}`,
 
   /** DELETE /api/account — permanently delete the signed-in user's account. */
   account: '/api/account',

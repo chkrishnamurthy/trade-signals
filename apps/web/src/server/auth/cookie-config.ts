@@ -10,3 +10,4 @@
 export const IS_PROD = process.env.NODE_ENV === 'production';
 
 export const SESSION_COOKIE_NAME = IS_PROD ? '__Host-session' : 'session';
+export const OAUTH_STATE_COOKIE_NAME = IS_PROD ? '__Host-oauth_state' : 'oauth_state';

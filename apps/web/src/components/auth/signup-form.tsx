@@ -10,8 +10,9 @@ import { Input } from '@/components/ui/input';
 import { API_ROUTES } from '@/lib/api-routes';
 import { PASSWORD_RULE_HINT } from '@/server/auth/password-policy';
 import { AuthCard } from './auth-card';
+import { SocialLogin } from './social-login';
 
-export function SignupForm() {
+export function SignupForm({ googleEnabled = false }: { googleEnabled?: boolean }) {
   const [email, setEmail] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [password, setPassword] = useState('');
@@ -134,6 +135,7 @@ export function SignupForm() {
           {busy ? 'Creating account…' : 'Create account'}
         </Button>
       </form>
+      {googleEnabled ? <SocialLogin next="/watchlists" /> : null}
     </AuthCard>
   );
 }

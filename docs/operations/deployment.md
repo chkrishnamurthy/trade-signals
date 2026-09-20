@@ -26,11 +26,13 @@ it states facts, paths, and commands rather than assuming context.
                                                                  │ market data (mints daily token)
                                                                  ▼
                                                             Fyers API  (external)
-   auth on every request ─────────────────────────────────▶ Clerk       (external)
+ Google OAuth 2.0 (OIDC) ──────────────────────────────▶ Google Identity (optional external)
 ```
 
 - **Everything runs on one VPS**: the web app, the background worker, and the
-  database. Only **Clerk** (auth) and **Fyers** (market data) are external.
+  database. Authentication and authorization remain first-party in PostgreSQL;
+  optional Google sign-in uses direct Google OAuth 2.0. Resend (transactional
+  email) and market-data providers are the external dependencies.
 - **Nginx** is the only thing exposed to the internet. Postgres listens on
   localhost only.
 - **Two long-lived processes** under PM2: `equitywise-web` (`next start`) and
@@ -52,6 +54,8 @@ it states facts, paths, and commands rather than assuming context.
 | Scripts | `/opt/equitywise/scripts/{deploy,backup-db,restore-drill}.sh` |
 | Backups | `/opt/equitywise/backups/` (nightly), + Hostinger weekly + snapshot |
 | Domain | `equitywise.io` (+ `www`), DNS + nameservers at Hostinger |
+
+Google OAuth credentials, configuration, and verification are documented in [Google OAuth operations](google-oauth.md).
 
 ---
 
@@ -268,9 +272,10 @@ the live-price path.
   `www` follows. Keep Hostinger's nameservers; only edit records. No MX (no email).
 - **SSL**: Let's Encrypt via Certbot (`certbot --nginx`), **auto-renewing** on a
   systemd timer. HTTP redirects to HTTPS. `sudo certbot certificates` to inspect.
-- **Clerk** (auth): stays external, **never self-hosted**. Currently a *development*
-  instance (`pk_test`), which works on the real domain; upgrading to a production
-  instance is optional and needs Clerk-side DNS records — see the migration plan.
+- **Google OAuth 2.0** (optional Google sign-in): external.
+  Local users, roles, MFA policy, authorization, and sessions stay in PostgreSQL.
+  See [Google OAuth operations](google-oauth.md).
+- **Resend** (verification, recovery, and security email): external.
 - **Fyers** (market data): external; worker-only secrets (§5).
 - **Kept as fallbacks** until the VPS is proven over weeks: the old **Vercel**
   web deployment and the **Neon** database. Retire only during final cleanup.

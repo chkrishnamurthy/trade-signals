@@ -17,7 +17,9 @@ export * from './announcement-research.js';
 export {
   authAttempts,
   authAudit,
+  authChallenges,
   authCredentials,
+  authIdentities,
   authMfa,
   authSessions,
   authTokens,

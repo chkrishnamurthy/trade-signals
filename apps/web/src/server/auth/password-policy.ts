@@ -12,8 +12,7 @@ export const MIN_PASSWORD_LENGTH = 8;
 export const MAX_PASSWORD_LENGTH = 128;
 
 /** Human-readable statement of the rule, for form hints. */
-export const PASSWORD_RULE_HINT =
-  `At least ${MIN_PASSWORD_LENGTH} characters, with at least one letter and one number.`;
+export const PASSWORD_RULE_HINT = `At least ${MIN_PASSWORD_LENGTH} characters, with at least one letter and one number.`;
 
 // `\p{L}` / `\p{N}` so non-Latin letters and digits count too.
 const HAS_LETTER = /\p{L}/u;

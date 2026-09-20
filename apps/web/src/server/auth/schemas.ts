@@ -27,5 +27,21 @@ export const resetConfirmSchema = z.object({
 
 export const tokenSchema = z.object({ token: z.string().min(1).max(256) });
 
-export type SignUpInput = z.infer<typeof signUpSchema>;
-export type SignInInput = z.infer<typeof signInSchema>;
+export const mfaVerifySchema = z
+  .object({
+    challengeId: z.string().min(32).max(256),
+    code: z
+      .string()
+      .regex(/^\d{6}$/u)
+      .optional(),
+    recoveryCode: z.string().min(8).max(32).optional(),
+  })
+  .refine((value) => Boolean(value.code) !== Boolean(value.recoveryCode), {
+    message: 'Provide one verification method.',
+  });
+
+export const mfaCodeSchema = z.object({ code: z.string().regex(/^\d{6}$/u) });
+
+export const identityDisconnectSchema = z.object({
+  currentPassword: z.string().min(1).max(MAX_PASSWORD_LENGTH).optional(),
+});

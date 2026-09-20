@@ -7,6 +7,9 @@ storybook-static/
 *.tsbuildinfo
 
 .env
+.firebase/
+*firebase-adminsdk*.json
+*service-account*.json
 .env.local
 .env.*.local
 !.env.example

@@ -1,6 +1,7 @@
 import 'server-only';
-import { clearAttempt, getAttempt, saveAttempt } from '@equitywise/db';
+import { clearAttempt, getAttempt, updateAttemptAtomically } from '@equitywise/db';
 import { getDatabase } from '@/server/db';
+import type { LockoutConfig } from './lockout';
 import { initialState, isLocked, lockRemainingMs, registerFailure } from './lockout';
 
 /**
@@ -20,10 +21,25 @@ export async function checkLock(key: string): Promise<{ locked: boolean; retryAf
 export async function recordFailure(key: string): Promise<void> {
   const db = getDatabase();
   const now = new Date();
-  const current = (await getAttempt(db, key)) ?? initialState(now);
-  await saveAttempt(db, key, registerFailure(current, now));
+  await updateAttemptAtomically(db, key, (current) =>
+    registerFailure(current ?? initialState(now), now),
+  );
 }
 
 export async function recordSuccess(key: string): Promise<void> {
   await clearAttempt(getDatabase(), key);
+}
+
+export async function consumeRateLimit(
+  key: string,
+  config: LockoutConfig,
+): Promise<{ locked: boolean; retryAfterSec: number }> {
+  const now = new Date();
+  const next = await updateAttemptAtomically(getDatabase(), key, (current) =>
+    registerFailure(current ?? initialState(now), now, config),
+  );
+  return {
+    locked: isLocked(next, now),
+    retryAfterSec: Math.ceil(lockRemainingMs(next, now) / 1000),
+  };
 }

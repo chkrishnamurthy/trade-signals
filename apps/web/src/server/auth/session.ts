@@ -19,7 +19,18 @@ import {
  */
 
 /** Start a new session for a user and set their cookie. Call after a successful login/signup. */
-export async function startSession(userId: number, request: Request): Promise<void> {
+export interface StartSessionOptions {
+  readonly securityVersion?: number;
+  readonly authenticationMethod?: 'password' | 'google';
+  readonly authIdentityId?: number | null;
+  readonly mfaVerifiedAt?: Date | null;
+}
+
+export async function startSession(
+  userId: number,
+  request: Request,
+  options: StartSessionOptions = {},
+): Promise<void> {
   const token = generateSessionToken();
   await createSession(getDatabase(), {
     userId,
@@ -27,6 +38,12 @@ export async function startSession(userId: number, request: Request): Promise<vo
     expiresAt: new Date(Date.now() + SESSION_ABSOLUTE_MS),
     ipAddress: clientIp(request),
     userAgent: userAgent(request),
+    securityVersion: options.securityVersion ?? 0,
+    authenticationMethod: options.authenticationMethod ?? 'password',
+    authIdentityId: options.authIdentityId ?? null,
+    authenticatedAt: new Date(),
+    mfaVerifiedAt: options.mfaVerifiedAt ?? null,
+    reauthenticatedAt: new Date(),
   });
   await setSessionCookie(token);
 }

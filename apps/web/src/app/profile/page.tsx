@@ -1,4 +1,4 @@
-import { getUserWithProfile, listWatchlists } from '@equitywise/db';
+import { getUserWithProfile, listAccountMethods, listWatchlists, mfaEnabled } from '@equitywise/db';
 import { redirect } from 'next/navigation';
 import { AppShell } from '@/components/layout/app-shell';
 import {
@@ -9,6 +9,7 @@ import {
   PageTitle,
 } from '@/components/layout/page';
 import { ProfileTabs } from '@/components/profile/profile-tabs';
+import { googleAuthEnabled } from '@/server/auth/env';
 import { getSessionUser } from '@/server/auth/require-user';
 import { getDatabase } from '@/server/db';
 
@@ -34,6 +35,15 @@ export interface ProfilePageData {
     readonly defaultWatchlistId: number | null;
   };
   readonly watchlists: readonly { readonly id: number; readonly name: string }[];
+  readonly mfaEnabled: boolean;
+  readonly googleEnabled: boolean;
+  readonly hasPassword: boolean;
+  readonly identities: readonly {
+    id: number;
+    provider: 'google';
+    email: string | null;
+    connectedAt: string;
+  }[];
 }
 
 export default async function ProfilePage() {
@@ -46,6 +56,7 @@ export default async function ProfilePage() {
 
   const watchlists = await listWatchlists(db, user.id);
   const prefs = full.profile.preferences as { defaultWatchlistId?: number | null };
+  const methods = await listAccountMethods(db, user.id);
 
   const data: ProfilePageData = {
     id: full.id,
@@ -63,11 +74,17 @@ export default async function ProfilePage() {
         typeof prefs.defaultWatchlistId === 'number' ? prefs.defaultWatchlistId : null,
     },
     watchlists: watchlists.map((w) => ({ id: w.id, name: w.name })),
+    mfaEnabled: await mfaEnabled(db, user.id),
+    googleEnabled: googleAuthEnabled(),
+    hasPassword: methods.hasPassword,
+    identities: methods.identities.map((identity) => ({
+      id: identity.id,
+      provider: 'google',
+      email: identity.email,
+      connectedAt: identity.connectedAt.toISOString(),
+    })),
   };
 
-  // Same shell (sidebar + topbar) and full-width PageContainer as every other
-  // page, so the profile screen inherits the app's navigation and spacing
-  // instead of floating in a narrow centred column of its own.
   return (
     <AppShell>
       <PageContainer>

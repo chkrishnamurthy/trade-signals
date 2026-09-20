@@ -24,7 +24,7 @@ import { PASSWORD_RULE_HINT, validatePassword } from '@/server/auth/password-pol
 import { sendJson } from './request';
 
 /** Change password while signed in. Requires the current password; signs out other devices. */
-export function ChangePassword() {
+export function ChangePassword({ hasPassword }: { hasPassword: boolean }) {
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -33,13 +33,14 @@ export function ChangePassword() {
 
   const strength = next === '' ? null : validatePassword(next);
   const mismatch = confirm !== '' && confirm !== next;
-  const canSubmit = current !== '' && next !== '' && strength?.ok === true && !mismatch && !busy;
+  const canSubmit =
+    (!hasPassword || current !== '') && next !== '' && strength?.ok === true && !mismatch && !busy;
 
   async function submit() {
     if (!canSubmit) return;
     setBusy(true);
     const res = await sendJson(API_ROUTES.accountPassword, 'POST', {
-      currentPassword: current,
+      ...(hasPassword ? { currentPassword: current } : {}),
       newPassword: next,
     });
     setBusy(false);
@@ -61,22 +62,28 @@ export function ChangePassword() {
     <Card>
       <CardHeader>
         <CardHeading>
-          <CardTitle>Password</CardTitle>
-          <CardDescription>Changing it signs out every other device.</CardDescription>
+          <CardTitle>{hasPassword ? 'Password' : 'Add a password'}</CardTitle>
+          <CardDescription>
+            {hasPassword
+              ? 'Changing it signs out every other device.'
+              : 'Use password sign-in as a backup to Google. This requires a recent Google sign-in.'}
+          </CardDescription>
         </CardHeading>
       </CardHeader>
       <CardContent className="flex flex-col gap-4 p-4">
-        <FormField>
-          <FormLabel>Current password</FormLabel>
-          <FormControl>
-            <Input
-              type="password"
-              autoComplete="current-password"
-              value={current}
-              onChange={(e) => setCurrent(e.target.value)}
-            />
-          </FormControl>
-        </FormField>
+        {hasPassword ? (
+          <FormField>
+            <FormLabel>Current password</FormLabel>
+            <FormControl>
+              <Input
+                type="password"
+                autoComplete="current-password"
+                value={current}
+                onChange={(e) => setCurrent(e.target.value)}
+              />
+            </FormControl>
+          </FormField>
+        ) : null}
         <div className="grid gap-4 sm:grid-cols-2">
           <FormField>
             <FormLabel>New password</FormLabel>
@@ -93,9 +100,7 @@ export function ChangePassword() {
               />
             </FormControl>
             <FormDescription>
-              {strength !== null && !strength.ok
-                ? strength.reason
-                : PASSWORD_RULE_HINT}
+              {strength !== null && !strength.ok ? strength.reason : PASSWORD_RULE_HINT}
             </FormDescription>
           </FormField>
           <FormField invalid={mismatch}>
@@ -113,7 +118,7 @@ export function ChangePassword() {
         </div>
         <div className="flex justify-end">
           <Button size="sm" disabled={!canSubmit} onClick={() => void submit()}>
-            {busy ? 'Changing…' : 'Change password'}
+            {busy ? 'Saving…' : hasPassword ? 'Change password' : 'Add password'}
           </Button>
         </div>
       </CardContent>

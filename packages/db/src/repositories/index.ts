@@ -14,6 +14,7 @@ export type {
   UserWithProfile,
 } from './auth.js';
 export {
+  bumpSecurityVersion,
   clearAttempt,
   consumeToken,
   createSession,
@@ -36,9 +37,42 @@ export {
   setUserRole,
   setUserStatus,
   touchSession,
+  updateAttemptAtomically,
   updatePassword,
   writeAudit,
 } from './auth.js';
+export type { AuthChallenge, ChallengePurpose } from './auth-challenges.js';
+export {
+  consumeChallenge,
+  consumeChallengeById,
+  createChallenge,
+  deleteExpiredChallenges,
+  getActiveChallenge,
+  recordChallengeFailure,
+} from './auth-challenges.js';
+export type {
+  AccountMethodSummary,
+  GooglePrincipal,
+  ResolvedGoogleIdentity,
+} from './auth-identities.js';
+export {
+  createGoogleUser,
+  disconnectGoogleIdentity,
+  findUserByEmail,
+  linkGoogleIdentity,
+  listAccountMethods,
+  resolveGoogleIdentity,
+} from './auth-identities.js';
+export type { MfaRecord } from './auth-mfa.js';
+export {
+  acceptTotpStep,
+  consumeRecoveryCode,
+  disableMfa,
+  enableMfa,
+  getMfaRecord,
+  mfaEnabled,
+  savePendingMfaEnrollment,
+} from './auth-mfa.js';
 export type {
   BriefFactorRow,
   BriefIndicatorRow,

@@ -1,5 +1,5 @@
 import 'server-only';
-import { type AuthUser, getSessionContext, touchSession } from '@equitywise/db';
+import { type AuthSession, type AuthUser, getSessionContext, touchSession } from '@equitywise/db';
 import { getDatabase } from '@/server/db';
 import { readSessionCookieValue } from './cookies';
 import { authSessionSecret } from './env';
@@ -12,14 +12,17 @@ import { hashToken, readCookieValue, SESSION_IDLE_MS } from './session-token';
  *
  * A session is valid only if ALL hold: the cookie's HMAC verifies; a matching row
  * exists (deleting it logs the user out instantly); it is within both the idle
- * and absolute lifetimes; it was created after the last password change; and the
- * account is active. Any failure ⇒ not authenticated.
+ * and absolute lifetimes; its security version still matches the account; a
+ * password-derived session predates no password change; and the account is active.
  */
 
 /** How stale `last_used_at` may get before we bother writing a refresh. */
 const TOUCH_INTERVAL_MS = 5 * 60_000;
 
-export async function getSessionUser(): Promise<AuthUser | null> {
+export async function getSessionAuthContext(): Promise<{
+  user: AuthUser;
+  session: AuthSession;
+} | null> {
   const cookie = await readSessionCookieValue();
   if (cookie === null) return null;
 
@@ -36,7 +39,13 @@ export async function getSessionUser(): Promise<AuthUser | null> {
 
   if (session.expiresAt.getTime() <= now) return null; // absolute expiry
   if (now - session.lastUsedAt.getTime() > SESSION_IDLE_MS) return null; // idle timeout
-  if (session.createdAt.getTime() < passwordChangedAt.getTime()) return null; // password changed since
+  if (session.securityVersion !== user.securityVersion) return null;
+  if (
+    session.authenticationMethod === 'password' &&
+    passwordChangedAt !== null &&
+    session.createdAt.getTime() < passwordChangedAt.getTime()
+  )
+    return null;
   if (user.status !== 'active') return null;
 
   // Roll the idle timeout forward, but not on every single request.
@@ -44,7 +53,11 @@ export async function getSessionUser(): Promise<AuthUser | null> {
     await touchSession(db, tokenHash);
   }
 
-  return user;
+  return { user, session };
+}
+
+export async function getSessionUser(): Promise<AuthUser | null> {
+  return (await getSessionAuthContext())?.user ?? null;
 }
 
 /** The current admin, or null when not signed in as an admin. */

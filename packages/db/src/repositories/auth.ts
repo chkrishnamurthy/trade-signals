@@ -26,6 +26,7 @@ export interface AuthUser {
   readonly emailVerifiedAt: Date | null;
   readonly role: UserRole;
   readonly status: UserStatus;
+  readonly securityVersion: number;
   readonly createdAt: Date;
 }
 
@@ -50,6 +51,12 @@ export interface AuthSession {
   readonly expiresAt: Date;
   readonly ipAddress: string | null;
   readonly userAgent: string | null;
+  readonly securityVersion: number;
+  readonly authenticationMethod: 'password' | 'google';
+  readonly authIdentityId: number | null;
+  readonly authenticatedAt: Date;
+  readonly mfaVerifiedAt: Date | null;
+  readonly reauthenticatedAt: Date | null;
 }
 
 export interface NewUser {
@@ -140,9 +147,12 @@ export async function updatePassword(
   passwordHash: string,
 ): Promise<void> {
   await db
-    .update(authCredentials)
-    .set({ passwordHash, passwordChangedAt: sql`now()`, updatedAt: sql`now()` })
-    .where(eq(authCredentials.userId, userId));
+    .insert(authCredentials)
+    .values({ userId, passwordHash, passwordChangedAt: sql`now()`, updatedAt: sql`now()` })
+    .onConflictDoUpdate({
+      target: authCredentials.userId,
+      set: { passwordHash, passwordChangedAt: sql`now()`, updatedAt: sql`now()` },
+    });
 }
 
 /** Admin-only: promote/demote a role. */
@@ -168,6 +178,17 @@ export async function setUserStatus(
   await db.update(authUsers).set({ status, updatedAt: sql`now()` }).where(eq(authUsers.id, userId));
 }
 
+export async function bumpSecurityVersion(db: Database, userId: number): Promise<number> {
+  const rows = await db
+    .update(authUsers)
+    .set({ securityVersion: sql`${authUsers.securityVersion} + 1`, updatedAt: sql`now()` })
+    .where(eq(authUsers.id, userId))
+    .returning({ securityVersion: authUsers.securityVersion });
+  const row = rows[0];
+  if (!row) throw new Error('user not found while updating security version');
+  return row.securityVersion;
+}
+
 export interface AdminUserRow extends AuthUser {
   readonly displayName: string;
 }
@@ -191,6 +212,12 @@ export interface NewSession {
   readonly expiresAt: Date;
   readonly ipAddress: string | null;
   readonly userAgent: string | null;
+  readonly securityVersion?: number;
+  readonly authenticationMethod?: 'password' | 'google';
+  readonly authIdentityId?: number | null;
+  readonly authenticatedAt?: Date;
+  readonly mfaVerifiedAt?: Date | null;
+  readonly reauthenticatedAt?: Date | null;
 }
 
 export async function createSession(db: Database, input: NewSession): Promise<void> {
@@ -205,7 +232,7 @@ export async function createSession(db: Database, input: NewSession): Promise<vo
 export async function getSessionContext(
   db: Database,
   tokenHash: string,
-): Promise<{ session: AuthSession; user: AuthUser; passwordChangedAt: Date } | null> {
+): Promise<{ session: AuthSession; user: AuthUser; passwordChangedAt: Date | null } | null> {
   const rows = await db
     .select({
       session: authSessions,
@@ -214,7 +241,7 @@ export async function getSessionContext(
     })
     .from(authSessions)
     .innerJoin(authUsers, eq(authUsers.id, authSessions.userId))
-    .innerJoin(authCredentials, eq(authCredentials.userId, authUsers.id))
+    .leftJoin(authCredentials, eq(authCredentials.userId, authUsers.id))
     .where(eq(authSessions.tokenHash, tokenHash))
     .limit(1);
 
@@ -339,6 +366,40 @@ export async function saveAttempt(db: Database, key: string, state: AttemptRow):
     });
 }
 
+/** Serialize read/modify/write for one limiter key to avoid lost concurrent increments. */
+export async function updateAttemptAtomically(
+  db: Database,
+  key: string,
+  update: (current: AttemptRow | null) => AttemptRow,
+): Promise<AttemptRow> {
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${key}, 0))`);
+    const rows = await tx
+      .select({
+        failures: authAttempts.failures,
+        windowStart: authAttempts.windowStart,
+        lockedUntil: authAttempts.lockedUntil,
+      })
+      .from(authAttempts)
+      .where(eq(authAttempts.key, key))
+      .limit(1);
+    const next = update(rows[0] ?? null);
+    await tx
+      .insert(authAttempts)
+      .values({ key, ...next })
+      .onConflictDoUpdate({
+        target: authAttempts.key,
+        set: {
+          failures: next.failures,
+          windowStart: next.windowStart,
+          lockedUntil: next.lockedUntil,
+          updatedAt: sql`now()`,
+        },
+      });
+    return next;
+  });
+}
+
 export async function clearAttempt(db: Database, key: string): Promise<void> {
   await db.delete(authAttempts).where(eq(authAttempts.key, key));
 }
@@ -379,6 +440,7 @@ function toAuthUser(row: typeof authUsers.$inferSelect): AuthUser {
     emailVerifiedAt: row.emailVerifiedAt,
     role: row.role as UserRole,
     status: row.status as UserStatus,
+    securityVersion: row.securityVersion,
     createdAt: row.createdAt,
   };
 }
@@ -392,5 +454,11 @@ function toSession(row: typeof authSessions.$inferSelect): AuthSession {
     expiresAt: row.expiresAt,
     ipAddress: row.ipAddress,
     userAgent: row.userAgent,
+    securityVersion: row.securityVersion,
+    authenticationMethod: row.authenticationMethod as 'password' | 'google',
+    authIdentityId: row.authIdentityId,
+    authenticatedAt: row.authenticatedAt,
+    mfaVerifiedAt: row.mfaVerifiedAt,
+    reauthenticatedAt: row.reauthenticatedAt,
   };
 }

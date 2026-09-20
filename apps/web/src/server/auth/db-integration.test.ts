@@ -1,5 +1,6 @@
 import {
   createDatabase,
+  createGoogleUser,
   createSession,
   createUser,
   type DatabaseHandle,
@@ -29,9 +30,11 @@ suite('auth data layer (integration)', () => {
   const email = `smoke-${Date.now()}@example.com`;
   const password = 'a strong integration passphrase';
   let userId = 0;
+  let socialUserId = 0;
 
   afterAll(async () => {
     if (userId !== 0) await deleteUser(db, userId);
+    if (socialUserId !== 0) await deleteUser(db, socialUserId);
     await handle.close();
   });
 
@@ -74,6 +77,33 @@ suite('auth data layer (integration)', () => {
 
     await deleteSession(db, hashToken(token));
     expect(await getSessionContext(db, hashToken(token))).toBeNull();
+  });
+
+  it('resolves a Google-only user session without a credential row', async () => {
+    const created = await createGoogleUser(db, {
+      principal: {
+        subject: `google-uid-${Date.now()}`,
+        email: `social-${Date.now()}@example.com`,
+        emailVerified: true,
+        displayName: 'Social Test',
+      },
+      displayName: 'Social Test',
+    });
+    socialUserId = created.user.id;
+    const token = generateSessionToken();
+    await createSession(db, {
+      userId: socialUserId,
+      tokenHash: hashToken(token),
+      expiresAt: new Date(Date.now() + 86_400_000),
+      ipAddress: '127.0.0.1',
+      userAgent: 'vitest',
+      authenticationMethod: 'google',
+      authIdentityId: created.identityId,
+    });
+    const context = await getSessionContext(db, hashToken(token));
+    expect(context?.user.id).toBe(socialUserId);
+    expect(context?.passwordChangedAt).toBeNull();
+    expect(context?.session.authenticationMethod).toBe('google');
   });
 
   it('cascade-deletes profile + credential with the user', async () => {

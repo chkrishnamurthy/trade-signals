@@ -37,7 +37,7 @@ export type ProfilePatchInput = z.infer<typeof profilePatchSchema>;
 
 /** Change password: the current one (to re-authenticate) plus a strong new one. */
 export const changePasswordSchema = z.object({
-  currentPassword: z.string().min(1).max(MAX_PASSWORD_LENGTH),
+  currentPassword: z.string().min(1).max(MAX_PASSWORD_LENGTH).optional(),
   newPassword: strongPassword,
 });
 

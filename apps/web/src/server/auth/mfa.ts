@@ -1,0 +1,171 @@
+import 'server-only';
+import {
+  acceptTotpStep,
+  bumpSecurityVersion,
+  consumeChallengeById,
+  consumeRecoveryCode,
+  deleteAllSessionsForUser,
+  disableMfa,
+  enableMfa,
+  getActiveChallenge,
+  getMfaRecord,
+  getUserWithProfile,
+  recordChallengeFailure,
+  savePendingMfaEnrollment,
+  writeAudit,
+} from '@equitywise/db';
+import { getDatabase } from '@/server/db';
+import { clearMfaCookie, readMfaBindingHash } from './challenges';
+import { clientIp } from './request';
+import { getSessionAuthContext } from './require-user';
+import { startSession } from './session';
+import { hashToken } from './session-token';
+import {
+  decryptTotpSecret,
+  encryptTotpSecret,
+  generateRecoveryCodes,
+  generateTotpSecret,
+  hashRecoveryCode,
+  verifyTotp,
+} from './totp';
+
+export async function verifyMfaChallenge(input: {
+  request: Request;
+  challengeId: string;
+  code?: string;
+  recoveryCode?: string;
+}): Promise<{ redirectTo: string }> {
+  const binding = await readMfaBindingHash();
+  if (!binding) throw new MfaError('INVALID_CHALLENGE', 410, 'This verification attempt expired.');
+  const db = getDatabase();
+  const challenge = await getActiveChallenge(db, hashToken(input.challengeId), 'mfa', binding);
+  if (!challenge?.userId)
+    throw new MfaError('INVALID_CHALLENGE', 410, 'This verification attempt expired.');
+  const user = await getUserWithProfile(db, challenge.userId);
+  if (user?.status !== 'active' || user.securityVersion !== challenge.securityVersion) {
+    throw new MfaError('INVALID_CHALLENGE', 410, 'This verification attempt expired.');
+  }
+  const mfa = await getMfaRecord(db, user.id);
+  if (!mfa?.enabledAt)
+    throw new MfaError('INVALID_CHALLENGE', 410, 'Two-factor authentication is not enabled.');
+
+  let accepted = false;
+  if (input.code) {
+    const step = verifyTotp(decryptTotpSecret(mfa.secretEncrypted), input.code);
+    accepted =
+      step !== null &&
+      (mfa.lastUsedStep === null || step > mfa.lastUsedStep) &&
+      (await acceptTotpStep(db, user.id, step));
+  } else if (input.recoveryCode) {
+    accepted = await consumeRecoveryCode(db, user.id, hashRecoveryCode(input.recoveryCode));
+  }
+  if (!accepted) {
+    await recordChallengeFailure(db, challenge.id);
+    throw new MfaError('INVALID_CODE', 401, 'The verification code is invalid or already used.');
+  }
+  if (!(await consumeChallengeById(db, challenge.id))) {
+    throw new MfaError('INVALID_CHALLENGE', 410, 'This verification attempt expired.');
+  }
+  const authenticationMethod =
+    challenge.data.authenticationMethod === 'google' ? 'google' : 'password';
+  await startSession(user.id, input.request, {
+    securityVersion: user.securityVersion,
+    authenticationMethod,
+    authIdentityId: authenticationMethod === 'google' ? challenge.identityId : null,
+    mfaVerifiedAt: new Date(),
+  });
+  await writeAudit(db, {
+    event: 'mfa_success',
+    userId: user.id,
+    ipAddress: clientIp(input.request),
+    detail: { method: input.recoveryCode ? 'recovery_code' : 'totp' },
+  });
+  await clearMfaCookie();
+  return {
+    redirectTo: typeof challenge.data.next === 'string' ? challenge.data.next : '/watchlists',
+  };
+}
+
+export async function beginMfaEnrollment(userId: number): Promise<{
+  secret: string;
+  otpauthUri: string;
+  recoveryCodes: readonly string[];
+}> {
+  const db = getDatabase();
+  const user = await getUserWithProfile(db, userId);
+  if (!user) throw new MfaError('UNAUTHENTICATED', 401, 'Not signed in.');
+  const current = await getMfaRecord(db, userId);
+  if (current?.enabledAt)
+    throw new MfaError('MFA_ALREADY_ENABLED', 409, 'Two-factor authentication is already enabled.');
+  const secret = generateTotpSecret();
+  const recoveryCodes = generateRecoveryCodes();
+  await savePendingMfaEnrollment(
+    db,
+    userId,
+    encryptTotpSecret(secret),
+    recoveryCodes.map(hashRecoveryCode),
+  );
+  const label = encodeURIComponent(`EquityWise:${user.email}`);
+  const issuer = encodeURIComponent('EquityWise');
+  return {
+    secret,
+    otpauthUri: `otpauth://totp/${label}?secret=${secret}&issuer=${issuer}&algorithm=SHA1&digits=6&period=30`,
+    recoveryCodes,
+  };
+}
+
+export async function confirmMfaEnrollment(
+  userId: number,
+  code: string,
+  request: Request,
+): Promise<void> {
+  const db = getDatabase();
+  const mfa = await getMfaRecord(db, userId);
+  if (!mfa || mfa.enabledAt) throw new MfaError('NO_ENROLLMENT', 409, 'Start enrollment again.');
+  const step = verifyTotp(decryptTotpSecret(mfa.secretEncrypted), code);
+  if (step === null || !(await enableMfa(db, userId, step))) {
+    throw new MfaError('INVALID_CODE', 400, 'Enter a valid code from your authenticator app.');
+  }
+  const current = await getSessionAuthContext();
+  const securityVersion = await bumpSecurityVersion(db, userId);
+  await deleteAllSessionsForUser(db, userId);
+  await startSession(userId, request, {
+    securityVersion,
+    authenticationMethod: current?.session.authenticationMethod ?? 'password',
+    authIdentityId: current?.session.authIdentityId ?? null,
+    mfaVerifiedAt: new Date(),
+  });
+  await writeAudit(db, { event: 'mfa_enabled', userId, ipAddress: clientIp(request) });
+}
+
+export async function turnOffMfa(userId: number, code: string, request: Request): Promise<void> {
+  const db = getDatabase();
+  const mfa = await getMfaRecord(db, userId);
+  if (!mfa?.enabledAt)
+    throw new MfaError('MFA_NOT_ENABLED', 409, 'Two-factor authentication is not enabled.');
+  const step = verifyTotp(decryptTotpSecret(mfa.secretEncrypted), code);
+  if (step === null || (mfa.lastUsedStep !== null && step <= mfa.lastUsedStep)) {
+    throw new MfaError('INVALID_CODE', 400, 'Enter a fresh authenticator code.');
+  }
+  const current = await getSessionAuthContext();
+  const securityVersion = await disableMfa(db, userId);
+  if (securityVersion === null)
+    throw new MfaError('MFA_NOT_ENABLED', 409, 'Two-factor authentication is not enabled.');
+  await deleteAllSessionsForUser(db, userId);
+  await startSession(userId, request, {
+    securityVersion,
+    authenticationMethod: current?.session.authenticationMethod ?? 'password',
+    authIdentityId: current?.session.authIdentityId ?? null,
+  });
+  await writeAudit(db, { event: 'mfa_disabled', userId, ipAddress: clientIp(request) });
+}
+
+export class MfaError extends Error {
+  constructor(
+    readonly code: string,
+    readonly status: number,
+    message: string,
+  ) {
+    super(message);
+  }
+}

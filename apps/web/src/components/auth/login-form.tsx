@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { API_ROUTES } from '@/lib/api-routes';
 import { AuthCard } from './auth-card';
+import { MfaChallenge } from './mfa-challenge';
+import { SocialLogin } from './social-login';
 
 type SignInError = {
   error?: string;
@@ -18,15 +20,22 @@ type SignInError = {
 export function LoginForm({
   next,
   accountCreated = false,
+  googleEnabled = false,
+  initialError,
 }: {
   next: string;
   accountCreated?: boolean;
+  googleEnabled?: boolean;
+  initialError?: string;
 }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(
+    initialError ? mapOAuthError(initialError) : null,
+  );
   const [busy, setBusy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [mfaChallenge, setMfaChallenge] = useState<string | null>(null);
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -39,6 +48,14 @@ export function LoginForm({
         body: JSON.stringify({ email, password }),
       });
       if (res.ok) {
+        const data = (await res.json().catch(() => ({}))) as {
+          status?: string;
+          challengeId?: string;
+        };
+        if (data.status === 'mfa_required' && data.challengeId) {
+          setMfaChallenge(data.challengeId);
+          return;
+        }
         window.location.href = next;
         return;
       }
@@ -49,6 +66,14 @@ export function LoginForm({
     } finally {
       setBusy(false);
     }
+  }
+
+  if (mfaChallenge) {
+    return (
+      <AuthCard title="Two-factor verification" subtitle="Complete sign-in to continue.">
+        <MfaChallenge challengeId={mfaChallenge} />
+      </AuthCard>
+    );
   }
 
   return (
@@ -138,8 +163,17 @@ export function LoginForm({
           </p>
         </div>
       </form>
+      {googleEnabled ? <SocialLogin next={next} /> : null}
     </AuthCard>
   );
+}
+
+function mapOAuthError(code: string): string {
+  if (code === 'ACCOUNT_DISABLED') return 'This account has been disabled.';
+  if (code === 'SIGNUP_CLOSED') return 'Registration is currently closed.';
+  if (code === 'access_denied') return 'Google sign-in was cancelled.';
+  if (code === 'UNVERIFIED_EMAIL') return 'Google reports your email address is not verified.';
+  return 'Google sign-in could not be completed. Please try again.';
 }
 
 function signInErrorMessage(status: number, data: SignInError): string {

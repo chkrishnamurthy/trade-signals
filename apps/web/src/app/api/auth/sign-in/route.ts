@@ -1,5 +1,6 @@
-import { getUserForLogin, writeAudit } from '@equitywise/db';
+import { getUserForLogin, mfaEnabled, writeAudit } from '@equitywise/db';
 import { NextResponse } from 'next/server';
+import { beginMfaChallenge } from '@/server/auth/challenges';
 import { fail, json } from '@/server/auth/http';
 import { verifyPasswordOrDecoy } from '@/server/auth/password';
 import { checkLock, recordFailure, recordSuccess } from '@/server/auth/rate-limit';
@@ -69,7 +70,15 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   await recordSuccess(ipKey);
   await recordSuccess(emailKey);
-  await startSession(found.user.id, request);
+  if (await mfaEnabled(db, found.user.id)) {
+    const challengeId = await beginMfaChallenge({
+      userId: found.user.id,
+      securityVersion: found.user.securityVersion,
+      authenticationMethod: 'password',
+    });
+    return json({ ok: true, status: 'mfa_required', challengeId });
+  }
+  await startSession(found.user.id, request, { securityVersion: found.user.securityVersion });
   await writeAudit(db, {
     event: 'login_success',
     userId: found.user.id,

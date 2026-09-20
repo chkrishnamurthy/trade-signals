@@ -1,4 +1,5 @@
 import 'server-only';
+import { trustedOrigins } from './env';
 
 /**
  * Request-derived facts and the CSRF origin check.
@@ -30,9 +31,6 @@ export function userAgent(request: Request): string | null {
  * routes must reject when this is false.
  */
 export function isSameOrigin(request: Request): boolean {
-  const host = request.headers.get('host');
-  if (host === null) return false;
-
   const origin = request.headers.get('origin');
   const source = origin ?? request.headers.get('referer');
   if (source === null || source === '') {
@@ -42,7 +40,7 @@ export function isSameOrigin(request: Request): boolean {
   }
 
   try {
-    return new URL(source).host === host;
+    return trustedOrigins().has(new URL(source).origin);
   } catch {
     return false;
   }

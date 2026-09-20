@@ -98,7 +98,14 @@ export function ProfileTabs({ data }: { data: ProfilePageData }) {
         </TabsContent>
 
         <TabsContent value="security" className="pt-2">
-          <SecurityTab email={data.email} emailVerified={data.emailVerified} />
+          <SecurityTab
+            email={data.email}
+            emailVerified={data.emailVerified}
+            mfaEnabled={data.mfaEnabled}
+            googleEnabled={data.googleEnabled}
+            hasPassword={data.hasPassword}
+            identities={data.identities}
+          />
         </TabsContent>
       </Tabs>
     </div>

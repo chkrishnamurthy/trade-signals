@@ -117,7 +117,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   try {
-    await startSession(user.id, request);
+    await startSession(user.id, request, { securityVersion: user.securityVersion });
   } catch (error) {
     // The account was created; we just couldn't set the cookie. Report success
     // and tell the client to route the user to sign-in rather than the app.

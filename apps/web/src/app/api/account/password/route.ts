@@ -10,7 +10,7 @@ import { fail, json } from '@/server/auth/http';
 import { hashPassword, verifyPassword } from '@/server/auth/password';
 import { validatePassword } from '@/server/auth/password-policy';
 import { clientIp, isSameOrigin } from '@/server/auth/request';
-import { getSessionUser } from '@/server/auth/require-user';
+import { getSessionAuthContext } from '@/server/auth/require-user';
 import { startSession } from '@/server/auth/session';
 import { getDatabase } from '@/server/db';
 import { changePasswordSchema } from '@/server/profile/schemas';
@@ -31,8 +31,9 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: Request): Promise<NextResponse> {
   if (!isSameOrigin(request)) return fail('Request blocked.', 403, { code: 'BAD_ORIGIN' });
 
-  const user = await getSessionUser();
-  if (user === null) return fail('Not signed in.', 401, { code: 'UNAUTHENTICATED' });
+  const context = await getSessionAuthContext();
+  if (context === null) return fail('Not signed in.', 401, { code: 'UNAUTHENTICATED' });
+  const { user, session } = context;
 
   let raw: unknown;
   try {
@@ -49,10 +50,19 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   const db = getDatabase();
   const login = await getUserForLogin(db, user.email);
-  if (login === null || !(await verifyPassword(login.passwordHash, currentPassword))) {
-    return fail('Current password is incorrect.', 400, { code: 'BAD_CREDENTIALS' });
+  if (login !== null) {
+    if (!currentPassword || !(await verifyPassword(login.passwordHash, currentPassword))) {
+      return fail('Current password is incorrect.', 400, { code: 'BAD_CREDENTIALS' });
+    }
+  } else if (
+    session.authenticationMethod !== 'google' ||
+    Date.now() - session.authenticatedAt.getTime() > 5 * 60_000
+  ) {
+    return fail('Sign in with Google again before adding a password.', 403, {
+      code: 'REAUTH_REQUIRED',
+    });
   }
-  if (newPassword === currentPassword) {
+  if (currentPassword && newPassword === currentPassword) {
     return fail('Choose a password different from your current one.', 400, {
       code: 'SAME_PASSWORD',
     });
@@ -63,7 +73,11 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   await updatePassword(db, user.id, await hashPassword(newPassword));
   await deleteAllSessionsForUser(db, user.id);
-  await startSession(user.id, request); // fresh cookie for this device
+  await startSession(user.id, request, {
+    securityVersion: user.securityVersion,
+    authenticationMethod: 'password',
+    mfaVerifiedAt: session.mfaVerifiedAt,
+  }); // fresh cookie for this device
   await writeAudit(db, {
     event: 'password_changed',
     userId: user.id,

@@ -10,6 +10,10 @@ describe('API_ROUTES', () => {
       expect(API_ROUTES.authVerify).toBe('/api/auth/verify');
       expect(API_ROUTES.authResetRequest).toBe('/api/auth/reset/request');
       expect(API_ROUTES.authResetConfirm).toBe('/api/auth/reset/confirm');
+      expect(API_ROUTES.authGoogle()).toBe('/api/auth/google');
+      expect(API_ROUTES.authGoogle('/watchlists')).toBe('/api/auth/google?next=%2Fwatchlists');
+      expect(API_ROUTES.authGoogleCallback).toBe('/api/auth/google/callback');
+      expect(API_ROUTES.authMfaVerify).toBe('/api/auth/mfa/verify');
     });
 
     it('builds sign-out paths with and without all=true', () => {
