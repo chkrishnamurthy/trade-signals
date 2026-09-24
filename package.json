@@ -10,6 +10,9 @@
   "scripts": {
     "dev": "pnpm -r --parallel dev",
     "dev:web": "pnpm --filter @equitywise/web dev",
+    "dev:web:local": "bash scripts/dev-web-local.sh",
+    "dev:db:up": "docker compose --env-file /dev/null -f docker-compose.dev.yml up -d --wait",
+    "dev:db:down": "docker compose --env-file /dev/null -f docker-compose.dev.yml down",
     "dev:mobile": "pnpm --filter \"@equitywise/mobile^...\" build && pnpm --filter @equitywise/mobile start",
     "build": "pnpm -r build",
     "test": "vitest run",

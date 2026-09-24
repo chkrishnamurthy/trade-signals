@@ -1,0 +1,30 @@
+# Local development database for the web API and the mobile app — isolated from
+# production. Postgres 17 + TimescaleDB, like the VPS, with a named volume so your
+# test accounts and watchlists survive restarts.
+#
+#   pnpm dev:db:up     start it (host port 5434)
+#   pnpm dev:web:local run the web API against it (see scripts/dev-web-local.sh)
+#   pnpm dev:db:down   stop it (data kept);  add -v by hand to wipe it
+#
+# It has no market data and no provider token, so prices and indices show as
+# unavailable — sign-in, 2FA, watchlists and account screens all work.
+
+services:
+  db:
+    image: timescale/timescaledb:2.17.2-pg17
+    environment:
+      POSTGRES_USER: equitywise
+      POSTGRES_PASSWORD: equitywise
+      POSTGRES_DB: nse_signals_dev
+    ports:
+      - '5434:5432'
+    volumes:
+      - equitywise-dev-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U equitywise -d nse_signals_dev']
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  equitywise-dev-db:
