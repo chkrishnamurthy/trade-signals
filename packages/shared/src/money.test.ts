@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   assertPaise,
   formatPaise,
+  formatPaiseIntegerOnly,
   PAISE_PER_RUPEE,
   paiseToRupees,
   rupeesToPaise,
@@ -185,5 +186,44 @@ describe('formatPaise', () => {
     expect(() => formatPaise(100, { decimals: 3 })).toThrow(RangeError);
     expect(() => formatPaise(100, { decimals: -1 })).toThrow(RangeError);
     expect(() => formatPaise(100, { decimals: 1.5 })).toThrow(RangeError);
+  });
+});
+
+describe('formatPaiseIntegerOnly (the no-Intl fallback)', () => {
+  const opts = (o: Partial<Parameters<typeof formatPaiseIntegerOnly>[1]> = {}) => ({
+    withSymbol: true,
+    decimals: 2,
+    signDisplay: 'auto' as const,
+    ...o,
+  });
+
+  it('matches the reference fixtures', () => {
+    expect(formatPaiseIntegerOnly(124550, opts())).toBe('₹1,245.50');
+    expect(formatPaiseIntegerOnly(0, opts())).toBe('₹0.00');
+    expect(formatPaiseIntegerOnly(12455000, opts())).toBe('₹1,24,550.00');
+    expect(formatPaiseIntegerOnly(1245500000, opts())).toBe('₹1,24,55,000.00');
+    expect(formatPaiseIntegerOnly(-124550, opts())).toBe('-₹1,245.50');
+    expect(formatPaiseIntegerOnly(124550, opts({ decimals: 0 }))).toBe('₹1,246');
+    expect(formatPaiseIntegerOnly(124550, opts({ decimals: 1 }))).toBe('₹1,245.5');
+    expect(formatPaiseIntegerOnly(124550, opts({ signDisplay: 'always' }))).toBe('+₹1,245.50');
+    expect(formatPaiseIntegerOnly(0, opts({ signDisplay: 'exceptZero' }))).toBe('₹0.00');
+    expect(formatPaiseIntegerOnly(900719925474099, opts())).toBe('₹90,07,19,92,54,740.99');
+  });
+
+  it('agrees with Intl on a sweep of values and every option', () => {
+    const values = [1, 9, 49, 50, 51, 99, 100, 12345, 99999, 100000, 1234567, 98765432, 5000000050];
+    for (const v of values) {
+      for (const paise of [v, -v]) {
+        for (const decimals of [0, 1, 2]) {
+          for (const signDisplay of ['auto', 'always', 'never', 'exceptZero'] as const) {
+            for (const withSymbol of [true, false]) {
+              expect(formatPaiseIntegerOnly(paise, { withSymbol, decimals, signDisplay })).toBe(
+                formatPaise(paise, { withSymbol, decimals, signDisplay }),
+              );
+            }
+          }
+        }
+      }
+    }
   });
 });

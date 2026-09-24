@@ -221,6 +221,21 @@ importers:
         specifier: ^4.23.13
         version: 4.23.13
 
+  packages/api-client:
+    dependencies:
+      '@equitywise/api-contracts':
+        specifier: workspace:*
+        version: link:../api-contracts
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
+
+  packages/api-contracts:
+    dependencies:
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
+
   packages/archive:
     dependencies:
       '@equitywise/core':
@@ -273,6 +288,8 @@ importers:
       drizzle-kit:
         specifier: ^0.31.6
         version: 0.31.10
+
+  packages/design-tokens: {}
 
   packages/dhan:
     dependencies:

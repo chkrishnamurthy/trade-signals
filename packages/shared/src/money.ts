@@ -140,6 +140,9 @@ export function formatPaise(paise: number, options: FormatPaiseOptions = {}): st
     throw new RangeError(`formatPaise: decimals must be 0, 1 or 2, received ${String(decimals)}`);
   }
 
+  if (!INTL_EN_IN_EXACT)
+    return formatPaiseIntegerOnly(paise, { withSymbol, decimals, signDisplay });
+
   const formatter = new Intl.NumberFormat('en-IN', {
     ...(withSymbol
       ? { style: 'currency' as const, currency: 'INR', currencyDisplay: 'symbol' as const }
@@ -154,3 +157,70 @@ export function formatPaise(paise: number, options: FormatPaiseOptions = {}): st
   // exact instead of routing them through a float.
   return formatter.format(paiseToDecimalString(paise));
 }
+
+/**
+ * The same output as `formatPaise`, built from integer arithmetic alone — no
+ * `Intl`, no float. `formatPaise` uses it when the runtime's `Intl` cannot
+ * reproduce the reference rendering exactly: some JavaScript engines (the
+ * mobile app's Hermes on older Android builds, for one) lack `en-IN` lakh/crore
+ * grouping, the decimal-string overload, or `signDisplay`. Rounding is
+ * half-away-from-zero, matching Intl's default `halfExpand`.
+ */
+export function formatPaiseIntegerOnly(
+  paise: number,
+  options: Required<FormatPaiseOptions>,
+): string {
+  assertPaise(paise, 'formatPaiseIntegerOnly');
+  const { withSymbol, decimals, signDisplay } = options;
+  const scale = 10 ** (2 - decimals);
+  const magnitude = Math.abs(paise);
+  let units = Math.floor(magnitude / scale);
+  if ((magnitude % scale) * 2 >= scale) units += 1;
+
+  const unitBase = 10 ** decimals;
+  const whole = String(Math.floor(units / unitBase));
+  const fraction = decimals === 0 ? '' : `.${String(units % unitBase).padStart(decimals, '0')}`;
+
+  // Indian grouping: the last three digits, then pairs — 1,24,55,000.
+  const lastThree = whole.slice(-3);
+  const rest = whole.slice(0, -3);
+  const grouped =
+    rest === '' ? lastThree : `${rest.replace(/\B(?=(\d{2})+(?!\d))/gu, ',')},${lastThree}`;
+
+  const negative = paise < 0;
+  // `exceptZero` judges the ROUNDED value (−₹0.004 shows as ₹0); the other
+  // modes keep the sign of the input, as Intl does (−₹0 under `auto`).
+  const sign =
+    signDisplay === 'never' || (signDisplay === 'exceptZero' && units === 0)
+      ? ''
+      : negative
+        ? '-'
+        : signDisplay === 'always' || signDisplay === 'exceptZero'
+          ? '+'
+          : '';
+  return `${sign}${withSymbol ? '₹' : ''}${grouped}${fraction}`;
+}
+
+/**
+ * Whether this runtime's `Intl` renders the reference cases exactly. Checked
+ * once at load: a constant, not mutable state.
+ */
+const INTL_EN_IN_EXACT: boolean = (() => {
+  try {
+    const f = new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      currencyDisplay: 'symbol',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+      signDisplay: 'always',
+      useGrouping: true,
+    });
+    return (
+      f.format('1245500.05' as Intl.StringNumericLiteral) === '+₹12,45,500.05' &&
+      f.format('-9007199254740.99' as Intl.StringNumericLiteral) === '-₹90,07,19,92,54,740.99'
+    );
+  } catch {
+    return false;
+  }
+})();

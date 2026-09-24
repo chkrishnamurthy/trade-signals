@@ -1,4 +1,4 @@
-import { getUserWithProfile } from '@equitywise/db';
+import { getUserWithProfile, mfaEnabled } from '@equitywise/db';
 import type { NextResponse } from 'next/server';
 import { json } from '@/server/auth/http';
 import { getSessionUser } from '@/server/auth/require-user';
@@ -12,7 +12,8 @@ export async function GET(): Promise<NextResponse> {
   const user = await getSessionUser();
   if (user === null) return json({ user: null });
 
-  const full = await getUserWithProfile(getDatabase(), user.id);
+  const db = getDatabase();
+  const [full, mfa] = await Promise.all([getUserWithProfile(db, user.id), mfaEnabled(db, user.id)]);
   if (full === null) return json({ user: null });
 
   return json({
@@ -21,6 +22,7 @@ export async function GET(): Promise<NextResponse> {
       email: full.email,
       role: full.role,
       emailVerified: full.emailVerifiedAt !== null,
+      mfaEnabled: mfa,
       profile: full.profile,
     },
   });

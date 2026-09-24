@@ -9,6 +9,7 @@ export type { FormatPaiseOptions } from './money.js';
 export {
   assertPaise,
   formatPaise,
+  formatPaiseIntegerOnly,
   MAX_SAFE_PAISE,
   PAISE_PER_RUPEE,
   paiseToRupees,
