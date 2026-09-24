@@ -13,8 +13,16 @@
 > Audited at `4ab00f2`; re-checked at `c8dd6bc` after the Dhan provider landed. The
 > Dhan work added only pure modules to `packages/shared` (`circuit.ts`,
 > `rate-limit.ts`, `stream.ts` — no imports) and touched nothing in auth or the API
-> routes, so every finding below still holds. The provider boundary now covers two
-> vendors; the phone never sees either.
+> routes. The provider boundary now covers two vendors; the phone never sees either.
+>
+> **Revised 2026-09-24 against `58afaae`.** Since the first audit the web app gained
+> **Google sign-in** (OAuth 2.0 / OIDC with PKCE), **two-factor authentication**
+> (TOTP + recovery codes, challenge-based login) and new `auth_sessions` columns
+> (`securityVersion`, `authenticationMethod`, `authIdentityId`, `mfaVerifiedAt`,
+> `reauthenticatedAt`). §2.3, §3, §7, §8, §9, §10, §11 and §12 are updated for
+> them; both are **in scope for the phone** (S11, S12). The `/api/signals*` and
+> `/api/paper-trades` routes were removed; the new intraday and paper-trading
+> surfaces are admin-only and **deferred for mobile** (S13).
 
 ---
 
@@ -26,20 +34,27 @@ per-user data isolation, and a rule that market data is only ever read through t
 web app's API. The pure packages (`shared`, `core`, `market-data`) contain no
 Node-only code and can run inside a phone's JavaScript engine.
 
-Three things stand between the current API and a working native app. All three are
+Five things stand between the current API and a working native app. All five are
 **server-side, additive** changes:
 
-1. **The CSRF check rejects every native request.** Every state-changing route calls
+1. **The CSRF check rejects every native request.** State-changing routes call
    `isSameOrigin()` (`apps/web/src/server/auth/request.ts`), which requires an
    `Origin` or `Referer` header. Android's networking stack sends neither, so
-   sign-in, sign-up and every PATCH/POST/DELETE would answer `403 BAD_ORIGIN`. The
-   check is right for browsers and stays; it must become conditional on *how the
-   request authenticated*.
+   sign-in, sign-up, 2FA verify and every PATCH/POST/DELETE would answer
+   `403 BAD_ORIGIN`. The check is right for browsers and stays; it must become
+   conditional on *how the request authenticated*.
 2. **Sessions are delivered only as a browser cookie** (`__Host-session`). A phone
    needs a token it can keep in the Android Keystore, gate behind a fingerprint and
    send as a header. The `auth_sessions` table already supports this; it needs a
    second delivery path.
-3. **No push-notification infrastructure** — no device table, no sender in the
+3. **The 2FA challenge is bound to a browser cookie.** Sign-in answers
+   `mfa_required` with a `challengeId`, but the challenge is also tied to an
+   `__Host-auth-mfa` cookie (`browserBindingHash`). A phone needs that binding
+   returned in the body and sent back with the code.
+4. **Google sign-in is redirect-and-cookie only.** `/api/auth/google` →
+   Google → `/api/auth/google/callback` ends in a `Set-Cookie` and a redirect to a
+   web page. The phone needs a native path that yields a bearer token (§7.2).
+5. **No push-notification infrastructure** — no device table, no sender in the
    worker, no consent record.
 
 **Recommendation:** React Native with Expo and TypeScript, as `apps/mobile` in this
@@ -90,7 +105,9 @@ deploy = merge to `main` → Actions → forced-command SSH → `deploy.sh` → 
 | Watchlists | `/watchlists` | `GET/POST /api/watchlists`; `GET/PATCH/DELETE /:id`; `/:id/items` (POST/PUT/DELETE); `/:id/layout`; `/:id/views`, `/:id/views/:viewId`; `/default`; `/reorder`; `/templates`; `/from-template`; `/:id/live` (SSE) | Available |
 | Search | header | `GET /api/search?q=` (public); `POST /api/search/resolve` | Available |
 | Charts / history | stock drawer | `GET /api/history/:symbol?tf=1D\|5D\|1M\|3M\|6M\|1Y\|5Y` (paise OHLCV) | Available |
-| Signals | `/signals` | `GET /api/signals`, `/:id`, `/summary`; `POST /api/paper-trades` | Available — **hidden in the app (S8)** |
+| Signals | `/signals` | none — `/api/signals*` and `/api/paper-trades` were removed (`5a93607`, `cc49956`) | **Deferred for mobile (S8)** |
+| Intraday strategy, paper trading | `/intraday`, `/paper-trading` | `/api/intraday/*`, `/api/paper/*` | Admin-only (403 for users). **Deferred for mobile (S13)** — the app never calls them |
+| Index strip | header | `GET /api/market/indices`, `/live` | Available |
 | Market Brief | `/today` | `GET /api/market-brief/latest` | Available |
 | Announcements | `/announcements` | `GET /api/announcements` (filters, paging); `GET/PATCH /:id` | Available |
 | Institutional flow | `/flows` | `GET /api/flows` | Available |

@@ -18,7 +18,7 @@ import {
   signupEnabled,
 } from './env';
 import { safeRedirectPath } from './redirects';
-import { clientIp, userAgent } from './request';
+import { clientIp } from './request';
 import { startSession } from './session';
 
 const OAUTH_COOKIE_MAX_AGE_SECONDS = 600; // 10 minutes
@@ -109,8 +109,8 @@ export interface GoogleUserInfo {
   sub: string;
   email: string;
   email_verified: boolean;
-  name?: string;
-  picture?: string;
+  name?: string | undefined;
+  picture?: string | undefined;
 }
 
 export async function exchangeGoogleCode(
@@ -235,7 +235,6 @@ export async function handleGoogleCallback(
 
   const db = getDatabase();
   const ip = clientIp(request);
-  const ua = userAgent(request);
 
   // 0. If user is already authenticated in this session (e.g. connecting from Profile)
   const { getSessionUser } = await import('./require-user');

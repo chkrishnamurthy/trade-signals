@@ -26,7 +26,7 @@ export function LoginForm({
   next: string;
   accountCreated?: boolean;
   googleEnabled?: boolean;
-  initialError?: string;
+  initialError?: string | undefined;
 }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

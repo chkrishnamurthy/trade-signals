@@ -1,7 +1,6 @@
 import {
   deleteExpiredChallenges,
   deleteExpiredSessions,
-  deleteExpiredTokenReplays,
   deleteExpiredTokens,
   deleteStaleAttempts,
 } from '@equitywise/db';
@@ -26,6 +25,5 @@ export async function authMaintenance(context: WorkerContext, log: Logger): Prom
     new Date(Date.now() - ATTEMPT_RETENTION_MS),
   );
   const challenges = await deleteExpiredChallenges(context.db);
-  const tokenReplays = await deleteExpiredTokenReplays(context.db);
-  log.info('auth maintenance complete', { sessions, tokens, attempts, challenges, tokenReplays });
+  log.info('auth maintenance complete', { sessions, tokens, attempts, challenges });
 }
