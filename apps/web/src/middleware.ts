@@ -1,11 +1,12 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { bearerToken } from '@/server/auth/client';
 import { SESSION_COOKIE_NAME } from '@/server/auth/cookie-config';
 
 /**
  * The route gate — closed by default.
  *
  * Runs on the Edge runtime, so it does NO database work and no crypto: it only
- * checks that a session cookie is present. The authoritative, revocable check
+ * checks that a session cookie — or, for the mobile app, a Bearer token — is present. The authoritative, revocable check
  * (HMAC + DB lookup + expiry + status) is `getSessionUser()` in the Node runtime,
  * called by protected routes and pages. A present-but-invalid cookie gets past
  * the edge and is rejected there.
@@ -32,6 +33,8 @@ function isPublic(pathname: string): boolean {
     pathname.startsWith('/api/auth/') ||
     pathname.startsWith('/api/og/') ||
     pathname === '/api/search' ||
+    pathname === '/api/app-config' ||
+    pathname.startsWith('/.well-known/') ||
     pathname === '/robots.txt' ||
     pathname === '/sitemap.xml'
   );
@@ -41,7 +44,9 @@ export function middleware(request: NextRequest): NextResponse {
   const { pathname } = request.nextUrl;
   if (isPublic(pathname)) return NextResponse.next();
 
-  const signedIn = request.cookies.get(SESSION_COOKIE_NAME) !== undefined;
+  const signedIn =
+    request.cookies.get(SESSION_COOKIE_NAME) !== undefined ||
+    (pathname.startsWith('/api/') && bearerToken(request.headers) !== null);
   if (signedIn) return NextResponse.next();
 
   // Browser JSON calls must see a 401 they can parse, not an HTML redirect.

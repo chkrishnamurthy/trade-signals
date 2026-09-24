@@ -4,6 +4,7 @@ import { beginMfaEnrollment, confirmMfaEnrollment, MfaError, turnOffMfa } from '
 import { isSameOrigin } from '@/server/auth/request';
 import { getSessionAuthContext } from '@/server/auth/require-user';
 import { mfaCodeSchema } from '@/server/auth/schemas';
+import { sessionBody } from '@/server/auth/session';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -33,8 +34,8 @@ export async function PUT(request: Request): Promise<NextResponse> {
   const parsed = mfaCodeSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return fail('Enter the six-digit code.', 400, { code: 'INVALID_BODY' });
   try {
-    await confirmMfaEnrollment(context.user.id, parsed.data.code, request);
-    return json({ ok: true });
+    const issued = await confirmMfaEnrollment(context.user.id, parsed.data.code, request);
+    return json({ ok: true, ...sessionBody(issued) });
   } catch (error) {
     return mapError(error);
   }
@@ -47,8 +48,8 @@ export async function DELETE(request: Request): Promise<NextResponse> {
   const parsed = mfaCodeSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return fail('Enter the six-digit code.', 400, { code: 'INVALID_BODY' });
   try {
-    await turnOffMfa(context.user.id, parsed.data.code, request);
-    return json({ ok: true });
+    const issued = await turnOffMfa(context.user.id, parsed.data.code, request);
+    return json({ ok: true, ...sessionBody(issued) });
   } catch (error) {
     return mapError(error);
   }

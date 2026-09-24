@@ -82,7 +82,12 @@ export async function findUserByEmail(
 
 export async function createGoogleUser(
   db: Database,
-  input: { principal: GooglePrincipal; displayName: string; termsAcceptedAt?: Date },
+  input: {
+    principal: GooglePrincipal;
+    displayName: string;
+    termsAcceptedAt?: Date;
+    termsVersion?: string | null;
+  },
 ): Promise<ResolvedGoogleIdentity> {
   return db.transaction(async (tx) => {
     const users = await tx
@@ -91,6 +96,7 @@ export async function createGoogleUser(
         email: input.principal.email,
         emailVerifiedAt: input.principal.emailVerified ? sql`now()` : null,
         termsAcceptedAt: input.termsAcceptedAt ?? sql`now()`,
+        termsVersion: input.termsVersion ?? null,
       })
       .returning();
     const user = users[0];

@@ -11,7 +11,7 @@ import { hashPassword, verifyPassword } from '@/server/auth/password';
 import { validatePassword } from '@/server/auth/password-policy';
 import { clientIp, isSameOrigin } from '@/server/auth/request';
 import { getSessionAuthContext } from '@/server/auth/require-user';
-import { startSession } from '@/server/auth/session';
+import { sessionBody, startSession } from '@/server/auth/session';
 import { getDatabase } from '@/server/db';
 import { changePasswordSchema } from '@/server/profile/schemas';
 
@@ -73,11 +73,12 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   await updatePassword(db, user.id, await hashPassword(newPassword));
   await deleteAllSessionsForUser(db, user.id);
-  await startSession(user.id, request, {
+  const issued = await startSession(user.id, request, {
     securityVersion: user.securityVersion,
     authenticationMethod: 'password',
     mfaVerifiedAt: session.mfaVerifiedAt,
-  }); // fresh cookie for this device
+    deviceName: session.deviceName,
+  }); // fresh cookie (or bearer token, for the app) for this device
   await writeAudit(db, {
     event: 'password_changed',
     userId: user.id,
@@ -85,5 +86,5 @@ export async function POST(request: Request): Promise<NextResponse> {
   });
   await sendPasswordChangedNotice(user.email);
 
-  return json({ ok: true });
+  return json({ ok: true, ...sessionBody(issued) });
 }

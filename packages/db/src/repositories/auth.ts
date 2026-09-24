@@ -57,6 +57,8 @@ export interface AuthSession {
   readonly authenticatedAt: Date;
   readonly mfaVerifiedAt: Date | null;
   readonly reauthenticatedAt: Date | null;
+  readonly client: 'web' | 'mobile';
+  readonly deviceName: string | null;
 }
 
 export interface NewUser {
@@ -64,6 +66,7 @@ export interface NewUser {
   readonly displayName: string;
   readonly passwordHash: string;
   readonly termsAcceptedAt: Date;
+  readonly termsVersion?: string | null;
 }
 
 // ── Users ──────────────────────────────────────────────────────────────────
@@ -77,7 +80,11 @@ export async function createUser(db: Database, input: NewUser): Promise<AuthUser
   return db.transaction(async (tx) => {
     const inserted = await tx
       .insert(authUsers)
-      .values({ email: input.email, termsAcceptedAt: input.termsAcceptedAt })
+      .values({
+        email: input.email,
+        termsAcceptedAt: input.termsAcceptedAt,
+        termsVersion: input.termsVersion ?? null,
+      })
       .returning();
     const user = inserted[0];
     if (user === undefined) throw new Error('user insert returned no row');
@@ -218,6 +225,8 @@ export interface NewSession {
   readonly authenticatedAt?: Date;
   readonly mfaVerifiedAt?: Date | null;
   readonly reauthenticatedAt?: Date | null;
+  readonly client?: 'web' | 'mobile';
+  readonly deviceName?: string | null;
 }
 
 export async function createSession(db: Database, input: NewSession): Promise<void> {
@@ -252,6 +261,34 @@ export async function getSessionContext(
     user: toAuthUser(row.user),
     passwordChangedAt: row.passwordChangedAt,
   };
+}
+
+/**
+ * Swap a session's token for a fresh one in a single statement: the row keeps its
+ * id, user, provenance (security version, method, identity, MFA time, client,
+ * device) and its absolute expiry — rotation never extends the 30-day cap. Refused
+ * (null) when the row is gone, expired, or its security version no longer matches
+ * the account, so rotation can never revive a session a password change or
+ * "sign out everywhere" has killed.
+ */
+export async function rotateSessionToken(
+  db: Database,
+  oldTokenHash: string,
+  newTokenHash: string,
+): Promise<AuthSession | null> {
+  const rows = await db
+    .update(authSessions)
+    .set({ tokenHash: newTokenHash, lastUsedAt: sql`now()` })
+    .where(
+      and(
+        eq(authSessions.tokenHash, oldTokenHash),
+        sql`${authSessions.expiresAt} > now()`,
+        sql`${authSessions.securityVersion} = (select ${authUsers.securityVersion} from ${authUsers} where ${authUsers.id} = ${authSessions.userId})`,
+      ),
+    )
+    .returning();
+  const row = rows[0];
+  return row === undefined ? null : toSession(row);
 }
 
 /** Roll the idle timeout forward. */
@@ -460,5 +497,7 @@ function toSession(row: typeof authSessions.$inferSelect): AuthSession {
     authenticatedAt: row.authenticatedAt,
     mfaVerifiedAt: row.mfaVerifiedAt,
     reauthenticatedAt: row.reauthenticatedAt,
+    client: row.client === 'mobile' ? 'mobile' : 'web',
+    deviceName: row.deviceName,
   };
 }

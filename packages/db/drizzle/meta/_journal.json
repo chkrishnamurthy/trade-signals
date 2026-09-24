@@ -183,6 +183,13 @@
       "when": 1789891200000,
       "tag": "0025_google_oauth",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1790208000000,
+      "tag": "0026_mobile_sessions",
+      "breakpoints": true
     }
   ]
 }

@@ -33,6 +33,7 @@ export {
   listSessionsForUser,
   listUsers,
   markEmailVerified,
+  rotateSessionToken,
   saveAttempt,
   setUserRole,
   setUserStatus,

@@ -1,14 +1,17 @@
 import 'server-only';
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
-import { cookies } from 'next/headers';
 import {
   createGoogleUser,
   findUserByEmail,
   linkGoogleIdentity,
+  mfaEnabled,
   resolveGoogleIdentity,
   writeAudit,
 } from '@equitywise/db';
+import { cookies } from 'next/headers';
 import { getDatabase } from '@/server/db';
+import { beginMfaChallenge } from './challenges';
+import { nativeClientLabel } from './client';
 import { IS_PROD, OAUTH_STATE_COOKIE_NAME } from './cookie-config';
 import {
   authBaseUrl,
@@ -19,7 +22,8 @@ import {
 } from './env';
 import { safeRedirectPath } from './redirects';
 import { clientIp } from './request';
-import { startSession } from './session';
+import { type IssuedSession, startSession } from './session';
+import { TERMS_VERSION } from './terms';
 
 const OAUTH_COOKIE_MAX_AGE_SECONDS = 600; // 10 minutes
 
@@ -182,12 +186,20 @@ export async function handleGoogleCallback(
   cookieJar.set(OAUTH_STATE_COOKIE_NAME, '', { maxAge: 0, path: '/' });
 
   if (!rawCookie) {
-    return { status: 'error', code: 'INVALID_STATE', message: 'OAuth state cookie was missing or expired.' };
+    return {
+      status: 'error',
+      code: 'INVALID_STATE',
+      message: 'OAuth state cookie was missing or expired.',
+    };
   }
 
   const payloadStr = verifyPayload(rawCookie, authSessionSecret());
   if (!payloadStr) {
-    return { status: 'error', code: 'TAMPERED_STATE', message: 'OAuth state could not be verified.' };
+    return {
+      status: 'error',
+      code: 'TAMPERED_STATE',
+      message: 'OAuth state could not be verified.',
+    };
   }
 
   let statePayload: OAuthStatePayload;
@@ -225,16 +237,78 @@ export async function handleGoogleCallback(
     };
   }
 
+  const outcome = await signInWithGoogleIdentity(request, userInfo, {
+    enforceMfa: false, // web Google + 2FA is deferred (docs/mobile/01-discovery.md S16, G15)
+    termsAccepted: null,
+    deviceName: null,
+  });
+  if (outcome.status === 'error') return outcome;
+  return { status: 'success', redirectTo: statePayload.next };
+}
+
+export type GoogleIdentityOutcome =
+  | { status: 'signed_in'; issued: IssuedSession }
+  | { status: 'linked'; identityId: number }
+  | { status: 'mfa_required'; challengeId: string; binding: string | null }
+  | { status: 'terms_required' }
+  | { status: 'error'; code: string; message: string };
+
+/**
+ * Resolve a verified Google principal to an EquityWise account and act on it —
+ * the one place both the web callback and the mobile app's native sign-in
+ * (`/api/auth/google/native`) decide what a Google login means:
+ *
+ *   0. already signed in → link this Google identity to the current account;
+ *   1. known identity    → sign in;
+ *   2. known email       → link, then sign in;
+ *   3. new person        → create the account (if sign-up is open), then sign in.
+ *
+ * `enforceMfa` routes 2FA-enrolled accounts to the 2FA challenge instead of
+ * starting a session. `termsAccepted` (native only) gates step 3: null means "the
+ * caller does not collect terms here" (web), false returns `terms_required` so the
+ * app can show its terms popup and retry.
+ */
+export async function signInWithGoogleIdentity(
+  request: Request,
+  userInfo: GoogleUserInfo,
+  options: {
+    enforceMfa: boolean;
+    termsAccepted: boolean | null;
+    deviceName: string | null;
+  },
+): Promise<GoogleIdentityOutcome> {
   if (!userInfo.email_verified) {
-    return {
-      status: 'error',
-      code: 'UNVERIFIED_EMAIL',
-      message: 'Google email is not verified.',
-    };
+    return { status: 'error', code: 'UNVERIFIED_EMAIL', message: 'Google email is not verified.' };
   }
 
   const db = getDatabase();
   const ip = clientIp(request);
+  const client = nativeClientLabel(request.headers) ?? 'web';
+
+  const begin = async (
+    user: {
+      id: number;
+      securityVersion: number;
+    },
+    identityId: number,
+  ): Promise<GoogleIdentityOutcome> => {
+    if (options.enforceMfa && (await mfaEnabled(db, user.id))) {
+      const challenge = await beginMfaChallenge({
+        userId: user.id,
+        securityVersion: user.securityVersion,
+        authenticationMethod: 'google',
+        authIdentityId: identityId,
+      });
+      return { status: 'mfa_required', ...challenge };
+    }
+    const issued = await startSession(user.id, request, {
+      securityVersion: user.securityVersion,
+      authenticationMethod: 'google',
+      authIdentityId: identityId,
+      deviceName: options.deviceName,
+    });
+    return { status: 'signed_in', issued };
+  };
 
   // 0. If user is already authenticated in this session (e.g. connecting from Profile)
   const { getSessionUser } = await import('./require-user');
@@ -251,7 +325,11 @@ export async function handleGoogleCallback(
 
   if (currentUser) {
     if (currentUser.status === 'disabled') {
-      return { status: 'error', code: 'ACCOUNT_DISABLED', message: 'This account has been disabled.' };
+      return {
+        status: 'error',
+        code: 'ACCOUNT_DISABLED',
+        message: 'This account has been disabled.',
+      };
     }
     if (existingIdentity && existingIdentity.user.id !== currentUser.id) {
       return {
@@ -274,31 +352,31 @@ export async function handleGoogleCallback(
       userId: currentUser.id,
       event: 'identity_linked',
       ipAddress: ip,
-      detail: { method: 'google', identityId },
+      detail: { method: 'google', identityId, client },
     });
 
-    return { status: 'success', redirectTo: statePayload.next };
+    return { status: 'linked', identityId };
   }
 
   if (existingIdentity) {
     if (existingIdentity.user.status === 'disabled') {
-      return { status: 'error', code: 'ACCOUNT_DISABLED', message: 'This account has been disabled.' };
+      return {
+        status: 'error',
+        code: 'ACCOUNT_DISABLED',
+        message: 'This account has been disabled.',
+      };
     }
 
-    await startSession(existingIdentity.user.id, request, {
-      securityVersion: existingIdentity.user.securityVersion,
-      authenticationMethod: 'google',
-      authIdentityId: existingIdentity.identityId,
-    });
+    const outcome = await begin(existingIdentity.user, existingIdentity.identityId);
 
     await writeAudit(db, {
       userId: existingIdentity.user.id,
-      event: 'login',
+      event: outcome.status === 'signed_in' ? 'login' : 'login_mfa_challenge',
       ipAddress: ip,
-      detail: { method: 'google', identityId: existingIdentity.identityId },
+      detail: { method: 'google', identityId: existingIdentity.identityId, client },
     });
 
-    return { status: 'success', redirectTo: statePayload.next };
+    return outcome;
   }
 
   // 2. Identity does not exist: Check if an account with this email already exists
@@ -306,7 +384,11 @@ export async function handleGoogleCallback(
 
   if (existingUser) {
     if (existingUser.user.status === 'disabled') {
-      return { status: 'error', code: 'ACCOUNT_DISABLED', message: 'This account has been disabled.' };
+      return {
+        status: 'error',
+        code: 'ACCOUNT_DISABLED',
+        message: 'This account has been disabled.',
+      };
     }
 
     const identityId = await linkGoogleIdentity(db, existingUser.user.id, {
@@ -317,20 +399,16 @@ export async function handleGoogleCallback(
       avatarUrl: userInfo.picture ?? null,
     });
 
-    await startSession(existingUser.user.id, request, {
-      securityVersion: existingUser.user.securityVersion,
-      authenticationMethod: 'google',
-      authIdentityId: identityId,
-    });
+    const outcome = await begin(existingUser.user, identityId);
 
     await writeAudit(db, {
       userId: existingUser.user.id,
       event: 'identity_linked',
       ipAddress: ip,
-      detail: { method: 'google', identityId },
+      detail: { method: 'google', identityId, client },
     });
 
-    return { status: 'success', redirectTo: statePayload.next };
+    return outcome;
   }
 
   // 3. Brand new user: Check if sign-ups are allowed
@@ -342,6 +420,9 @@ export async function handleGoogleCallback(
     };
   }
 
+  // The app collects terms acceptance in its own popup before an account exists.
+  if (options.termsAccepted === false) return { status: 'terms_required' };
+
   const newUser = await createGoogleUser(db, {
     principal: {
       subject: userInfo.sub,
@@ -351,20 +432,18 @@ export async function handleGoogleCallback(
       avatarUrl: userInfo.picture ?? null,
     },
     displayName: userInfo.name || userInfo.email.split('@')[0] || 'User',
+    termsVersion: TERMS_VERSION,
   });
 
-  await startSession(newUser.user.id, request, {
-    securityVersion: newUser.user.securityVersion,
-    authenticationMethod: 'google',
-    authIdentityId: newUser.identityId,
-  });
+  // A brand-new account cannot have 2FA yet, so this always signs in.
+  const outcome = await begin(newUser.user, newUser.identityId);
 
   await writeAudit(db, {
     userId: newUser.user.id,
     event: 'register',
     ipAddress: ip,
-    detail: { method: 'google', identityId: newUser.identityId },
+    detail: { method: 'google', identityId: newUser.identityId, client },
   });
 
-  return { status: 'success', redirectTo: statePayload.next };
+  return outcome;
 }

@@ -19,7 +19,7 @@ document is written **before** that phase is implemented and updated as it lands
 | 04 | `04-authentication.md` | 4 — Auth | Not started. Bearer sessions, secure storage, rotation, revocation, 2FA challenge, native Google sign-in, biometrics |
 | 05 | `05-features.md` | 5 — Product | Not started. One vertical at a time: watchlists → search → stock detail & charts → profile (signals hidden, announcements/flows/push later) |
 | 06 | `06-hardening.md` | 6 — Hardening | Not started |
-| 07 | `07-play-store.md` | 7 — Release | Not started. Personal Play account, `io.equitywise.app`, closed test, listing, Data Safety |
+| 07 | `07-play-store.md` | 7 — Release | Not started. Step-by-step Play Console guide (S19): personal account, `io.equitywise.app`, closed test, listing, Data Safety, account deletion |
 | 08 | `08-maintenance.md` | 8 — Maintenance | Not started |
 
 ## Rules that bind every phase
@@ -43,5 +43,5 @@ a client that runs on a phone:
 ## Where the decisions live
 
 Settled decisions are recorded in [01-discovery.md §11](01-discovery.md#11-decisions)
-(S1–S13) and will be carried into `02-architecture.md` as an ADR. Do not re-ask a
+(S1–S19) and will be carried into `02-architecture.md` as an ADR. Do not re-ask a
 settled decision; reopen it explicitly if the facts change.

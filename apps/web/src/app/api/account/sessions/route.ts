@@ -33,6 +33,9 @@ export async function GET(): Promise<NextResponse> {
     expiresAt: s.expiresAt.toISOString(),
     ipAddress: s.ipAddress,
     userAgent: s.userAgent,
+    client: s.client,
+    deviceName: s.deviceName,
+    authenticationMethod: s.authenticationMethod,
     isCurrent: s.id === currentId,
   }));
 

@@ -51,6 +51,8 @@ export const authUsers = pgTable(
     securityVersion: integer().notNull().default(0),
     /** When the user accepted the Terms & Privacy Policy at signup. */
     termsAcceptedAt: timestamp({ withTimezone: true }),
+    /** Which version of the Terms & Privacy Policy was accepted (e.g. `2026-09-24`). */
+    termsVersion: text(),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
@@ -124,6 +126,10 @@ export const authSessions = pgTable(
     authenticatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     mfaVerifiedAt: timestamp({ withTimezone: true }),
     reauthenticatedAt: timestamp({ withTimezone: true }),
+    /** `web` (cookie) or `mobile` (bearer token held in the phone's Keystore). */
+    client: text().notNull().default('web'),
+    /** User-visible device label sent by the app, e.g. "Galaxy S24 Ultra". */
+    deviceName: text(),
   },
   (table) => [
     uniqueIndex('auth_sessions_token_idx').on(table.tokenHash),
@@ -134,6 +140,7 @@ export const authSessions = pgTable(
       'auth_sessions_authentication_method_check',
       sql`${table.authenticationMethod} in ('password', 'google')`,
     ),
+    check('auth_sessions_client_check', sql`${table.client} in ('web', 'mobile')`),
   ],
 );
 
@@ -157,10 +164,7 @@ export const authIdentities = pgTable(
   },
   (table) => [
     index('auth_identities_user_idx').on(table.userId),
-    uniqueIndex('auth_identities_principal_idx').on(
-      table.providerType,
-      table.providerSubject,
-    ),
+    uniqueIndex('auth_identities_principal_idx').on(table.providerType, table.providerSubject),
     check('auth_identities_provider_type_check', sql`${table.providerType} in ('google')`),
   ],
 );
@@ -190,7 +194,7 @@ export const authChallenges = pgTable(
     index('auth_challenges_expires_idx').on(table.expiresAt),
     check(
       'auth_challenges_purpose_check',
-      sql`${table.purpose} in ('google_oauth', 'mfa', 'reauth')`,
+      sql`${table.purpose} in ('google_oauth', 'google_native', 'mfa', 'reauth')`,
     ),
     check('auth_challenges_attempts_check', sql`${table.attempts} >= 0`),
     check('auth_challenges_max_attempts_check', sql`${table.maxAttempts} between 1 and 10`),

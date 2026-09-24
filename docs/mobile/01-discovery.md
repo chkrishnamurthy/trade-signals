@@ -556,7 +556,7 @@ always a separate explicit command.
 | R8 | Legal copy diverges across website, app and Play Data Safety | Medium | Medium | Single versioned source; the app records the version accepted. |
 | R9 | Pre-existing Biome errors make lint gating awkward | High | Low | CI lint gate scoped to `apps/mobile` and the new packages. |
 | R11 | Google sign-in fails in release builds because the Play App Signing SHA-1 is not registered on the Android OAuth client (works in dev/preview, breaks for testers) | High | High — Google users cannot sign in | Register the EAS keystore SHA-1 in Phase 4 and the Play App Signing SHA-1 immediately after the first closed-test upload; closed-test checklist includes a Google sign-in on a Play-installed build. |
-| R12 | A Google user with 2FA assumes Google's own 2-step covers them, or finds the app/web behaving differently | Medium | Medium | G15 lands before or with G13 so both clients always ask for the EquityWise code; copy on the code screen explains it. |
+| R12 | A Google user with 2FA assumes Google's own 2-step covers them, or finds the app/web behaving differently | Medium | Medium The native Google endpoint (G13) enforces 2FA from day one; the web fix (G15) is deferred by the owner (S16), so until it lands the two clients differ and the website remains the weaker path. |
 | R10 | Expo SDK / Play target-API churn | High | Low | Phase 8 calendar: one SDK upgrade a year, before Play's August deadline; verified against official pages each time. |
 
 ---
@@ -570,7 +570,7 @@ always a separate explicit command.
 | S1 | Styling in the app | Plain `StyleSheet` + typed theme; follow the design system | No NativeWind. `packages/design-tokens` built in **Phase 3**, generating both the web CSS variables and the app theme. |
 | S2 | Play developer account | **Personal** | Faster to open (ID + phone, one-time fee). Mandatory closed test (12+ testers, 14 days) before production. Listing shows your name and a contact address. Convertible to an organisation account later. |
 | S3 | Application id | **`io.equitywise.app`** | Permanent after first upload; matches the owned domain, which App Links and push identity rely on. |
-| S4 | Developer machine | Mac, **no Android Studio** | EAS cloud builds; only platform-tools locally. Physical phone is the primary device; emulator deferred. Phone model / Android version still to be recorded. |
+| S4 | Developer machine | Mac, **no Android Studio** | EAS cloud builds; only platform-tools locally. Physical phone is the primary device: **Samsung Galaxy S24 Ultra** (Android version to be recorded at first device test). Emulator deferred. |
 | S5 | Build pipeline | EAS cloud builds; **every change verified on the phone before any push** | One dev client from EAS; changes stream over USB. Store submission is a separate explicit step. |
 | S6 | Push needs Firebase | Accepted | Free Firebase project for FCM; the worker sends via Expo's push service (G7, later phase). |
 | S7 | v1.0 scope | Watchlists · search · stock detail & charts · profile | Announcements, flows, push in v1.1+. |
@@ -584,7 +584,18 @@ always a separate explicit command.
 | --- | --- | --- | --- |
 | S11 | Google sign-in on the phone | **Yes, v1.0** | Native Credential Manager → server-verified ID token (§7.2, G13). Custom Tab + PKCE is the fallback, not the default. |
 | S12 | Session table for mobile; 2FA on the phone | **Recommended shape; 2FA in v1.0** | Add only `client` + `device_name`; reuse the provenance columns; rotation copies provenance and respects `securityVersion` (§7.1, G2, G3). 2FA challenge supported on the phone; enrolment/disable stays on the website for v1.0 (§7.3, G14). |
-| S13 | Signals, intraday, paper trading on the phone | **Later** | Not in v1.0. The app never calls `/api/intraday/*` or `/api/paper/*` (admin-only today); revisited as its own decision. |
+| S13 | Signals, intraday, paper trading on the phone | **Later** | Not in v1.0 for users. Whether admins see them is part of S14. |
+
+### Settled — 2026-09-24 Q&A (second round)
+
+| # | Decision | Answer | In practice |
+| --- | --- | --- | --- |
+| S14 | Admin on the phone | **Admin features needed** | The app reads `role` from the session user and shows an Admin area only to admins; the server's existing admin checks (403 for users) stay the real gate — hiding a tab is never the security boundary. **Exact admin scope in v1.0 still to confirm** (§14, Q1). |
+| S15 | Terms acceptance | **In-app popup** | Before an account is created from the phone — email sign-up or first-time Google sign-in — a bottom-sheet shows the terms/privacy summary with links to the full text and an explicit "I agree". The server stores **which version** was accepted (new `terms_version`, alongside `termsAcceptedAt`) and refuses account creation without it. When the terms version changes, signed-in users see the same popup once. Also fixes the existing gap that Google-created web accounts record no acceptance at all. |
+| S16 | Google sign-in skipping 2FA on the website (G15) | **Later** | Not in the first milestone. The mobile native endpoint enforces 2FA regardless. |
+| S17 | Environments | **Production only** (one VPS) | No staging. Dev builds talk to the local web app (`adb reverse`, §9) which uses the VPS database through the SSH tunnel; `preview`/`production` builds talk to `https://equitywise.io`. Test with clearly named test accounts (`test+…@`), never delete or edit real users' data from a test build, and mark test accounts so audit reports can filter them (§14, gap 5). |
+| S18 | Screen sizes | **Every Android screen size** | Primary device S24 Ultra, but layouts must work from small phones (~360 dp wide) to large phones, foldables (Galaxy Z Fold inner/outer screen) and tablets, in portrait and landscape, with system font scaling up to 200 % and both themes. Phase 2's design spec defines breakpoints (compact < 600 dp, medium 600–840 dp, expanded > 840 dp) and which screens go two-pane on wide screens. QA includes a small-screen and a tablet-size check via EAS preview on a second device or a resized emulator later. |
+| S19 | Play Console guidance | **Owner wants a step-by-step guide** | A detailed Play Console walkthrough (account creation, identity verification, app creation, closed-test setup, tester recruitment, listing, Data Safety, financial-features declaration) is written into `07-play-store.md`, with the account-creation part delivered early so the closed-test clock (R3) can start. |
 
 ### Still open — awaiting explicit approval
 
@@ -596,7 +607,7 @@ Each has a recommendation; an unanswered item is taken as the recommendation.
 | D2 | Opaque bearer sessions reusing `auth_sessions` with 7-day rotation, instead of JWT + refresh | Opaque (§7) |
 | D3 | Mobile sign-in shares existing routes (with a `client` field) rather than `/api/mobile/auth/*` | Shared routes: one lockout, one audit path |
 | D4 | `packages/api-contracts` (Zod) + `packages/api-client`; web adopts incrementally | Yes, Phase 3; mechanical import renames, no behaviour change |
-| D5 | Staging: second web + DB pair on the VPS, or production with test accounts | Defer staging to Phase 6; EAS `preview` against production with dedicated test accounts |
+| D5 | Staging | **Settled (S17):** production only — see below |
 | D6 | Design-tokens package timing | Settled by S1: Phase 3 |
 | D7 | Crash reporting / analytics | Sentry for crashes (free tier, Expo SDK, EAS source maps); no third-party analytics at launch |
 | D8 | Where mobile docs live | `docs/mobile/` — this folder |
@@ -626,8 +637,8 @@ foundation you cannot sign into cannot be verified end-to-end.
 - Application id `io.equitywise.app` fixed in `app.config.ts`; personal Play Console
   account created; closed-test tester list started (S2, R3).
 - Server: G1 (conditional CSRF), G2 (bearer path + migration), G8 (app-config),
-  G9 (client header), G14 (mobile 2FA), G13 + G15 (native Google, with 2FA
-  enforced).
+  G9 (client header), G14 (mobile 2FA), G13 (native Google, with 2FA enforced
+  on the phone). G15 (web Google + 2FA) is deferred (S16).
 - Real sign-in from the phone against production — email/password, email/password
   with 2FA, and Google; the website's sessions screen shows the phone as a device.
 - CI job for the app: typecheck, scoped lint, unit tests. EAS `development` and
@@ -651,8 +662,8 @@ paper trading in any form (S8, S13); 2FA enrolment in the app; the Play store li
       recovery code each complete sign-in, a wrong code 5 times ends the challenge,
       and the session row has `mfaVerifiedAt` set.
 - [ ] "Sign in with Google" on the phone signs in an existing Google-linked account
-      and creates a new one; for a 2FA-enrolled account it asks for the code — and so
-      does the website's Google login (G15).
+      and creates a new one (after the terms popup, S15); for a 2FA-enrolled account
+      it asks for the code.
 - [ ] Changing the password or disabling 2FA on the website signs the phone out
       (`securityVersion` bump), and a rotation attempt with the old token is refused.
 - [ ] A web sign-in still sets the cookie and still rejects a cross-site POST —
@@ -692,3 +703,23 @@ paper trading in any form (S8, S13); 2FA enrolment in the app; the Play store li
 
 **Before Phase 2 starts:** answer D1–D8 ("approve all" is valid), and create the
 personal Google Play Console account so the R3 clock starts early.
+
+---
+
+## 14. Open gaps — documented, to be resolved later
+
+Found in the 2026-09-24 review. None blocks Phase 2 (architecture); each must be
+closed before the phase named.
+
+| # | Gap | Proposed resolution | Close before |
+| --- | --- | --- | --- |
+| 1 | **Admin scope on the phone** (S14). The web admin surface is `/admin` (user list, disable/enable) plus admin-only `/intraday` and `/paper-trading`. Which of these the app needs is not decided. | Recommend v1.0 admin = user list + disable/enable only; intraday/paper stay web-only until their own decision. | Phase 2 screen inventory |
+| 2 | **Sign-up closed.** `AUTH_ALLOW_SIGNUP=false` makes sign-up answer `SIGNUP_DISABLED`; the app cannot know in advance. | Add `signupOpen` (and `googleSignInEnabled`) to `GET /api/app-config` (G8); hide the button when false. | Phase 3 |
+| 3 | **Terms version not stored; Google sign-ups record no acceptance** (web too). | S15: `terms_version` column, versioned legal source (R8), server rejects account creation without it. | Phase 4 |
+| 4 | **In-app account deletion** is a Google Play requirement for apps with account creation (in-app path + a web URL). `DELETE /api/account` exists; the app screen and the Play form entry are unplanned. | Account → Delete account screen with re-authentication; public deletion page URL for the Play listing. Verify the policy wording at release time. | Phase 7 |
+| 5 | **Test activity on production** (S17). Test builds write audit rows and use live-quote rate limits. | Mark test accounts (e.g. a flag or an email pattern) and filter them in reports; keep test polling within `refreshAfterSeconds`. | Phase 4 |
+| 6 | **Google-only accounts have no password.** Change-password must handle "no password yet"; unlinking Google must be refused if it is the only sign-in method. | Check the web behaviour first; mirror it in the app. | Phase 5.6 |
+| 7 | **SSE on the phone** (G5b) depends on `expo/fetch` streaming support in the chosen Expo SDK and Hermes. | Add to the risk register when Phase 2 fixes the SDK version; polling (G5a) remains the v1.0 path. | Phase 6 |
+| 8 | **Responsive QA without many devices** (S18). Only one physical phone. | Phase 2 defines breakpoints; later, Android Studio's emulator (or a borrowed tablet) for large-screen checks; Play's pre-launch report adds device coverage for free. | Phase 6 |
+| 9 | `OVERVIEW.md` still says "watchlists only". | Update alongside Phase 2. | Phase 2 |
+| 10 | Decisions D1–D8 still formally open. | "Approve all" or individual answers; unanswered = recommendation. | Phase 2 start |

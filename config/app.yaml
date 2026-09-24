@@ -1,0 +1,13 @@
+# Mobile app runtime config, served publicly by GET /api/app-config.
+# Nothing here is secret — the phone can read all of it.
+# See docs/mobile/01-discovery.md §8 (G8).
+
+android:
+  # Installs below this version see a blocking "Update required" screen.
+  minSupportedVersion: "1.0.0"
+  # Newest published version; older installs see a dismissible "Update available".
+  latestVersion: "1.0.0"
+  storeUrl: "https://play.google.com/store/apps/details?id=io.equitywise.app"
+
+# Shown as a banner in the app when set; null to hide.
+maintenanceMessage: null

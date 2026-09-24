@@ -16,9 +16,10 @@ import {
 } from '@equitywise/db';
 import { getDatabase } from '@/server/db';
 import { clearMfaCookie, readMfaBindingHash } from './challenges';
+import { isNativeClient, nativeClientLabel } from './client';
 import { clientIp } from './request';
 import { getSessionAuthContext } from './require-user';
-import { startSession } from './session';
+import { type IssuedSession, startSession } from './session';
 import { hashToken } from './session-token';
 import {
   decryptTotpSecret,
@@ -34,8 +35,14 @@ export async function verifyMfaChallenge(input: {
   challengeId: string;
   code?: string;
   recoveryCode?: string;
-}): Promise<{ redirectTo: string }> {
-  const binding = await readMfaBindingHash();
+  /** The native app's challenge binding (browsers use the cookie instead). */
+  binding?: string;
+  deviceName?: string | null;
+}): Promise<{ redirectTo: string; issued: IssuedSession }> {
+  const binding =
+    isNativeClient(input.request.headers) && input.binding
+      ? hashToken(input.binding)
+      : await readMfaBindingHash();
   if (!binding) throw new MfaError('INVALID_CHALLENGE', 410, 'This verification attempt expired.');
   const db = getDatabase();
   const challenge = await getActiveChallenge(db, hashToken(input.challengeId), 'mfa', binding);
@@ -68,21 +75,26 @@ export async function verifyMfaChallenge(input: {
   }
   const authenticationMethod =
     challenge.data.authenticationMethod === 'google' ? 'google' : 'password';
-  await startSession(user.id, input.request, {
+  const issued = await startSession(user.id, input.request, {
     securityVersion: user.securityVersion,
     authenticationMethod,
     authIdentityId: authenticationMethod === 'google' ? challenge.identityId : null,
     mfaVerifiedAt: new Date(),
+    deviceName: input.deviceName ?? null,
   });
   await writeAudit(db, {
     event: 'mfa_success',
     userId: user.id,
     ipAddress: clientIp(input.request),
-    detail: { method: input.recoveryCode ? 'recovery_code' : 'totp' },
+    detail: {
+      method: input.recoveryCode ? 'recovery_code' : 'totp',
+      client: nativeClientLabel(input.request.headers) ?? 'web',
+    },
   });
-  await clearMfaCookie();
+  if (issued.bearer === null) await clearMfaCookie();
   return {
     redirectTo: typeof challenge.data.next === 'string' ? challenge.data.next : '/watchlists',
+    issued,
   };
 }
 
@@ -118,7 +130,7 @@ export async function confirmMfaEnrollment(
   userId: number,
   code: string,
   request: Request,
-): Promise<void> {
+): Promise<IssuedSession> {
   const db = getDatabase();
   const mfa = await getMfaRecord(db, userId);
   if (!mfa || mfa.enabledAt) throw new MfaError('NO_ENROLLMENT', 409, 'Start enrollment again.');
@@ -129,16 +141,22 @@ export async function confirmMfaEnrollment(
   const current = await getSessionAuthContext();
   const securityVersion = await bumpSecurityVersion(db, userId);
   await deleteAllSessionsForUser(db, userId);
-  await startSession(userId, request, {
+  const issued = await startSession(userId, request, {
     securityVersion,
     authenticationMethod: current?.session.authenticationMethod ?? 'password',
     authIdentityId: current?.session.authIdentityId ?? null,
     mfaVerifiedAt: new Date(),
+    deviceName: current?.session.deviceName ?? null,
   });
   await writeAudit(db, { event: 'mfa_enabled', userId, ipAddress: clientIp(request) });
+  return issued;
 }
 
-export async function turnOffMfa(userId: number, code: string, request: Request): Promise<void> {
+export async function turnOffMfa(
+  userId: number,
+  code: string,
+  request: Request,
+): Promise<IssuedSession> {
   const db = getDatabase();
   const mfa = await getMfaRecord(db, userId);
   if (!mfa?.enabledAt)
@@ -152,12 +170,14 @@ export async function turnOffMfa(userId: number, code: string, request: Request)
   if (securityVersion === null)
     throw new MfaError('MFA_NOT_ENABLED', 409, 'Two-factor authentication is not enabled.');
   await deleteAllSessionsForUser(db, userId);
-  await startSession(userId, request, {
+  const issued = await startSession(userId, request, {
     securityVersion,
     authenticationMethod: current?.session.authenticationMethod ?? 'password',
     authIdentityId: current?.session.authIdentityId ?? null,
+    deviceName: current?.session.deviceName ?? null,
   });
   await writeAudit(db, { event: 'mfa_disabled', userId, ipAddress: clientIp(request) });
+  return issued;
 }
 
 export class MfaError extends Error {

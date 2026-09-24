@@ -2,7 +2,7 @@ import { and, eq, isNull, lt, sql } from 'drizzle-orm';
 import type { Database } from '../client.js';
 import { authChallenges } from '../schema/auth.js';
 
-export type ChallengePurpose = 'google_oauth' | 'mfa' | 'reauth';
+export type ChallengePurpose = 'google_oauth' | 'google_native' | 'mfa' | 'reauth';
 
 export interface AuthChallenge {
   readonly id: number;

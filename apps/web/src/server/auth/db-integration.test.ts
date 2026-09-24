@@ -1,4 +1,5 @@
 import {
+  bumpSecurityVersion,
   createDatabase,
   createGoogleUser,
   createSession,
@@ -9,6 +10,7 @@ import {
   getSessionContext,
   getUserForLogin,
   getUserWithProfile,
+  rotateSessionToken,
 } from '@equitywise/db';
 import { afterAll, describe, expect, it } from 'vitest';
 import { hashPassword, verifyPassword } from './password';
@@ -77,6 +79,36 @@ suite('auth data layer (integration)', () => {
 
     await deleteSession(db, hashToken(token));
     expect(await getSessionContext(db, hashToken(token))).toBeNull();
+  });
+
+  it('rotates a mobile session, keeping provenance and refusing after a security bump', async () => {
+    const first = generateSessionToken();
+    const expiresAt = new Date(Date.now() + 86_400_000);
+    await createSession(db, {
+      userId,
+      tokenHash: hashToken(first),
+      expiresAt,
+      ipAddress: '127.0.0.1',
+      userAgent: 'vitest',
+      client: 'mobile',
+      deviceName: 'Galaxy S24 Ultra',
+      mfaVerifiedAt: new Date(),
+    });
+
+    const second = generateSessionToken();
+    const rotated = await rotateSessionToken(db, hashToken(first), hashToken(second));
+    expect(rotated?.client).toBe('mobile');
+    expect(rotated?.deviceName).toBe('Galaxy S24 Ultra');
+    expect(rotated?.mfaVerifiedAt).not.toBeNull();
+    expect(rotated?.expiresAt.getTime()).toBe(expiresAt.getTime());
+    expect(await getSessionContext(db, hashToken(first))).toBeNull();
+
+    // A password change / "sign out everywhere" bumps the version: rotation must refuse.
+    await bumpSecurityVersion(db, userId);
+    expect(
+      await rotateSessionToken(db, hashToken(second), hashToken(generateSessionToken())),
+    ).toBeNull();
+    await deleteSession(db, hashToken(second));
   });
 
   it('resolves a Google-only user session without a credential row', async () => {

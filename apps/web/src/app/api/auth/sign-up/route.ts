@@ -7,8 +7,9 @@ import { hashPassword } from '@/server/auth/password';
 import { validatePassword } from '@/server/auth/password-policy';
 import { clientIp, isSameOrigin } from '@/server/auth/request';
 import { signUpSchema } from '@/server/auth/schemas';
-import { startSession } from '@/server/auth/session';
+import { type IssuedSession, sessionBody, startSession } from '@/server/auth/session';
 import { generateSessionToken, hashToken } from '@/server/auth/session-token';
+import { TERMS_VERSION } from '@/server/auth/terms';
 import { getDatabase } from '@/server/db';
 
 export const runtime = 'nodejs';
@@ -49,7 +50,13 @@ export async function POST(request: Request): Promise<NextResponse> {
     const issue = parsed.error.issues[0];
     return fail(issue?.message ?? 'Invalid request.', 400, { code: 'INVALID_BODY' });
   }
-  const { email, password, displayName } = parsed.data;
+  const { email, password, displayName, termsVersion, device } = parsed.data;
+
+  if (termsVersion !== undefined && termsVersion !== TERMS_VERSION) {
+    return fail('The terms have been updated. Please review and accept them again.', 409, {
+      code: 'TERMS_OUTDATED',
+    });
+  }
 
   const strength = validatePassword(password);
   if (!strength.ok) return fail(strength.reason, 400, { code: 'WEAK_PASSWORD' });
@@ -79,6 +86,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       displayName: name,
       passwordHash,
       termsAcceptedAt: new Date(),
+      termsVersion: TERMS_VERSION,
     });
   } catch (error) {
     if (isUniqueViolation(error)) {
@@ -116,8 +124,12 @@ export async function POST(request: Request): Promise<NextResponse> {
     console.error('[sign-up] audit write failed (non-fatal):', error);
   }
 
+  let issued: IssuedSession;
   try {
-    await startSession(user.id, request, { securityVersion: user.securityVersion });
+    issued = await startSession(user.id, request, {
+      securityVersion: user.securityVersion,
+      deviceName: device?.name ?? null,
+    });
   } catch (error) {
     // The account was created; we just couldn't set the cookie. Report success
     // and tell the client to route the user to sign-in rather than the app.
@@ -125,7 +137,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     return json({ ok: true, signedIn: false }, 201);
   }
 
-  return json({ ok: true, signedIn: true }, 201);
+  return json({ ok: true, signedIn: true, ...sessionBody(issued) }, 201);
 }
 
 function isUniqueViolation(error: unknown): boolean {

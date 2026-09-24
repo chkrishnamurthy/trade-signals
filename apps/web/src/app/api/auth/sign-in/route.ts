@@ -1,12 +1,13 @@
 import { getUserForLogin, mfaEnabled, writeAudit } from '@equitywise/db';
 import { NextResponse } from 'next/server';
 import { beginMfaChallenge } from '@/server/auth/challenges';
+import { nativeClientLabel } from '@/server/auth/client';
 import { fail, json } from '@/server/auth/http';
 import { verifyPasswordOrDecoy } from '@/server/auth/password';
 import { checkLock, recordFailure, recordSuccess } from '@/server/auth/rate-limit';
 import { clientIp, isSameOrigin } from '@/server/auth/request';
 import { signInSchema } from '@/server/auth/schemas';
-import { startSession } from '@/server/auth/session';
+import { sessionBody, startSession } from '@/server/auth/session';
 import { getDatabase } from '@/server/db';
 
 export const runtime = 'nodejs';
@@ -28,7 +29,8 @@ export async function POST(request: Request): Promise<NextResponse> {
   if (!parsed.success) {
     return fail('Enter a valid email and password.', 400, { code: 'INVALID_BODY' });
   }
-  const { email, password } = parsed.data;
+  const { email, password, device } = parsed.data;
+  const client = nativeClientLabel(request.headers) ?? 'web';
 
   const ip = clientIp(request);
   const ipKey = `ip:${ip ?? 'unknown'}`;
@@ -60,6 +62,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       event: 'login_failure',
       userId: found?.user.id ?? null,
       ipAddress: ip,
+      detail: { client },
     });
     return fail('Invalid email or password.', 401, { code: 'INVALID_CREDENTIALS' });
   }
@@ -71,19 +74,28 @@ export async function POST(request: Request): Promise<NextResponse> {
   await recordSuccess(ipKey);
   await recordSuccess(emailKey);
   if (await mfaEnabled(db, found.user.id)) {
-    const challengeId = await beginMfaChallenge({
+    const { challengeId, binding } = await beginMfaChallenge({
       userId: found.user.id,
       securityVersion: found.user.securityVersion,
       authenticationMethod: 'password',
     });
-    return json({ ok: true, status: 'mfa_required', challengeId });
+    return json({
+      ok: true,
+      status: 'mfa_required',
+      challengeId,
+      ...(binding === null ? {} : { binding }),
+    });
   }
-  await startSession(found.user.id, request, { securityVersion: found.user.securityVersion });
+  const issued = await startSession(found.user.id, request, {
+    securityVersion: found.user.securityVersion,
+    deviceName: device?.name ?? null,
+  });
   await writeAudit(db, {
     event: 'login_success',
     userId: found.user.id,
     ipAddress: ip,
+    detail: { client },
   });
 
-  return json({ ok: true });
+  return json({ ok: true, ...sessionBody(issued) });
 }

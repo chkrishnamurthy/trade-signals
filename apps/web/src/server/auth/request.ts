@@ -1,4 +1,5 @@
 import 'server-only';
+import { bearerToken, isNativeClient } from './client';
 import { trustedOrigins } from './env';
 
 /**
@@ -26,11 +27,19 @@ export function userAgent(request: Request): string | null {
 }
 
 /**
- * True when the request came from our own site. Compares the `Origin` (or, if
- * absent, `Referer`) host against the request's own `Host`. State-changing auth
+ * True when the request came from our own site — or from the native app. Compares
+ * the `Origin` (or, if absent, `Referer`) against the trusted origins. State-changing
  * routes must reject when this is false.
+ *
+ * The mobile app sends neither header (Android's HTTP stack never does), so a
+ * request carrying a Bearer token or the app's `X-EquityWise-Client` header is
+ * accepted instead: both are custom headers a cross-site page cannot attach
+ * without a CORS preflight this server never grants, so neither can be a CSRF.
+ * Cookie-authenticated browser requests are origin-checked exactly as before.
  */
 export function isSameOrigin(request: Request): boolean {
+  if (bearerToken(request.headers) !== null || isNativeClient(request.headers)) return true;
+
   const origin = request.headers.get('origin');
   const source = origin ?? request.headers.get('referer');
   if (source === null || source === '') {
