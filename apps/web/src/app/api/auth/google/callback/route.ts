@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { authBaseUrl } from '@/server/auth/env';
 import { handleGoogleCallback } from '@/server/auth/google-oauth';
 import { safeRedirectPath } from '@/server/auth/redirects';
 
@@ -11,7 +12,10 @@ export const dynamic = 'force-dynamic';
  * and redirects to destination.
  */
 export async function GET(request: Request): Promise<NextResponse> {
-  const { searchParams, origin } = new URL(request.url);
+  const { searchParams } = new URL(request.url);
+  // Behind Nginx the request URL is the upstream (http://localhost:3000), so every
+  // redirect is built from the configured public origin, never the request's.
+  const origin = authBaseUrl();
   const error = searchParams.get('error');
 
   if (error) {
