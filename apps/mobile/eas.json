@@ -4,35 +4,51 @@
     "appVersionSource": "remote"
   },
   "build": {
+    "base": {
+      "node": "24.20.0",
+      "pnpm": "10.33.2"
+    },
     "development": {
+      "extends": "base",
       "developmentClient": true,
       "distribution": "internal",
       "env": {
         "APP_VARIANT": "development",
         "EXPO_PUBLIC_API_URL": "http://localhost:3000"
       },
-      "android": { "buildType": "apk" }
+      "android": {
+        "buildType": "apk"
+      }
     },
     "preview": {
+      "extends": "base",
       "distribution": "internal",
       "env": {
         "APP_VARIANT": "preview",
         "EXPO_PUBLIC_API_URL": "https://equitywise.io"
       },
-      "android": { "buildType": "apk" }
+      "android": {
+        "buildType": "apk"
+      }
     },
     "production": {
+      "extends": "base",
       "autoIncrement": true,
       "env": {
         "APP_VARIANT": "production",
         "EXPO_PUBLIC_API_URL": "https://equitywise.io"
       },
-      "android": { "buildType": "app-bundle" }
+      "android": {
+        "buildType": "app-bundle"
+      }
     }
   },
   "submit": {
     "production": {
-      "android": { "track": "internal", "releaseStatus": "draft" }
+      "android": {
+        "track": "internal",
+        "releaseStatus": "draft"
+      }
     }
   }
 }

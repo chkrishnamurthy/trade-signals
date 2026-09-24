@@ -8,7 +8,8 @@
     "android": "expo start --dev-client --android",
     "typecheck": "tsc --noEmit",
     "doctor": "expo-doctor",
-    "build:deps": "pnpm --filter \"@equitywise/mobile^...\" build"
+    "build:deps": "pnpm --filter \"@equitywise/mobile^...\" build",
+    "eas-build-post-install": "pnpm --filter \"@equitywise/mobile^...\" build"
   },
   "dependencies": {
     "@equitywise/api-client": "workspace:*",
