@@ -590,7 +590,7 @@ always a separate explicit command.
 
 | # | Decision | Answer | In practice |
 | --- | --- | --- | --- |
-| S14 | Admin on the phone | **Admin features needed** | The app reads `role` from the session user and shows an Admin area only to admins; the server's existing admin checks (403 for users) stay the real gate — hiding a tab is never the security boundary. **Exact admin scope in v1.0 still to confirm** (§14, Q1). |
+| S14 | Admin on the phone | **Admin features needed** | The app reads `role` from the session user and shows an Admin area only to admins; the server's existing admin checks (403 for users) stay the real gate — hiding a tab is never the security boundary. **v1.0 scope: user list with disable / enable only** (owner chose option a, 2026-09-24). |
 | S15 | Terms acceptance | **In-app popup** | Before an account is created from the phone — email sign-up or first-time Google sign-in — a bottom-sheet shows the terms/privacy summary with links to the full text and an explicit "I agree". The server stores **which version** was accepted (new `terms_version`, alongside `termsAcceptedAt`) and refuses account creation without it. When the terms version changes, signed-in users see the same popup once. Also fixes the existing gap that Google-created web accounts record no acceptance at all. |
 | S16 | Google sign-in skipping 2FA on the website (G15) | **Later** | Not in the first milestone. The mobile native endpoint enforces 2FA regardless. |
 | S17 | Environments | **Production only** (one VPS) | No staging. Dev builds talk to the local web app (`adb reverse`, §9) which uses the VPS database through the SSH tunnel; `preview`/`production` builds talk to `https://equitywise.io`. Test with clearly named test accounts (`test+…@`), never delete or edit real users' data from a test build, and mark test accounts so audit reports can filter them (§14, gap 5). |
@@ -713,7 +713,7 @@ closed before the phase named.
 
 | # | Gap | Proposed resolution | Close before |
 | --- | --- | --- | --- |
-| 1 | **Admin scope on the phone** (S14). The web admin surface is `/admin` (user list, disable/enable) plus admin-only `/intraday` and `/paper-trading`. Which of these the app needs is not decided. | Recommend v1.0 admin = user list + disable/enable only; intraday/paper stay web-only until their own decision. | Phase 2 screen inventory |
+| 1 | ~~**Admin scope on the phone** (S14).~~ Resolved: user list + disable/enable. The web admin surface is `/admin` (user list, disable/enable) plus admin-only `/intraday` and `/paper-trading`. Which of these the app needs is not decided. | Recommend v1.0 admin = user list + disable/enable only; intraday/paper stay web-only until their own decision. | Phase 2 screen inventory |
 | 2 | **Sign-up closed.** `AUTH_ALLOW_SIGNUP=false` makes sign-up answer `SIGNUP_DISABLED`; the app cannot know in advance. | Add `signupOpen` (and `googleSignInEnabled`) to `GET /api/app-config` (G8); hide the button when false. | Phase 3 |
 | 3 | **Terms version not stored; Google sign-ups record no acceptance** (web too). | S15: `terms_version` column, versioned legal source (R8), server rejects account creation without it. | Phase 4 |
 | 4 | **In-app account deletion** is a Google Play requirement for apps with account creation (in-app path + a web URL). `DELETE /api/account` exists; the app screen and the Play form entry are unplanned. | Account → Delete account screen with re-authentication; public deletion page URL for the Play listing. Verify the policy wording at release time. | Phase 7 |

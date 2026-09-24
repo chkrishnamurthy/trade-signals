@@ -23,6 +23,9 @@ interface Session {
   expiresAt: string;
   ipAddress: string | null;
   userAgent: string | null;
+  /** `mobile` sessions come from the Android app and carry the device name it sent. */
+  client?: 'web' | 'mobile';
+  deviceName?: string | null;
   isCurrent: boolean;
 }
 
@@ -143,7 +146,9 @@ export function SessionsList() {
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="truncate font-medium text-foreground text-sm">
-                      {deviceLabel(s.userAgent)}
+                      {s.client === 'mobile'
+                        ? `${s.deviceName ?? 'Android phone'} · EquityWise app`
+                        : deviceLabel(s.userAgent)}
                     </span>
                     {s.isCurrent ? (
                       <Badge variant="bullish" size="sm">

@@ -5,21 +5,22 @@ lives in this monorepo as `apps/mobile` and talks to the existing backend over
 HTTPS only. Documents are numbered in the order the work happens; each phase's
 document is written **before** that phase is implemented and updated as it lands.
 
-> **Status (2026-09-24):** Phase 1 (discovery) is complete and approved in
-> principle, and was revised on 2026-09-24 for Google sign-in and two-factor login
-> (both in v1.0 on the phone — S11, S12). **No mobile code exists in the tree yet.**
-> Phase 2 (architecture record) is next; nothing is built until its decisions are
-> approved.
+> **Status (2026-09-24):** Phases 1–3 are done and most of Phases 4–5 are **implemented on branch
+> `feat/mobile-app`** (not merged or deployed). That covers server auth for the app, the shared
+> packages, and the Expo app: sign-in incl. 2FA and Google, markets, watchlists, search, stock
+> detail, account, and admin. It has **not yet run on a physical phone.** Next: follow
+> [03-run-on-your-phone.md](03-run-on-your-phone.md); start the Play account from
+> [07-play-store.md](07-play-store.md).
 
 | # | Document | Phase | State |
 | --- | --- | --- | --- |
 | 01 | [01-discovery.md](01-discovery.md) | 1 — Discovery | Complete. Repo audit, technology verdict, proposed architecture, auth design, API gaps, environment strategy, risk register, settled decisions, first milestone |
-| 02 | `02-architecture.md` | 2 — Architecture | Not started. ADR for D1–D8, folder structure, screen inventory, navigation map, state model, typed API client, dependency list with reasons, testing and CI/CD strategy |
-| 03 | `03-foundation.md` | 3 — Foundation | Not started. Scaffold, Metro/pnpm config, `api-contracts`, `api-client`, `design-tokens`, theme, navigation shell, server changes G1/G2/G8/G9 |
-| 04 | `04-authentication.md` | 4 — Auth | Not started. Bearer sessions, secure storage, rotation, revocation, 2FA challenge, native Google sign-in, biometrics |
-| 05 | `05-features.md` | 5 — Product | Not started. One vertical at a time: watchlists → search → stock detail & charts → profile (signals hidden, announcements/flows/push later) |
+| 02 | [02-architecture.md](02-architecture.md) | 2 — Architecture | Done. Decision record, server changes, app structure, verification, follow-ups |
+| 03 | [03-run-on-your-phone.md](03-run-on-your-phone.md) | 3 — Foundation | Built. Step-by-step: Mac tools, phone setup, EAS dev build, daily loop, Google sign-in keys, tester builds |
+| 04 | `04-authentication.md` | 4 — Auth | Implemented (see 02-architecture.md); doc not separate. Bearer sessions, secure storage, rotation, revocation, 2FA challenge, native Google sign-in, biometrics |
+| 05 | `05-features.md` | 5 — Product | v1.0 scope implemented (see 02-architecture.md). One vertical at a time: watchlists → search → stock detail & charts → profile (signals hidden, announcements/flows/push later) |
 | 06 | `06-hardening.md` | 6 — Hardening | Not started |
-| 07 | `07-play-store.md` | 7 — Release | Not started. Step-by-step Play Console guide (S19): personal account, `io.equitywise.app`, closed test, listing, Data Safety, account deletion |
+| 07 | [07-play-store.md](07-play-store.md) | 7 — Release | Guide written (S19): personal account, `io.equitywise.app`, closed test, listing, Data Safety, account deletion |
 | 08 | `08-maintenance.md` | 8 — Maintenance | Not started |
 
 ## Rules that bind every phase
