@@ -29,7 +29,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: IS_DEV ? 'EquityWise (Dev)' : 'EquityWise',
   slug: 'equitywise',
-  owner: process.env.EXPO_OWNER,
+  owner: 'krishnayoyo',
   scheme: IS_DEV ? 'equitywise-dev' : 'equitywise',
   version: VERSION,
   // S18: every screen size and orientation, including tablets and foldables.
@@ -81,6 +81,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   extra: {
     variant,
-    eas: { projectId: process.env.EAS_PROJECT_ID },
+    eas: { projectId: 'ba381bb7-be0b-490b-8648-bcf5130e62ff' },
   },
 });
