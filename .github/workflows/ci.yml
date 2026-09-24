@@ -1,6 +1,6 @@
 name: CI
 
-# Checks for the web app. Kept separate from deploy.yml: this runs on pull
+# Checks for the web app and the Android app. Kept separate from deploy.yml: this runs on pull
 # requests targeting main (the pre-merge gate) and on pushes to main (alongside
 # the deploy, as a record). Plain pushes to a feature branch with no PR open run
 # nothing.
@@ -54,6 +54,38 @@ jobs:
 
       - name: Build Storybook
         run: pnpm --filter @equitywise/web build-storybook
+
+  mobile:
+    # The Android app (apps/mobile) and the client-safe packages it uses. Lint is
+    # scoped to these paths (docs/mobile/01-discovery.md R9) so the repo's
+    # pre-existing Biome errors elsewhere cannot hide a new one here.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build workspace dependencies
+        run: pnpm --filter "@equitywise/mobile^..." build
+
+      - name: Typecheck (mobile)
+        run: pnpm --filter @equitywise/mobile typecheck
+
+      - name: Lint (mobile + client packages)
+        run: npx biome check apps/mobile packages/api-client packages/api-contracts packages/design-tokens
+
+      - name: Unit tests (mobile + client packages)
+        run: pnpm vitest run apps/mobile packages/api-client packages/api-contracts packages/design-tokens packages/shared
 
   db-tests:
     runs-on: ubuntu-latest

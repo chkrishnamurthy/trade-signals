@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "pnpm -r --parallel dev",
     "dev:web": "pnpm --filter @equitywise/web dev",
+    "dev:mobile": "pnpm --filter \"@equitywise/mobile^...\" build && pnpm --filter @equitywise/mobile start",
     "build": "pnpm -r build",
     "test": "vitest run",
     "test:watch": "vitest",

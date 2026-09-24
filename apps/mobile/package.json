@@ -1,0 +1,58 @@
+{
+  "name": "@equitywise/mobile",
+  "version": "1.0.0",
+  "private": true,
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start --dev-client",
+    "android": "expo start --dev-client --android",
+    "typecheck": "tsc --noEmit",
+    "doctor": "expo-doctor",
+    "build:deps": "pnpm --filter \"@equitywise/mobile^...\" build"
+  },
+  "dependencies": {
+    "@equitywise/api-client": "workspace:*",
+    "@equitywise/api-contracts": "workspace:*",
+    "@equitywise/design-tokens": "workspace:*",
+    "@equitywise/shared": "workspace:*",
+    "@expo-google-fonts/inter": "^0.4.2",
+    "@expo-google-fonts/jetbrains-mono": "^0.4.1",
+    "@expo/vector-icons": "^15.1.1",
+    "@react-native-community/netinfo": "12.0.1",
+    "@tanstack/react-query": "^5.103.2",
+    "expo": "~57.0.25",
+    "expo-application": "~57.0.3",
+    "expo-build-properties": "~57.0.22",
+    "expo-constants": "~57.0.19",
+    "expo-dev-client": "~57.0.19",
+    "expo-device": "~57.0.2",
+    "expo-font": "~57.0.4",
+    "expo-haptics": "~57.0.3",
+    "expo-linking": "~57.0.11",
+    "expo-local-authentication": "~57.0.3",
+    "expo-router": "~57.0.23",
+    "expo-secure-store": "~57.0.4",
+    "expo-splash-screen": "~57.0.9",
+    "expo-status-bar": "~57.0.1",
+    "expo-system-ui": "~57.0.4",
+    "expo-web-browser": "~57.0.3",
+    "react": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-credentials-manager": "^0.9.0",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-screens": "~4.26.2",
+    "react-native-svg": "15.15.4",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.2",
+    "typescript": "^5.9.3"
+  },
+  "expo": {
+    "install": {
+      "exclude": [
+        "typescript"
+      ]
+    }
+  }
+}
