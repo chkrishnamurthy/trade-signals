@@ -199,7 +199,12 @@
   --success: oklch(0.712 0.136 158);
   --success-foreground: oklch(0.162 0.03 158);
   --warning: oklch(0.782 0.142 78);
-  --warning-foreground: oklch(0.192 0.04 78);
+  /*
+   * Light, not dark: every use of this token is text on the soft surface or on
+   * the page itself (alerts, toasts, badges, the pre-open pill) — none sits on
+   * solid --warning. A dark value here was near-invisible on --warning-soft.
+   */
+  --warning-foreground: oklch(0.86 0.11 82);
   --warning-soft: oklch(0.292 0.058 78);
   --warning-line: oklch(0.432 0.086 78);
   --info: oklch(0.702 0.112 244);

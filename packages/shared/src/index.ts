@@ -5,6 +5,15 @@ export {
   parseRetryAfter,
 } from './circuit.js';
 export * from './intraday.js';
+export type { Exchange } from './listing.js';
+export {
+  DEFAULT_EXCHANGE,
+  EXCHANGES,
+  exchangeOf,
+  isExchange,
+  listingKey,
+  parseListingKey,
+} from './listing.js';
 export type { FormatPaiseOptions } from './money.js';
 export {
   assertPaise,
@@ -17,6 +26,13 @@ export {
 export * from './paper.js';
 export type { RateLimits, TokenBucketOptions } from './rate-limit.js';
 export { RateLimiter } from './rate-limit.js';
+export {
+  BSE_EQUITY_GROUPS,
+  BSE_TRADE_FOR_TRADE_GROUPS,
+  isBseEquityRow,
+  isEquityIsin,
+  isTradeForTrade,
+} from './securities.js';
 export type {
   ReconnectingStream,
   ReconnectingStreamOptions,

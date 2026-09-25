@@ -1,4 +1,4 @@
-import type { ExchangeSegment, InstrumentKind, InstrumentType } from './types.js';
+import type { Exchange, ExchangeSegment, InstrumentKind, InstrumentType } from './types.js';
 
 /**
  * The single place our symbols and Dhan's tickers are mapped to each other.
@@ -16,9 +16,10 @@ import type { ExchangeSegment, InstrumentKind, InstrumentType } from './types.js
  * `config/indices.yaml` and the database already use.
  */
 
-/** Segment for a kind. Indices of every exchange live in `IDX_I`. */
-export function segmentFor(kind: InstrumentKind): ExchangeSegment {
-  return kind === 'index' ? 'IDX_I' : 'NSE_EQ';
+/** Segment for a kind on an exchange. Indices of every exchange live in `IDX_I`. */
+export function segmentFor(kind: InstrumentKind, exchange: Exchange = 'NSE'): ExchangeSegment {
+  if (kind === 'index') return 'IDX_I';
+  return exchange === 'BSE' ? 'BSE_EQ' : 'NSE_EQ';
 }
 
 /** Dhan's `instrument` enum value for a kind. */
@@ -52,9 +53,15 @@ export function normaliseTicker(ticker: string): string {
   return ticker.replace(/\s+/g, '').toUpperCase();
 }
 
-/** Our symbol for a scrip-master row's ticker. */
+/**
+ * Our symbol for a scrip-master row's ticker.
+ *
+ * Dhan appends `$` to a BSE scrip id that collides with an unrelated NSE
+ * ticker (`KALYANI$`, `FOCUS$`); the exchange travels with the listing, so the
+ * marker is dropped and the bare id kept — it is BSE's own name for it.
+ */
 export function internalSymbolFor(dhanTicker: string, kind: InstrumentKind): string {
   const normalised = normaliseTicker(dhanTicker);
-  if (kind === 'equity') return normalised;
+  if (kind === 'equity') return normalised.replace(/\$+$/, '');
   return INDEX_ALIASES[normalised] ?? normalised;
 }

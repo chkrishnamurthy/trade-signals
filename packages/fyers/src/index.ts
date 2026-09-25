@@ -48,6 +48,7 @@ export {
   COLUMNS,
   EXPECTED_COLUMN_COUNT,
   INSTRUMENT_TYPE,
+  listAllInstruments,
   listInstruments,
   parseSymbolMaster,
   SYMBOL_MASTER_URLS,
@@ -86,7 +87,9 @@ export {
 } from './stream.js';
 export type { ParsedFyersSymbol } from './symbols.js';
 export {
+  BSE_PREFIX,
   encodeFyersSymbol,
+  exchangeOfFyersSymbol,
   internalSymbolFor,
   isFyersSymbol,
   NSE_PREFIX,
@@ -96,6 +99,7 @@ export {
 } from './symbols.js';
 export type {
   Candle,
+  Exchange,
   FyersEnvelope,
   HistoryResponse,
   Instrument,

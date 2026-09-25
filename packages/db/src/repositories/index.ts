@@ -175,7 +175,12 @@ export {
   screen,
   upsertDailyIndicators,
 } from './indicators.js';
-export type { CorporateActionRow, InstrumentRow, InstrumentUpsert } from './instruments.js';
+export type {
+  CorporateActionRow,
+  InstrumentRow,
+  InstrumentUpsert,
+  ListingUpsert,
+} from './instruments.js';
 export {
   ensureInstruments,
   getInstrumentBySymbol,
@@ -184,6 +189,7 @@ export {
   listInstrumentsById,
   resolveInstrumentIds,
   syncInstruments,
+  upsertListings,
 } from './instruments.js';
 export * from './intraday.js';
 export * from './minute-bars.js';

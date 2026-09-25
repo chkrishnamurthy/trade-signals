@@ -5,7 +5,7 @@ import {
   insertDailyCandles,
   listActiveInstruments,
 } from '@equitywise/db';
-import type { InstrumentRef, MarketDataProvider } from '@equitywise/market-data';
+import { type InstrumentRef, listingKey, type MarketDataProvider } from '@equitywise/market-data';
 import { istDateKey } from '@equitywise/shared';
 import type { WorkerContext } from '../context.js';
 import { errorFields, type Logger } from '../log.js';
@@ -46,10 +46,15 @@ export async function ingestDailyCandles(
   const days = options.backfill === true ? BACKFILL_DAYS : INCREMENTAL_DAYS;
 
   const universe = await loadUniverse();
-  await ensureInstruments(db, providerId, universe);
+  for (const exchange of new Set(universe.map((entry) => entry.exchange))) {
+    const group = universe.filter((entry) => entry.exchange === exchange);
+    await ensureInstruments(db, providerId, group, exchange);
+  }
 
   const active = await listActiveInstruments(db);
-  const idBySymbol = new Map(active.map((row) => [row.symbol, row.id]));
+  // Keyed by listing key: a BSE row sharing an NSE symbol must never receive
+  // the NSE listing's candles, or the reverse.
+  const idByKey = new Map(active.map((row) => [listingKey(asListing(row)), row.id]));
 
   const range = {
     from: new Date(now.getTime() - days * 86_400_000),
@@ -68,9 +73,9 @@ export async function ingestDailyCandles(
   const failed: string[] = [];
 
   for (const entry of universe) {
-    const instrumentId = idBySymbol.get(entry.symbol);
+    const instrumentId = idByKey.get(listingKey(entry));
     if (instrumentId === undefined) {
-      failed.push(entry.symbol);
+      failed.push(listingKey(entry));
       continue;
     }
 
@@ -87,8 +92,8 @@ export async function ingestDailyCandles(
     } catch (error) {
       // One dead symbol must not cost the other 499. It is recorded so a retry
       // knows exactly what to re-fetch rather than redoing the whole universe.
-      failed.push(entry.symbol);
-      log.warn('symbol failed', { symbol: entry.symbol, ...errorFields(error) });
+      failed.push(listingKey(entry));
+      log.warn('symbol failed', { symbol: listingKey(entry), ...errorFields(error) });
     }
   }
 
@@ -99,6 +104,14 @@ export async function ingestDailyCandles(
     failed: failed.length,
   });
   return { requested: universe.length, succeeded, rowsWritten, failed };
+}
+
+/** A stored row as a listing; an exchange the product does not know stays NSE. */
+function asListing(row: { symbol: string; exchange: string }): {
+  symbol: string;
+  exchange: 'NSE' | 'BSE';
+} {
+  return { symbol: row.symbol, exchange: row.exchange === 'BSE' ? 'BSE' : 'NSE' };
 }
 
 async function fetchDailyFor(
@@ -137,10 +150,11 @@ export async function retryFailed(
   }
 
   const { db, provider, providerId } = context;
+  // `symbols` are listing keys, exactly as the first pass reported them.
   const wanted = new Set(symbols);
-  const universe = (await loadUniverse()).filter((entry) => wanted.has(entry.symbol));
+  const universe = (await loadUniverse()).filter((entry) => wanted.has(listingKey(entry)));
   const active = await listActiveInstruments(db);
-  const idBySymbol = new Map(active.map((row) => [row.symbol, row.id]));
+  const idByKey = new Map(active.map((row) => [listingKey(asListing(row)), row.id]));
 
   const range = { from: new Date(now.getTime() - INCREMENTAL_DAYS * 86_400_000), to: now };
 
@@ -149,9 +163,9 @@ export async function retryFailed(
   const failed: string[] = [];
 
   for (const entry of universe) {
-    const instrumentId = idBySymbol.get(entry.symbol);
+    const instrumentId = idByKey.get(listingKey(entry));
     if (instrumentId === undefined) {
-      failed.push(entry.symbol);
+      failed.push(listingKey(entry));
       continue;
     }
     try {
@@ -163,8 +177,8 @@ export async function retryFailed(
       );
       succeeded += 1;
     } catch (error) {
-      failed.push(entry.symbol);
-      log.warn('retry failed', { symbol: entry.symbol, ...errorFields(error) });
+      failed.push(listingKey(entry));
+      log.warn('retry failed', { symbol: listingKey(entry), ...errorFields(error) });
     }
   }
 

@@ -1,5 +1,6 @@
 import { rupeesToPaise } from '@equitywise/shared';
 import { z } from 'zod';
+import { exchangeOfFyersSymbol } from './symbols.js';
 
 /**
  * Fyers wire formats and the normalised shapes we expose.
@@ -15,24 +16,28 @@ import { z } from 'zod';
 
 export type InstrumentKind = 'equity' | 'index';
 
-/** A tradeable (or trackable) NSE instrument. */
+export type Exchange = 'NSE' | 'BSE';
+
+/** A tradeable (or trackable) NSE or BSE instrument. */
 export interface Instrument {
   /** Fyers' stable identifier. Survives symbol renames. */
   readonly fyToken: string;
   /** Our internal symbol: `RELIANCE`, `NIFTY50`. */
   readonly symbol: string;
-  /** Fyers' symbol: `NSE:RELIANCE-EQ`, `NSE:NIFTY50-INDEX`. */
+  /** Fyers' symbol: `NSE:RELIANCE-EQ`, `NSE:NIFTY50-INDEX`, `BSE:RELIANCE-A`. */
   readonly fyersSymbol: string;
   readonly name: string;
   readonly kind: InstrumentKind;
-  readonly exchange: 'NSE';
+  readonly exchange: Exchange;
   /** Null for indices, which have no ISIN. */
   readonly isin: string | null;
   readonly lotSize: number;
   /** Minimum price increment, in paise. */
   readonly tickSize: number;
-  /** Exchange token. */
+  /** Exchange token (NSE) or 6-digit scrip code (BSE). */
   readonly scripCode: number;
+  /** BSE group (`A`, `T`, `XT`…) for a BSE equity; null otherwise. */
+  readonly group: string | null;
   /** `YYYY-MM-DD` as published in the symbol master. */
   readonly lastUpdated: string;
 }
@@ -57,6 +62,7 @@ export interface Candle {
 /** A live price update from the data socket in lite mode. */
 export interface Tick {
   readonly fyersSymbol: string;
+  readonly exchange: Exchange;
   /** Internal symbol, or the Fyers symbol if it does not map. */
   readonly symbol: string;
   /** Last traded price, in paise. */
@@ -198,6 +204,7 @@ export function toTick(
 
   return {
     fyersSymbol: raw.symbol,
+    exchange: exchangeOfFyersSymbol(raw.symbol),
     symbol: resolveSymbol(raw.symbol),
     ltp: rupeesToPaise(price),
     lastTradedAt: epochToDate(raw.last_traded_time ?? raw.ltt),

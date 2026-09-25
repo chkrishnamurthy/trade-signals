@@ -7,6 +7,7 @@ import type {
 } from '@equitywise/fyers';
 import type {
   Bar,
+  Exchange,
   Instrument,
   MarketPhase,
   MarketStatus,
@@ -45,12 +46,17 @@ export function toInstrument(instrument: FyersInstrument): Instrument {
     tickSize: instrument.tickSize,
     // Kept for rename-resilient ingestion; opaque above this line.
     providerRef: instrument.fyToken,
+    // BSE's scrip code is the exchange's own id; NSE's column is a Fyers token.
+    exchangeCode: instrument.exchange === 'BSE' ? String(instrument.scripCode) : null,
+    series:
+      instrument.kind === 'index' ? null : instrument.exchange === 'BSE' ? instrument.group : 'EQ',
   };
 }
 
-export function toQuote(symbol: string, quote: FyersQuote): Quote {
+export function toQuote(symbol: string, exchange: Exchange, quote: FyersQuote): Quote {
   return {
     symbol,
+    exchange,
     ltp: quote.ltp,
     change: quote.change,
     changePercent: quote.changePercent,
@@ -66,9 +72,10 @@ export function toQuote(symbol: string, quote: FyersQuote): Quote {
   };
 }
 
-export function toTick(symbol: string, tick: FyersTick): Tick {
+export function toTick(symbol: string, exchange: Exchange, tick: FyersTick): Tick {
   return {
     symbol,
+    exchange,
     ltp: tick.ltp,
     lastTradedAt: tick.lastTradedAt,
     exchangeFeedAt: tick.exchangeFeedAt,

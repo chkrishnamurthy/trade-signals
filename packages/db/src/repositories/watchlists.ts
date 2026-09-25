@@ -233,6 +233,8 @@ export interface WatchlistMember {
   readonly symbol: string;
   readonly name: string;
   readonly exchange: string;
+  /** NSE series or BSE group; null until the universe sync supplies it. */
+  readonly series: string | null;
   readonly kind: string;
   readonly position: number;
   readonly note: string | null;
@@ -251,6 +253,7 @@ export async function getWatchlistMembers(
       symbol: instruments.symbol,
       name: instruments.name,
       exchange: instruments.exchange,
+      series: instruments.series,
       kind: instruments.kind,
       position: watchlistItems.position,
       note: watchlistItems.note,

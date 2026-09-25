@@ -11,6 +11,7 @@ import {
 import { computeIndicators } from './jobs/compute-indicators.js';
 import { crossCheckProviders } from './jobs/cross-check-bars.js';
 import { createFeedJob, type FeedJob } from './jobs/feed.js';
+import { backfillBhavcopy, ingestBhavcopy } from './jobs/ingest-bhavcopy.js';
 import { ingestDailyCandles } from './jobs/ingest-daily.js';
 import {
   backfillFlowFeeds,
@@ -107,6 +108,18 @@ const SCHEDULES = {
    * (the same rule as the daily-candle pass). Tue–Sat covers Mon–Fri sessions.
    */
   ingestFuturesOi: '45 6 * * 2-6',
+  /**
+   * Every NSE and BSE equity's closed session from the exchanges' bhavcopies
+   * (multi-exchange plan §2.4). Both publish after the close, typically by
+   * 18:00–19:00 IST; 19:30 with a 21:30 retry covers a late publish, and the
+   * append-only insert makes the repeat harmless.
+   */
+  ingestBhavcopy: '30 19,21 * * 1-5',
+  /**
+   * A second indicator pass once the bhavcopy candles are in, so a listing
+   * outside the configured universe gets its indicators the same evening.
+   */
+  computeIndicatorsLate: '50 21 * * 1-5',
 } as const;
 
 interface Jobs {
@@ -240,6 +253,31 @@ function buildScheduler(context: WorkerContext): Jobs {
         schedule: SCHEDULES.computeIndicators,
         run: async () => {
           await computeIndicators(context, log.child('compute-indicators'));
+        },
+      },
+      {
+        name: 'ingest-bhavcopy',
+        schedule: SCHEDULES.ingestBhavcopy,
+        run: gated('ingest-bhavcopy', async () => {
+          await ingestBhavcopy(context, log.child('ingest-bhavcopy'));
+        }),
+      },
+      {
+        name: 'compute-indicators-late',
+        schedule: SCHEDULES.computeIndicatorsLate,
+        run: gated('compute-indicators-late', async () => {
+          await computeIndicators(context, log.child('compute-indicators-late'));
+        }),
+      },
+      {
+        // On demand only (`--once backfill-bhavcopy`): ~430 days of both
+        // exchanges' bhavcopies, one file per exchange per weekday, so every
+        // listing has the history a 200-day EMA needs. Idempotent. Never
+        // scheduled — 31 February does not exist.
+        name: 'backfill-bhavcopy',
+        schedule: '0 0 31 2 *',
+        run: async () => {
+          await backfillBhavcopy(context, log.child('backfill-bhavcopy'));
         },
       },
       {

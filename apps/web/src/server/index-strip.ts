@@ -1,5 +1,10 @@
 import 'server-only';
-import type { InstrumentRef, MarketStatus, Quote } from '@equitywise/market-data';
+import {
+  type InstrumentRef,
+  listingKey,
+  type MarketStatus,
+  type Quote,
+} from '@equitywise/market-data';
 import type { IndexSnapshotDto, IndexStripDto } from '@/lib/market-types';
 import { MarketDataError, toMarketError } from './errors';
 import { getHeadlineIndices, type HeadlineIndex } from './indices';
@@ -39,7 +44,7 @@ export interface IndexStripInput {
 export function buildIndexStrip(input: IndexStripInput): IndexStripDto {
   const indices: IndexSnapshotDto[] = [];
   for (const headline of input.headlines) {
-    const quote = input.quotes.get(headline.symbol);
+    const quote = input.quotes.get(listingKey(headline));
     if (quote === undefined) continue;
     indices.push({
       symbol: headline.symbol,
@@ -118,7 +123,7 @@ async function fetchIndexStrip(now: Date): Promise<IndexStripDto> {
   // A configured index with no quote is dropped from the strip (six honest
   // cells beat seven with a lie in one) — but silently dropping it is how a
   // wrong ticker in config/indices.yaml goes unnoticed for a week. Name it.
-  const dropped = refs.filter((ref) => !result.quotes.has(ref.symbol)).map((ref) => ref.symbol);
+  const dropped = refs.filter((ref) => !result.quotes.has(listingKey(ref))).map(listingKey);
   if (dropped.length > 0) {
     console.warn(
       `[index-strip] no quote for ${dropped.join(', ')} — check the ticker in config/indices.yaml against the provider's symbol master`,

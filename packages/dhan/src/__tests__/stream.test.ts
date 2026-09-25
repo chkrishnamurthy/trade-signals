@@ -120,6 +120,16 @@ describe('decodeFeedPacket', () => {
     expect(isCredentialDisconnect(805)).toBe(false);
   });
 
+  it('decodes a BSE equity ticker (segment code 4) under BSE_EQ', () => {
+    expect(
+      decodeFeedPacket(tickerFrame(4, 500325, 1402.5, '2026-09-25T05:00:00.000Z')),
+    ).toMatchObject({
+      kind: 'ticker',
+      ref: { segment: 'BSE_EQ', securityId: '500325' },
+      ltp: 140250,
+    });
+  });
+
   it('treats a zero trade time as "no trade yet"', () => {
     const view = header(2, 1, 1, 8);
     view.setFloat32(8, 10, true);
@@ -131,9 +141,9 @@ describe('decodeFeedPacket', () => {
     expect(decodeFeedPacket(new ArrayBuffer(3))).toBeNull();
     expect(decodeFeedPacket(header(2, 1, 1, 2).buffer)).toBeNull(); // truncated ticker
     expect(decodeFeedPacket(header(5, 1, 1, 4).buffer)).toMatchObject({ kind: 'other' }); // OI
-    expect(decodeFeedPacket(header(2, 4, 532540, 8).buffer)).toMatchObject({
+    expect(decodeFeedPacket(header(2, 8, 1, 8).buffer)).toMatchObject({
       kind: 'other',
-      header: { segmentCode: 4 }, // BSE_EQ: not an NSE app
+      header: { segmentCode: 8 }, // BSE_FNO: deferred (plan D5)
     });
     // A Uint8Array view over a larger buffer decodes from its own offset.
     const backing = new Uint8Array(4 + 16);
@@ -166,7 +176,8 @@ describe('encodeFeedRequests / feedUrl / parseSecurityKey', () => {
   it('round-trips security keys and rejects other segments', () => {
     expect(parseSecurityKey('NSE_EQ:2885')).toEqual({ segment: 'NSE_EQ', securityId: '2885' });
     expect(parseSecurityKey('IDX_I:13')).toEqual({ segment: 'IDX_I', securityId: '13' });
-    expect(parseSecurityKey('BSE_EQ:1')).toBeNull();
+    expect(parseSecurityKey('BSE_EQ:500325')).toEqual({ segment: 'BSE_EQ', securityId: '500325' });
+    expect(parseSecurityKey('BSE_FNO:1')).toBeNull();
     expect(parseSecurityKey('garbage')).toBeNull();
   });
 });
@@ -226,10 +237,10 @@ describe('DhanFeedTransport', () => {
     socket?.emit('open');
     expect(connected).toHaveBeenCalledOnce();
 
-    transport.subscribe(['NSE_EQ:2885', 'IDX_I:13', 'BSE_EQ:1']);
+    transport.subscribe(['NSE_EQ:2885', 'IDX_I:13', 'BSE_EQ:500325', 'BSE_FNO:1']);
     const request = JSON.parse(socket?.sent[0] ?? '');
     expect(request.RequestCode).toBe(REQUEST_CODES.quote.subscribe);
-    expect(request.InstrumentCount).toBe(2); // the BSE key is not ours and is dropped
+    expect(request.InstrumentCount).toBe(3); // BSE_FNO is not ours and is dropped
     transport.unsubscribe(['IDX_I:13']);
     expect(JSON.parse(socket?.sent[1] ?? '').RequestCode).toBe(REQUEST_CODES.quote.unsubscribe);
 

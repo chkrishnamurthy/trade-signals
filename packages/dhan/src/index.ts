@@ -129,6 +129,7 @@ export type {
   Candle,
   ChartsResponse,
   EnvelopeError,
+  Exchange,
   ExchangeSegment,
   FuturesCandle,
   FuturesContract,

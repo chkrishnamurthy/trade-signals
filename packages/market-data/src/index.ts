@@ -5,6 +5,14 @@
  * other provider package directly.
  */
 
+export {
+  DEFAULT_EXCHANGE,
+  EXCHANGES,
+  exchangeOf,
+  isExchange,
+  listingKey,
+  parseListingKey,
+} from '@equitywise/shared';
 export type { RoutingConfig } from './config.js';
 export {
   DEFAULT_ROUTES,

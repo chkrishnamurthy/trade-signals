@@ -7,8 +7,10 @@ import { createFeedJob } from './feed.js';
 const mock = vi.hoisted(() => ({
   observe: vi.fn(async () => undefined),
   instruments: vi.fn(async () => [
-    { id: 1, symbol: 'RELIANCE', kind: 'equity', tickSize: 5 },
-    { id: 2, symbol: 'TCS', kind: 'equity', tickSize: 5 },
+    // A BSE listing of RELIANCE sits FIRST: it must never take the NSE id.
+    { id: 9, symbol: 'RELIANCE', kind: 'equity', exchange: 'BSE', tickSize: 5 },
+    { id: 1, symbol: 'RELIANCE', kind: 'equity', exchange: 'NSE', tickSize: 5 },
+    { id: 2, symbol: 'TCS', kind: 'equity', exchange: 'NSE', tickSize: 5 },
   ]),
   upsertRef: vi.fn(async () => undefined),
   invalidate: vi.fn(async () => undefined),

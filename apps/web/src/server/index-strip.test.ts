@@ -23,9 +23,15 @@ const HEADLINES: readonly HeadlineIndex[] = [
   { symbol: 'INDIAVIX', name: 'INDIA VIX', kind: 'index', exchange: 'NSE', display: 'volatility' },
 ];
 
-function quote(symbol: string, ltp: number, previousClose: number): Quote {
+function quote(
+  symbol: string,
+  ltp: number,
+  previousClose: number,
+  exchange: 'NSE' | 'BSE' = 'NSE',
+): Quote {
   return {
     symbol,
+    exchange,
     ltp,
     change: ltp - previousClose,
     changePercent: ((ltp - previousClose) / previousClose) * 100,
@@ -68,6 +74,28 @@ describe('buildIndexStrip', () => {
     expect(strip.market).toEqual({ isOpen: true, phase: 'open' });
     expect(strip.asOf).toBe(now.toISOString());
     expect(strip.stale).toBeUndefined();
+  });
+
+  it('reads a BSE headline by its listing key, never an NSE index of the same name', () => {
+    const strip = buildIndexStrip({
+      headlines: [
+        ...HEADLINES,
+        { symbol: 'SENSEX', name: 'SENSEX', kind: 'index', exchange: 'BSE', display: 'index' },
+      ],
+      quotes: new Map([
+        ['NIFTY50', quote('NIFTY50', 25_312_40, 25_169_55)],
+        ['BSE:SENSEX', quote('SENSEX', 82_100_00, 81_900_00, 'BSE')],
+        // A bare `SENSEX` key would be an NSE listing — not the BSE index.
+        ['SENSEX', quote('SENSEX', 1, 1)],
+      ]),
+      market: { isOpen: true, phase: 'open', checkedAt: now },
+      now,
+    });
+    expect(strip.indices.map((i) => `${i.exchange}:${i.symbol}`)).toEqual([
+      'NSE:NIFTY50',
+      'BSE:SENSEX',
+    ]);
+    expect(strip.indices[1]?.ltp).toBe(82_100_00);
   });
 
   it('drops an index the provider returned no quote for rather than rendering zeros', () => {

@@ -1,6 +1,6 @@
 # EquityWise
 
-A **multi-user** tool for **tracking, analysing and screening NSE equities** to
+A **multi-user** tool for **tracking, analysing and screening Indian (NSE + BSE) equities** to
 surface technical setups worth attention — bullish/bearish setups, breakouts,
 breakdowns, momentum, trend changes, volume anomalies. Decision support, not
 execution. **Deployed publicly, with per-user accounts** — each user signs in and
@@ -12,6 +12,15 @@ Multi-*user* (individuals), not multi-*tenant* (no organisations/teams).
 > per-user data isolation are being designed in `docs/planning/authentication-plan.md`.
 > Some rules and prose below still reflect the old single-user framing and are being
 > updated as that work lands.
+
+> **Update (2026-09-25): NSE and BSE.** BSE is a first-class exchange beside NSE
+> (`docs/planning/multi-exchange-nse-bse-plan.md`). A price is named by its
+> **listing key** — the bare symbol for NSE (`RELIANCE`), `BSE:RELIANCE` for BSE
+> (`listingKey` in `@equitywise/shared`). Never key a quote, tick, candle or
+> instrument map by bare symbol: the two listings of one company would overwrite
+> each other. A dual-listed company's primary listing is NSE; signals are written
+> for the primary listing only. Daily candles for every listed equity come from
+> the exchanges' bhavcopies (`apps/worker/src/jobs/ingest-bhavcopy.ts`).
 
 **This is not a broker and not a trading terminal.** It never places, manages, or
 represents an order. Orders are placed by hand on a separate platform. The product

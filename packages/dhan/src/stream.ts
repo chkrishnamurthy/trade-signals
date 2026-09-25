@@ -56,7 +56,11 @@ export const RESPONSE_CODES = {
 } as const;
 
 /** Exchange segment enum in the header's fourth byte (Annexure). */
-const SEGMENT_BY_CODE: Readonly<Record<number, ExchangeSegment>> = { 0: 'IDX_I', 1: 'NSE_EQ' };
+const SEGMENT_BY_CODE: Readonly<Record<number, ExchangeSegment>> = {
+  0: 'IDX_I',
+  1: 'NSE_EQ',
+  4: 'BSE_EQ',
+};
 
 /** Disconnection reason codes (Annexure, "Data API Error Codes"). */
 export const DISCONNECT_REASONS: Readonly<Record<number, string>> = {
@@ -293,7 +297,12 @@ export interface FeedTransportOptions {
 /** Symbols on this transport are `securityKey` strings: `NSE_EQ:1333`. */
 export function parseSecurityKey(key: string): SecurityRef | null {
   const [segment, securityId] = key.split(':');
-  if ((segment !== 'NSE_EQ' && segment !== 'IDX_I') || securityId === undefined) return null;
+  if (
+    (segment !== 'NSE_EQ' && segment !== 'BSE_EQ' && segment !== 'IDX_I') ||
+    securityId === undefined
+  ) {
+    return null;
+  }
   return { segment, securityId };
 }
 

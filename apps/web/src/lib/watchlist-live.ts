@@ -1,3 +1,4 @@
+import { isExchange, listingKey } from '@equitywise/shared';
 import type { LiveQuoteDto, WatchlistRowDto } from './watchlist-types';
 
 /**
@@ -15,7 +16,11 @@ import type { LiveQuoteDto, WatchlistRowDto } from './watchlist-types';
  * actually moved.
  */
 
-/** Applies `quotes` to `rows`. Rows are matched by symbol; unknown symbols are ignored. */
+/**
+ * Applies `quotes` to `rows`. Rows are matched by listing key (`RELIANCE`,
+ * `BSE:RELIANCE`), so a company held on both exchanges moves each row by its
+ * own price; unknown keys are ignored.
+ */
 export function applyLiveQuotes(
   rows: readonly WatchlistRowDto[],
   quotes: readonly LiveQuoteDto[],
@@ -26,13 +31,21 @@ export function applyLiveQuotes(
 
   let changed = false;
   const next = rows.map((row) => {
-    const quote = bySymbol.get(row.symbol);
+    const quote = bySymbol.get(rowListingKey(row));
     if (quote === undefined) return row;
     const updated = applyLiveQuote(row, quote);
     if (updated !== row) changed = true;
     return updated;
   });
   return changed ? next : rows;
+}
+
+/** A row's listing key. An exchange the product does not know stays NSE-keyed. */
+export function rowListingKey(row: Pick<WatchlistRowDto, 'symbol' | 'exchange'>): string {
+  return listingKey({
+    symbol: row.symbol,
+    exchange: isExchange(row.exchange) ? row.exchange : 'NSE',
+  });
 }
 
 /** Applies one quote to one row, or returns the row untouched if nothing moved. */

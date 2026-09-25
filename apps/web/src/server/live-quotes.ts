@@ -1,9 +1,10 @@
 import 'server-only';
-import type {
-  InstrumentRef,
-  MarketDataProvider,
-  StreamState,
-  TickSubscription,
+import {
+  type InstrumentRef,
+  listingKey,
+  type MarketDataProvider,
+  type StreamState,
+  type TickSubscription,
 } from '@equitywise/market-data';
 import type { LiveBatchDto, LiveQuoteDto, LiveSourceState } from '@/lib/watchlist-types';
 import { getMarketStatus } from './market-status';
@@ -33,6 +34,10 @@ import { getProvider } from './provider';
  *
  * Nothing here is ever the source of a stored price. The hub's memory is the
  * last tick per symbol and lives exactly as long as someone is watching.
+ *
+ * Every map here is keyed by LISTING KEY (`RELIANCE`, `BSE:RELIANCE`), not bare
+ * symbol: one company's two exchange listings are two prices. A delivered
+ * quote's `symbol` is that key too, which for NSE is the bare symbol exactly.
  */
 
 export type LiveBatch = LiveBatchDto;
@@ -100,9 +105,10 @@ class LiveQuoteHub {
   subscribe(refs: readonly InstrumentRef[], deliver: (batch: LiveBatch) => void): LiveSubscription {
     const symbols = new Set<string>();
     for (const ref of refs) {
-      symbols.add(ref.symbol);
-      this.refs.set(ref.symbol, ref);
-      this.refcount.set(ref.symbol, (this.refcount.get(ref.symbol) ?? 0) + 1);
+      const key = listingKey(ref);
+      symbols.add(key);
+      this.refs.set(key, ref);
+      this.refcount.set(key, (this.refcount.get(key) ?? 0) + 1);
     }
     const client: Client = { symbols, deliver };
     this.clients.add(client);
@@ -244,7 +250,7 @@ class LiveQuoteHub {
       refs,
       onTick: (tick) => {
         this.record({
-          symbol: tick.symbol,
+          symbol: listingKey(tick),
           ltp: tick.ltp,
           volume: tick.volumeToday,
           at: (tick.exchangeFeedAt ?? new Date()).toISOString(),
@@ -263,7 +269,7 @@ class LiveQuoteHub {
     this.stream = {
       provider,
       subscription,
-      symbols: new Map(refs.map((ref) => [ref.symbol, ref])),
+      symbols: new Map(refs.map((ref) => [listingKey(ref), ref])),
     };
     this.streamState = subscription.state();
   }
@@ -293,11 +299,11 @@ class LiveQuoteHub {
     }
     if (drop.length > 0) {
       stream.subscription.unsubscribe(drop);
-      for (const ref of drop) stream.symbols.delete(ref.symbol);
+      for (const ref of drop) stream.symbols.delete(listingKey(ref));
     }
     if (add.length > 0) {
       stream.subscription.subscribe(add);
-      for (const ref of add) stream.symbols.set(ref.symbol, ref);
+      for (const ref of add) stream.symbols.set(listingKey(ref), ref);
     }
   }
 
@@ -329,8 +335,9 @@ class LiveQuoteHub {
     const source = provider ?? (await getProvider());
     const result = await source.fetchQuotes(refs);
     const at = new Date().toISOString();
-    for (const [symbol, quote] of result.quotes) {
-      this.record({ symbol, ltp: quote.ltp, volume: quote.volume, at });
+    // The provider keys its result by listing key, the hub's own key.
+    for (const [key, quote] of result.quotes) {
+      this.record({ symbol: key, ltp: quote.ltp, volume: quote.volume, at });
     }
   }
 

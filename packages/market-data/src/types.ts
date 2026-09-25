@@ -10,7 +10,9 @@
 
 export type InstrumentKind = 'equity' | 'index';
 
-export type Exchange = 'NSE' | 'BSE';
+import type { Exchange } from '@equitywise/shared';
+
+export type { Exchange };
 
 /**
  * The minimum needed to ask a provider for data about something.
@@ -42,11 +44,21 @@ export interface Instrument {
    * used as a key, and never sent to the browser.
    */
   readonly providerRef: string | null;
+  /**
+   * The exchange's own code for the listing — BSE's 6-digit scrip code
+   * (`500325`). An exchange identifier, not a provider one: it is how BSE
+   * filings, bhavcopies and deals name the security. Null when unknown.
+   */
+  readonly exchangeCode?: string | null;
+  /** NSE series (`EQ`, `BE`, `SM`…) or BSE group (`A`, `B`, `T`, `X`, `Z`, `M`…). */
+  readonly series?: string | null;
 }
 
 /** A point-in-time snapshot. `null` means the provider did not supply it. */
 export interface Quote {
   readonly symbol: string;
+  /** The listing's exchange; `listingKey(quote)` is its map key. */
+  readonly exchange: Exchange;
   /** Last traded price, paise. Always present — a quote without one is dropped. */
   readonly ltp: number;
   /** Change vs previous close, paise. Signed; 0 is meaningful. */
@@ -124,6 +136,7 @@ export type MarketPhase =
 /** A live price update. */
 export interface Tick {
   readonly symbol: string;
+  readonly exchange: Exchange;
   /** Last traded price, paise. */
   readonly ltp: number;
   readonly lastTradedAt: Date | null;
@@ -132,10 +145,10 @@ export interface Tick {
 }
 
 export interface QuotesResult {
-  /** Keyed by OUR symbol. */
+  /** Keyed by listing key (`listingKey`): `RELIANCE` for NSE, `BSE:RELIANCE` for BSE. */
   readonly quotes: ReadonlyMap<string, Quote>;
   /**
-   * Symbols the provider accepted but returned no usable quote for.
+   * Listing keys the provider accepted but returned no usable quote for.
    *
    * Propagated rather than silently dropped: a breadth count computed over a
    * smaller denominator than the caller believes is a data-integrity bug.

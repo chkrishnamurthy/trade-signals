@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
+import { type Exchange, listingKey } from '@equitywise/shared';
 import { parse } from 'yaml';
 import { z } from 'zod';
 
@@ -24,6 +25,7 @@ const configSchema = z.object({
     z.object({
       name: z.string().min(1),
       indexSymbol: z.string().min(1),
+      exchange: z.enum(['NSE', 'BSE']).default('NSE'),
       constituents: z.array(
         z.object({
           symbol: z.string().min(1),
@@ -39,6 +41,8 @@ export interface UniverseEntry {
   readonly symbol: string;
   readonly name: string;
   readonly kind: 'equity' | 'index';
+  /** The listing's exchange: a BSE index and its constituents are BSE listings. */
+  readonly exchange: Exchange;
 }
 
 /**
@@ -66,36 +70,44 @@ export async function loadUniverse(path = CONFIG_PATH): Promise<UniverseEntry[]>
     );
   }
 
-  const bySymbol = new Map<string, UniverseEntry>();
+  // Keyed by listing key: NSE's RELIANCE and BSE's RELIANCE are two entries.
+  const byKey = new Map<string, UniverseEntry>();
 
   for (const headline of parsed.data.headlineIndices) {
-    bySymbol.set(headline.symbol, {
+    const entry = {
       symbol: headline.symbol,
       name: headline.name,
-      kind: 'index',
-    });
+      kind: 'index' as const,
+      exchange: headline.exchange ?? 'NSE',
+    };
+    byKey.set(listingKey(entry), entry);
   }
 
   for (const index of Object.values(parsed.data.indices)) {
-    bySymbol.set(index.indexSymbol, {
+    const exchange = index.exchange;
+    const indexEntry = {
       symbol: index.indexSymbol,
       name: index.name,
-      kind: 'index',
-    });
+      kind: 'index' as const,
+      exchange,
+    };
+    byKey.set(listingKey(indexEntry), indexEntry);
     for (const constituent of index.constituents) {
+      const key = listingKey({ symbol: constituent.symbol, exchange });
       // Indices win over equities on a symbol collision: an index symbol that
       // also appears as a constituent name would otherwise be fetched with the
       // wrong instrument kind and return nothing.
-      if (bySymbol.get(constituent.symbol)?.kind === 'index') continue;
-      bySymbol.set(constituent.symbol, {
+      if (byKey.get(key)?.kind === 'index') continue;
+      byKey.set(key, {
         symbol: constituent.symbol,
         name: constituent.name.trim(),
         kind: 'equity',
+        exchange,
       });
     }
   }
 
-  return [...bySymbol.values()];
+  return [...byKey.values()];
 }
 
 /** A constituent of one index, with the sector used for market context. */

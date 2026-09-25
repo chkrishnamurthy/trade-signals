@@ -5,10 +5,13 @@ import {
   fetchQuotes,
   HISTORY_EPOCH_START,
   internalSymbolFor,
+  listAllInstruments,
   listInstruments,
   MAX_SUBSCRIPTION_SYMBOLS,
   PathCircuitBreaker,
+  parseFyersSymbol,
   RateLimiter,
+  SYMBOL_MASTER_URLS,
   streamTicks,
   type TickTransport,
   toFyersSymbol,
@@ -25,8 +28,10 @@ import type {
   QuotesResult,
   StreamRequest,
   StreamState,
+  Tick,
   TickSubscription,
 } from '@equitywise/market-data';
+import { exchangeOf, listingKey, MarketDataProviderError } from '@equitywise/market-data';
 import { istDateKey } from '@equitywise/shared';
 import { FyersNotConfiguredError, PROVIDER_ID, toProviderError } from './errors.js';
 import { toBar, toInstrument, toMarketStatus, toQuote, toTick } from './mapping.js';
@@ -65,7 +70,13 @@ export interface FyersProviderOptions {
   readonly attempts?: number;
   /** Builds the live socket transport. Omit to disable streaming. */
   readonly createTransport?: () => TickTransport;
+  /** How long a downloaded BSE master is trusted. Default one day. */
+  readonly bseMasterTtlMs?: number;
+  /** Injected clock for the master cache, for tests. */
+  readonly now?: () => number;
 }
+
+const DAY_MS = 86_400_000;
 
 const CAPABILITIES_BASE = {
   intradayHistory: true,
@@ -115,8 +126,73 @@ export function createFyersProvider(options: FyersProviderOptions): MarketDataPr
     streaming: options.createTransport !== undefined,
   };
 
-  /** Our ref to a Fyers symbol. The only direction that needs the `kind`. */
-  const encode = (ref: InstrumentRef): string => toFyersSymbol(ref.symbol, ref.kind);
+  // -------------------------------------------------------------------------
+  // BSE master cache
+  // -------------------------------------------------------------------------
+  //
+  // A BSE equity's Fyers ticker ends in its group (`BSE:RELIANCE-A`), which the
+  // exchange reassigns, so it is read from the BSE master rather than
+  // templated. The master is a public CDN file: one download a day, shared by
+  // every caller, and a stale copy beats none — groups change rarely.
+
+  const clock = options.now ?? Date.now;
+  const bseTtl = options.bseMasterTtlMs ?? DAY_MS;
+  let bseTickers: { readonly at: number; readonly bySymbol: Map<string, string> } | null = null;
+  let bseLoading: Promise<Map<string, string>> | null = null;
+
+  async function bseTickerMap(): Promise<Map<string, string>> {
+    if (bseTickers !== null && clock() - bseTickers.at < bseTtl) return bseTickers.bySymbol;
+    bseLoading ??= listInstruments(http, SYMBOL_MASTER_URLS.bseCapitalMarket)
+      .then(({ instruments }) => {
+        const bySymbol = new Map<string, string>();
+        for (const i of instruments) if (i.kind === 'equity') bySymbol.set(i.symbol, i.fyersSymbol);
+        bseTickers = { at: clock(), bySymbol };
+        return bySymbol;
+      })
+      .catch((error: unknown) => {
+        if (bseTickers !== null) return bseTickers.bySymbol;
+        throw error;
+      })
+      .finally(() => {
+        bseLoading = null;
+      });
+    return bseLoading;
+  }
+
+  /** True when a ref can be encoded without the BSE master. */
+  const encodesSync = (ref: InstrumentRef): boolean =>
+    exchangeOf(ref) === 'NSE' || ref.kind === 'index';
+
+  /** Our ref to a Fyers symbol, for refs that need no master lookup. */
+  const encodeSync = (ref: InstrumentRef): string =>
+    toFyersSymbol(ref.symbol, ref.kind, exchangeOf(ref));
+
+  /**
+   * Our ref to a Fyers symbol. A BSE equity missing from the master is a
+   * `null`, reported by the caller as missing / not found — never guessed.
+   */
+  async function encode(ref: InstrumentRef): Promise<string | null> {
+    if (encodesSync(ref)) return encodeSync(ref);
+    return (await bseTickerMap()).get(ref.symbol.trim().toUpperCase()) ?? null;
+  }
+
+  async function encodeOrThrow(ref: InstrumentRef): Promise<string> {
+    const encoded = await encode(ref);
+    if (encoded === null) throw unknownBse([ref.symbol]);
+    return encoded;
+  }
+
+  /** A Fyers symbol back to our ref, for rows or ticks that arrive unannounced. */
+  function decode(fyersSymbol: string): { symbol: string; exchange: 'NSE' | 'BSE' } {
+    try {
+      return {
+        symbol: internalSymbolFor(fyersSymbol),
+        exchange: parseFyersSymbol(fyersSymbol).exchange,
+      };
+    } catch {
+      return { symbol: fyersSymbol, exchange: 'NSE' };
+    }
+  }
 
   const provider: MarketDataProvider = {
     id: PROVIDER_ID,
@@ -125,7 +201,7 @@ export function createFyersProvider(options: FyersProviderOptions): MarketDataPr
 
     async listInstruments(): Promise<readonly Instrument[]> {
       try {
-        const { instruments } = await listInstruments(http);
+        const { instruments } = await listAllInstruments(http);
         return instruments.map(toInstrument);
       } catch (error) {
         throw toProviderError(error);
@@ -135,23 +211,33 @@ export function createFyersProvider(options: FyersProviderOptions): MarketDataPr
     async fetchQuotes(refs: readonly InstrumentRef[]): Promise<QuotesResult> {
       if (refs.length === 0) return { quotes: new Map(), missing: [] };
 
-      // Round-trip through the Fyers symbol, then back to ours by the same
-      // mapping the socket uses, so aliases resolve identically on both paths.
-      const bySymbol = new Map<string, InstrumentRef>();
-      for (const ref of refs) bySymbol.set(encode(ref), ref);
-
       try {
+        // Round-trip through the Fyers symbol, then back to ours by the same
+        // mapping the socket uses, so aliases resolve identically on both paths.
+        const bySymbol = new Map<string, InstrumentRef>();
+        const unresolved: string[] = [];
+        for (const ref of refs) {
+          const encoded = await encode(ref);
+          if (encoded === null) unresolved.push(listingKey(ref));
+          else bySymbol.set(encoded, ref);
+        }
+        if (bySymbol.size === 0) return { quotes: new Map(), missing: unresolved };
+
         const result = await fetchQuotes(fetcher, [...bySymbol.keys()]);
         const quotes = new Map<string, Quote>();
         for (const [fyersSymbol, quote] of result.quotes) {
           const ref = bySymbol.get(fyersSymbol);
-          const symbol = ref?.symbol ?? internalSymbolFor(fyersSymbol);
-          quotes.set(symbol, toQuote(symbol, quote));
+          const { symbol, exchange } =
+            ref === undefined
+              ? decode(fyersSymbol)
+              : { symbol: ref.symbol, exchange: exchangeOf(ref) };
+          quotes.set(listingKey({ symbol, exchange }), toQuote(symbol, exchange, quote));
         }
-        const missing = result.missing.map(
-          (fyersSymbol) => bySymbol.get(fyersSymbol)?.symbol ?? internalSymbolFor(fyersSymbol),
-        );
-        return { quotes, missing };
+        const missing = result.missing.map((fyersSymbol) => {
+          const ref = bySymbol.get(fyersSymbol);
+          return listingKey(ref ?? decode(fyersSymbol));
+        });
+        return { quotes, missing: [...missing, ...unresolved] };
       } catch (error) {
         throw toProviderError(error);
       }
@@ -160,10 +246,15 @@ export function createFyersProvider(options: FyersProviderOptions): MarketDataPr
     async fetchBars(request: BarsRequest): Promise<readonly Bar[]> {
       const { ref, resolution, range, includeForming = false, now = new Date() } = request;
       try {
-        const candles = await fetchCandles(fetcher, encode(ref), toFyersResolution(resolution), {
-          from: range.from,
-          to: range.to,
-        });
+        const candles = await fetchCandles(
+          fetcher,
+          await encodeOrThrow(ref),
+          toFyersResolution(resolution),
+          {
+            from: range.from,
+            to: range.to,
+          },
+        );
         const bars = candles.map(toBar);
         return includeForming ? bars : dropFormingBar(bars, resolution, now);
       } catch (error) {
@@ -186,17 +277,37 @@ export function createFyersProvider(options: FyersProviderOptions): MarketDataPr
   return {
     ...provider,
     streamTicks(request: StreamRequest): TickSubscription {
-      const refBySymbol = new Map<string, InstrumentRef>();
-      for (const ref of request.refs) refBySymbol.set(ref.symbol, ref);
+      /** Fyers symbol -> our ref, so a tick is named exactly as it was asked for. */
+      const refByFyers = new Map<string, InstrumentRef>();
+      /** Listing key -> Fyers symbol, for unsubscribe. */
+      const fyersByKey = new Map<string, string>();
+      let stopped = false;
 
       let lastMessageAt: Date | null = null;
       let state: StreamState = 'connecting';
 
+      const toProductTick = (tick: Parameters<typeof toTick>[2]): Tick => {
+        const ref = refByFyers.get(tick.fyersSymbol);
+        const { symbol, exchange } =
+          ref === undefined
+            ? decode(tick.fyersSymbol)
+            : { symbol: ref.symbol, exchange: exchangeOf(ref) };
+        return toTick(symbol, exchange, tick);
+      };
+
+      const remember = (ref: InstrumentRef, fyersSymbol: string): void => {
+        refByFyers.set(fyersSymbol, ref);
+        fyersByKey.set(listingKey(ref), fyersSymbol);
+      };
+
+      const initial = request.refs.filter(encodesSync);
+      for (const ref of initial) remember(ref, encodeSync(ref));
+
       const stream = streamTicks(
-        request.refs.map(encode),
+        initial.map(encodeSync),
         (tick) => {
           lastMessageAt = new Date();
-          request.onTick(toTick(tick.symbol, tick));
+          request.onTick(toProductTick(tick));
         },
         {
           createTransport,
@@ -212,22 +323,71 @@ export function createFyersProvider(options: FyersProviderOptions): MarketDataPr
         },
       );
 
+      /**
+       * Subscribes now what encodes synchronously, and BSE equities once the
+       * master has resolved their group. A name the master does not know is
+       * reported through `onError` rather than silently never ticking.
+       */
+      const add = (refs: readonly InstrumentRef[]): void => {
+        const now = refs.filter(encodesSync);
+        for (const ref of now) remember(ref, encodeSync(ref));
+        if (now.length > 0) stream.subscribe(now.map(encodeSync));
+
+        const later = refs.filter((ref) => !encodesSync(ref));
+        if (later.length === 0) return;
+        void Promise.all(later.map(async (ref) => ({ ref, fyers: await encode(ref) })))
+          .then((resolved) => {
+            if (stopped) return;
+            const known = resolved.filter(
+              (entry): entry is { ref: InstrumentRef; fyers: string } => entry.fyers !== null,
+            );
+            for (const { ref, fyers } of known) remember(ref, fyers);
+            if (known.length > 0) stream.subscribe(known.map((entry) => entry.fyers));
+            const unknown = resolved.filter((entry) => entry.fyers === null);
+            if (unknown.length > 0) {
+              request.onError?.(unknownBse(unknown.map((entry) => entry.ref.symbol)));
+            }
+          })
+          .catch((error: unknown) => request.onError?.(toProviderError(error)));
+      };
+
+      add(request.refs.filter((ref) => !encodesSync(ref)));
+
       return {
         state: () => state,
         lastMessageAt: () => lastMessageAt,
         subscribe: (refs) => {
-          stream.subscribe(refs.map(encode));
+          add(refs);
         },
         unsubscribe: (refs) => {
-          stream.unsubscribe(refs.map(encode));
+          const symbols: string[] = [];
+          for (const ref of refs) {
+            const key = listingKey(ref);
+            const fyers = fyersByKey.get(key);
+            if (fyers === undefined) continue;
+            fyersByKey.delete(key);
+            refByFyers.delete(fyers);
+            symbols.push(fyers);
+          }
+          if (symbols.length > 0) stream.unsubscribe(symbols);
         },
         stop: () => {
+          stopped = true;
           state = 'stopped';
           stream.close();
         },
       };
     },
   };
+}
+
+/** A BSE equity the master does not list — delisted, SME, or mistyped. */
+function unknownBse(symbols: readonly string[]): MarketDataProviderError {
+  return new MarketDataProviderError(`Not a listed BSE equity: ${symbols.join(', ')}`, {
+    failure: 'not_found',
+    providerId: PROVIDER_ID,
+    retryable: false,
+  });
 }
 
 /**

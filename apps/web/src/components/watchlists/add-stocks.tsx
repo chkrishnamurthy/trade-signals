@@ -42,10 +42,25 @@ import { ImportStocks } from './import-stocks';
  */
 
 interface SearchHit {
+  /** Display symbol: `RELIANCE`. */
   readonly symbol: string;
+  /** Listing key, sent to the add call: `RELIANCE` (NSE) or `BSE:7SEASL`. */
+  readonly key?: string;
   readonly name: string;
   readonly kind: string;
   readonly exchange: string;
+  /** Every exchange the company trades on, primary first. */
+  readonly listings?: readonly string[];
+}
+
+/** What a hit is added as, and matched against the list by. */
+function hitKey(hit: SearchHit): string {
+  return (hit.key ?? hit.symbol).toUpperCase();
+}
+
+/** `RELIANCE`, or `7SEASL · BSE` for a listing that is not NSE. */
+function hitLabel(hit: SearchHit): string {
+  return hit.exchange === 'NSE' ? hit.symbol : `${hit.symbol} · ${hit.exchange}`;
 }
 
 /** Long enough to stop typing, short enough not to feel laggy. */
@@ -80,10 +95,7 @@ export function AddStocks({
     () => new Set(existingSymbols.map((symbol) => symbol.toUpperCase())),
     [existingSymbols],
   );
-  const stagedSymbols = useMemo(
-    () => new Set(staged.map((hit) => hit.symbol.toUpperCase())),
-    [staged],
-  );
+  const stagedSymbols = useMemo(() => new Set(staged.map(hitKey)), [staged]);
 
   useEffect(() => {
     if (!open) return;
@@ -124,9 +136,9 @@ export function AddStocks({
 
   const stage = useCallback(
     (hit: SearchHit) => {
-      if (existing.has(hit.symbol.toUpperCase())) return;
+      if (existing.has(hitKey(hit))) return;
       setStaged((current) =>
-        current.some((entry) => entry.symbol === hit.symbol) ? current : [...current, hit],
+        current.some((entry) => hitKey(entry) === hitKey(hit)) ? current : [...current, hit],
       );
       setQuery('');
       setHits([]);
@@ -135,8 +147,8 @@ export function AddStocks({
     [existing],
   );
 
-  const unstage = useCallback((symbol: string) => {
-    setStaged((current) => current.filter((entry) => entry.symbol !== symbol));
+  const unstage = useCallback((key: string) => {
+    setStaged((current) => current.filter((entry) => hitKey(entry) !== key));
   }, []);
 
   const commit = useCallback(async () => {
@@ -144,14 +156,14 @@ export function AddStocks({
     setBusy(true);
     setError(null);
 
-    const result = await onAdd(staged.map((hit) => hit.symbol));
+    const result = await onAdd(staged.map(hitKey));
 
     setBusy(false);
     if (!result.ok) {
       setError(result.error ?? 'Could not add these stocks.');
       return;
     }
-    setJustAdded(staged.map((hit) => hit.symbol));
+    setJustAdded(staged.map(hitLabel));
     setStaged([]);
     inputRef.current?.focus();
   }, [staged, onAdd]);
@@ -250,10 +262,10 @@ export function AddStocks({
                   <ScrollArea className="max-h-56">
                     <ul className="flex flex-col gap-0.5">
                       {hits.map((hit, index) => {
-                        const already = existing.has(hit.symbol.toUpperCase());
-                        const pending = stagedSymbols.has(hit.symbol.toUpperCase());
+                        const already = existing.has(hitKey(hit));
+                        const pending = stagedSymbols.has(hitKey(hit));
                         return (
-                          <li key={`${hit.exchange}:${hit.symbol}`}>
+                          <li key={hitKey(hit)}>
                             <button
                               type="button"
                               disabled={already}
@@ -273,7 +285,7 @@ export function AddStocks({
                                 </span>
                               </span>
                               <Badge variant="outline" size="sm">
-                                {hit.exchange}
+                                {(hit.listings ?? [hit.exchange]).join(' · ')}
                               </Badge>
                               {already ? (
                                 <Badge variant="secondary" size="sm">
@@ -318,15 +330,15 @@ export function AddStocks({
               {staged.length > 0 && (
                 <div className="flex flex-wrap gap-1 rounded-md border border-border p-2">
                   {staged.map((hit) => (
-                    <Badge key={hit.symbol} variant="secondary" className="gap-1 pr-1">
-                      {hit.symbol}
+                    <Badge key={hitKey(hit)} variant="secondary" className="gap-1 pr-1">
+                      {hitLabel(hit)}
                       <button
                         type="button"
-                        onClick={() => unstage(hit.symbol)}
+                        onClick={() => unstage(hitKey(hit))}
                         className="rounded-sm text-muted-foreground transition-colors hover:text-foreground"
                       >
                         <XIcon className="size-3" aria-hidden />
-                        <span className="sr-only">Remove {hit.symbol}</span>
+                        <span className="sr-only">Remove {hitLabel(hit)}</span>
                       </button>
                     </Badge>
                   ))}

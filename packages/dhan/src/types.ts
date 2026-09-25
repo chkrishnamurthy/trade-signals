@@ -11,17 +11,27 @@ import { z } from 'zod';
 
 export type InstrumentKind = 'equity' | 'index';
 
+export type Exchange = 'NSE' | 'BSE';
+
 /**
- * The three exchange segments this product speaks.
+ * The exchange segments this product speaks.
  *
  * Dhan addresses everything by `(exchangeSegment, securityId)`; there is no
- * ticker-string form. NSE equities live in `NSE_EQ`; every index — NSE or
- * BSE — lives in the pseudo-segment `IDX_I`; NSE stock futures (the one
- * derivative the product reads, for open interest) live in `NSE_FNO`.
+ * ticker-string form. NSE equities live in `NSE_EQ`, BSE equities in `BSE_EQ`
+ * (whose security id IS the BSE scrip code: RELIANCE = 500325); every index —
+ * NSE or BSE — lives in the pseudo-segment `IDX_I`, where the two exchanges'
+ * ids do not overlap (verified 2026-09-25: SENSEX 51, BANKEX 69, NIFTY 13);
+ * NSE stock futures (the one derivative the product reads, for open interest)
+ * live in `NSE_FNO`.
  */
-export type ExchangeSegment = 'NSE_EQ' | 'IDX_I' | 'NSE_FNO';
+export type ExchangeSegment = 'NSE_EQ' | 'BSE_EQ' | 'IDX_I' | 'NSE_FNO';
 
-export const EXCHANGE_SEGMENTS: readonly ExchangeSegment[] = ['NSE_EQ', 'IDX_I', 'NSE_FNO'];
+export const EXCHANGE_SEGMENTS: readonly ExchangeSegment[] = [
+  'NSE_EQ',
+  'BSE_EQ',
+  'IDX_I',
+  'NSE_FNO',
+];
 
 /** Dhan's `instrument` enum, restricted to what the product uses. */
 export type InstrumentType = 'EQUITY' | 'INDEX' | 'FUTSTK';
@@ -49,13 +59,13 @@ export interface Instrument {
   readonly dhanSymbol: string;
   readonly name: string;
   readonly kind: InstrumentKind;
-  readonly exchange: 'NSE';
+  readonly exchange: Exchange;
   /** Null for indices, which have no ISIN. */
   readonly isin: string | null;
   readonly lotSize: number;
   /** Minimum price increment, in paise. */
   readonly tickSize: number;
-  /** `EQ`, `BE`, … for equities; null for indices. */
+  /** NSE series (`EQ`, `BE`…) or BSE group (`A`, `T`…) for equities; null for indices. */
   readonly series: string | null;
 }
 

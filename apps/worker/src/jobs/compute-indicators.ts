@@ -65,6 +65,11 @@ export async function computeIndicators(
   );
 
   const active = await listActiveInstruments(db, 'equity');
+  // A company listed on both exchanges gets indicators on each listing (each
+  // watchlist row shows its own), but ONE signal — on its primary listing,
+  // NSE (multi-exchange plan, D1). A second signal for the same company would
+  // double-count it anywhere signals are listed market-wide.
+  const isSecondaryListing = secondaryListings(active);
   log.info('starting', { instruments: active.length, strategyVersionId });
 
   const rows: IndicatorUpsert[] = [];
@@ -100,7 +105,7 @@ export async function computeIndicators(
       // The engine sees exactly the same bars, so the stored signal and the
       // stored indicators can never describe different inputs.
       const report = evaluateSignals(bars, DEFAULT_STRATEGY);
-      if (!report.insufficientData) {
+      if (!report.insufficientData && !isSecondaryListing(instrument)) {
         await saveSignal(db, {
           instrumentId: instrument.id,
           strategyVersionId,
@@ -143,6 +148,18 @@ export async function computeIndicators(
     signalsWritten,
     tradingDate: latestDate,
   };
+}
+
+/**
+ * A predicate for listings that are NOT their company's primary one: a BSE
+ * listing whose ISIN also trades on NSE. Pure, so the rule is testable alone.
+ */
+export function secondaryListings(
+  rows: readonly { exchange: string; isin: string | null }[],
+): (row: { exchange: string; isin: string | null }) => boolean {
+  const nseIsins = new Set<string>();
+  for (const row of rows) if (row.exchange === 'NSE' && row.isin !== null) nseIsins.add(row.isin);
+  return (row) => row.exchange !== 'NSE' && row.isin !== null && nseIsins.has(row.isin);
 }
 
 /** Rounds a paise-valued indicator, keeping null as null rather than 0. */

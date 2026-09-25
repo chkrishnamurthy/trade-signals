@@ -97,3 +97,101 @@ describe('closed intraday candles', () => {
     expect(await provider.fetchBars({ ...request, includeForming: true })).toHaveLength(2);
   });
 });
+
+describe('createFyersProvider — BSE listings', () => {
+  // Two real BSE_CM.csv rows (2026-09-25): RELIANCE in group A, 3IINFOLTD in T.
+  const BSE_MASTER = [
+    '1210000000500325,RELIANCE INDUSTRIES LTD.,0,1,0.05,INE002A01018,0915-1530|1815-1915:,2026-09-24,,BSE:RELIANCE-A,12,10,500325,RELIANCE,500325,-1.0,XX,1210000000500325,None,0,0.0',
+    '1210000000532628,3I INFOTECH LTD.,0,1,0.01,INE748C01038,0915-1530|1815-1915:,2026-09-24,,BSE:3IINFOLTD-T,12,10,532628,3IINFOLTD,532628,-1.0,XX,1210000000532628,None,0,0.0',
+  ].join('\n');
+
+  function quoteRow(n: string, lp: number): unknown {
+    return {
+      n,
+      s: 'ok',
+      v: {
+        ch: 1,
+        chp: 0.1,
+        lp,
+        open_price: lp,
+        high_price: lp,
+        low_price: lp,
+        prev_close_price: lp - 1,
+        volume: 10,
+        tt: '1622160000',
+      },
+    };
+  }
+
+  /** Serves the BSE master from the CDN and echoes quotes for whatever was asked. */
+  function fakeUpstream(): { quoteUrls: string[]; masterHits: () => number } {
+    const quoteUrls: string[] = [];
+    let masterHits = 0;
+    globalThis.fetch = vi.fn(async (input: unknown) => {
+      const url = String(input);
+      if (url.includes('BSE_CM.csv')) {
+        masterHits += 1;
+        return new Response(BSE_MASTER, { status: 200 });
+      }
+      quoteUrls.push(url);
+      const symbols = decodeURIComponent(new URL(url).searchParams.get('symbols') ?? '').split(',');
+      const d = symbols.map((s, i) => quoteRow(s, 100 + i));
+      return new Response(JSON.stringify({ s: 'ok', code: 200, d }), { status: 200 });
+    }) as unknown as typeof fetch;
+    return { quoteUrls, masterHits: () => masterHits };
+  }
+
+  it('keys NSE and BSE quotes for the same symbol apart, with the group read from the master', async () => {
+    const upstream = fakeUpstream();
+    const provider = createFyersProvider({ appId: 'APP-100', accessToken: 't' });
+
+    const result = await provider.fetchQuotes([
+      { symbol: 'RELIANCE', kind: 'equity' },
+      { symbol: 'RELIANCE', kind: 'equity', exchange: 'BSE' },
+      { symbol: 'SENSEX', kind: 'index', exchange: 'BSE' },
+    ]);
+
+    expect(decodeURIComponent(upstream.quoteUrls[0] ?? '')).toContain(
+      'NSE:RELIANCE-EQ,BSE:RELIANCE-A,BSE:SENSEX-INDEX',
+    );
+    expect([...result.quotes.keys()]).toEqual(['RELIANCE', 'BSE:RELIANCE', 'BSE:SENSEX']);
+    expect(result.quotes.get('RELIANCE')).toMatchObject({ symbol: 'RELIANCE', exchange: 'NSE' });
+    expect(result.quotes.get('BSE:RELIANCE')).toMatchObject({
+      symbol: 'RELIANCE',
+      exchange: 'BSE',
+    });
+    expect(result.missing).toEqual([]);
+  });
+
+  it('reports a BSE name the master does not list as missing, never guessing its group', async () => {
+    fakeUpstream();
+    const provider = createFyersProvider({ appId: 'APP-100', accessToken: 't' });
+
+    const result = await provider.fetchQuotes([
+      { symbol: 'NOSUCH', kind: 'equity', exchange: 'BSE' },
+    ]);
+
+    expect(result.quotes.size).toBe(0);
+    expect(result.missing).toEqual(['BSE:NOSUCH']);
+  });
+
+  it('downloads the BSE master once and reuses it within the TTL', async () => {
+    const upstream = fakeUpstream();
+    let now = 0;
+    const provider = createFyersProvider({
+      appId: 'APP-100',
+      accessToken: 't',
+      now: () => now,
+      bseMasterTtlMs: 1_000,
+    });
+    const bse = [{ symbol: '3IINFOLTD', kind: 'equity', exchange: 'BSE' }] as const;
+
+    await provider.fetchQuotes(bse);
+    await provider.fetchQuotes(bse);
+    expect(upstream.masterHits()).toBe(1);
+
+    now = 2_000;
+    await provider.fetchQuotes(bse);
+    expect(upstream.masterHits()).toBe(2);
+  });
+});

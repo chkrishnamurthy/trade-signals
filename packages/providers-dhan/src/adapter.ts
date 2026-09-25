@@ -32,6 +32,7 @@ import type {
   StreamState,
   TickSubscription,
 } from '@equitywise/market-data';
+import { exchangeOf, listingKey } from '@equitywise/market-data';
 import type { PathCircuitBreaker, RateLimiter, TickTransport } from '@equitywise/shared';
 import { istDateKey, isWeekend } from '@equitywise/shared';
 import {
@@ -146,7 +147,8 @@ export function createDhanProvider(options: DhanProviderOptions): MarketDataProv
   const { accessToken } = options;
   const readToken = typeof accessToken === 'function' ? accessToken : (): string => accessToken;
   const now = options.now ?? ((): Date => new Date());
-  const sleep = options.sleep ?? ((ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms)));
+  const sleep =
+    options.sleep ?? ((ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms)));
 
   const missing: string[] = [];
   if (options.clientId === '') missing.push('DHAN_CLIENT_ID');
@@ -210,7 +212,7 @@ export function createDhanProvider(options: DhanProviderOptions): MarketDataProv
 
   async function resolve(ref: InstrumentRef): Promise<SecurityRef> {
     const index = await instrumentIndex();
-    const found = index.refFor(ref.symbol, ref.kind);
+    const found = index.refFor(ref.symbol, ref.kind, exchangeOf(ref));
     if (found === null) throw unknownInstrumentError(ref.symbol, ref.kind);
     return found;
   }
@@ -232,30 +234,32 @@ export function createDhanProvider(options: DhanProviderOptions): MarketDataProv
 
       const index = await instrumentIndex();
       const wanted: SecurityRef[] = [];
-      const symbolByKey = new Map<string, string>();
+      const refByKey = new Map<string, InstrumentRef>();
       const missing: string[] = [];
       for (const ref of refs) {
-        const found = index.refFor(ref.symbol, ref.kind);
+        const found = index.refFor(ref.symbol, ref.kind, exchangeOf(ref));
         // A watchlist with one delisted name must not fail for the other
         // forty-nine; the unknown symbol is reported, not thrown.
         if (found === null) {
-          missing.push(ref.symbol);
+          missing.push(listingKey(ref));
           continue;
         }
         wanted.push(found);
-        symbolByKey.set(securityKey(found), ref.symbol);
+        refByKey.set(securityKey(found), ref);
       }
 
       try {
         const result = await fetchQuotes({ http, session: session() }, wanted);
         const quotes = new Map<string, Quote>();
         for (const [key, quote] of result.quotes) {
-          const symbol = symbolByKey.get(key);
-          if (symbol !== undefined) quotes.set(symbol, toQuote(symbol, quote));
+          const ref = refByKey.get(key);
+          if (ref !== undefined) {
+            quotes.set(listingKey(ref), toQuote(ref.symbol, exchangeOf(ref), quote));
+          }
         }
-        for (const ref of result.missing) {
-          const symbol = symbolByKey.get(securityKey(ref));
-          if (symbol !== undefined) missing.push(symbol);
+        for (const securityRef of result.missing) {
+          const ref = refByKey.get(securityKey(securityRef));
+          if (ref !== undefined) missing.push(listingKey(ref));
         }
         return { quotes, missing };
       } catch (error) {
@@ -373,10 +377,11 @@ interface StreamDeps {
  * polls whatever the socket does not cover, so it degrades, never fails.
  */
 function openStream(request: StreamRequest, deps: StreamDeps): TickSubscription {
+  // Keyed by listing key: RELIANCE and BSE:RELIANCE are two subscriptions.
   const wanted = new Map<string, InstrumentRef>();
-  for (const ref of request.refs) wanted.set(ref.symbol, ref);
-  const keyBySymbol = new Map<string, string>();
-  const symbolByKey = new Map<string, string>();
+  for (const ref of request.refs) wanted.set(listingKey(ref), ref);
+  const keyByListing = new Map<string, string>();
+  const refByKey = new Map<string, InstrumentRef>();
 
   let state: StreamState = 'connecting';
   let lastMessageAt: Date | null = null;
@@ -395,12 +400,13 @@ function openStream(request: StreamRequest, deps: StreamDeps): TickSubscription 
     if (index === null) return [];
     const keys: string[] = [];
     for (const ref of refs) {
-      if (keyBySymbol.has(ref.symbol)) continue;
-      const found = index.refFor(ref.symbol, ref.kind);
+      const listing = listingKey(ref);
+      if (keyByListing.has(listing)) continue;
+      const found = index.refFor(ref.symbol, ref.kind, exchangeOf(ref));
       if (found === null) continue;
       const key = securityKey(found);
-      keyBySymbol.set(ref.symbol, key);
-      symbolByKey.set(key, ref.symbol);
+      keyByListing.set(listing, key);
+      refByKey.set(key, ref);
       keys.push(key);
     }
     return keys;
@@ -420,10 +426,11 @@ function openStream(request: StreamRequest, deps: StreamDeps): TickSubscription 
       keysFor([...wanted.values()]),
       (tick) => {
         lastMessageAt = new Date();
-        const symbol = symbolByKey.get(securityKey(tick.ref));
-        if (symbol === undefined) return;
+        const ref = refByKey.get(securityKey(tick.ref));
+        if (ref === undefined) return;
         request.onTick({
-          symbol,
+          symbol: ref.symbol,
+          exchange: exchangeOf(ref),
           ltp: tick.ltp,
           lastTradedAt: tick.lastTradedAt,
           // The feed carries no exchange timestamp of its own; the trade time
@@ -450,18 +457,19 @@ function openStream(request: StreamRequest, deps: StreamDeps): TickSubscription 
     state: () => state,
     lastMessageAt: () => lastMessageAt,
     subscribe: (refs) => {
-      for (const ref of refs) wanted.set(ref.symbol, ref);
+      for (const ref of refs) wanted.set(listingKey(ref), ref);
       const keys = keysFor(refs);
       if (stream !== null && keys.length > 0) stream.subscribe(keys);
     },
     unsubscribe: (refs) => {
       const keys: string[] = [];
       for (const ref of refs) {
-        wanted.delete(ref.symbol);
-        const key = keyBySymbol.get(ref.symbol);
+        const listing = listingKey(ref);
+        wanted.delete(listing);
+        const key = keyByListing.get(listing);
         if (key === undefined) continue;
-        keyBySymbol.delete(ref.symbol);
-        symbolByKey.delete(key);
+        keyByListing.delete(listing);
+        refByKey.delete(key);
         keys.push(key);
       }
       if (stream !== null && keys.length > 0) stream.unsubscribe(keys);

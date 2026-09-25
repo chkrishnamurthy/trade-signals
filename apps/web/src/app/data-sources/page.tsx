@@ -12,14 +12,14 @@ import { describeDataSources } from '@/server/provider';
 export const metadata: Metadata = {
   title: 'Market Data Sources & Update Frequency | EquityWise',
   description:
-    'Transparency on EquityWise market data feeds: National Stock Exchange (NSE) quotes, licensed data provider integrations (Fyers API, Dhan API), and daily EOD ingestion passes.',
+    'Transparency on EquityWise market data feeds: NSE and BSE quotes, licensed data provider integrations (Fyers API, Dhan API), exchange end-of-day files, and daily EOD ingestion passes.',
   alternates: {
     canonical: '/data-sources',
   },
   openGraph: {
     title: 'Market Data Sources & Update Frequency — EquityWise',
     description:
-      'Overview of NSE data feeds, provider boundaries, and data freshness policies on EquityWise.',
+      'Overview of NSE and BSE data feeds, provider boundaries, and data freshness policies on EquityWise.',
     url: `${SITE_URL}/data-sources`,
   },
 };
@@ -94,10 +94,13 @@ export default async function DataSourcesPage() {
               1. Market Data Provider & Exchange Coverage
             </h2>
             <p>
-              EquityWise tracks equities and indices listed exclusively on the{' '}
-              <strong>National Stock Exchange of India (NSE)</strong>. Market data feeds, historical
-              OHLCV bars, and quotes are consumed via official API integrations with licensed
-              SEBI-registered broker data infrastructures (Fyers API v3 and Dhan API v2).
+              EquityWise tracks main-board equities and indices on both the{' '}
+              <strong>National Stock Exchange of India (NSE)</strong> and <strong>BSE</strong>. A
+              company listed on both appears once, under its NSE listing, with its BSE listing
+              available beside it; BSE-only companies are covered on BSE. Live quotes and intraday
+              bars are consumed via official API integrations with licensed SEBI-registered broker
+              data infrastructures (Fyers API v3 and Dhan API v2); daily candles for every listed
+              equity come from each exchange&apos;s published end-of-day bhavcopy.
             </p>
             <p>
               <strong>Broker-Independent Architecture:</strong> While the brokers supply raw market
@@ -143,9 +146,9 @@ export default async function DataSourcesPage() {
               <div className="rounded-lg border border-border/80 bg-surface/40 p-4">
                 <h3 className="font-semibold text-foreground">End-of-Day (EOD) Pass</h3>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Runs automatically after the close of every NSE session (15:30 IST). Daily candles
-                  and indicators (RSI, EMAs, 52-week extremes) are computed and committed once the
-                  exchange publishes final closing numbers.
+                  Runs automatically after the close of every session (15:30 IST — NSE and BSE keep
+                  the same hours). Daily candles and indicators (RSI, EMAs, 52-week extremes) are
+                  computed and committed once each exchange publishes its final closing numbers.
                 </p>
               </div>
 

@@ -9,6 +9,8 @@ function row(overrides: Partial<WatchlistRowDto> = {}): WatchlistRowDto {
     symbol: 'RELIANCE',
     name: 'Reliance Industries',
     exchange: 'NSE',
+    series: 'EQ',
+    lowLiquidity: false,
     sector: 'Energy',
     note: null,
     addedAt: '2026-09-01T00:00:00.000Z',

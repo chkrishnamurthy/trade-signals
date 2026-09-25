@@ -20,6 +20,8 @@ const RELIANCE: WatchlistRowDto = {
   symbol: 'RELIANCE',
   name: 'Reliance Industries',
   exchange: 'NSE',
+  series: 'EQ',
+  lowLiquidity: false,
   sector: 'Energy',
   note: 'Refining margins recovering',
   addedAt: '2026-08-01T04:00:00Z',
@@ -68,6 +70,8 @@ const TCS: WatchlistRowDto = {
   symbol: 'TCS',
   name: 'Tata Consultancy Services',
   exchange: 'NSE',
+  series: 'EQ',
+  lowLiquidity: false,
   sector: 'IT',
   note: null,
   addedAt: '2026-08-10T04:00:00Z',
@@ -111,6 +115,8 @@ const ITC: WatchlistRowDto = {
   symbol: 'ITC',
   name: 'ITC',
   exchange: 'NSE',
+  series: 'EQ',
+  lowLiquidity: false,
   sector: 'FMCG',
   note: null,
   addedAt: '2026-07-20T04:00:00Z',
@@ -155,6 +161,8 @@ const NEWSTOCK: WatchlistRowDto = {
   symbol: 'ZOMATO',
   name: 'Zomato',
   exchange: 'NSE',
+  series: 'EQ',
+  lowLiquidity: false,
   sector: 'Consumer',
   note: 'Just added',
   addedAt: '2026-09-07T03:59:00Z',
@@ -187,6 +195,57 @@ const NEWSTOCK: WatchlistRowDto = {
 };
 
 export const WATCHLIST_ROWS: readonly WatchlistRowDto[] = [RELIANCE, TCS, ITC, NEWSTOCK];
+
+/** The same company's BSE listing: its own price, its own row. */
+const RELIANCE_BSE: WatchlistRowDto = {
+  ...RELIANCE,
+  instrumentId: 11,
+  exchange: 'BSE',
+  series: 'A',
+  note: null,
+  ltp: 298500,
+  change: 4150,
+  changePercent: 1.41,
+  volume: 312_000,
+  // Signals are written for the primary (NSE) listing only.
+  signal: null,
+};
+
+/** A BSE-only small cap in a trade-for-trade group: flagged low liquidity. */
+const BSE_ONLY_T2T: WatchlistRowDto = {
+  ...ITC,
+  instrumentId: 12,
+  symbol: 'BHAGGAS',
+  name: 'Bhagawati Gas',
+  exchange: 'BSE',
+  series: 'XT',
+  lowLiquidity: true,
+  sector: null,
+  note: null,
+  ltp: 837,
+  change: 0,
+  changePercent: 0,
+  open: 837,
+  dayHigh: 837,
+  dayLow: 825,
+  previousClose: 837,
+  averagePrice: 831,
+  volume: 16_383,
+  high52w: 1420,
+  low52w: 610,
+  averageVolume: 22_000,
+  relativeVolume: 0.74,
+  previousVolume: 19_100,
+  signal: null,
+};
+
+/** NSE and BSE listings side by side, including a low-liquidity BSE-only name. */
+export const WATCHLIST_ROWS_MULTI_EXCHANGE: readonly WatchlistRowDto[] = [
+  RELIANCE,
+  RELIANCE_BSE,
+  BSE_ONLY_T2T,
+  TCS,
+];
 
 export const WATCHLIST_LISTS: readonly WatchlistSummaryDto[] = [
   {

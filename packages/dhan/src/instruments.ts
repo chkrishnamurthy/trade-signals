@@ -1,8 +1,9 @@
-import { rupeesToPaise } from '@equitywise/shared';
+import { isBseEquityRow, rupeesToPaise } from '@equitywise/shared';
 import { z } from 'zod';
 import type { DhanHttpClient } from './http.js';
 import { internalSymbolFor } from './symbols.js';
 import type {
+  Exchange,
   ExchangeSegment,
   FuturesContract,
   Instrument,
@@ -141,10 +142,11 @@ export interface ParseInstrumentsResult {
 /**
  * Parses the detailed scrip master into normalised instruments.
  *
- * Keeps NSE cash equities (series in {@link EQUITY_SERIES}), NSE indices and
- * NSE stock-futures contracts; everything else — options, currency,
- * commodity, BSE, debt, SME — is filtered out silently because it is out of
- * scope, not malformed. Rows that *are* in scope but malformed land in
+ * Keeps NSE cash equities (series in {@link EQUITY_SERIES}), BSE main-board
+ * equities (equity ISIN and a main-board group, see `isBseEquityRow`), NSE and
+ * BSE indices, and NSE stock-futures contracts; everything else — options,
+ * currency, commodity, debt, fund units, SME — is filtered out silently
+ * because it is out of scope, not malformed. Rows that *are* in scope but malformed land in
  * `skipped` rather than throwing.
  */
 export function parseScripMaster(csv: string): ParseInstrumentsResult {
@@ -186,9 +188,13 @@ export function parseScripMaster(csv: string): ParseInstrumentsResult {
     const cells = splitCsvLine(line);
     const cell = (i: number): string => (cells[i] ?? '').trim();
 
-    if (cell(idx.exchange) !== 'NSE') continue;
+    const exchangeId = cell(idx.exchange);
+    if (exchangeId !== 'NSE' && exchangeId !== 'BSE') continue;
+    const exchange: Exchange = exchangeId;
     const segmentCode = cell(idx.segment);
     if (segmentCode === SEGMENT_CODE.derivatives) {
+      // BSE derivatives (SENSEX/BANKEX options) are deferred (plan D5).
+      if (exchange !== 'NSE') continue;
       if (cell(idx.instrument) !== STOCK_FUTURES) continue;
       const parsed = futuresRowSchema.safeParse({
         securityId: cell(idx.securityId),
@@ -216,7 +222,10 @@ export function parseScripMaster(csv: string): ParseInstrumentsResult {
     }
     let kind: InstrumentKind;
     if (segmentCode === SEGMENT_CODE.equity) {
-      if (!EQUITY_SERIES.has(cell(idx.series))) continue;
+      const series = cell(idx.series);
+      const inScope =
+        exchange === 'NSE' ? EQUITY_SERIES.has(series) : isBseEquityRow(cell(idx.isin), series);
+      if (!inScope) continue;
       kind = 'equity';
     } else if (segmentCode === SEGMENT_CODE.index) {
       kind = 'index';
@@ -240,7 +249,8 @@ export function parseScripMaster(csv: string): ParseInstrumentsResult {
       continue;
     }
     const row = parsed.data;
-    const segment: ExchangeSegment = kind === 'index' ? 'IDX_I' : 'NSE_EQ';
+    const segment: ExchangeSegment =
+      kind === 'index' ? 'IDX_I' : exchange === 'BSE' ? 'BSE_EQ' : 'NSE_EQ';
 
     instruments.push({
       securityId: row.securityId,
@@ -249,7 +259,7 @@ export function parseScripMaster(csv: string): ParseInstrumentsResult {
       dhanSymbol: row.ticker,
       name: row.name,
       kind,
-      exchange: 'NSE',
+      exchange,
       isin: kind === 'index' || row.isin === '' || row.isin === 'NA' ? null : row.isin,
       lotSize: row.lotSize,
       tickSize: tickSizePaise(row.tickSizeRaw, kind),
@@ -270,6 +280,10 @@ export async function listInstruments(http: DhanHttpClient): Promise<ParseInstru
 // Index — the lookup every request needs
 // ---------------------------------------------------------------------------
 
+function symbolKeyFor(symbol: string, kind: InstrumentKind, exchange: Exchange): string {
+  return `${exchange}:${kind}:${symbol.trim().toUpperCase()}`;
+}
+
 /**
  * Bidirectional symbol ⇄ security id lookup.
  *
@@ -285,8 +299,9 @@ export class InstrumentIndex {
   constructor(instruments: readonly Instrument[], futures: readonly FuturesContract[] = []) {
     for (const instrument of instruments) {
       // Symbol collisions (a ticker listed under both EQ and BE) resolve to
-      // the first row seen, which in the published order is EQ.
-      const symbolKey = `${instrument.kind}:${instrument.symbol}`;
+      // the first row seen, which in the published order is EQ. The exchange
+      // is part of the key: RELIANCE on NSE and on BSE are two listings.
+      const symbolKey = symbolKeyFor(instrument.symbol, instrument.kind, instrument.exchange);
       if (!this.bySymbol.has(symbolKey)) this.bySymbol.set(symbolKey, instrument);
       this.byKey.set(securityKey(instrument), instrument);
     }
@@ -314,14 +329,14 @@ export class InstrumentIndex {
     return [...this.futuresBySymbol.keys()];
   }
 
-  /** `RELIANCE` / `equity` → the instrument, or null when unknown. */
-  lookup(symbol: string, kind: InstrumentKind): Instrument | null {
-    return this.bySymbol.get(`${kind}:${symbol.trim().toUpperCase()}`) ?? null;
+  /** `RELIANCE` / `equity` / `NSE` → the instrument, or null when unknown. */
+  lookup(symbol: string, kind: InstrumentKind, exchange: Exchange = 'NSE'): Instrument | null {
+    return this.bySymbol.get(symbolKeyFor(symbol, kind, exchange)) ?? null;
   }
 
   /** The request ref for a symbol, or null when unknown. */
-  refFor(symbol: string, kind: InstrumentKind): SecurityRef | null {
-    const instrument = this.lookup(symbol, kind);
+  refFor(symbol: string, kind: InstrumentKind, exchange: Exchange = 'NSE'): SecurityRef | null {
+    const instrument = this.lookup(symbol, kind, exchange);
     return instrument === null
       ? null
       : { segment: instrument.segment, securityId: instrument.securityId };

@@ -1,4 +1,4 @@
-import { formatPaise } from '@equitywise/shared';
+import { formatPaise, isBseEquityRow, isEquityIsin } from '@equitywise/shared';
 import { describe, expect, it } from 'vitest';
 import {
   appIdHash,
@@ -13,6 +13,7 @@ import { parseSymbolMaster, splitCsvLine } from '../instruments.js';
 import { DEFAULT_LIMITS, DOCUMENTED_LIMITS, RateLimiter } from '../rate-limit.js';
 import {
   encodeFyersSymbol,
+  exchangeOfFyersSymbol,
   internalSymbolFor,
   isFyersSymbol,
   parseFyersSymbol,
@@ -34,12 +35,51 @@ describe('symbols', () => {
       symbol: 'RELIANCE',
       kind: 'equity',
       exchange: 'NSE',
+      group: null,
     });
     expect(parseFyersSymbol('NSE:NIFTY50-INDEX')).toEqual({
       symbol: 'NIFTY50',
       kind: 'index',
       exchange: 'NSE',
+      group: null,
     });
+  });
+
+  it('parses BSE equities by their group suffix, and BSE indices', () => {
+    expect(parseFyersSymbol('BSE:RELIANCE-A')).toEqual({
+      symbol: 'RELIANCE',
+      kind: 'equity',
+      exchange: 'BSE',
+      group: 'A',
+    });
+    expect(parseFyersSymbol('BSE:AAIL-XT')).toMatchObject({ symbol: 'AAIL', group: 'XT' });
+    // A scrip id with its own hyphen: the group is after the LAST one.
+    expect(parseFyersSymbol('BSE:BAJAJ-AUTO-A')).toMatchObject({
+      symbol: 'BAJAJ-AUTO',
+      group: 'A',
+    });
+    expect(parseFyersSymbol('BSE:SENSEX-INDEX')).toEqual({
+      symbol: 'SENSEX',
+      kind: 'index',
+      exchange: 'BSE',
+      group: null,
+    });
+  });
+
+  it('builds BSE symbols, requiring the group for an equity', () => {
+    expect(toFyersSymbol('RELIANCE', 'equity', 'BSE', 'A')).toBe('BSE:RELIANCE-A');
+    expect(toFyersSymbol('BAJAJ-AUTO', 'equity', 'BSE', 't')).toBe('BSE:BAJAJ-AUTO-T');
+    expect(toFyersSymbol('SENSEX', 'index', 'BSE')).toBe('BSE:SENSEX-INDEX');
+    expect(() => toFyersSymbol('RELIANCE', 'equity', 'BSE')).toThrow(RangeError);
+    expect(exchangeOfFyersSymbol('BSE:RELIANCE-A')).toBe('BSE');
+    expect(exchangeOfFyersSymbol('NSE:RELIANCE-EQ')).toBe('NSE');
+  });
+
+  it('maps numbered BSE indices to names both providers share', () => {
+    expect(internalSymbolFor('BSE:500-INDEX')).toBe('BSE500');
+    expect(toFyersSymbol('BSE500', 'index', 'BSE')).toBe('BSE:500-INDEX');
+    // The alias is exchange-scoped: an NSE index named BSE500 is not rewritten.
+    expect(toFyersSymbol('BSE500', 'index', 'NSE')).toBe('NSE:BSE500-INDEX');
   });
 
   it('round-trips', () => {
@@ -52,8 +92,16 @@ describe('symbols', () => {
     }
   });
 
-  it('rejects non-NSE and malformed symbols', () => {
-    for (const bad of ['BSE:SENSEX-INDEX', 'RELIANCE', 'NSE:RELIANCE', 'NSE:NIFTY-FUT', '']) {
+  it('rejects other exchanges and malformed symbols', () => {
+    for (const bad of [
+      'MCX:GOLD-FUT',
+      'RELIANCE',
+      'NSE:RELIANCE',
+      'NSE:NIFTY-FUT',
+      'BSE:RELIANCE',
+      'BSE:-A',
+      '',
+    ]) {
       expect(() => parseFyersSymbol(bad), bad).toThrow(RangeError);
       expect(isFyersSymbol(bad), bad).toBe(false);
     }
@@ -245,6 +293,7 @@ describe('parseSymbolMaster', () => {
       lotSize: 1,
       tickSize: 10,
       scripCode: 2885,
+      group: null,
       lastUpdated: '2026-08-20',
     });
   });
@@ -277,6 +326,56 @@ describe('parseSymbolMaster', () => {
 
   it('ignores blank lines', () => {
     expect(parseSymbolMaster('\n\n  \n').instruments).toHaveLength(0);
+  });
+});
+
+describe('parseSymbolMaster — BSE', () => {
+  // Real rows from BSE_CM.csv, 2026-09-25: equities in groups A/T/B/X, an MF
+  // unit and a debenture that share type 50 and group B/F, an SME listing,
+  // two indices, and scrip ids containing `-` and `&`.
+  const { instruments, skipped } = parseSymbolMaster(fixture('bse-cm-sample.csv'));
+  const bySymbol = new Map(instruments.map((i) => [i.symbol, i]));
+
+  it('keeps main-board equities of every group, with exchange, group and scrip code', () => {
+    expect(bySymbol.get('RELIANCE')).toMatchObject({
+      fyersSymbol: 'BSE:RELIANCE-A',
+      exchange: 'BSE',
+      kind: 'equity',
+      group: 'A',
+      scripCode: 500325,
+      isin: 'INE002A01018',
+    });
+    expect(bySymbol.get('3IINFOLTD')?.group).toBe('T');
+    expect(bySymbol.get('20MICRONS')?.group).toBe('B');
+    expect(bySymbol.get('7SEASL')?.group).toBe('X');
+    expect(bySymbol.get('BAJAJ-AUTO')?.group).toBe('A');
+    expect(bySymbol.get('M&M')?.scripCode).toBe(500520);
+  });
+
+  it('drops fund units, debt and SME rows that share the equity type code', () => {
+    expect(bySymbol.has('08ABB')).toBe(false); // INF… MF unit in group B
+    expect(bySymbol.has('001HCCL29')).toBe(false); // debenture, group F
+    expect(bySymbol.has('3BFILMS')).toBe(false); // SME, group M
+    expect(skipped).toEqual([]);
+  });
+
+  it('keeps BSE indices under names shared with Dhan', () => {
+    expect(bySymbol.get('SENSEX')).toMatchObject({ kind: 'index', exchange: 'BSE', isin: null });
+    expect(bySymbol.get('BSE500')).toMatchObject({ kind: 'index', fyersSymbol: 'BSE:500-INDEX' });
+  });
+});
+
+describe('isEquityIsin / isBseEquityRow', () => {
+  it('recognises equity-share ISINs only', () => {
+    expect(isEquityIsin('INE002A01018')).toBe(true);
+    expect(isEquityIsin('INF204KB17R6')).toBe(false);
+    expect(isEquityIsin('INE549A08963')).toBe(false); // debenture
+    expect(isEquityIsin('')).toBe(false);
+  });
+
+  it('needs a main-board group as well', () => {
+    expect(isBseEquityRow('INE002A01018', 'A')).toBe(true);
+    expect(isBseEquityRow('INE0TE101010', 'M')).toBe(false);
   });
 });
 

@@ -15,6 +15,8 @@ export interface InstrumentRow {
   readonly name: string;
   readonly kind: string;
   readonly exchange: string;
+  readonly isin: string | null;
+  readonly series: string | null;
   readonly active: boolean;
 }
 
@@ -73,8 +75,10 @@ export async function syncInstruments(
     upserted += result.length;
   }
 
-  // Anything this provider knew about before but did not list this time.
-  const seen = listing.map((row) => row.symbol);
+  // Anything this provider knew about before but did not list this time —
+  // compared per LISTING, so RELIANCE on NSE does not keep a delisted BSE
+  // RELIANCE alive, or the reverse.
+  const seen = listing.map((row) => `${row.exchange}:${row.symbol}`);
   const deactivated = await db
     .update(instruments)
     .set({ active: false })
@@ -82,12 +86,75 @@ export async function syncInstruments(
       and(
         eq(instruments.providerId, providerId),
         eq(instruments.active, true),
-        sql`${instruments.symbol} <> ALL(${seen})`,
+        sql`(${instruments.exchange} || ':' || ${instruments.symbol}) <> ALL(${seen})`,
       ),
     )
     .returning({ id: instruments.id });
 
   return { upserted, deactivated: deactivated.length };
+}
+
+/** One exchange listing, as an exchange file (bhavcopy) describes it. */
+export interface ListingUpsert {
+  readonly symbol: string;
+  readonly name: string;
+  readonly exchange: string;
+  readonly isin: string;
+  /** BSE scrip code, NSE token. */
+  readonly exchangeCode: string;
+  /** NSE series or BSE group. */
+  readonly series: string;
+}
+
+/**
+ * Creates or refreshes equity listings from an exchange file, returning each
+ * listing's id keyed by `exchangeCode`.
+ *
+ * Metadata only — name, ISIN, code, series, last seen. Tick size and lot size
+ * are left as the provider sync set them (the file carries neither); a new
+ * row starts at 1 paise / 1 share until it does. Never deactivates: one
+ * day's file lists only names that TRADED, and a quiet day is not a delisting.
+ */
+export async function upsertListings(
+  db: Database,
+  providerId: string,
+  listings: readonly ListingUpsert[],
+): Promise<Map<string, number>> {
+  const ids = new Map<string, number>();
+  for (let i = 0; i < listings.length; i += UPSERT_CHUNK) {
+    const chunk = listings.slice(i, i + UPSERT_CHUNK).map((row) => ({
+      symbol: row.symbol,
+      name: row.name,
+      kind: 'equity',
+      exchange: row.exchange,
+      isin: row.isin,
+      exchangeCode: row.exchangeCode,
+      series: row.series,
+      lotSize: 1,
+      tickSize: 1,
+      providerRef: null,
+      providerId,
+    }));
+    if (chunk.length === 0) continue;
+    const result = await db
+      .insert(instruments)
+      .values(chunk)
+      .onConflictDoUpdate({
+        target: [instruments.symbol, instruments.exchange],
+        set: {
+          isin: sql`excluded.isin`,
+          exchangeCode: sql`excluded.exchange_code`,
+          series: sql`excluded.series`,
+          active: sql`true`,
+          lastSeenAt: sql`now()`,
+        },
+      })
+      .returning({ id: instruments.id, exchangeCode: instruments.exchangeCode });
+    for (const row of result) {
+      if (row.exchangeCode !== null) ids.set(row.exchangeCode, row.id);
+    }
+  }
+  return ids;
 }
 
 /** Resolves symbols to ids in one query. Missing symbols are simply absent. */
@@ -161,6 +228,8 @@ export async function listActiveInstruments(
       name: instruments.name,
       kind: instruments.kind,
       exchange: instruments.exchange,
+      isin: instruments.isin,
+      series: instruments.series,
       active: instruments.active,
     })
     .from(instruments)

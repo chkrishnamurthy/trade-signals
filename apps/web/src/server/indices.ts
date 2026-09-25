@@ -24,6 +24,8 @@ const constituentSchema = z.object({
 const indexSchema = z.object({
   name: z.string().min(1),
   indexSymbol: z.string().min(1),
+  /** The index's exchange, and so its constituents' listing. Defaults to NSE. */
+  exchange: z.enum(['NSE', 'BSE']).default('NSE'),
   description: z.string().optional(),
   constituents: z.array(constituentSchema).min(1),
 });
@@ -32,7 +34,7 @@ const headlineSchema = z.object({
   symbol: z.string().min(1),
   name: z.string().min(1),
   kind: z.string().optional(),
-  /** Listing exchange. Defaults to NSE; BSE waits on adapter support. */
+  /** Listing exchange. Defaults to NSE. */
   exchange: z.enum(['NSE', 'BSE']).default('NSE'),
 });
 
@@ -47,6 +49,7 @@ export interface ResolvedConstituent extends InstrumentRef {
   readonly symbol: string;
   readonly name: string;
   readonly kind: 'equity';
+  readonly exchange: Exchange;
   readonly sector: string;
 }
 
@@ -94,12 +97,13 @@ async function loadAll(): Promise<Map<string, ResolvedIndex>> {
     resolved.set(key.toLowerCase(), {
       key: key.toLowerCase(),
       name: config.name,
-      ref: { symbol: config.indexSymbol, kind: 'index' },
+      ref: { symbol: config.indexSymbol, kind: 'index', exchange: config.exchange },
       description: config.description ?? null,
       constituents: config.constituents.map((c) => ({
         symbol: c.symbol,
         name: c.name.trim(),
         kind: 'equity' as const,
+        exchange: config.exchange,
         sector: c.sector ?? 'Other',
       })),
     });

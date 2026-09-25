@@ -62,7 +62,7 @@ export async function GET(
     const now = new Date();
     const fetched = await getBars(
       {
-        ref: { symbol: resolved.symbol, kind: resolved.kind },
+        ref: { symbol: resolved.symbol, kind: resolved.kind, exchange: resolved.exchange },
         resolution: spec.resolution,
         from: new Date(now.getTime() - spec.days * 86_400_000),
         to: now,

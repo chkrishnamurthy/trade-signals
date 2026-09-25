@@ -1,7 +1,11 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { Button } from '@/components/ui/button';
 import { DEFAULT_COLUMN_IDS } from '@/lib/watchlist-columns';
-import { WATCHLIST_LISTS, WATCHLIST_ROWS } from '@/stories/fixtures/watchlist';
+import {
+  WATCHLIST_LISTS,
+  WATCHLIST_ROWS,
+  WATCHLIST_ROWS_MULTI_EXCHANGE,
+} from '@/stories/fixtures/watchlist';
 import { WatchlistTable } from './watchlist-table';
 
 /**
@@ -53,6 +57,20 @@ export const Ready: Story = {
  */
 export const Mobile: Story = {
   args: { rows: WATCHLIST_ROWS, status: 'ready' },
+  globals: { viewport: { value: 'mobile', isRotated: false } },
+  parameters: { layout: 'fullscreen' },
+};
+
+/**
+ * One company on both exchanges is two rows, each with its own price; a
+ * BSE-only trade-for-trade name carries the low-liquidity warning.
+ */
+export const MultiExchange: Story = {
+  args: { rows: WATCHLIST_ROWS_MULTI_EXCHANGE, status: 'ready' },
+};
+
+export const MultiExchangeMobile: Story = {
+  args: { rows: WATCHLIST_ROWS_MULTI_EXCHANGE, status: 'ready' },
   globals: { viewport: { value: 'mobile', isRotated: false } },
   parameters: { layout: 'fullscreen' },
 };

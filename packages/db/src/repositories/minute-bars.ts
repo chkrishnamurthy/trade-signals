@@ -75,6 +75,7 @@ export async function signalUniverseInstruments(db: Database) {
       id: instruments.id,
       symbol: instruments.symbol,
       kind: instruments.kind,
+      exchange: instruments.exchange,
       tickSize: instruments.tickSize,
     })
     .from(instruments)

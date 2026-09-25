@@ -183,6 +183,13 @@
       "when": 1789891200000,
       "tag": "0025_google_oauth",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1790380800000,
+      "tag": "0026_multi_exchange_listing_codes",
+      "breakpoints": true
     }
   ]
 }

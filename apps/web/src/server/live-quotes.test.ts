@@ -100,6 +100,7 @@ function fakeProvider(options: { streaming: boolean }) {
     for (const request of socket.requests) {
       request.onTick({
         symbol,
+        exchange: 'NSE',
         ltp,
         lastTradedAt: null,
         exchangeFeedAt: new Date('2026-09-14T04:00:01Z'),

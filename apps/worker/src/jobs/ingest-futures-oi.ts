@@ -162,7 +162,11 @@ export async function ingestFuturesOi(
     const source = context.providerIdFor('derivatives');
     const universe = options.symbols ?? (await provider.listDerivativeUnderlyings());
     const active = await listActiveInstruments(db, 'equity');
-    const idBySymbol = new Map(active.map((row) => [row.symbol, row.id]));
+    // Stock futures are NSE F&O: key only NSE listings, never a BSE row that
+    // shares the symbol.
+    const idBySymbol = new Map(
+      active.filter((row) => row.exchange === 'NSE').map((row) => [row.symbol, row.id]),
+    );
     const range = { from: new Date(now.getTime() - WINDOW_DAYS * 86_400_000), to: now };
     requested = universe.length;
     log.info('starting', { symbols: universe.length, from: range.from.toISOString() });

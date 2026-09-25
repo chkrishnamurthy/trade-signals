@@ -121,6 +121,18 @@ const CELLS: Record<string, (row: WatchlistRowDto) => ReactNode> = {
       <Badge variant="outline" size="sm" className="font-normal text-muted-foreground">
         {row.exchange}
       </Badge>
+      {row.lowLiquidity && (
+        <Badge
+          variant="warning"
+          size="sm"
+          className="font-normal"
+          title={`Trade-for-trade / surveillance listing${
+            row.series === null ? '' : ` (${row.exchange} ${row.series})`
+          }: thinly traded, so volume and breakout readings are less reliable`}
+        >
+          Low liquidity
+        </Badge>
+      )}
       {row.indicatorDate === null && (
         <Badge
           variant="outline"

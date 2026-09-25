@@ -93,6 +93,15 @@ describe('instruments', () => {
       lotSize: 1,
       tickSize: 10,
       providerRef: 'NSE_EQ:2885',
+      exchangeCode: null,
+      series: 'EQ',
+    });
+    // The BSE listing of the same company is a separate instrument, whose
+    // exchange code is BSE's scrip code.
+    expect(all.find((i) => i.symbol === 'RELIANCE' && i.exchange === 'BSE')).toMatchObject({
+      exchangeCode: '500325',
+      series: 'A',
+      providerRef: 'BSE_EQ:500325',
     });
     expect(all.find((i) => i.symbol === 'NIFTY50')?.kind).toBe('index');
     expect(JSON.stringify(all)).not.toMatch(/securityId|dhanSymbol/);
@@ -380,6 +389,28 @@ describe('fetchQuotes', () => {
     expect(JSON.parse(stub.bodies[0] ?? '{}')).toEqual({ NSE_EQ: [2885, 11915], IDX_I: [13] });
   });
 
+  it('keeps the NSE and BSE listings of one company apart, keyed by listing key', async () => {
+    // The same RELIANCE payload, echoed under BSE_EQ:500325 as well.
+    const body = jsonFixture<{ data: { NSE_EQ: Record<string, unknown> } }>('quote.json');
+    const reliance = body.data.NSE_EQ['2885'];
+    const both = { ...body, data: { ...body.data, BSE_EQ: { '500325': reliance } } };
+    const { p, stub } = provider({ '/v2/marketfeed/quote': { body: both } });
+
+    const result = await p.fetchQuotes([
+      { symbol: 'RELIANCE', kind: 'equity' },
+      { symbol: 'RELIANCE', kind: 'equity', exchange: 'BSE' },
+      { symbol: 'NOSUCH', kind: 'equity', exchange: 'BSE' },
+    ]);
+
+    expect(JSON.parse(stub.bodies[0] ?? '{}')).toEqual({ NSE_EQ: [2885], BSE_EQ: [500325] });
+    expect(result.quotes.get('RELIANCE')).toMatchObject({ symbol: 'RELIANCE', exchange: 'NSE' });
+    expect(result.quotes.get('BSE:RELIANCE')).toMatchObject({
+      symbol: 'RELIANCE',
+      exchange: 'BSE',
+    });
+    expect(result.missing).toEqual(['BSE:NOSUCH']);
+  });
+
   it('asks nothing for an empty list', async () => {
     const { p, stub } = provider({});
     expect(await p.fetchQuotes([])).toEqual({ quotes: new Map(), missing: [] });
@@ -617,8 +648,22 @@ describe('streamTicks', () => {
       volume: 0,
     });
     expect(ticks).toEqual([
-      { symbol: 'RELIANCE', ltp: 124555, lastTradedAt: at, exchangeFeedAt: at, volumeToday: null },
-      { symbol: 'NIFTY50', ltp: 2321760, lastTradedAt: at, exchangeFeedAt: at, volumeToday: 0 },
+      {
+        symbol: 'RELIANCE',
+        exchange: 'NSE',
+        ltp: 124555,
+        lastTradedAt: at,
+        exchangeFeedAt: at,
+        volumeToday: null,
+      },
+      {
+        symbol: 'NIFTY50',
+        exchange: 'NSE',
+        ltp: 2321760,
+        lastTradedAt: at,
+        exchangeFeedAt: at,
+        volumeToday: 0,
+      },
     ]);
     expect(subscription?.lastMessageAt()).not.toBeNull();
 

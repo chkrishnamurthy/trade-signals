@@ -9,9 +9,13 @@ import { API_ROUTES } from '@/lib/api-routes';
 
 interface SearchHit {
   readonly symbol: string;
+  /** Listing key: `RELIANCE` (NSE) or `BSE:7SEASL`. What a selection opens. */
+  readonly key?: string;
   readonly name: string;
   readonly kind: 'equity' | 'index';
   readonly exchange: string;
+  /** Every exchange the company trades on, primary first. */
+  readonly listings?: readonly string[];
 }
 
 /**
@@ -111,15 +115,15 @@ export function StockSearch({ onSelect }: { onSelect: (symbol: string) => void }
         ) : (
           <ul>
             {results.map((hit) => (
-              <li key={hit.symbol}>
+              <li key={hit.key ?? hit.symbol}>
                 <button
                   type="button"
-                  onClick={() => choose(hit.symbol)}
+                  onClick={() => choose(hit.key ?? hit.symbol)}
                   className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-accent focus-visible:bg-accent"
                 >
                   <StockIdentity symbol={hit.symbol} name={hit.name} />
                   <Badge variant="secondary" size="sm" className="shrink-0 uppercase">
-                    {hit.kind === 'index' ? 'Index' : hit.exchange}
+                    {hit.kind === 'index' ? 'Index' : (hit.listings ?? [hit.exchange]).join(' · ')}
                   </Badge>
                 </button>
               </li>

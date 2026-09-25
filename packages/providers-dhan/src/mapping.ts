@@ -6,6 +6,7 @@ import type {
 } from '@equitywise/dhan';
 import type {
   Bar,
+  Exchange,
   FuturesOiBar,
   Instrument,
   MarketPhase,
@@ -80,12 +81,16 @@ export function toInstrument(instrument: DhanInstrument): Instrument {
     tickSize: instrument.tickSize,
     // Kept for rename-resilient ingestion; opaque above this line.
     providerRef: `${instrument.segment}:${instrument.securityId}`,
+    // On BSE_EQ the security id IS the exchange's scrip code (500325).
+    exchangeCode: instrument.segment === 'BSE_EQ' ? instrument.securityId : null,
+    series: instrument.series,
   };
 }
 
-export function toQuote(symbol: string, quote: DhanQuote): Quote {
+export function toQuote(symbol: string, exchange: Exchange, quote: DhanQuote): Quote {
   return {
     symbol,
+    exchange,
     ltp: quote.ltp,
     change: quote.change,
     changePercent: quote.changePercent,

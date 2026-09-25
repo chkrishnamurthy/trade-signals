@@ -37,6 +37,13 @@ export interface WatchlistRowDto {
   readonly symbol: string;
   readonly name: string;
   readonly exchange: string;
+  /** NSE series (`EQ`, `BE`…) or BSE group (`A`, `T`…); null when not yet known. */
+  readonly series: string | null;
+  /**
+   * Trade-for-trade or surveillance listing (BSE T/XT/Z/ZP, NSE BE/BZ): thin
+   * trading, so its signal is shown with a low-liquidity warning (plan D4).
+   */
+  readonly lowLiquidity: boolean;
   readonly sector: string | null;
   /** The user's own reason for watching. Never generated. */
   readonly note: string | null;
@@ -104,6 +111,7 @@ export interface WatchlistRowDto {
  * close, the indicators — comes from the polled detail and stays put.
  */
 export interface LiveQuoteDto {
+  /** Listing key: the bare symbol for NSE (`RELIANCE`), `BSE:RELIANCE` for BSE. */
   readonly symbol: string;
   /** Last traded price, paise. */
   readonly ltp: number;

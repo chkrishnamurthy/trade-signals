@@ -81,7 +81,7 @@ export function IndexStripView({
                 ? SKELETON_SLOTS.map((slot) => <IndexCellSkeleton key={slot} />)
                 : state.data.indices.map((index) => (
                     <IndexCell
-                      key={index.symbol}
+                      key={`${index.exchange}:${index.symbol}`}
                       index={index}
                       stale={state.data.stale !== undefined}
                       className="snap-start"
@@ -101,7 +101,7 @@ export function IndexStripView({
 /**
  * Where the levels are coming from, in one honest phrase. "Live" is claimed
  * only while ticks are actually streaming, exactly as the watchlist page does.
- * Prefixed "NSE" so it does not read as a duplicate of a page's own Live badge;
+ * Prefixed with the exchanges (both keep the same session) so it does not read as a duplicate of a page's own Live badge;
  * a phone gets the one-word form and no clock.
  */
 function StripStatus({
@@ -131,22 +131,28 @@ function statusLabel(
   if (data.stale !== undefined) {
     return { long: `Delayed · last update ${fmt.istTime(data.asOf)} IST`, brief: 'Delayed' };
   }
-  if (liveState === 'streaming') return { long: 'NSE · Live', brief: 'Live' };
+  if (liveState === 'streaming') return { long: 'NSE & BSE · Live', brief: 'Live' };
   if (liveState === 'polling') {
-    return { long: 'NSE · Updating every few seconds', brief: 'Updating' };
+    return { long: 'NSE & BSE · Updating every few seconds', brief: 'Updating' };
   }
   return PHASE_LABEL[data.market.phase](data);
 }
 
 const PHASE_LABEL: Record<MarketPhase, (data: IndexStripDto) => { long: string; brief: string }> = {
-  open: () => ({ long: 'NSE · Connecting…', brief: 'Connecting' }),
-  pre_open: () => ({ long: 'NSE · Pre-open · indicative until 09:15 IST', brief: 'Pre-open' }),
-  closing_auction: () => ({ long: 'NSE · Closing auction', brief: 'Auction' }),
+  open: () => ({ long: 'NSE & BSE · Connecting…', brief: 'Connecting' }),
+  pre_open: () => ({
+    long: 'NSE & BSE · Pre-open · indicative until 09:15 IST',
+    brief: 'Pre-open',
+  }),
+  closing_auction: () => ({ long: 'NSE & BSE · Closing auction', brief: 'Auction' }),
   post_close: (data) => ({
-    long: `NSE · At close · ${fmt.istDate(latestAt(data))}`,
+    long: `NSE & BSE · At close · ${fmt.istDate(latestAt(data))}`,
     brief: 'Closed',
   }),
-  closed: (data) => ({ long: `NSE · At close · ${fmt.istDate(latestAt(data))}`, brief: 'Closed' }),
+  closed: (data) => ({
+    long: `NSE & BSE · At close · ${fmt.istDate(latestAt(data))}`,
+    brief: 'Closed',
+  }),
   unknown: (data) => ({ long: `As of ${fmt.istTime(data.asOf)} IST`, brief: 'As of' }),
 };
 

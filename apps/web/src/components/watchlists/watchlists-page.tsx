@@ -39,6 +39,7 @@ import {
   applyWatchlistFilters,
   removeWatchlistFilter,
 } from '@/lib/watchlist-filters';
+import { rowListingKey } from '@/lib/watchlist-live';
 import { exchangesIn, sectorsIn, sortRows, summarise, toggleSort } from '@/lib/watchlist-summary';
 import type { SavedViewDto, WatchlistFilterStateDto, WatchlistRowDto } from '@/lib/watchlist-types';
 import { getQuickView } from '@/lib/watchlist-views';
@@ -263,7 +264,7 @@ export function WatchlistsPage() {
                 <RefreshCwIcon className={isRefreshing ? 'animate-spin' : undefined} />
               </Button>
               <AddStocks
-                existingSymbols={allRows.map((row) => row.symbol)}
+                existingSymbols={allRows.map(rowListingKey)}
                 onAdd={async (symbols) => {
                   const result = await addSymbols(symbols);
                   return result.ok ? { ok: true } : { ok: false, error: result.error.error };

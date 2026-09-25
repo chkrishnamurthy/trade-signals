@@ -60,7 +60,7 @@ export async function getStockDetail(rawSymbol: string): Promise<StockDetailPage
   if (isDatabaseConfigured()) {
     try {
       const db = getDatabase();
-      const inst = await getInstrumentBySymbol(db, resolved.symbol);
+      const inst = await getInstrumentBySymbol(db, resolved.symbol, resolved.exchange);
 
       if (inst !== null) {
         isin = inst.isin;
@@ -103,7 +103,7 @@ export async function getStockDetail(rawSymbol: string): Promise<StockDetailPage
     symbol: resolved.symbol,
     name: resolved.name,
     kind: resolved.kind === 'index' ? 'index' : 'equity',
-    exchange: 'NSE',
+    exchange: resolved.exchange,
     isin,
     sector: resolved.sector || 'Equities',
     tradingDate: indicators?.tradingDate ?? null,

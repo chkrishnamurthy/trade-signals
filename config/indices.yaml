@@ -14,15 +14,19 @@
 # adapters (Fyers: NSE:<ticker>-INDEX with the alias table in
 # packages/fyers/src/symbols.ts; Dhan: by ticker via packages/dhan/src/symbols.ts).
 #
-# `exchange` defaults to NSE. BSE indices (SENSEX) wait on BSE support in the
-# symbol layers — until then NIFTY NEXT 50 holds the second slot.
+# `exchange` defaults to NSE. BSE indices are named as both providers' masters
+# name them (verified 2026-09-25): SENSEX, BANKEX, BSE100/BSE200/BSE500 —
+# Fyers' numbered BSE:500-INDEX is aliased in packages/fyers/src/symbols.ts.
+# SENSEX holds the second slot now that BSE is supported; NIFTY NEXT 50 moved
+# out of the strip (its data is unaffected — it is still an index block below
+# if one is configured, and still searchable).
 # `kind: volatility` inverts the card's colour: a VIX rise is risk-off, not a gain.
 #
 # NIFTY SMALLCAP 100 is deliberately absent: its ticker is not yet verified on
 # either provider's symbol master. Add it here once it is; nothing else changes.
 headlineIndices:
   - { symbol: NIFTY50,        name: NIFTY 50,         exchange: NSE }
-  - { symbol: NIFTYNEXT50,    name: NIFTY NEXT 50,    exchange: NSE }
+  - { symbol: SENSEX,         name: SENSEX,           exchange: BSE }
   - { symbol: NIFTYBANK,      name: BANK NIFTY,       exchange: NSE }
   - { symbol: FINNIFTY,       name: FIN NIFTY,        exchange: NSE }
   - { symbol: NIFTYMIDCAP100, name: MIDCAP 100,       exchange: NSE }

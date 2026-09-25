@@ -21,7 +21,15 @@ import {
   saveWatchlistView,
   setDefaultWatchlist,
 } from '@equitywise/db';
-import type { InstrumentRef, Quote, QuotesResult } from '@equitywise/market-data';
+import {
+  type Exchange,
+  type InstrumentRef,
+  isExchange,
+  listingKey,
+  type Quote,
+  type QuotesResult,
+} from '@equitywise/market-data';
+import { isTradeForTrade } from '@equitywise/shared';
 import type { SignalDirection } from '@/lib/dashboard-types';
 import { type ReturnCloses, returnAnchors } from '@/lib/return-windows';
 import type {
@@ -178,7 +186,7 @@ export async function getWatchlistDetail(id: number): Promise<WatchlistDetailDto
           .catch(() => ({
             // Prices unavailable. The table still renders; the UI labels it.
             quotes: new Map<string, Quote>(),
-            missingQuotes: members.map((member) => member.symbol),
+            missingQuotes: members.map(memberKey),
             quotesStale: true,
           }));
 
@@ -198,7 +206,7 @@ export async function getWatchlistDetail(id: number): Promise<WatchlistDetailDto
   const { quotes, missingQuotes, quotesStale } = quoteResult;
 
   const rows: WatchlistRowDto[] = members.map((member) => {
-    const quote = quotes.get(member.symbol) ?? null;
+    const quote = quotes.get(memberKey(member)) ?? null;
     const daily = indicators.get(member.instrumentId) ?? null;
 
     return {
@@ -206,6 +214,8 @@ export async function getWatchlistDetail(id: number): Promise<WatchlistDetailDto
       symbol: member.symbol,
       name: member.name,
       exchange: member.exchange,
+      series: member.series,
+      lowLiquidity: isTradeForTrade(member.exchange, member.series),
       sector: sectors.get(member.symbol) ?? null,
       note: member.note,
       addedAt: member.addedAt.toISOString(),
@@ -296,16 +306,29 @@ function toReturnCloses(closes: Map<string, number> | undefined): ReturnCloses {
   return closes === undefined ? {} : Object.fromEntries(closes);
 }
 
+/** A stored exchange as ours; a row predating multi-exchange support is NSE. */
+function memberExchange(member: { exchange: string }): Exchange {
+  return isExchange(member.exchange) ? member.exchange : 'NSE';
+}
+
+/** A member's listing key — how quotes and live ticks name it. */
+function memberKey(member: { symbol: string; exchange: string }): string {
+  return listingKey({ symbol: member.symbol, exchange: memberExchange(member) });
+}
+
+function memberRef(member: { symbol: string; kind: string; exchange: string }): InstrumentRef {
+  return {
+    symbol: member.symbol,
+    exchange: memberExchange(member),
+    kind: member.kind === 'index' ? 'index' : 'equity',
+  };
+}
+
 async function fetchQuotesFor(
-  members: readonly { symbol: string; kind: string }[],
+  members: readonly { symbol: string; kind: string; exchange: string }[],
 ): Promise<QuotesResult> {
   const provider = await getProvider();
-  const refs: InstrumentRef[] = members.map((member) => ({
-    symbol: member.symbol,
-    exchange: 'NSE',
-    kind: member.kind === 'index' ? 'index' : 'equity',
-  }));
-  return provider.fetchQuotes(refs);
+  return provider.fetchQuotes(members.map(memberRef));
 }
 
 function toSavedViewDto(view: {
@@ -340,11 +363,7 @@ export async function getWatchlistLiveRefs(id: number): Promise<InstrumentRef[] 
   if (!owned.some((entry) => entry.id === id)) return null;
 
   const members = await getWatchlistMembers(db, ownerId, id);
-  return members.map((member) => ({
-    symbol: member.symbol,
-    exchange: 'NSE',
-    kind: member.kind === 'index' ? 'index' : 'equity',
-  }));
+  return members.map(memberRef);
 }
 
 export interface DefaultMembersDto {
@@ -425,7 +444,11 @@ export interface AddSymbolsResult {
 /**
  * Adds symbols to a watchlist, creating instrument rows as needed.
  *
- * A watchlist may hold any NSE name, including ones outside the worker's
+ * Each entry is a symbol or a listing key: `RELIANCE` adds the company's
+ * primary listing (NSE when it has one), `BSE:RELIANCE` the BSE listing.
+ * Results name each entry by its listing key.
+ *
+ * A watchlist may hold any NSE or BSE name, including ones outside the worker's
  * ingestion universe, so the instrument row often does not exist yet.
  * `ensureInstruments` creates it; the row then has no candles and no
  * indicators, and the table shows a live quote with empty indicator columns —
@@ -438,7 +461,8 @@ export async function addSymbols(
   const db = getDatabase();
   const ownerId = await requireOwnerId();
 
-  const resolved: { symbol: string; name: string; kind: 'equity' | 'index' }[] = [];
+  const resolved: { symbol: string; name: string; kind: 'equity' | 'index'; exchange: Exchange }[] =
+    [];
   const unknown: string[] = [];
 
   for (const raw of symbols) {
@@ -449,21 +473,30 @@ export async function addSymbols(
       unknown.push(symbol);
       continue;
     }
-    resolved.push({ symbol: match.symbol, name: match.name, kind: match.kind });
+    resolved.push({
+      symbol: match.symbol,
+      name: match.name,
+      kind: match.kind,
+      exchange: match.exchange,
+    });
   }
 
   if (resolved.length === 0) return { added: [], duplicates: [], unknown };
 
   const provider = await getProvider().catch(() => null);
-  const ids = await ensureInstruments(db, provider?.id ?? 'fyers', resolved, 'NSE');
-
   const instrumentIds: number[] = [];
   const bySymbol = new Map<number, string>();
-  for (const entry of resolved) {
-    const id = ids.get(entry.symbol);
-    if (id === undefined) continue;
-    instrumentIds.push(id);
-    bySymbol.set(id, entry.symbol);
+  // Instrument rows are unique per (symbol, exchange), so each exchange is
+  // ensured on its own.
+  for (const exchange of new Set(resolved.map((entry) => entry.exchange))) {
+    const group = resolved.filter((entry) => entry.exchange === exchange);
+    const ids = await ensureInstruments(db, provider?.id ?? 'fyers', group, exchange);
+    for (const entry of group) {
+      const id = ids.get(entry.symbol);
+      if (id === undefined || bySymbol.has(id)) continue;
+      instrumentIds.push(id);
+      bySymbol.set(id, listingKey(entry));
+    }
   }
 
   const insertedIds = await addWatchlistItems(db, ownerId, watchlistId, instrumentIds);

@@ -31,6 +31,14 @@ export const instruments = pgTable(
     exchange: text().notNull().default('NSE'),
     /** Null for indices, which have no ISIN. */
     isin: text(),
+    /**
+     * The exchange's own code for the listing — BSE's 6-digit scrip code
+     * (`500325`). How BSE's bhavcopy, filings and deals name the security.
+     * Null for NSE listings and until the universe sync supplies it.
+     */
+    exchangeCode: text(),
+    /** NSE series (`EQ`, `BE`…) or BSE group (`A`, `B`, `T`, `X`, `Z`…). Null when unknown. */
+    series: text(),
     lotSize: integer().notNull().default(1),
     /** Minimum price increment, in PAISE. */
     tickSize: integer().notNull(),
@@ -56,6 +64,10 @@ export const instruments = pgTable(
     uniqueIndex('instruments_symbol_exchange_idx').on(table.symbol, table.exchange),
     index('instruments_active_idx').on(table.active).where(sql`${table.active}`),
     index('instruments_provider_ref_idx').on(table.providerId, table.providerRef),
+    index('instruments_exchange_code_idx')
+      .on(table.exchange, table.exchangeCode)
+      .where(sql`${table.exchangeCode} IS NOT NULL`),
+    index('instruments_isin_idx').on(table.isin).where(sql`${table.isin} IS NOT NULL`),
   ],
 );
 

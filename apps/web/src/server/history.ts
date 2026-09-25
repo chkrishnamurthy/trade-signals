@@ -50,7 +50,7 @@ export async function getBars(request: HistoryRequest, now = new Date()): Promis
   const { ref, resolution, from, to, includeForming = false } = request;
   const isDaily = resolution === '1d' || resolution === '1w';
   const validity = isDaily ? istDateKey(now) : String(Math.floor(now.getTime() / INTRADAY_TTL_MS));
-  const cacheKey = `${ref.symbol}|${ref.kind}|${resolution}|${istDateKey(from)}|${istDateKey(to)}|${includeForming}`;
+  const cacheKey = `${ref.exchange ?? 'NSE'}:${ref.symbol}|${ref.kind}|${resolution}|${istDateKey(from)}|${istDateKey(to)}|${includeForming}`;
 
   const hit = cache.get(cacheKey);
   if (hit !== undefined && hit.validity === validity) return hit.bars;

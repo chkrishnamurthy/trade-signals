@@ -45,7 +45,7 @@ function index(
 }
 
 const NIFTY = index('NIFTY50', 'NIFTY 50', 25_312_40, 25_169_55);
-const NEXT50 = index('NIFTYNEXT50', 'NIFTY NEXT 50', 68_412_15, 68_190_30);
+const SENSEX = index('SENSEX', 'SENSEX', 82_415_70, 82_109_25, { exchange: 'BSE' });
 const BANK = index('NIFTYBANK', 'BANK NIFTY', 55_612_90, 55_834_10);
 const FIN = index('FINNIFTY', 'FIN NIFTY', 26_187_90, 26_120_40);
 const MIDCAP = index('NIFTYMIDCAP100', 'MIDCAP 100', 58_920_45, 58_611_20);
@@ -53,7 +53,7 @@ const IT = index('NIFTYIT', 'NIFTY IT', 41_205_10, 41_598_75);
 const VIX = index('INDIAVIX', 'INDIA VIX', 12_89, 13_42, { display: 'volatility' });
 
 const LIVE: IndexStripDto = {
-  indices: [NIFTY, NEXT50, BANK, FIN, MIDCAP, IT, VIX],
+  indices: [NIFTY, SENSEX, BANK, FIN, MIDCAP, IT, VIX],
   market: { isOpen: true, phase: 'open' },
   asOf: '2026-09-18T09:02:10.000Z',
 };

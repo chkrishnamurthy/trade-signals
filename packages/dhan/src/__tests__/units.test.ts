@@ -159,6 +159,7 @@ describe('symbols', () => {
 
   it('leaves equity tickers alone', () => {
     expect(internalSymbolFor('RELIANCE', 'equity')).toBe('RELIANCE');
+    expect(internalSymbolFor('KALYANI$', 'equity')).toBe('KALYANI');
     expect(internalSymbolFor('BAJAJ-AUTO', 'equity')).toBe('BAJAJ-AUTO');
     expect(internalSymbolFor('M&M', 'equity')).toBe('M&M');
   });
@@ -183,26 +184,66 @@ describe('scrip master', () => {
     expect(tickSizePaise(0.05, 'index')).toBe(5);
   });
 
-  it('keeps NSE cash equities and indices, drops everything else', () => {
+  it('keeps NSE and BSE cash equities and indices, drops everything else', () => {
     const { instruments, skipped } = parseScripMaster(fixture('scrip-master-excerpt.csv'));
     expect(skipped).toEqual([]);
-    const symbols = instruments.map((i) => `${i.kind}:${i.symbol}`).sort();
+    const symbols = instruments.map((i) => `${i.exchange}:${i.kind}:${i.symbol}`).sort();
     expect(symbols).toEqual([
-      'equity:EMAMIPAP',
-      'equity:IDEA',
-      'equity:RELIANCE',
-      'equity:TCS',
-      'equity:YESBANK',
-      'index:INDIAVIX',
-      'index:NIFTY100',
-      'index:NIFTY50',
-      'index:NIFTYBANK',
-      'index:NIFTYMIDSELECT',
-      'index:NIFTYNEXT50',
+      'BSE:equity:3IINFOLTD',
+      'BSE:equity:RELIANCE',
+      'BSE:index:BANKEX',
+      'BSE:index:SENSEX',
+      'NSE:equity:EMAMIPAP',
+      'NSE:equity:IDEA',
+      'NSE:equity:RELIANCE',
+      'NSE:equity:TCS',
+      'NSE:equity:YESBANK',
+      'NSE:index:INDIAVIX',
+      'NSE:index:NIFTY100',
+      'NSE:index:NIFTY50',
+      'NSE:index:NIFTYBANK',
+      'NSE:index:NIFTYMIDSELECT',
+      'NSE:index:NIFTYNEXT50',
     ]);
-    // SME (SM series), BSE, and derivatives are out of scope, not malformed.
-    expect(symbols).not.toContain('equity:GOLDSTAR');
-    expect(symbols).not.toContain('equity:MCL');
+    // Out of scope, not malformed: NSE SME (SM series); BSE rows that are
+    // NSE-listed names permitted on BSE (series NS/NT, e.g. MCL, KALYANI$); a
+    // fund unit sharing group B (INF… ISIN); derivatives.
+    expect(symbols.some((s) => s.endsWith(':GOLDSTAR'))).toBe(false);
+    expect(symbols.some((s) => s.endsWith(':MCL'))).toBe(false);
+    expect(symbols.some((s) => s.endsWith(':KALYANI'))).toBe(false);
+    expect(symbols.some((s) => s.endsWith(':SENSEX1'))).toBe(false);
+  });
+
+  it('normalises a BSE equity: BSE_EQ segment, scrip code as security id, group as series', () => {
+    const { instruments } = parseScripMaster(fixture('scrip-master-excerpt.csv'));
+    const reliance = instruments.find((i) => i.symbol === 'RELIANCE' && i.exchange === 'BSE');
+    expect(reliance).toMatchObject({
+      securityId: '500325',
+      segment: 'BSE_EQ',
+      exchange: 'BSE',
+      isin: 'INE002A01018',
+      series: 'A',
+      tickSize: 5,
+    });
+    expect(instruments.find((i) => i.symbol === 'SENSEX')).toMatchObject({
+      segment: 'IDX_I',
+      securityId: '51',
+      exchange: 'BSE',
+      kind: 'index',
+    });
+  });
+
+  it('keeps the two RELIANCE listings apart in the index', () => {
+    const { instruments } = parseScripMaster(fixture('scrip-master-excerpt.csv'));
+    const index = new InstrumentIndex(instruments);
+    expect(index.refFor('RELIANCE', 'equity')).toEqual({ segment: 'NSE_EQ', securityId: '2885' });
+    expect(index.refFor('RELIANCE', 'equity', 'BSE')).toEqual({
+      segment: 'BSE_EQ',
+      securityId: '500325',
+    });
+    expect(index.refFor('SENSEX', 'index', 'BSE')).toEqual({ segment: 'IDX_I', securityId: '51' });
+    expect(index.refFor('SENSEX', 'index')).toBeNull();
+    expect(index.byRef({ segment: 'BSE_EQ', securityId: '500325' })?.exchange).toBe('BSE');
   });
 
   it('normalises the RELIANCE row exactly', () => {

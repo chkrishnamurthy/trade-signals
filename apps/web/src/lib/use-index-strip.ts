@@ -1,5 +1,6 @@
 'use client';
 
+import { listingKey } from '@equitywise/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { API_ROUTES } from './api-routes';
 import type { IndexSnapshotDto, IndexStripDto, MarketErrorDto } from './market-types';
@@ -42,7 +43,7 @@ export function applyIndexTicks(
   const bySymbol = new Map(quotes.map((quote) => [quote.symbol, quote]));
   let changed = false;
   const next = indices.map((index) => {
-    const quote = bySymbol.get(index.symbol);
+    const quote = bySymbol.get(listingKey(index));
     if (quote === undefined || quote.ltp === index.ltp) return index;
     changed = true;
     const previousClose = index.previousClose;

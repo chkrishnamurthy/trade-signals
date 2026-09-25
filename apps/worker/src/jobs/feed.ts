@@ -250,7 +250,11 @@ export function createFeedJob(
       instrumentBySymbol.clear();
       const refs: InstrumentRef[] = [];
       for (const item of universe) {
-        const instrument = instruments.find((i) => i.symbol === item.symbol && i.kind === 'equity');
+        // The intraday universe is an NSE index; a BSE listing of the same
+        // symbol is a different instrument and must not take its id.
+        const instrument = instruments.find(
+          (i) => i.symbol === item.symbol && i.kind === 'equity' && i.exchange === 'NSE',
+        );
         if (!instrument) continue;
         instrumentBySymbol.set(item.symbol, instrument.id);
         refs.push({ symbol: item.symbol, kind: 'equity' });

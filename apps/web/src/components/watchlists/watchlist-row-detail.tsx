@@ -19,6 +19,7 @@ import {
 import { Text } from '@/components/ui/typography';
 import { MarketChart } from '@/components/watchlists/chart';
 import { RETURN_WINDOWS } from '@/lib/return-windows';
+import { rowListingKey } from '@/lib/watchlist-live';
 import type { WatchlistRowDto, WatchlistSummaryDto } from '@/lib/watchlist-types';
 import { cellFor } from './watchlist-cells';
 
@@ -74,7 +75,7 @@ export function WatchlistRowDetail({
 
       {/* Chart first — the main attraction — with a short snapshot beside it. */}
       <div className="mt-3 grid grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr]">
-        <MarketChart symbol={row.symbol} title="Price" previousClose={row.previousClose} />
+        <MarketChart symbol={rowListingKey(row)} title="Price" previousClose={row.previousClose} />
 
         <div className="rounded-lg border border-border bg-surface p-3 shadow-subtle">
           <Text as="h5" variant="overline" className="mb-1.5 block">

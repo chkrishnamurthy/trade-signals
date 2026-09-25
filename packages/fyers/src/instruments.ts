@@ -1,11 +1,11 @@
-import { rupeesToPaise } from '@equitywise/shared';
+import { isBseEquityRow, rupeesToPaise } from '@equitywise/shared';
 import { z } from 'zod';
 import type { FyersHttpClient } from './http.js';
 import { internalSymbolFor, parseFyersSymbol } from './symbols.js';
-import type { Instrument, InstrumentKind } from './types.js';
+import type { Exchange, Instrument, InstrumentKind } from './types.js';
 
 /**
- * The NSE symbol master.
+ * The NSE and BSE symbol masters.
  *
  * Published as a headerless CSV on a public CDN — no auth, no rate limit.
  * Columns are positional and documented in the v3 spec under "Symbol Master".
@@ -14,6 +14,8 @@ import type { Instrument, InstrumentKind } from './types.js';
 export const SYMBOL_MASTER_URLS = {
   /** NSE Capital Market: equities and indices. */
   nseCapitalMarket: 'https://public.fyers.in/sym_details/NSE_CM.csv',
+  /** BSE Capital Market: equities, indices — and debt, G-secs, MF units (filtered). */
+  bseCapitalMarket: 'https://public.fyers.in/sym_details/BSE_CM.csv',
 } as const;
 
 /**
@@ -45,9 +47,11 @@ export const EXPECTED_COLUMN_COUNT = 21;
 
 /**
  * Exchange instrument types we care about.
- * 0 = equity, 10 = index (v3 spec, Appendix -> Exchanges).
+ * 0 = equity, 10 = index (v3 spec, Appendix -> Exchanges). On BSE only groups
+ * A and T carry type 0; every other equity group is type 50, shared with debt,
+ * G-secs and MF units — `isBseEquityRow` (ISIN + group) decides those.
  */
-export const INSTRUMENT_TYPE = { equity: 0, index: 10 } as const;
+export const INSTRUMENT_TYPE = { equity: 0, index: 10, bseOther: 50 } as const;
 
 const rowSchema = z.object({
   fyToken: z.string().min(1),
@@ -98,9 +102,11 @@ export function splitCsvLine(line: string): string[] {
   return fields;
 }
 
-function kindFor(instrumentType: number): InstrumentKind | null {
+function kindFor(instrumentType: number, exchange: Exchange): InstrumentKind | null {
   if (instrumentType === INSTRUMENT_TYPE.equity) return 'equity';
   if (instrumentType === INSTRUMENT_TYPE.index) return 'index';
+  // Candidate only; isBseEquityRow decides once the ISIN and group are known.
+  if (exchange === 'BSE' && instrumentType === INSTRUMENT_TYPE.bseOther) return 'equity';
   return null;
 }
 
@@ -113,9 +119,10 @@ export interface ParseInstrumentsResult {
 /**
  * Parses the symbol master CSV into normalised instruments.
  *
- * Rows that are not NSE equity or index are filtered out. Rows that *are*
- * relevant but malformed are collected into `skipped` rather than throwing —
- * one bad row upstream should not cost us the other 9,000.
+ * Accepts either exchange's master. Rows that are not an equity or index —
+ * and, on BSE, not a main-board equity share — are filtered out. Rows that
+ * *are* relevant but malformed are collected into `skipped` rather than
+ * throwing — one bad row upstream should not cost us the other 9,000.
  */
 export function parseSymbolMaster(csv: string): ParseInstrumentsResult {
   const instruments: Instrument[] = [];
@@ -135,12 +142,17 @@ export function parseSymbolMaster(csv: string): ParseInstrumentsResult {
       continue;
     }
 
-    const instrumentType = Number(fields[COLUMNS.instrumentType]);
-    const kind = kindFor(instrumentType);
-    if (kind === null) continue;
-
     const ticker = (fields[COLUMNS.ticker] ?? '').trim();
-    if (!ticker.startsWith('NSE:')) continue;
+    const exchange: Exchange | null = ticker.startsWith('NSE:')
+      ? 'NSE'
+      : ticker.startsWith('BSE:')
+        ? 'BSE'
+        : null;
+    if (exchange === null) continue;
+
+    const instrumentType = Number(fields[COLUMNS.instrumentType]);
+    const kind = kindFor(instrumentType, exchange);
+    if (kind === null) continue;
 
     const parsed = rowSchema.safeParse({
       fyToken: (fields[COLUMNS.fyToken] ?? '').trim(),
@@ -163,10 +175,16 @@ export function parseSymbolMaster(csv: string): ParseInstrumentsResult {
     }
 
     let symbol: string;
+    let group: string | null;
     try {
       symbol = internalSymbolFor(parsed.data.ticker);
       // Confirms the suffix agrees with the numeric instrument type.
       const shape = parseFyersSymbol(parsed.data.ticker);
+      group = shape.group;
+      if (exchange === 'BSE' && kind === 'equity') {
+        // Out of scope (debt, G-sec, MF unit, SME), not malformed: drop quietly.
+        if (group === null || !isBseEquityRow(parsed.data.isin, group)) continue;
+      }
       if (shape.kind !== kind) {
         skipped.push({
           line: index + 1,
@@ -188,12 +206,13 @@ export function parseSymbolMaster(csv: string): ParseInstrumentsResult {
       fyersSymbol: parsed.data.ticker,
       name: parsed.data.name,
       kind,
-      exchange: 'NSE',
+      exchange,
       isin: parsed.data.isin === '' ? null : parsed.data.isin,
       lotSize: parsed.data.lotSize,
       // Tick size is published in rupees (0.05); we store paise (5).
       tickSize: rupeesToPaise(parsed.data.tickSizeRupees),
       scripCode: parsed.data.scripCode,
+      group,
       lastUpdated: parsed.data.lastUpdated,
     });
   }
@@ -213,4 +232,16 @@ export async function listInstruments(
 ): Promise<ParseInstrumentsResult> {
   const csv = await http.requestText(url, { method: 'GET', skipRateLimit: true });
   return parseSymbolMaster(csv);
+}
+
+/** Both masters, concatenated: NSE first, then BSE. */
+export async function listAllInstruments(http: FyersHttpClient): Promise<ParseInstrumentsResult> {
+  const [nse, bse] = await Promise.all([
+    listInstruments(http, SYMBOL_MASTER_URLS.nseCapitalMarket),
+    listInstruments(http, SYMBOL_MASTER_URLS.bseCapitalMarket),
+  ]);
+  return {
+    instruments: [...nse.instruments, ...bse.instruments],
+    skipped: [...nse.skipped, ...bse.skipped],
+  };
 }

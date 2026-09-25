@@ -1,5 +1,11 @@
 import 'server-only';
-import type { Instrument, InstrumentKind } from '@equitywise/market-data';
+import {
+  type Exchange,
+  type Instrument,
+  type InstrumentKind,
+  listingKey,
+  parseListingKey,
+} from '@equitywise/market-data';
 import { getIndex, listIndexKeys } from './indices';
 import { getProvider } from './provider';
 
@@ -9,13 +15,25 @@ import { getProvider } from './provider';
  * The universe is large and changes at most daily, so it is fetched once and
  * held in memory. Falling back to the configured index constituents means
  * search still works when the provider is unreachable.
+ *
+ * The universe spans NSE and BSE. A company listed on both is ONE search
+ * result under its primary listing — NSE when it has one, BSE otherwise
+ * (multi-exchange plan, D1) — carrying the exchanges it trades on. A bare
+ * symbol resolves the same way; `BSE:RELIANCE` names the BSE listing
+ * explicitly.
  */
 
 interface Loaded {
   readonly instruments: readonly Instrument[];
-  readonly bySymbol: ReadonlyMap<string, Instrument>;
+  /** By upper-cased listing key: `RELIANCE`, `BSE:RELIANCE`. */
+  readonly byKey: ReadonlyMap<string, Instrument>;
+  /** Exchanges each ISIN is listed on, primary first. */
+  readonly listingsByIsin: ReadonlyMap<string, readonly Exchange[]>;
   readonly loadedAt: number;
 }
+
+/** NSE before BSE: the order that decides a company's primary listing. */
+const EXCHANGE_RANK: Readonly<Record<Exchange, number>> = { NSE: 0, BSE: 1 };
 
 let loaded: Loaded | null = null;
 let loading: Promise<Loaded> | null = null;
@@ -28,12 +46,21 @@ async function load(): Promise<Loaded> {
 
   loading = (async () => {
     const provider = await getProvider();
-    const instruments = await provider.listInstruments();
-    const result: Loaded = {
-      instruments,
-      bySymbol: new Map(instruments.map((i: Instrument) => [i.symbol.toUpperCase(), i])),
-      loadedAt: Date.now(),
-    };
+    // Primary listings first, so every first-wins lookup below prefers NSE.
+    const instruments = [...(await provider.listInstruments())].sort(
+      (a, b) => EXCHANGE_RANK[a.exchange] - EXCHANGE_RANK[b.exchange],
+    );
+    const byKey = new Map<string, Instrument>();
+    const listingsByIsin = new Map<string, Exchange[]>();
+    for (const i of instruments) {
+      const key = listingKey(i).toUpperCase();
+      if (!byKey.has(key)) byKey.set(key, i);
+      if (i.isin === null) continue;
+      const listings = listingsByIsin.get(i.isin) ?? [];
+      if (!listings.includes(i.exchange)) listings.push(i.exchange);
+      listingsByIsin.set(i.isin, listings);
+    }
+    const result: Loaded = { instruments, byKey, listingsByIsin, loadedAt: Date.now() };
     loaded = result;
     return result;
   })().finally(() => {
@@ -66,10 +93,19 @@ export function warmInstrumentCache(): void {
 }
 
 export interface SearchHit {
+  /** Our symbol, for display: `RELIANCE`. */
   readonly symbol: string;
+  /**
+   * The listing key, for everything that names the listing — adding it to a
+   * watchlist, opening its chart: `RELIANCE` (NSE) or `BSE:7SEASL`.
+   */
+  readonly key: string;
   readonly name: string;
   readonly kind: InstrumentKind;
+  /** The primary listing's exchange. */
   readonly exchange: string;
+  /** Every exchange the company trades on, primary first. */
+  readonly listings: readonly string[];
 }
 
 /** Ranks exact and prefix matches above substring matches. */
@@ -88,22 +124,41 @@ export async function searchSymbols(query: string, limit = 12): Promise<SearchHi
   const q = query.trim().toUpperCase();
   if (q.length < 1) return [];
 
+  // An explicit `BSE:` query searches that exchange's listings only.
+  const qualified = parseListingKey(q);
+  const onlyExchange = q.includes(':') ? qualified.exchange : null;
+  const text = onlyExchange === null ? q : qualified.symbol;
+  if (text.length < 1) return [];
+
   let pool: SearchHit[];
   try {
-    const { instruments } = await load();
-    pool = instruments.map((i) => ({
-      symbol: i.symbol,
-      name: i.name,
-      kind: i.kind,
-      exchange: i.exchange,
-    }));
+    const { instruments, listingsByIsin } = await load();
+    pool = [];
+    for (const i of instruments) {
+      const listings =
+        i.isin === null ? [i.exchange] : (listingsByIsin.get(i.isin) ?? [i.exchange]);
+      if (onlyExchange !== null) {
+        if (i.exchange !== onlyExchange) continue;
+      } else if (listings[0] !== i.exchange) {
+        // One result per company: its secondary listing is a badge, not a row.
+        continue;
+      }
+      pool.push({
+        symbol: i.symbol,
+        key: listingKey(i),
+        name: i.name,
+        kind: i.kind,
+        exchange: i.exchange,
+        listings,
+      });
+    }
   } catch {
     // Provider unreachable — search the configured universe instead of failing.
     pool = await configuredUniverse();
   }
 
   return pool
-    .map((hit) => ({ hit, rank: score(hit, q) }))
+    .map((hit) => ({ hit, rank: score(hit, text) }))
     .filter((entry) => entry.rank < 99)
     .sort((a, b) => a.rank - b.rank || a.hit.symbol.length - b.hit.symbol.length)
     .slice(0, limit)
@@ -119,7 +174,14 @@ async function configuredUniverse(): Promise<SearchHit[]> {
     for (const c of index.constituents) {
       if (seen.has(c.symbol)) continue;
       seen.add(c.symbol);
-      hits.push({ symbol: c.symbol, name: c.name, kind: 'equity', exchange: 'NSE' });
+      hits.push({
+        symbol: c.symbol,
+        key: c.symbol,
+        name: c.name,
+        kind: 'equity',
+        exchange: 'NSE',
+        listings: ['NSE'],
+      });
     }
   }
   return hits;
@@ -131,31 +193,57 @@ export interface ResolvedSymbol {
   readonly name: string;
   readonly kind: InstrumentKind;
   readonly sector: string;
+  readonly exchange: Exchange;
 }
 
 /**
- * Resolves a symbol to a full instrument reference.
+ * Resolves a symbol or listing key to a full instrument reference.
+ *
+ * `BSE:RELIANCE` names that listing exactly. A bare `RELIANCE` names the
+ * company's primary listing: NSE when it has one, BSE otherwise — so a
+ * BSE-only name still resolves when typed bare.
  *
  * Prefers the configured indices (which carry curated display names and
  * sectors) and falls back to the provider's universe.
  */
 export async function resolveSymbol(symbol: string): Promise<ResolvedSymbol | null> {
-  const target = symbol.trim().toUpperCase();
+  const raw = symbol.trim().toUpperCase();
+  const explicit = raw.includes(':');
+  const { symbol: target, exchange } = parseListingKey(raw);
 
   for (const key of await listIndexKeys()) {
     const index = await getIndex(key);
     if (index === null) continue;
-    if (index.ref.symbol.toUpperCase() === target) {
-      return { symbol: index.ref.symbol, name: index.name, sector: 'Index', kind: 'index' };
+    const indexExchange = index.ref.exchange ?? 'NSE';
+    if (index.ref.symbol.toUpperCase() === target && indexExchange === exchange) {
+      return {
+        symbol: index.ref.symbol,
+        name: index.name,
+        sector: 'Index',
+        kind: 'index',
+        exchange: indexExchange,
+      };
     }
-    const match = index.constituents.find((c) => c.symbol.toUpperCase() === target);
+    const match = index.constituents.find(
+      (c) => c.symbol.toUpperCase() === target && (c.exchange ?? 'NSE') === exchange,
+    );
     if (match !== undefined) return { ...match, kind: 'equity' };
   }
 
   try {
-    const match = (await load()).bySymbol.get(target);
+    const { byKey } = await load();
+    const match =
+      byKey.get(listingKey({ symbol: target, exchange })) ??
+      // Bare and not on NSE: the BSE listing is the primary one.
+      (explicit ? undefined : byKey.get(listingKey({ symbol: target, exchange: 'BSE' })));
     if (match !== undefined) {
-      return { symbol: match.symbol, name: match.name, sector: 'Other', kind: match.kind };
+      return {
+        symbol: match.symbol,
+        name: match.name,
+        sector: 'Other',
+        kind: match.kind,
+        exchange: match.exchange,
+      };
     }
   } catch {
     // Fall through to null.
@@ -208,7 +296,12 @@ export async function resolveImport(
 ): Promise<ImportResolution[]> {
   let universe: readonly Instrument[] = [];
   try {
-    universe = (await load()).instruments;
+    // Primary listings only: a company on both exchanges is one candidate,
+    // never an "ambiguous" pair of itself.
+    const { instruments, listingsByIsin } = await load();
+    universe = instruments.filter(
+      (i) => i.isin === null || (listingsByIsin.get(i.isin)?.[0] ?? i.exchange) === i.exchange,
+    );
   } catch {
     // Symbol resolution still works from the configured universe; ISIN and
     // name lookups will simply come back unknown.
@@ -239,14 +332,14 @@ async function resolveOne(
   if (candidate.symbol !== undefined && candidate.symbol !== '') {
     const match = await resolveSymbol(candidate.symbol);
     if (match !== null) {
-      return { status: 'matched', symbol: match.symbol, name: match.name, via: 'symbol' };
+      return { status: 'matched', symbol: listingKey(match), name: match.name, via: 'symbol' };
     }
   }
 
   if (candidate.isin !== undefined && candidate.isin !== '') {
     const match = byIsin.get(candidate.isin.toUpperCase());
     if (match !== undefined) {
-      return { status: 'matched', symbol: match.symbol, name: match.name, via: 'isin' };
+      return { status: 'matched', symbol: listingKey(match), name: match.name, via: 'isin' };
     }
   }
 
@@ -254,7 +347,7 @@ async function resolveOne(
     const key = normaliseName(candidate.name);
     const exact = byName.get(key);
     if (exact !== undefined) {
-      return { status: 'matched', symbol: exact.symbol, name: exact.name, via: 'name' };
+      return { status: 'matched', symbol: listingKey(exact), name: exact.name, via: 'name' };
     }
     if (key.length >= 4) {
       const hits = universe.filter(
@@ -263,12 +356,12 @@ async function resolveOne(
       );
       const [only] = hits;
       if (hits.length === 1 && only !== undefined) {
-        return { status: 'matched', symbol: only.symbol, name: only.name, via: 'name' };
+        return { status: 'matched', symbol: listingKey(only), name: only.name, via: 'name' };
       }
       if (hits.length > 1) {
         return {
           status: 'ambiguous',
-          candidates: hits.slice(0, 5).map((hit) => ({ symbol: hit.symbol, name: hit.name })),
+          candidates: hits.slice(0, 5).map((hit) => ({ symbol: listingKey(hit), name: hit.name })),
         };
       }
     }
