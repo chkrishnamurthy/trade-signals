@@ -1,11 +1,8 @@
 'use client';
 
-import { ChevronDownIcon } from 'lucide-react';
-import { useMemo, useState } from 'react';
 import { MetricCard } from '@/components/data-display/metric-card';
 import { EmptyState } from '@/components/data-display/states';
 import { Section, SectionDescription, SectionHeader, SectionTitle } from '@/components/layout/page';
-import { Currency } from '@/components/market/numeric';
 import { Sparkline } from '@/components/market/sparkline';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -18,12 +15,11 @@ import {
 } from '@/components/ui/table';
 import { Text } from '@/components/ui/typography';
 import type { MarketTapeDto, ParticipantOiCellDto } from '@/lib/disclosure-types';
-import { cumulativeSeries, netSeries } from '@/lib/flow-analytics';
 import { BUCKET_LABEL, contracts, PARTICIPANT_LABEL, signedContracts } from '@/lib/flow-labels';
 import { toneText } from '@/lib/tone';
 import { cn } from '@/lib/utils';
-import { FlowChart } from './flow-chart';
-import { formatDateKey, NetValue, Segmented } from './parts';
+import { CashActivityCard } from './cash-activity-card';
+import { formatDateKey, NetValue } from './parts';
 
 /**
  * The market tape: where the big money stood at the last close, in three
@@ -59,7 +55,7 @@ export function MarketTape({ tape }: { tape: MarketTapeDto }) {
         </div>
       )}
 
-      {tape.fiiDii.length > 0 && <FiiDiiCard history={tape.fiiDii} />}
+      {tape.fiiDii.length > 0 && <CashActivityCard history={tape.fiiDii} />}
 
       {tape.participantOi.length > 0 && tape.participantOiDate !== null && (
         <PositioningGrid cells={tape.participantOi} date={tape.participantOiDate} />
@@ -144,103 +140,6 @@ function FuturesTile({ position }: { position: MarketTapeDto['fiiIndexFutures'] 
         </dl>
       }
     />
-  );
-}
-
-function FiiDiiCard({ history }: { history: MarketTapeDto['fiiDii'] }) {
-  const [participant, setParticipant] = useState<'fii' | 'dii'>('fii');
-  const [mode, setMode] = useState<'bars' | 'line'>('bars');
-  const [open, setOpen] = useState(false);
-
-  const daily = useMemo(() => netSeries(history, participant), [history, participant]);
-  const points = useMemo(() => (mode === 'line' ? cumulativeSeries(daily) : daily), [mode, daily]);
-
-  return (
-    <Card>
-      <CardContent className="flex flex-col gap-3 py-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <Text as="h3" variant="card-title">
-            Cash-market net, last {history.length} {history.length === 1 ? 'session' : 'sessions'}
-          </Text>
-          <div className="flex flex-wrap gap-2">
-            <Segmented
-              ariaLabel="Participant"
-              value={participant}
-              onChange={setParticipant}
-              options={[
-                { id: 'fii', label: 'FII' },
-                { id: 'dii', label: 'DII' },
-              ]}
-            />
-            <Segmented
-              ariaLabel="Chart mode"
-              value={mode}
-              onChange={setMode}
-              options={[
-                { id: 'bars', label: 'Daily' },
-                { id: 'line', label: 'Cumulative' },
-              ]}
-            />
-          </div>
-        </div>
-        <FlowChart
-          points={points}
-          mode={mode}
-          seriesLabel={participant === 'fii' ? 'FII' : 'DII'}
-        />
-        <Text as="p" variant="caption">
-          {mode === 'line'
-            ? 'Running total of net buying over the window. Above the line is net accumulation.'
-            : 'Each bar is one session’s net. Green is net buying, red is net selling.'}
-        </Text>
-
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          aria-expanded={open}
-          className="inline-flex items-center gap-1 self-start text-muted-foreground text-xs hover:text-foreground"
-        >
-          <ChevronDownIcon className={cn('size-3 transition-transform', open && 'rotate-180')} />
-          {open ? 'Hide sessions' : 'Show sessions'}
-        </button>
-        {open && (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Session</TableHead>
-                  <TableHead className="text-right">FII bought</TableHead>
-                  <TableHead className="text-right">FII sold</TableHead>
-                  <TableHead className="text-right">FII net</TableHead>
-                  <TableHead className="text-right">DII net</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {history.map((day) => (
-                  <TableRow key={day.tradingDate}>
-                    <TableCell className="whitespace-nowrap">
-                      {formatDateKey(day.tradingDate)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {day.fii === null ? '—' : <Currency paise={day.fii.buy} />}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {day.fii === null ? '—' : <Currency paise={day.fii.sell} />}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {day.fii === null ? '—' : <NetValue paise={day.fii.net} />}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {day.dii === null ? '—' : <NetValue paise={day.dii.net} />}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </CardContent>
-    </Card>
   );
 }
 

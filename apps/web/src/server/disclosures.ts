@@ -485,6 +485,8 @@ export interface FlowInput {
 
 /** Sessions of deals folded into the stock table's deals column. */
 const DEAL_WINDOW_DAYS = 7;
+/** About six months of FII/DII sessions — the cash-activity card's Monthly view. */
+const FII_DII_SESSIONS = 126;
 /** Rows the ranked table carries to the client. */
 const MAX_STOCK_ROWS = 400;
 
@@ -501,7 +503,7 @@ export async function getInstitutionalFlow(
   const watchlistOnly = input.watchlistOnly === true && hasWatchlists;
 
   const [flowRows, participantRows, deliveryDate, oiRows, dealRows, health] = await Promise.all([
-    getRecentFiiDii(db, { segment: 'cash', days: 30 }),
+    getRecentFiiDii(db, { segment: 'cash', days: FII_DII_SESSIONS }),
     recentParticipantOi(db, 30),
     latestDeliveryDate(db),
     latestDerivativeOi(db),
@@ -521,7 +523,8 @@ export async function getInstitutionalFlow(
   ]);
 
   // ---- tape ---------------------------------------------------------------
-  const fiiDii = groupFiiDii(flowRows);
+  // The repository's limit counts rows, not sessions, so the session cap is applied here.
+  const fiiDii = groupFiiDii(flowRows).slice(0, FII_DII_SESSIONS);
   const positioning = participantPositioning(participantRows);
   const tape: MarketTapeDto = {
     fiiCash: cashSummary(fiiDii, 'fii'),
