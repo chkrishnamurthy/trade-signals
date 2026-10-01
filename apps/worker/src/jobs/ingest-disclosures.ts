@@ -1,5 +1,6 @@
 import {
   type AnnouncementUpsert,
+  announcementIngestionHealth,
   type DealUpsert,
   type DeliveryUpsert,
   type FiiDiiUpsert,
@@ -115,6 +116,24 @@ export interface IngestCount {
   readonly written: number;
 }
 
+/** How far back the first run, or the first after a long outage, reaches. */
+const ANNOUNCEMENT_LOOKBACK_MS = 3 * DAY_MS;
+/** Re-read this much before the last success, for filings the exchange indexes late. */
+const ANNOUNCEMENT_OVERLAP_MS = 2 * 60 * 60_000;
+
+/**
+ * Where an announcement run starts reading.
+ *
+ * Just before the last successful run, so a sweep re-reads hours rather than
+ * BSE's ~3,000 filings a day — capped at the lookback. A failed run never
+ * moves the start, so the next run covers whatever it missed.
+ */
+export function announcementWindowStart(now: Date, lastSuccessStartedAt: Date | null): Date {
+  const floor = now.getTime() - ANNOUNCEMENT_LOOKBACK_MS;
+  if (lastSuccessStartedAt === null) return new Date(floor);
+  return new Date(Math.max(floor, lastSuccessStartedAt.getTime() - ANNOUNCEMENT_OVERLAP_MS));
+}
+
 export async function ingestAnnouncements(
   context: WorkerContext,
   log: Logger,
@@ -122,11 +141,12 @@ export async function ingestAnnouncements(
 ): Promise<IngestCount> {
   const source = options.source ?? createIndiaDisclosureSource();
   const now = options.now ?? new Date();
-  const since = new Date(now.getTime() - 3 * DAY_MS);
 
   let fetched: readonly RawAnnouncement[] = [];
   try {
     await interpretPendingAnnouncements(context);
+    const health = await announcementIngestionHealth(context.db);
+    const since = announcementWindowStart(now, health.successful?.startedAt ?? null);
     fetched = await source.fetchAnnouncements({ since });
     const ids = await resolve(
       context,
@@ -163,6 +183,7 @@ export async function ingestAnnouncements(
       succeeded: false,
       fetched: fetched.length,
       written: 0,
+      error: errorText(error),
       startedAt: now,
       completedAt: new Date(),
     });

@@ -43,7 +43,7 @@ export const corporateAnnouncements = pgTable(
     id: bigint({ mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
     /** Resolved instrument, when the symbol is one we track. */
     instrumentId: integer().references(() => instruments.id),
-    /** Exchange symbol as published, e.g. `RELIANCE`. */
+    /** NSE symbol (`RELIANCE`) when NSE-listed, otherwise `BSE:<ticker>`. */
     symbol: text().notNull(),
     companyName: text().notNull(),
     /** Which feed supplied it, e.g. `bse`. Part of the idempotency key. */

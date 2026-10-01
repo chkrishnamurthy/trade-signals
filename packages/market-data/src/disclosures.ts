@@ -42,7 +42,10 @@ export interface RawAnnouncement {
   readonly source: string;
   /** The source's stable id for this filing — the dedup key with `source`. */
   readonly externalId: string;
-  /** Exchange symbol as published, e.g. `RELIANCE`. */
+  /**
+   * The NSE symbol (`RELIANCE`) when the company is NSE-listed, otherwise
+   * `BSE:<ticker>` — so a symbol never names a different NSE company.
+   */
   readonly symbol: string;
   readonly companyName: string;
   readonly category: string | null;

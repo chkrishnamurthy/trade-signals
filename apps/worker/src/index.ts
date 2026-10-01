@@ -118,8 +118,11 @@ const SCHEDULES = {
   ingestRetry: '30 18 * * 1-5',
   /** Reap expired auth rows nightly (daily — auth is not market-hours bound). */
   authMaintenance: '30 3 * * *',
-  /** Corporate announcements: a few sweeps through the trading day. */
-  ingestAnnouncements: '20 10,13,16,19 * * 1-5',
+  /**
+   * Corporate announcements: a few sweeps a day, weekends included — companies
+   * file on Saturdays and Sundays too, and the page calls a day-old feed stale.
+   */
+  ingestAnnouncements: '20 10,13,16,19 * * *',
   /** FII/DII cash figures settle after the session; pull in the evening. */
   ingestFiiDii: '45 19 * * 1-5',
   /** Bulk & block deals are published after close. */

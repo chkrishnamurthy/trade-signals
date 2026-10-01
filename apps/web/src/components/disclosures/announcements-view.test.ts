@@ -40,20 +40,47 @@ const data: AnnouncementsPageDto = {
 const render = (value: AnnouncementsPageDto) =>
   renderToStaticMarkup(createElement(AnnouncementsView, { data: value, activeCategories: [] }));
 describe('announcement presentation', () => {
-  it('shows empty and unverified coverage independently', () => {
+  it('shows empty and never-refreshed coverage independently', () => {
     const html = render(data);
     expect(html).toContain('No announcements match');
-    expect(html).toContain('Ingestion is stale or unverified');
-    expect(html).toContain('NSE announcement ingestion is not connected');
+    expect(html).toContain('Announcements have not been refreshed yet.');
   });
   it('shows watchlist empty and failed ingestion states', () => {
     const html = render({
       ...data,
       watchlistOnly: true,
-      coverage: { ...data.coverage, failed: true },
+      // 13:50 UTC is 19:20 IST.
+      coverage: { ...data.coverage, failed: true, latestAttempt: '2026-10-01T13:50:00Z' },
     });
     expect(html).toContain('No watchlist announcements');
-    expect(html).toContain('Latest ingestion failed');
+    expect(html).toContain('refreshed at 1 Oct');
+    expect(html).toContain('No update has succeeded yet.');
+  });
+  it('names the last good update when a later refresh fails', () => {
+    const html = render({
+      ...data,
+      coverage: {
+        latestAttempt: '2026-10-01T13:50:00Z',
+        lastSuccess: '2026-10-01T10:50:00Z',
+        failed: true,
+        stale: false,
+      },
+    });
+    expect(html).toContain("couldn&#x27;t be refreshed");
+    expect(html).toContain('Last updated 1 Oct');
+  });
+  it('shows no coverage notice while the feed is healthy', () => {
+    const html = render({
+      ...data,
+      coverage: {
+        latestAttempt: '2026-10-01T13:50:00Z',
+        lastSuccess: '2026-10-01T13:50:00Z',
+        failed: false,
+        stale: false,
+      },
+    });
+    expect(html).not.toContain('refreshed');
+    expect(html).not.toContain('out of date');
   });
   it('shows traceable metadata scope and user actions, without a direction badge', () => {
     const headline = 'Order received';

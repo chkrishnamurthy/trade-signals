@@ -1,18 +1,58 @@
+import type { EventEmitter } from 'node:events';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createIndiaDisclosureSource,
   croreToPaise,
+  listingSymbol,
   parseBseAnnouncements,
+  parseBseScripMaster,
   parseDdMonYyyy,
   parseIstTimestamp,
   parseMonDYyyy,
   parseNseBhavdata,
   parseNseDealsCsv,
+  parseNseEquityList,
   parseNseFiiDii,
   parseNseParticipantOi,
   parseNseShareholdingMaster,
   splitCsvLine,
 } from './india-disclosures.js';
+
+/**
+ * BSE is read through `node:https`, not `fetch`, so its replies are queued
+ * here: one per request, in order. An unqueued request fails the test.
+ */
+const bse = vi.hoisted(() => ({
+  replies: [] as { status?: number; body?: unknown; gzip?: boolean; error?: string }[],
+  urls: [] as string[],
+}));
+
+vi.mock('node:https', async () => {
+  const { EventEmitter: Emitter } = await import('node:events');
+  const { gzipSync } = await import('node:zlib');
+  return {
+    request: (url: string, _options: unknown, onResponse: (response: EventEmitter) => void) => {
+      bse.urls.push(url);
+      const request = Object.assign(new Emitter(), {
+        end: () => {
+          const reply = bse.replies.shift();
+          queueMicrotask(() => {
+            if (reply === undefined || reply.error !== undefined) {
+              request.emit('error', new Error(reply?.error ?? `unexpected BSE request ${url}`));
+              return;
+            }
+            const json = Buffer.from(JSON.stringify(reply.body));
+            const response = Object.assign(new Emitter(), { statusCode: reply.status ?? 200 });
+            onResponse(response);
+            response.emit('data', reply.gzip === true ? gzipSync(json) : json);
+            response.emit('end');
+          });
+        },
+      });
+      return request;
+    },
+  };
+});
 
 describe('date & money helpers', () => {
   it('parses a DD-Mon-YYYY date to an ISO key', () => {
@@ -65,10 +105,64 @@ describe('parseBseAnnouncements', () => {
     expect(row?.announcedAt.toISOString()).toBe('2026-09-11T11:00:00.000Z');
   });
 
+  it('falls back to the subject when BSE sends an empty headline', () => {
+    // A real filing, 30 Sep 2026.
+    const [row] = parseBseAnnouncements({
+      Table: [
+        {
+          NEWSID: '4118e7ff-1aee-4a20-be3e-575580215ee2',
+          SCRIP_CD: 505283,
+          HEADLINE: '',
+          NEWSSUB: 'Kirloskar Pneumatic Company Ltd - 505283 - Disclosure Under Regulation',
+          NEWS_DT: '2026-09-30T18:56:09.29',
+        },
+      ],
+    });
+    expect(row?.headline).toBe(
+      'Kirloskar Pneumatic Company Ltd - 505283 - Disclosure Under Regulation',
+    );
+  });
+
   it('skips rows with no headline and tolerates a missing Table', () => {
     expect(parseBseAnnouncements({ Table: [{ NEWSID: 'x' }] })).toHaveLength(0);
     expect(parseBseAnnouncements({})).toHaveLength(0);
     expect(parseBseAnnouncements(null)).toHaveLength(0);
+  });
+});
+
+describe('BSE scrip code → NSE symbol', () => {
+  // Real rows from both listings, 2026-10-01.
+  const scrips = parseBseScripMaster([
+    { SCRIP_CD: '500325', scrip_id: 'RELIANCE', ISIN_NUMBER: 'INE002A01018' },
+    { SCRIP_CD: 511563, scrip_id: 'SANCF', ISIN_NUMBER: 'INE654D01010' },
+    { SCRIP_CD: '700001', scrip_id: 'NOISIN', ISIN_NUMBER: null },
+    { scrip_id: 'NOCODE' },
+  ]);
+  const nseByIsin = parseNseEquityList(
+    'SYMBOL,NAME OF COMPANY, SERIES, DATE OF LISTING, PAID UP VALUE, MARKET LOT, ISIN NUMBER, FACE VALUE\n' +
+      'RELIANCE,Reliance Industries Limited,EQ,29-NOV-1995,10,1,INE002A01018,10\n' +
+      'M&M,Mahindra & Mahindra Limited,EQ,03-JAN-1996,5,1,INE101A01026,5\n',
+  );
+
+  it('reads the scrip master by code, numeric or string, skipping rows without one', () => {
+    expect(scrips.size).toBe(3);
+    expect(scrips.get('511563')).toEqual({ isin: 'INE654D01010', ticker: 'SANCF' });
+    expect(scrips.get('700001')).toEqual({ isin: null, ticker: 'NOISIN' });
+    expect(parseBseScripMaster({ error: 'unavailable' }).size).toBe(0);
+  });
+
+  it("reads NSE's equity list by its padded ISIN header", () => {
+    expect(nseByIsin.get('INE002A01018')).toBe('RELIANCE');
+    expect(nseByIsin.get('INE101A01026')).toBe('M&M');
+  });
+
+  it('uses the NSE symbol only when the ISIN is NSE-listed', () => {
+    expect(listingSymbol('500325', scrips, nseByIsin)).toBe('RELIANCE');
+    // Listed on BSE alone: its BSE ticker, marked so it never passes as NSE.
+    expect(listingSymbol('511563', scrips, nseByIsin)).toBe('BSE:SANCF');
+    expect(listingSymbol('700001', scrips, nseByIsin)).toBe('BSE:NOISIN');
+    expect(listingSymbol('999999', scrips, nseByIsin)).toBe('BSE:999999');
+    expect(listingSymbol('', scrips, nseByIsin)).toBe('');
   });
 });
 
@@ -273,28 +367,135 @@ describe('announcement source integrity', () => {
   });
 });
 
-describe('announcement transport health', () => {
-  afterEach(() => vi.unstubAllGlobals());
-  it('distinguishes an empty success from HTTP and malformed-response failures', async () => {
+describe('announcement transport', () => {
+  // 12:00 UTC is 17:30 IST on 1 Oct; `since` is 17:30 IST the day before.
+  const NOW = new Date('2026-10-01T12:00:00Z');
+  const SINCE = new Date('2026-09-30T12:00:00Z');
+  /** A BSE filing row; `at` is IST wall-clock, as BSE publishes it. */
+  const filing = (id: string, code: number, at: string) => ({
+    NEWSID: id,
+    SCRIP_CD: code,
+    SLONGNAME: `Company ${code}`,
+    HEADLINE: `Filing ${id}`,
+    NEWS_DT: at,
+  });
+  const page = (rows: readonly unknown[], total: number) => ({
+    body: { Table: rows, Table1: [{ ROWCNT: total }] },
+  });
+  const scripMaster = {
+    body: [
+      { SCRIP_CD: '500325', scrip_id: 'RELIANCE', ISIN_NUMBER: 'INE002A01018' },
+      { SCRIP_CD: '511563', scrip_id: 'SANCF', ISIN_NUMBER: 'INE654D01010' },
+    ],
+  };
+  const EQUITY_LIST =
+    'SYMBOL,NAME OF COMPANY, SERIES, DATE OF LISTING, PAID UP VALUE, MARKET LOT, ISIN NUMBER, FACE VALUE\n' +
+    'RELIANCE,Reliance Industries Limited,EQ,29-NOV-1995,10,1,INE002A01018,10\n';
+  const source = () => createIndiaDisclosureSource({ pageDelayMs: 0 });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    bse.replies.length = 0;
+    bse.urls.length = 0;
+  });
+
+  it('pages each IST day back to `since` and keys filings to NSE symbols', async () => {
+    vi.useFakeTimers({ toFake: ['Date'], now: NOW });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(EQUITY_LIST, { status: 200 })),
+    );
+    bse.replies.push(
+      // 1 Oct: two pages; a filing arrived mid-crawl, so B repeats on page 2.
+      {
+        ...page(
+          [filing('A', 500325, '2026-10-01T17:00:00'), filing('B', 511563, '2026-10-01T11:00:00')],
+          3,
+        ),
+        gzip: true,
+      },
+      page(
+        [filing('B', 511563, '2026-10-01T11:00:00'), filing('C', 999999, '2026-10-01T09:00:00')],
+        3,
+      ),
+      // 30 Sep: the page reaches back past `since`, so paging stops there.
+      page(
+        [filing('D', 500325, '2026-09-30T18:00:00'), filing('E', 500325, '2026-09-30T10:00:00')],
+        120,
+      ),
+      scripMaster,
+    );
+
+    const filings = await source().fetchAnnouncements({ since: SINCE });
+
+    expect(filings.map((f) => [f.externalId, f.symbol])).toEqual([
+      ['A', 'RELIANCE'],
+      ['B', 'BSE:SANCF'],
+      ['C', 'BSE:999999'],
+      ['D', 'RELIANCE'],
+    ]);
+    expect(bse.urls).toHaveLength(4);
+    expect(bse.urls[0]).toContain('AnnSubCategoryGetData/w?pageno=1&');
+    expect(bse.urls[0]).toContain('strPrevDate=20261001&');
+    expect(bse.urls[0]).toContain('strToDate=20261001&');
+    expect(bse.urls[1]).toContain('pageno=2&');
+    expect(bse.urls[2]).toContain('pageno=1&strCat=-1&strPrevDate=20260930&');
+    expect(bse.urls[3]).toContain('ListofScripData');
+  });
+
+  it('reads an empty day as an empty success without fetching the listings', async () => {
     const fetcher = vi.fn();
     vi.stubGlobal('fetch', fetcher);
-    const source = createIndiaDisclosureSource();
-    const request = { since: new Date('2026-09-14T00:00:00Z') };
-    fetcher.mockResolvedValueOnce(new Response(JSON.stringify({ Table: [] }), { status: 200 }));
-    await expect(source.fetchAnnouncements(request)).resolves.toEqual([]);
-    fetcher.mockResolvedValueOnce(new Response('', { status: 503 }));
-    await expect(source.fetchAnnouncements(request)).rejects.toThrow();
-    fetcher.mockResolvedValueOnce(
-      new Response(JSON.stringify({ error: 'unavailable' }), { status: 200 }),
+    bse.replies.push(page([], 0));
+    await expect(source().fetchAnnouncements({ since: new Date() })).resolves.toEqual([]);
+    expect(bse.urls).toHaveLength(1);
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it('fails on a CDN refusal without retrying it', async () => {
+    bse.replies.push({ status: 403, body: 'Access Denied' });
+    await expect(source().fetchAnnouncements({ since: new Date() })).rejects.toThrow(
+      'responded 403',
     );
-    await expect(source.fetchAnnouncements(request)).rejects.toThrow();
-    fetcher.mockResolvedValueOnce(
-      new Response(
-        JSON.stringify({ Table: [{ NEWSID: 'x', HEADLINE: 'Dividend', NEWS_DT: 'invalid' }] }),
-        { status: 200 },
-      ),
+    expect(bse.urls).toHaveLength(1);
+  });
+
+  it('retries a dropped connection and a 5xx', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout'] });
+    bse.replies.push({ error: 'socket hang up' }, { status: 503, body: '' }, page([], 0));
+    const pending = source().fetchAnnouncements({ since: new Date() });
+    await vi.advanceTimersByTimeAsync(3_000);
+    await expect(pending).resolves.toEqual([]);
+    expect(bse.urls).toHaveLength(3);
+  });
+
+  it('fails, with what BSE said, on a response that is not a filing table', async () => {
+    // What BSE answers for a date range or a future date.
+    bse.replies.push({
+      body: { Status: false, Message: 'From Date cannot be greater than current Date.' },
+    });
+    await expect(source().fetchAnnouncements({ since: new Date() })).rejects.toThrow(
+      /not a filing table.*From Date cannot be greater/,
     );
-    await expect(source.fetchAnnouncements(request)).rejects.toThrow('invalid or undated');
+  });
+
+  it('skips a malformed filing but fails when nothing on a page parses', async () => {
+    vi.useFakeTimers({ toFake: ['Date'], now: NOW });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(EQUITY_LIST, { status: 200 })),
+    );
+    const undated = { NEWSID: 'x', HEADLINE: 'Dividend', NEWS_DT: 'invalid' };
+    bse.replies.push(page([filing('A', 500325, '2026-10-01T17:00:00'), undated], 2), scripMaster);
+    const since = new Date('2026-10-01T06:00:00Z');
+    const filings = await source().fetchAnnouncements({ since });
+    expect(filings.map((f) => f.externalId)).toEqual(['A']);
+
+    bse.replies.push(page([undated], 1));
+    await expect(source().fetchAnnouncements({ since })).rejects.toThrow(
+      'none of 1 filings parsed',
+    );
   });
 });
 

@@ -1,3 +1,5 @@
+import { request as httpsRequest } from 'node:https';
+import { gunzipSync } from 'node:zlib';
 import type {
   DisclosureSource,
   OiBucket,
@@ -21,8 +23,10 @@ import { z } from 'zod';
  * records it against the feed's health. The scheduler isolates unrelated jobs.
  *
  * Transports, by feed (verified reachable with a plain GET on 2026-09-17):
- *   - Announcements: BSE `AnnGetData` JSON (cookie/referer gated; may need
- *     adjusting on the VPS when BSE changes its handshake).
+ *   - Announcements: BSE `AnnSubCategoryGetData` JSON, one IST day per query,
+ *     50 filings a page (verified 2026-10-01; the older `AnnGetData` now
+ *     answers every query with "No Record Found!"). Filings are keyed to NSE
+ *     symbols by ISIN through BSE's scrip master and NSE's `EQUITY_L.csv`.
  *   - FII/DII cash: NSE `fiidiiTradeReact` JSON.
  *   - Bulk/block deals, delivery (full bhavdata), participant-wise OI: NSE's
  *     static daily archive CSVs on `nsearchives.nseindia.com` — plain files,
@@ -137,7 +141,12 @@ const bseAnnouncementSchema = z.object({
 
 const bseAnnouncementsEnvelope = z.object({ Table: z.array(z.unknown()).optional() });
 
-/** Parses a BSE `AnnGetData` response into provider-neutral announcements. */
+/**
+ * Parses one BSE `AnnSubCategoryGetData` page into provider-neutral announcements.
+ *
+ * `symbol` is BSE's numeric scrip code here; the live source re-keys it with
+ * {@link listingSymbol} once it has the listings.
+ */
 export function parseBseAnnouncements(payload: unknown): RawAnnouncement[] {
   const envelope = bseAnnouncementsEnvelope.safeParse(payload);
   const rows = envelope.success ? (envelope.data.Table ?? []) : [];
@@ -147,7 +156,8 @@ export function parseBseAnnouncements(payload: unknown): RawAnnouncement[] {
     const parsed = bseAnnouncementSchema.safeParse(raw);
     if (!parsed.success) continue;
     const row = parsed.data;
-    const headline = (row.HEADLINE ?? row.NEWSSUB ?? '').trim();
+    // BSE sends `HEADLINE: ""` on some filings, with the subject in NEWSSUB.
+    const headline = row.HEADLINE?.trim() || row.NEWSSUB?.trim() || '';
     if (headline === '') continue;
 
     const announcedAt = parseIstTimestamp(row.NEWS_DT ?? row.DT_TM ?? '');
@@ -169,6 +179,69 @@ export function parseBseAnnouncements(payload: unknown): RawAnnouncement[] {
     });
   }
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// BSE scrip code → NSE symbol, joined on ISIN
+// ---------------------------------------------------------------------------
+
+export interface BseScrip {
+  readonly isin: string | null;
+  /** BSE's own ticker, e.g. `SANCF`. */
+  readonly ticker: string | null;
+}
+
+const bseScripSchema = z.object({
+  SCRIP_CD: z.union([z.string(), z.number()]),
+  scrip_id: z.string().nullish(),
+  ISIN_NUMBER: z.string().nullish(),
+});
+
+/** Parses BSE's `ListofScripData` scrip master into scrip code → ISIN and ticker. */
+export function parseBseScripMaster(payload: unknown): Map<string, BseScrip> {
+  const rows = z.array(z.unknown()).safeParse(payload);
+  const out = new Map<string, BseScrip>();
+  if (!rows.success) return out;
+
+  for (const raw of rows.data) {
+    const parsed = bseScripSchema.safeParse(raw);
+    if (!parsed.success) continue;
+    out.set(String(parsed.data.SCRIP_CD).trim(), {
+      isin: parsed.data.ISIN_NUMBER?.trim() || null,
+      ticker: parsed.data.scrip_id?.trim() || null,
+    });
+  }
+  return out;
+}
+
+/** Parses NSE's `EQUITY_L.csv` listing into ISIN → NSE symbol. */
+export function parseNseEquityList(csv: string): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const record of csvRecords(csv)) {
+    const symbol = record.SYMBOL ?? '';
+    const isin = record['ISIN NUMBER'] ?? '';
+    if (symbol !== '' && isin !== '') out.set(isin, symbol);
+  }
+  return out;
+}
+
+/**
+ * The symbol a BSE filing is stored under.
+ *
+ * The NSE symbol when the company's ISIN is NSE-listed — what instruments and
+ * watchlists are keyed by. Otherwise `BSE:<ticker>`: BSE tickers can coincide
+ * with an unrelated NSE symbol, so an unmatched one must never pass as NSE.
+ */
+export function listingSymbol(
+  scripCode: string,
+  scrips: ReadonlyMap<string, BseScrip>,
+  nseByIsin: ReadonlyMap<string, string>,
+): string {
+  if (scripCode === '') return '';
+  const scrip = scrips.get(scripCode);
+  const isin = scrip?.isin ?? null;
+  const nseSymbol = isin === null ? undefined : nseByIsin.get(isin);
+  return nseSymbol ?? `BSE:${scrip?.ticker ?? scripCode}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -531,26 +604,190 @@ async function fetchText(url: string, headers: Record<string, string>): Promise<
   return response.text();
 }
 
+const BSE_API = 'https://api.bseindia.com/BseIndiaAPI/api';
+const BSE_SCRIP_MASTER_URL = `${BSE_API}/ListofScripData/w?Group=&Scripcode=&industry=&segment=Equity&status=Active`;
+const NSE_EQUITY_LIST_URL = `${NSE_ARCHIVE}/content/equities/EQUITY_L.csv`;
+
+/** What `fetch` sends; without these BSE's CDN answers 403. */
+const BSE_HEADERS: Record<string, string> = {
+  ...BROWSER_HEADERS,
+  'Accept-Encoding': 'gzip',
+  'Sec-Fetch-Mode': 'cors',
+  Referer: 'https://www.bseindia.com/',
+  Origin: 'https://www.bseindia.com',
+};
+
+const BSE_ATTEMPTS = 3;
+/** BSE serves 50 filings a page; no real day comes near this many pages. */
+const BSE_MAX_PAGES_PER_DAY = 200;
+
+class BseHttpError extends Error {
+  constructor(
+    url: string,
+    readonly status: number,
+  ) {
+    super(`${url} responded ${status}`);
+    this.name = 'BseHttpError';
+  }
+}
+
+/**
+ * GETs one BSE API response as JSON.
+ *
+ * Not `fetch`: some of BSE's servers send header lines that start with a
+ * space, which `fetch` rejects outright ("Unexpected whitespace after header
+ * value"), and the CDN caches that response for a minute, so retrying does not
+ * help. Node's own parser accepts it in lenient mode. The leniency is scoped to
+ * this one read-only exchange API, never to anything this app serves.
+ */
+function bseGet(url: string): Promise<unknown> {
+  return new Promise((resolve, reject) => {
+    const request = httpsRequest(
+      url,
+      { headers: BSE_HEADERS, insecureHTTPParser: true, signal: AbortSignal.timeout(20_000) },
+      (response) => {
+        const chunks: Buffer[] = [];
+        response.on('data', (chunk: Buffer) => chunks.push(chunk));
+        response.on('error', reject);
+        response.on('end', () => {
+          const status = response.statusCode ?? 0;
+          if (status < 200 || status >= 300) {
+            reject(new BseHttpError(url, status));
+            return;
+          }
+          try {
+            const body = Buffer.concat(chunks);
+            // Sniff gzip from the bytes: a malformed header line can fold into
+            // `content-encoding` and make the header unreliable.
+            const gzipped = body[0] === 0x1f && body[1] === 0x8b;
+            resolve(JSON.parse((gzipped ? gunzipSync(body) : body).toString('utf8')));
+          } catch (error) {
+            reject(error);
+          }
+        });
+      },
+    );
+    request.on('error', reject);
+    request.end();
+  });
+}
+
+/** {@link bseGet}, retrying network failures and 5xx; a 4xx is final. */
+async function fetchBseJson(url: string): Promise<unknown> {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await bseGet(url);
+    } catch (error) {
+      const final = error instanceof BseHttpError && error.status < 500;
+      if (final || attempt >= BSE_ATTEMPTS) throw error;
+      await sleep(1_000 * attempt);
+    }
+  }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** IST date keys from `to` back to `from`, newest first. */
+function istDaysBack(to: Date, from: Date): string[] {
+  const first = istKey(from);
+  const days: string[] = [];
+  for (let at = to.getTime(); istKey(new Date(at)) >= first; at -= 86_400_000) {
+    days.push(istKey(new Date(at)));
+  }
+  return days;
+}
+
+const bseAnnouncementPage = z.object({
+  Table: z.array(z.unknown()),
+  Table1: z.array(z.object({ ROWCNT: z.number() })).optional(),
+});
+
+/**
+ * One IST day's filings disseminated at or after `since`.
+ *
+ * BSE pages a day newest first, so paging stops at the first page that reaches
+ * back past `since`, at the day's row count, or at an empty page. A filing
+ * that arrives mid-crawl shifts the rest down a page: that repeats a row (the
+ * caller dedupes) but never skips one.
+ */
+async function fetchBseAnnouncementDay(
+  day: string,
+  since: Date,
+  pageDelayMs: number,
+): Promise<RawAnnouncement[]> {
+  const out: RawAnnouncement[] = [];
+  let seen = 0;
+  for (let page = 1; page <= BSE_MAX_PAGES_PER_DAY; page += 1) {
+    const url = `${BSE_API}/AnnSubCategoryGetData/w?pageno=${page}&strCat=-1&strPrevDate=${day}&strScrip=&strSearch=P&strToDate=${day}&strType=C&subcategory=-1`;
+    const payload = await fetchBseJson(url);
+    const parsed = bseAnnouncementPage.safeParse(payload);
+    if (!parsed.success) {
+      throw new Error(
+        `BSE announcements ${day} page ${page} is not a filing table: ${JSON.stringify(payload).slice(0, 160)}`,
+      );
+    }
+    const table = parsed.data.Table;
+    if (table.length === 0) return out;
+
+    // A malformed filing is skipped rather than failing the whole crawl; a page
+    // where nothing parses means the format changed, and that must fail loudly.
+    const rows = parseBseAnnouncements(parsed.data);
+    if (rows.length === 0) {
+      throw new Error(
+        `BSE announcements ${day} page ${page}: none of ${table.length} filings parsed`,
+      );
+    }
+    out.push(...rows.filter((row) => row.announcedAt >= since));
+
+    seen += table.length;
+    const total = parsed.data.Table1?.[0]?.ROWCNT;
+    const oldest = Math.min(...rows.map((row) => row.announcedAt.getTime()));
+    if ((total !== undefined && seen >= total) || oldest < since.getTime()) return out;
+    await sleep(pageDelayMs);
+  }
+  throw new Error(`BSE announcements ${day} ran past ${BSE_MAX_PAGES_PER_DAY} pages`);
+}
+
+export interface IndiaDisclosureSourceOptions {
+  /** Pause between BSE announcement pages, to stay a polite client. */
+  readonly pageDelayMs?: number;
+}
+
 /**
  * The India disclosure source.
  *
  * Every method throws on transport or shape failure; the jobs record the
  * failure against the feed and keep whatever was ingested before.
  */
-export function createIndiaDisclosureSource(): DisclosureSource {
+export function createIndiaDisclosureSource(
+  options: IndiaDisclosureSourceOptions = {},
+): DisclosureSource {
+  const pageDelayMs = options.pageDelayMs ?? 300;
   return {
     id: 'india-exchanges',
 
     fetchAnnouncements: async ({ since }) => {
-      const from = compact(istKey(since));
-      const to = compact(istKey(new Date()));
-      const url = `https://api.bseindia.com/BseIndiaAPI/api/AnnGetData/w?strCat=-1&strPrevDate=${from}&strToDate=${to}&strSearch=P&strscrip=&strType=C`;
-      const payload = await fetchJson(url, { Referer: 'https://www.bseindia.com/' });
-      const envelope = z.object({ Table: z.array(z.unknown()) }).parse(payload);
-      const rows = parseBseAnnouncements(envelope);
-      if (rows.length !== envelope.Table.length)
-        throw new Error('Announcement response contains invalid or undated filings');
-      return rows;
+      const byId = new Map<string, RawAnnouncement>();
+      for (const day of istDaysBack(new Date(), since)) {
+        for (const filing of await fetchBseAnnouncementDay(compact(day), since, pageDelayMs)) {
+          byId.set(filing.externalId, filing);
+        }
+      }
+      if (byId.size === 0) return [];
+
+      const [scrips, nseByIsin] = await Promise.all([
+        fetchBseJson(BSE_SCRIP_MASTER_URL).then(parseBseScripMaster),
+        fetchText(NSE_EQUITY_LIST_URL, NSE_HEADERS).then(parseNseEquityList),
+      ]);
+      // Without both listings every filing would lose its watchlist link.
+      if (scrips.size === 0) throw new Error('BSE scrip master returned no scrips');
+      if (nseByIsin.size === 0) throw new Error('NSE equity list returned no listings');
+      return [...byId.values()].map((filing) => ({
+        ...filing,
+        symbol: listingSymbol(filing.symbol, scrips, nseByIsin),
+      }));
     },
 
     fetchFiiDii: async () =>

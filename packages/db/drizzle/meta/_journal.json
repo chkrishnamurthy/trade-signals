@@ -267,6 +267,13 @@
       "when": 1791450000000,
       "tag": "0038_event_log",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1791536400000,
+      "tag": "0039_announcement_ingestion_error",
+      "breakpoints": true
     }
   ]
 }
