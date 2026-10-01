@@ -71,6 +71,17 @@ describe('applyLiveQuote', () => {
     expect(inside.dayLow).toBe(247000);
   });
 
+  it('stretches the 52-week range when the price breaks through it', () => {
+    const year = { low52w: 247500, high52w: 316000 };
+    expect(applyLiveQuote(row(year), tick({ ltp: 246000 })).low52w).toBe(246000);
+    expect(applyLiveQuote(row(year), tick({ ltp: 320000 })).high52w).toBe(320000);
+    const inside = applyLiveQuote(row(year), tick({ ltp: 252000 }));
+    expect(inside.low52w).toBe(247500);
+    expect(inside.high52w).toBe(316000);
+    // No stored range: one tick does not make a 52-week range.
+    expect(applyLiveQuote(row(), tick({ ltp: 246000 })).low52w).toBeNull();
+  });
+
   it('returns the same object when nothing moved', () => {
     const before = row();
     expect(applyLiveQuote(before, tick({ ltp: 250000, volume: 1_000_000 }))).toBe(before);

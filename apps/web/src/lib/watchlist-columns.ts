@@ -329,7 +329,7 @@ const COLUMNS: readonly WatchlistColumn[] = [
   {
     id: 'high52w',
     label: '52W High',
-    description: 'Highest close over the last 52 weeks',
+    description: 'Highest traded price over the last 52 weeks, including today',
     group: 'range52w',
     source: 'indicators',
     numeric: true,
@@ -340,7 +340,7 @@ const COLUMNS: readonly WatchlistColumn[] = [
   {
     id: 'low52w',
     label: '52W Low',
-    description: 'Lowest close over the last 52 weeks',
+    description: 'Lowest traded price over the last 52 weeks, including today',
     group: 'range52w',
     source: 'indicators',
     numeric: true,

@@ -23,6 +23,7 @@ import {
 } from '@equitywise/db';
 import type { InstrumentRef, Quote, QuotesResult } from '@equitywise/market-data';
 import type { SignalDirection } from '@/lib/dashboard-types';
+import { withSessionExtremes } from '@/lib/market-math';
 import { type ReturnCloses, returnAnchors } from '@/lib/return-windows';
 import type {
   RowSignalDto,
@@ -200,6 +201,13 @@ export async function getWatchlistDetail(id: number): Promise<WatchlistDetailDto
   const rows: WatchlistRowDto[] = members.map((member) => {
     const quote = quotes.get(member.symbol) ?? null;
     const daily = indicators.get(member.instrumentId) ?? null;
+    // The stored extremes stop at the last close; today's session can already
+    // have broken through them.
+    const year = withSessionExtremes(
+      { low52w: daily?.low52w ?? null, high52w: daily?.high52w ?? null },
+      quote?.low ?? null,
+      quote?.high ?? null,
+    );
 
     return {
       instrumentId: member.instrumentId,
@@ -230,8 +238,8 @@ export async function getWatchlistDetail(id: number): Promise<WatchlistDetailDto
       sma50: daily?.sma50 ?? null,
       macdHistogram: daily?.macdHistogram ?? null,
       atr14: daily?.atr14 ?? null,
-      high52w: daily?.high52w ?? null,
-      low52w: daily?.low52w ?? null,
+      high52w: year.high52w,
+      low52w: year.low52w,
       averageVolume: daily?.averageVolume ?? null,
       relativeVolume: daily?.relativeVolume ?? null,
       previousVolume: daily?.volume ?? null,
