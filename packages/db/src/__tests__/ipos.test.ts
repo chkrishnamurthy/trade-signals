@@ -10,8 +10,8 @@ import {
   insertGmpSnapshots,
   insertSubscriptionSnapshot,
   latestObservationsForIssue,
-  listRhpDocumentsToExtract,
   listIpos,
+  listRhpDocumentsToExtract,
   recordListingDay,
   recordSourceObservation,
   updateIpoIssue,
@@ -333,4 +333,3 @@ suite('IPO persistence on real PostgreSQL', () => {
     expect(beyond.total).toBe(first.total);
   });
 });
-

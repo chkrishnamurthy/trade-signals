@@ -15,16 +15,16 @@ owner: krishna
 
 # IPOs (`/ipos`) — review, research and implementation plan
 
-**Status:** Approved and **built** on branch `feat/ipos` (2026-10-02), uncommitted at the
-owner's instruction. Phases 1–8, 10 and 11 are complete in code with tests. The Docker
-database tests and the live one-off job runs passed on 2026-10-02. Still open: the VPS
-check (Phase 0), the real-app QA, and the merge. BSE is built but
+**Status:** Approved, **built** and **merged to `main`** (2026-10-02, at the owner's
+request). Phases 1–8, 10 and 11 are complete in code with tests; the UI was redesigned from
+owner-approved mockups and checked in the running app. The migrations ship as
+`0027_ipos`, `0028_ipo_rhp_extracts` and `0029_ipo_sebi_filings` (renumbered after
+`0026_market_calendar`). Still open: the VPS check (Phase 0). BSE is built but
 `enabled: false` until the owner extends D2 to BSE.
 **Owner decisions (2026-10-02):** **GMP must be shown** (D1). NSE is fetched with a browser
 User-Agent (D2). `/ipos` is for **signed-in users** (D3), **every** user rather than admins only (D4).
 **There are no versions.** All phases 0–11 are built in one go, including BSE and RHP extraction (D5),
-so the finished build is the complete IPO system. Work happens on branch `feat/ipos`; nothing is committed or pushed
-without the owner.
+so the finished build is the complete IPO system. Work happened on branch `feat/ipos`.
 **Builds on:** the disclosure pipeline (`/announcements`, `/flows`), which already
 ingests NSE/BSE public data in the worker with pure parsers and feed health. See
 [institutional-flow-plan.md](institutional-flow-plan.md) and

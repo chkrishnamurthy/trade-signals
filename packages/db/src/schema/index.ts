@@ -59,6 +59,7 @@ export {
   ipoSubscriptionSnapshots,
   type RhpTableData,
 } from './ipos.js';
+export { marketEvents } from './market-events.js';
 export {
   exchangeSessions,
   instrumentProviderRefs,

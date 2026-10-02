@@ -54,8 +54,8 @@ Every job is idempotent: a re-run only bumps `last_seen_at` on unchanged observa
 
 ## First deploy
 
-1. The migrations run through `deploy.sh`: `0026_ipos.sql` (six tables, append-only and
-   freeze triggers), `0027_ipo_rhp_extracts.sql` and `0028_ipo_sebi_filings.sql`.
+1. The migrations run through `deploy.sh`: `0027_ipos.sql` (six tables, append-only and
+   freeze triggers), `0028_ipo_rhp_extracts.sql` and `0029_ipo_sebi_filings.sql`.
 2. Run the backfill once: `--once backfill-ipos`. It loads ~24 months of past issues,
    their detail pages and listing days at one request every 3 s, under a 900-request
    budget — expect 30–45 minutes. Re-running it continues where it stopped.

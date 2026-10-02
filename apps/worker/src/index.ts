@@ -33,6 +33,7 @@ import {
   ingestSebiFilings,
 } from './jobs/ingest-ipos.js';
 import { createIntradayJobs } from './jobs/intraday-orb.js';
+import { marketCalendarSync } from './jobs/market-calendar-sync.js';
 import { createPaperJobs } from './jobs/paper.js';
 import { refreshProviderCredential } from './jobs/refresh-credential.js';
 import { createLogger, errorFields } from './log.js';
@@ -145,6 +146,8 @@ const SCHEDULES = {
   extractIpoRhp: '20 8,18 * * 1-6',
   /** SEBI's filings list (DRHPs): one page twice a day covers its few filings a day. */
   ingestSebiFilings: '45 9,19 * * 1-6',
+  /** Refresh the versioned user-facing event calendar after the session calendar. */
+  marketCalendarSync: '35 6 * * *',
 } as const;
 
 interface Jobs {
@@ -192,6 +195,13 @@ function buildScheduler(context: WorkerContext): Jobs {
         schedule: '0 20 9 * * 1-6',
         run: async () => {
           await checkUnscheduledClosure(context, log.child('calendar-check'));
+        },
+      },
+      {
+        name: 'market-calendar-sync',
+        schedule: SCHEDULES.marketCalendarSync,
+        run: async () => {
+          await marketCalendarSync(context, log.child('market-calendar-sync'));
         },
       },
       // The live socket: open at 09:05, closed at 15:35. The quote sweep below
@@ -543,6 +553,7 @@ async function main(): Promise<void> {
           'backfill-ipos',
           'calendar-refresh',
           'calendar-check',
+          'market-calendar-sync',
           'paper-entries',
           'paper-monitor',
           'paper-squareoff',
@@ -569,6 +580,15 @@ async function main(): Promise<void> {
     await computeIndicators(context, log.child('backfill-indicators'));
     await context.close();
     return;
+  }
+
+  // Versioned local events are provider-independent. Refresh during a regular
+  // startup so a deploy does not wait for the next 06:35 schedule. One-shot
+  // invocations intentionally run only the requested job.
+  try {
+    await marketCalendarSync(context, log.child('market-calendar-sync'));
+  } catch (error) {
+    log.warn('market calendar startup sync failed', errorFields(error));
   }
 
   const jobs = buildScheduler(context);
