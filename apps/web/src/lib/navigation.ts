@@ -1,6 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 import {
   ActivityIcon,
+  CalendarDaysIcon,
   FlaskConicalIcon,
   LandmarkIcon,
   ListIcon,
@@ -78,6 +79,13 @@ export const NAVIGATION: readonly NavGroup[] = [
         label: 'Announcements',
         icon: MegaphoneIcon,
         description: 'Official corporate filings from the exchanges',
+      },
+      {
+        status: 'ready',
+        href: '/calendar',
+        label: 'Market Calendar',
+        icon: CalendarDaysIcon,
+        description: 'Results, corporate actions, holidays, and watchlist events',
       },
       {
         status: 'ready',

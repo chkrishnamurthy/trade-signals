@@ -5,6 +5,7 @@ export {
   parseRetryAfter,
 } from './circuit.js';
 export * from './intraday.js';
+export * from './market-calendar.js';
 export type { FormatPaiseOptions } from './money.js';
 export {
   assertPaise,

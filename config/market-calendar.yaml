@@ -1,0 +1,22 @@
+# User-facing NSE market events for /calendar.
+#
+# Dates are IST calendar dates. Optional times are IST wall-clock values in
+# 24-hour HH:mm form; the worker converts them to UTC before persistence.
+# Every key is a stable identity: keep it unchanged when correcting an event.
+# NSE holidays are derived from config/nse-calendar.yaml and do not belong here.
+events:
+  - key: "config:result:TCS:2026-Q2"
+    symbol: "TCS"
+    event_type: "result"
+    event_category: "quarterly_results"
+    title: "TCS quarterly results"
+    description: "Company is expected to announce quarterly results."
+    event_date: "2026-10-10"
+    event_time: null
+    source_name: "NSE"
+    source_url: null
+    importance: "high"
+    why_this_matters: "The release updates reported revenue, margins, and other company disclosures."
+    what_to_watch:
+      - "Whether the announcement remains scheduled for this date"
+      - "The company's filed financial statements and accompanying notes"

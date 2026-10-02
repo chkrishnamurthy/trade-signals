@@ -1,6 +1,6 @@
 import 'server-only';
 import { NextResponse } from 'next/server';
-import type { ZodType } from 'zod';
+import type { ZodType, ZodTypeDef } from 'zod';
 import { clearStaleSessionCookie } from './auth/http';
 import { isUserAuthenticationError, MarketDataError, toMarketError } from './errors';
 
@@ -39,7 +39,10 @@ export function parseId(raw: string): number | null {
 
 export type Parsed<T> = { ok: true; data: T } | { ok: false; response: NextResponse };
 
-export async function parseBody<T>(request: Request, schema: ZodType<T>): Promise<Parsed<T>> {
+export async function parseBody<T>(
+  request: Request,
+  schema: ZodType<T, ZodTypeDef, unknown>,
+): Promise<Parsed<T>> {
   let raw: unknown;
   try {
     raw = await request.json();
@@ -57,6 +60,25 @@ export async function parseBody<T>(request: Request, schema: ZodType<T>): Promis
       ok: false,
       response: jsonError(issue?.message ?? 'Invalid request.', 400, {
         code: path === '' ? 'INVALID_BODY' : `INVALID_${path.toUpperCase()}`,
+      }),
+    };
+  }
+  return { ok: true, data: result.data };
+}
+
+/** Zod-validates a route's query string while preserving the shared error shape. */
+export function parseQuery<T>(
+  searchParams: URLSearchParams,
+  schema: ZodType<T, ZodTypeDef, unknown>,
+): Parsed<T> {
+  const result = schema.safeParse(Object.fromEntries(searchParams.entries()));
+  if (!result.success) {
+    const issue = result.error.issues[0];
+    return {
+      ok: false,
+      response: jsonError(issue?.message ?? 'Invalid query.', 400, {
+        code: 'INVALID_QUERY',
+        remedy: 'Use valid market calendar filters and try again.',
       }),
     };
   }

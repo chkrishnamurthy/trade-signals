@@ -186,6 +186,13 @@ export {
   syncInstruments,
 } from './instruments.js';
 export * from './intraday.js';
+export type {
+  MarketEventQuery,
+  MarketEventRow,
+  MarketEventScope,
+  MarketEventUpsert,
+} from './market-events.js';
+export { listMarketEvents, marketEventSummary, upsertMarketEvents } from './market-events.js';
 export * from './minute-bars.js';
 export * from './paper.js';
 export * from './paper-ops.js';

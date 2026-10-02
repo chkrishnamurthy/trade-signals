@@ -48,6 +48,7 @@ export {
   intradaySignalEvents,
   intradaySignals,
 } from './intraday.js';
+export { marketEvents } from './market-events.js';
 export {
   exchangeSessions,
   instrumentProviderRefs,

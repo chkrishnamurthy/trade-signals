@@ -180,8 +180,8 @@
     {
       "idx": 25,
       "version": "7",
-      "when": 1789891200000,
-      "tag": "0025_google_oauth",
+      "when": 1790899200000,
+      "tag": "0025_market_calendar",
       "breakpoints": true
     }
   ]
