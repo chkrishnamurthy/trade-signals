@@ -1,0 +1,268 @@
+{
+  "IPONO_0": [
+    {
+      "DT_TM": "10/1/2026 5:00:00 PM",
+      "DT_TMC": "Thursday, October 01 ,  2026  5:00:00 PM",
+      "ISBID_Detail": "1",
+      "IPO_NO": "8020",
+      "ScripCode": "4870",
+      "ScripName": "Vishal Nirmiti Limited",
+      "Security_Type": "Equity",
+      "Symbol": "VNL",
+      "Issue_Period": "30 Sep 2026 to 05 Oct 2026",
+      "IPO_Market_Timings": "10.00 am to 5.00 pm",
+      "Post_Issue_Modification": "",
+      "DY1": "",
+      "Cut_off_time_for_UPI_Mandate_Confirmation": "05th Octomber 2026 (Upto 5.00 Pm)",
+      "Issue_Size_No_of_shares": "8471153",
+      "Price_Band": "208.00-220.00",
+      "Price_Band_Advertisement": "https://listing.bseindia.com/Download//PreAnchor/PBPublishedcopy_20260928145304.pdf",
+      "Face_Value": "10.00",
+      "Tick_Size": "1.00",
+      "Market_Lot": "68",
+      "Minimum_Bid_Quantity": "68",
+      "Maximum_Bid_Quantity_For_Qualified_Institutional_Investors": "8471100",
+      "Maximum_Bid_Quantity_For_Qualified_Non_Institutional_Investors": "8386440",
+      "Rating": "",
+      "DY2": "",
+      "Book_Running_Lead_Manager": "Saffron Capital Advisors Private Limited^605, Center Point, 6th floor, J. B. Nagar, Andheri Kurla Road, Andheri (East), Mumbai - 400 059, Maharashtra, India||||||||satej@saffronadvisor.com|Satej Darde",
+      "Co_Book_Running_Lead_Manager": "",
+      "Syndicate_Member": "https://listing.bseindia.com/Download//PreAnchor/SubSyndicateMemberlist_20260928145304.zip",
+      "Eligible_Banks": "https://listing.bseindia.com/Download//PreAnchor/SponsorBankUndertaking_20260928145304.pdf",
+      "Registrar": "MUFG INTIME INDIA PRIVATE LIMITED^C-101, Embassy 247, L.B.S. Marg, Vikhroli (West), Mumbai - 400083, Maharashtra, India||||||||ipo.team@in.mpms.mufg.com",
+      "Sponsor_Bank": "HDFC BANK^Lodha – I Think Techno Campus, O-3 Level Next to Kanjurmarg Railway Station Kanjurmarg (East), Mumbai – 400042||||||||btiscsb@hdfcbank.com,btiops@hdfc.bank.in,vaibhav.gadge@hdfc.bank.in,pravin.teli2@hdfc.bank.in,eric.b|Eric Bacha",
+      "DY3": "",
+      "Prospectus_GID": "https://listing.bseindia.com/Download/8888888/PreAnchor/RHP_20260928180139.zip",
+      "Addendum": "",
+      "Corrigendum": "",
+      "Anchor_Details": "",
+      "Bank_ASBA_Form": "https://ibbseforms.bseindia.com/ASBAFORMS/BlankForms_New.aspx?ipo=4870",
+      "Online_ASBA_Form": "https://ibbseforms.bseindia.com/ASBAFORMS/BidEntryQuick_New.aspx?ipo=4870",
+      "Revised_Online_ASBA_Form": "https://ibbseforms.bseindia.com/ASBAFORMS/SrchBid.aspx?ipo=4870",
+      "Registrar_issue_share_Transfer_Agents_Depository": "https://www.bseindia.com/Static/PublicIssues/RtaDp.aspx ",
+      "DY4": "",
+      "Public_Notices": "",
+      "Notes": "As per SEBI circular no SEBI/HO/CFD/DIL2/CIR/P/2019/76 dated June 28 2019 all are requested to comply with the provisions of the aforementioned circular which states as below: Intermediaries shall retain physical application forms submitted by retail individual investors with UPI as a payment mechanism, for a period of six months and thereafter forward the same to the issuer/ Registrar to Issue. However in case of Electronic forms printouts of such applications need not be retained or sent to the issuer. Intermediaries shall at all times maintain the electronic records relating to such forms for a minimum period of three years.",
+      "Remarks": "",
+      "Branches_of_SCSBs": "http://www.sebi.gov.in/sebiweb/other/OtherAction.do?doRecognisedFpi=yes&intmId=34",
+      "List_of_SCSBs": "http://www.sebi.gov.in/sebiweb/other/OtherAction.do?doRecognisedFpi=yes&intmId=35",
+      "Self_Certified_Syndicate_Banks_Eligible": "https://www.sebi.gov.in/sebiweb/other/OtherAction.do?doRecognisedFpi=yes&intmId=40",
+      "DY5": "",
+      "DY6": ""
+    }
+  ],
+  "IPONO_1": [
+    {
+      "NEW_ID": "fb45f391-5832-4285-a9b9-c94b5d8c4a5d",
+      "IPO_NO": "8020",
+      "DYN_COLNAME": "",
+      "DYN_COLValue": "",
+      "INSERT_DTTM": "9/29/2026 7:32:22 PM",
+      "DYN_ORDER": "1"
+    },
+    {
+      "NEW_ID": "f6f38629-5578-40fc-b5d5-7754e029484b",
+      "IPO_NO": "8020",
+      "DYN_COLNAME": "",
+      "DYN_COLValue": "",
+      "INSERT_DTTM": "9/29/2026 7:32:22 PM",
+      "DYN_ORDER": "2"
+    },
+    {
+      "NEW_ID": "4666881b-11b0-46ad-a8c3-e097a08b7392",
+      "IPO_NO": "8020",
+      "DYN_COLNAME": "",
+      "DYN_COLValue": "",
+      "INSERT_DTTM": "9/29/2026 7:32:22 PM",
+      "DYN_ORDER": "3"
+    },
+    {
+      "NEW_ID": "77c80465-6d87-4270-9d07-db199b241d18",
+      "IPO_NO": "8020",
+      "DYN_COLNAME": "",
+      "DYN_COLValue": "",
+      "INSERT_DTTM": "9/29/2026 7:32:22 PM",
+      "DYN_ORDER": "4"
+    },
+    {
+      "NEW_ID": "e7f26feb-4965-4706-b2f4-944d570e3433",
+      "IPO_NO": "8020",
+      "DYN_COLNAME": "",
+      "DYN_COLValue": "",
+      "INSERT_DTTM": "9/29/2026 7:32:22 PM",
+      "DYN_ORDER": "5"
+    },
+    {
+      "NEW_ID": "39a19906-250c-4062-92d4-888ddf6f7d25",
+      "IPO_NO": "8020",
+      "DYN_COLNAME": "",
+      "DYN_COLValue": "",
+      "INSERT_DTTM": "9/29/2026 7:32:22 PM",
+      "DYN_ORDER": "6"
+    }
+  ],
+  "IPONO_2": [
+    {
+      "Price": "208.00",
+      "Quantity": "1120572",
+      "Price1": "208",
+      "process_dttm": "10/1/2026 5:02:37 PM"
+    },
+    {
+      "Price": "209.00",
+      "Quantity": "976548",
+      "Price1": "209",
+      "process_dttm": "10/1/2026 5:02:37 PM"
+    },
+    {
+      "Price": "210.00",
+      "Quantity": "976480",
+      "Price1": "210",
+      "process_dttm": "10/1/2026 5:02:37 PM"
+    },
+    {
+      "Price": "211.00",
+      "Quantity": "975188",
+      "Price1": "211",
+      "process_dttm": "10/1/2026 5:02:37 PM"
+    },
+    {
+      "Price": "212.00",
+      "Quantity": "975052",
+      "Price1": "212",
+      "process_dttm": "10/1/2026 5:02:37 PM"
+    },
+    {
+      "Price": "213.00",
+      "Quantity": "974440",
+      "Price1": "213",
+      "process_dttm": "10/1/2026 5:02:37 PM"
+    },
+    {
+      "Price": "214.00",
+      "Quantity": "974236",
+      "Price1": "214",
+      "process_dttm": "10/1/2026 5:02:37 PM"
+    },
+    {
+      "Price": "215.00",
+      "Quantity": "974032",
+      "Price1": "215",
+      "process_dttm": "10/1/2026 5:02:37 PM"
+    },
+    {
+      "Price": "216.00",
+      "Quantity": "973488",
+      "Price1": "216",
+      "process_dttm": "10/1/2026 5:02:37 PM"
+    },
+    {
+      "Price": "218.00",
+      "Quantity": "973420",
+      "Price1": "218",
+      "process_dttm": "10/1/2026 5:02:37 PM"
+    },
+    {
+      "Price": "220.00",
+      "Quantity": "972468",
+      "Price1": "220",
+      "process_dttm": "10/1/2026 5:02:37 PM"
+    },
+    {
+      "Price": "Cut-off",
+      "Quantity": "769896",
+      "Price1": "9999",
+      "process_dttm": "10/1/2026 5:02:37 PM"
+    }
+  ],
+  "IPONO_3": [
+    {
+      "Price": "208.00",
+      "Quantity": "4842484",
+      "Price1": "208",
+      "process_dttm": "10/1/2026 5:09:00 PM"
+    },
+    {
+      "Price": "209.00",
+      "Quantity": "3376948",
+      "Price1": "209",
+      "process_dttm": "10/1/2026 5:09:00 PM"
+    },
+    {
+      "Price": "210.00",
+      "Quantity": "3376268",
+      "Price1": "210",
+      "process_dttm": "10/1/2026 5:09:00 PM"
+    },
+    {
+      "Price": "211.00",
+      "Quantity": "3371848",
+      "Price1": "211",
+      "process_dttm": "10/1/2026 5:09:00 PM"
+    },
+    {
+      "Price": "212.00",
+      "Quantity": "3371168",
+      "Price1": "212",
+      "process_dttm": "10/1/2026 5:09:00 PM"
+    },
+    {
+      "Price": "213.00",
+      "Quantity": "3370216",
+      "Price1": "213",
+      "process_dttm": "10/1/2026 5:09:00 PM"
+    },
+    {
+      "Price": "214.00",
+      "Quantity": "3369808",
+      "Price1": "214",
+      "process_dttm": "10/1/2026 5:09:00 PM"
+    },
+    {
+      "Price": "215.00",
+      "Quantity": "3369332",
+      "Price1": "215",
+      "process_dttm": "10/1/2026 5:09:00 PM"
+    },
+    {
+      "Price": "216.00",
+      "Quantity": "3367156",
+      "Price1": "216",
+      "process_dttm": "10/1/2026 5:09:00 PM"
+    },
+    {
+      "Price": "218.00",
+      "Quantity": "3366884",
+      "Price1": "218",
+      "process_dttm": "10/1/2026 5:09:00 PM"
+    },
+    {
+      "Price": "219.00",
+      "Quantity": "3365864",
+      "Price1": "219",
+      "process_dttm": "10/1/2026 5:09:00 PM"
+    },
+    {
+      "Price": "220.00",
+      "Quantity": "3365796",
+      "Price1": "220",
+      "process_dttm": "10/1/2026 5:09:00 PM"
+    },
+    {
+      "Price": "Cut-off",
+      "Quantity": "2435624",
+      "Price1": "9999",
+      "process_dttm": "10/1/2026 5:09:00 PM"
+    }
+  ],
+  "IPONO_4": [
+    {
+      "NOTICE_ID": "dfe1d700-7b2d-4537-8d95-4dfe028eb236",
+      "NOTICE_DATE": "8/3/2022 12:00:00 AM",
+      "NOTICE_NO": "20220803-40",
+      "SUBJECT": "Processing of ASBA applications in Public Issue of Equity Shares and Convertibles",
+      "FILENAME": ""
+    }
+  ],
+  "status": "success"
+}

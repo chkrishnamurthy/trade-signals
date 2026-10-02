@@ -1,0 +1,781 @@
+import type { IpoListRow } from '@equitywise/db';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mock = vi.hoisted(() => ({
+  user: vi.fn(),
+  admin: vi.fn(),
+  list: vi.fn(),
+  counts: vi.fn(),
+  around: vi.fn(),
+  health: vi.fn(),
+  bySlug: vi.fn(),
+  parts: vi.fn(),
+  track: vi.fn(),
+  unmatched: vi.fn(),
+  conflicts: vi.fn(),
+  filings: vi.fn(),
+  yearStats: vi.fn(),
+  years: vi.fn(),
+  documents: vi.fn(),
+}));
+vi.mock('./auth/require-user', () => ({ getSessionUser: mock.user, getAdminUser: mock.admin }));
+vi.mock('./db', () => ({ getDatabase: () => ({}) }));
+vi.mock('@equitywise/db', async (original) => ({
+  ...(await original<typeof import('@equitywise/db')>()),
+  listIpos: mock.list,
+  countIposByStatus: mock.counts,
+  listIposAround: mock.around,
+  feedHealth: mock.health,
+  getIpoBySlug: mock.bySlug,
+  ipoDetailParts: mock.parts,
+  gmpTrackRows: mock.track,
+  listSebiFilings: mock.filings,
+  listUnmatchedSourceRecords: mock.unmatched,
+  listIssuesWithConflicts: mock.conflicts,
+  ipoYearStats: mock.yearStats,
+  listIpoYears: mock.years,
+  listIssueDocuments: mock.documents,
+}));
+
+import { GET as getAdminHealthRoute } from '../app/api/admin/ipos/health/route';
+import { GET as getDetailRoute } from '../app/api/ipos/[slug]/route';
+import { GET as getListRoute } from '../app/api/ipos/route';
+import { getIpoWebConfig } from './ipo-config';
+import {
+  buildAgenda,
+  dashboardCurrent,
+  dashboardGmp,
+  dashboardSubscription,
+  feedIdsFor,
+  getIpoDashboard,
+  getIpoDetail,
+  getIpoListPage,
+  getIposPage,
+  type MapContext,
+  nextSettlementDays,
+  subscriptionViews,
+  toAllotmentRow,
+  toFeedStatuses,
+  toGmpPanel,
+  toListItem,
+  toTrackRecord,
+  visibleRhp,
+} from './ipos';
+
+// 2 Oct 2026, 08:40 IST.
+const now = new Date('2026-10-02T03:10:00Z');
+
+function issue(over: Partial<IpoListRow> = {}): IpoListRow {
+  return {
+    id: 1,
+    slug: 'vishal-nirmiti-ipo-2026',
+    companyName: 'Vishal Nirmiti Limited',
+    board: 'mainboard',
+    issueMethod: 'book_building',
+    designatedExchange: 'NSE',
+    exchanges: ['NSE'],
+    nseSymbol: 'VNL',
+    nseSeries: 'EQ',
+    bseScripCode: null,
+    isin: null,
+    openDate: '2026-09-30',
+    closeDate: '2026-10-05',
+    listingDate: null,
+    allotmentDate: null,
+    refundDate: null,
+    dematCreditDate: null,
+    upiCutoffAt: new Date('2026-10-05T11:30:00Z'),
+    priceBandLowPaise: 20_800,
+    priceBandHighPaise: 22_000,
+    issuePricePaise: null,
+    faceValuePaise: 1_000,
+    lotSize: 68,
+    minBidQuantity: 68,
+    retailMaxPaise: 20_000_000,
+    employeeDiscountPaise: null,
+    sharesOffered: 8_471_153,
+    freshIssueShares: null,
+    freshIssuePaise: 145_000_000_000,
+    ofsShares: 1_500_000,
+    ofsPaise: null,
+    marketMakerShares: null,
+    anchorShares: null,
+    issueSizeText:
+      'fresh issue aggregating up to 14500 lakhs and offer for sale up to 15,00,000 Equity Shares',
+    registrarName: 'MUFG Intime India Private Limited',
+    registrarContact: null,
+    leadManagers: ['Saffron Capital Advisors Private Limited'],
+    sponsorBanks: [],
+    marketMaker: null,
+    lifecycleOverride: null,
+    fieldSources: {
+      lotSize: {
+        source: 'nse',
+        url: 'https://www.nseindia.com/api/ipo-detail',
+        observedAt: now.toISOString(),
+        basis: 'official',
+      },
+    },
+    firstSeenAt: now,
+    updatedAt: now,
+    subscriptionTotal: {
+      scope: 'consolidated',
+      asOf: '2026-10-01T11:30:00+00:00',
+      sharesBid: 4_835_208,
+      sharesOffered: 8_471_153,
+    },
+    subscriptionRetail: {
+      scope: 'consolidated',
+      asOf: '2026-10-01T11:30:00+00:00',
+      sharesBid: 2_779_092,
+      sharesOffered: 5_929_808,
+    },
+    latestGmp: {
+      source: 'investorgain',
+      gmpPaise: 2_000,
+      observedAt: '2026-10-02T01:32:00+00:00',
+      sourceUrl: 'https://www.investorgain.com/gmp/vishal-nirmiti-ipo/1602/',
+    },
+    listing: null,
+    ...over,
+  };
+}
+
+let ctx: MapContext;
+
+beforeEach(async () => {
+  vi.clearAllMocks();
+  const config = await getIpoWebConfig(now.getTime());
+  ctx = {
+    today: '2026-10-02',
+    now,
+    calendar: config.calendar,
+    gmp: { name: 'InvestorGain', url: 'https://www.investorgain.com/report/ipo-gmp-live/331/' },
+  };
+  mock.user.mockResolvedValue({ id: 7 });
+  mock.admin.mockResolvedValue(null);
+  mock.list.mockResolvedValue({ rows: [issue()], total: 1 });
+  mock.filings.mockResolvedValue([
+    {
+      sebiId: '104866',
+      companyName: 'JAGATJIT AGRI ENGINEERING LIMITED',
+      documentLabel: 'DRHP',
+      filedDate: '2026-10-01',
+      pageUrl:
+        'https://www.sebi.gov.in/filings/public-issues/oct-2026/jagatjit-agri-engineering-limited-drhp_104866.html',
+      abridgedUrl: null,
+      slug: null,
+      lastSeenAt: now,
+    },
+  ]);
+  mock.counts.mockResolvedValue({
+    upcoming: 1,
+    open: 1,
+    closed: 0,
+    listed: 0,
+    withdrawn: 0,
+    postponed: 0,
+  });
+  mock.around.mockResolvedValue([issue()]);
+  mock.health.mockResolvedValue(new Map());
+  mock.track.mockResolvedValue([]);
+  mock.yearStats.mockResolvedValue({
+    listed: 88,
+    withListingPrice: 8,
+    openedAboveIssue: 6,
+    withLatestClose: 8,
+    latestAboveIssue: 4,
+  });
+  mock.years.mockResolvedValue([2026, 2025, 2024]);
+  mock.documents.mockResolvedValue([]);
+});
+
+describe('toListItem', () => {
+  it('derives status, minimum investment, issue size and the expected listing date', () => {
+    const item = toListItem(issue(), ctx);
+    expect(item).toMatchObject({
+      status: 'open',
+      closedStage: null,
+      // 68 × ₹220 = ₹14,960.
+      minInvestmentPaise: 1_496_000,
+      // ₹145 cr fresh + 15,00,000 × ₹220 OFS = ₹178 cr, priced at the band.
+      issueSizePaise: 178_000_000_000,
+      issueSizeBasis: 'derived_at_upper_band',
+      // Close Mon 5 Oct → T+3 Thu 8 Oct.
+      expectedListingDate: '2026-10-08',
+      upiCutoffAt: '2026-10-05T11:30:00.000Z',
+    });
+  });
+
+  it('computes subscription times within one scope only', () => {
+    const item = toListItem(issue(), ctx);
+    expect(item.subscription?.scope).toBe('consolidated');
+    expect(item.subscription?.totalTimes).toBeCloseTo(0.5708, 4);
+    const mixed = toListItem(
+      issue({
+        subscriptionRetail: {
+          scope: 'nse',
+          asOf: '2026-10-01T11:30:00Z',
+          sharesBid: 1,
+          sharesOffered: 1,
+        },
+      }),
+      ctx,
+    );
+    expect(mixed.subscription?.retailTimes).toBeNull();
+  });
+
+  it('labels GMP unofficial and marks an old quote stale', () => {
+    const item = toListItem(issue(), ctx);
+    expect(item.gmp).toMatchObject({
+      official: false,
+      latestPaise: 2_000,
+      sourceName: 'InvestorGain',
+      stale: false,
+    });
+    expect(item.gmp?.percentOfUpperBand).toBeCloseTo(9.0909, 3);
+    const old = toListItem(
+      issue({
+        latestGmp: {
+          source: 'investorgain',
+          gmpPaise: 2_000,
+          observedAt: '2026-09-29T01:00:00Z',
+          sourceUrl: 'x',
+        },
+      }),
+      ctx,
+    );
+    expect(old.gmp?.stale).toBe(true);
+  });
+
+  it('shows no GMP at all when the source is switched off', () => {
+    expect(toListItem(issue(), { ...ctx, gmp: null }).gmp).toBeNull();
+  });
+
+  it('computes listing gains from the exchange file', () => {
+    const item = toListItem(
+      issue({
+        listingDate: '2026-10-01',
+        listing: {
+          exchange: 'NSE',
+          listingDate: '2026-10-01',
+          issuePricePaise: 40_500,
+          listingOpenPaise: 45_500,
+          listingClosePaise: 41_655,
+          latestClosePaise: 42_000,
+          latestCloseDate: '2026-10-01',
+        },
+      }),
+      ctx,
+    );
+    expect(item.status).toBe('listed');
+    expect(item.listing?.listingGainPercent).toBeCloseTo(12.3457, 3);
+    expect(item.listing?.listingDayChangePercent).toBeCloseTo(2.8519, 3);
+    expect(item.expectedListingDate).toBeNull();
+  });
+
+  it('stops promising a listing well past T+3 with no official date', () => {
+    // Close Mon 5 Oct → T+3 Thu 8 Oct; 5 settlement days of grace end Thu 15 Oct.
+    const pending = toListItem(issue(), { ...ctx, today: '2026-10-15' });
+    expect(pending).toMatchObject({
+      status: 'closed',
+      closedStage: 'listing_pending',
+      expectedListingDate: '2026-10-08',
+    });
+    const unreported = toListItem(issue(), { ...ctx, today: '2026-10-16' });
+    expect(unreported).toMatchObject({
+      status: 'closed',
+      closedStage: 'listing_unconfirmed',
+      expectedListingDate: null,
+    });
+  });
+});
+
+describe('buildAgenda', () => {
+  it('groups milestones by day and marks computed ones expected', () => {
+    const days = buildAgenda([issue()], '2026-10-02', '2026-10-15', ctx);
+    expect(days.map((d) => [d.date, d.events.map((e) => [e.kind, e.expected])])).toEqual([
+      ['2026-10-05', [['closes', false]]],
+      ['2026-10-06', [['allotment', true]]],
+      ['2026-10-07', [['demat_credit', true]]],
+      ['2026-10-08', [['listing', true]]],
+    ]);
+  });
+});
+
+describe('subscriptionViews', () => {
+  const row = (scope: string, asOf: string, category: string, bid: number, offered: number) => ({
+    ipoId: 1,
+    source: 'nse',
+    scope,
+    asOf: new Date(asOf),
+    asOfBasis: 'stated',
+    category,
+    categoryLabel: category,
+    sharesOffered: offered,
+    sharesBid: bid,
+    fetchedAt: new Date(asOf),
+  });
+  it('prefers the consolidated table and keeps one history point per day', () => {
+    const views = subscriptionViews([
+      row('consolidated', '2026-09-30T11:30:00Z', 'total', 100, 1_000),
+      row('consolidated', '2026-10-01T06:00:00Z', 'total', 300, 1_000),
+      row('consolidated', '2026-10-01T11:30:00Z', 'total', 570, 1_000),
+      row('nse', '2026-10-01T11:30:03Z', 'total', 440, 1_000),
+    ]);
+    expect(views.table?.scope).toBe('consolidated');
+    expect(views.table?.rows[0]?.times).toBeCloseTo(0.57, 5);
+    expect(views.nseOnly?.scope).toBe('nse');
+    expect(views.history.map((p) => p.totalTimes)).toEqual([0.1, 0.57]);
+  });
+});
+
+describe('subscriptionViews across sources', () => {
+  const at = '2026-10-01T11:30:00Z';
+  const snap = (source: string, scope: string, category: string, bid: number) => ({
+    ipoId: 1,
+    source,
+    scope,
+    asOf: new Date(at),
+    asOfBasis: 'stated',
+    category,
+    categoryLabel: `${category}-${source}`,
+    sharesOffered: 1_000,
+    sharesBid: bid,
+    fetchedAt: new Date(at),
+  });
+  it('never merges two exchanges at the same time and prefers the designated one', () => {
+    const rows = [
+      snap('nse', 'consolidated', 'total', 571),
+      snap('bse', 'consolidated', 'total', 572),
+    ];
+    const nse = subscriptionViews(rows, 'nse');
+    expect(nse.table?.source).toBe('nse');
+    expect(nse.table?.rows).toHaveLength(1);
+    expect(subscriptionViews(rows, 'bse').table?.source).toBe('bse');
+  });
+});
+
+describe('toGmpPanel', () => {
+  it('says why there is no GMP', () => {
+    expect(toGmpPanel([], 22_000, { now, gmp: null })).toMatchObject({
+      available: false,
+      reason: 'source_disabled',
+    });
+    expect(toGmpPanel([], 22_000, ctx)).toMatchObject({ available: false, reason: 'not_tracked' });
+  });
+});
+
+describe('toTrackRecord', () => {
+  it('compares the last GMP with the listing gain and finds this issue', () => {
+    const record = toTrackRecord(
+      [
+        {
+          slug: 'a-one',
+          companyName: 'A-One Steels',
+          board: 'mainboard',
+          listingDate: '2026-10-01',
+          priceBandHighPaise: 40_500,
+          issuePricePaise: 40_500,
+          listingOpenPaise: 45_500,
+          lastGmpPaise: 4_600,
+        },
+      ],
+      12,
+      'a-one',
+    );
+    expect(record.official).toBe(false);
+    expect(record.within).toBe(1);
+    expect(record.thisIssue?.lastGmpPercent).toBeCloseTo(11.358, 2);
+  });
+});
+
+describe('feed statuses', () => {
+  it('lists enabled feeds and reports failure and staleness', async () => {
+    const config = await getIpoWebConfig(now.getTime());
+    const feeds = feedIdsFor(config);
+    expect(feeds.map((f) => f.id)).toEqual(
+      expect.arrayContaining(['ipo-nse-calendar', 'ipo-nse-subscription', 'ipo-investorgain-gmp']),
+    );
+    const statuses = toFeedStatuses(
+      feeds,
+      new Map([
+        [
+          'ipo-nse-calendar',
+          {
+            feed: 'ipo-nse-calendar',
+            latest: {
+              succeeded: false,
+              fetched: 0,
+              written: 0,
+              error: 'SourceHttpError: 503',
+              completedAt: now,
+            },
+            lastSuccess: null,
+          },
+        ],
+      ]),
+      now,
+      config,
+    );
+    expect(statuses.find((s) => s.id === 'ipo-nse-calendar')).toMatchObject({
+      status: 'failed',
+      error: 'SourceHttpError: 503',
+      label: 'NSE issue calendar',
+    });
+    expect(statuses.find((s) => s.id === 'ipo-nse-detail')?.status).toBe('empty');
+  });
+});
+
+function rhpRow() {
+  return {
+    documentId: 7,
+    documentUrl: 'https://nsearchives.nseindia.com/content/ipo/RHP_VNL.zip',
+    documentTitle: 'Red Herring Prospectus',
+    section: 'overview',
+    title: 'Overview',
+    body: 'We are a civil engineering company.',
+    items: [],
+    table: null,
+    pageFrom: 247,
+    pageTo: 247,
+    extractedAt: new Date('2026-10-02T02:50:00Z'),
+  };
+}
+
+describe('visibleRhp', () => {
+  it('drops the sections ipo-rhp-overrides.yaml hides, and nothing else', () => {
+    const rows = [rhpRow(), { ...rhpRow(), section: 'risks', body: null, items: ['A risk.'] }];
+    expect(visibleRhp(rows, undefined).map((e) => e.section)).toEqual(['overview', 'risks']);
+    expect(visibleRhp(rows, new Set(['risks'])).map((e) => e.section)).toEqual(['overview']);
+  });
+
+  it('reads the committed overrides file', async () => {
+    const config = await getIpoWebConfig(now.getTime());
+    expect(config.rhpHidden.size).toBe(0);
+  });
+});
+
+describe('dashboard building blocks', () => {
+  it('counts five settlement days, skipping the holiday and the weekend', async () => {
+    const config = await getIpoWebConfig(now.getTime());
+    // Fri 2 Oct 2026 is Gandhi Jayanti: the window is Mon 5 – Fri 9 Oct.
+    expect(nextSettlementDays('2026-10-02', 5, config.calendar)).toEqual({
+      from: '2026-10-02',
+      to: '2026-10-09',
+    });
+    // A trading Monday counts itself.
+    expect(nextSettlementDays('2026-10-05', 5, config.calendar).to).toBe('2026-10-09');
+  });
+
+  it('orders the board: open, upcoming, awaiting listing, then listed this week', () => {
+    const open = toListItem(issue(), ctx);
+    const upcoming = toListItem(
+      issue({ slug: 'up', openDate: '2026-10-07', closeDate: '2026-10-09' }),
+      ctx,
+    );
+    const closed = toListItem(
+      issue({ slug: 'closed', openDate: '2026-09-25', closeDate: '2026-09-29' }),
+      ctx,
+    );
+    // Closed long ago with no listing: "no listing reported", not "yet to list".
+    const stale = toListItem(
+      issue({ slug: 'stale', openDate: '2026-08-01', closeDate: '2026-08-05' }),
+      ctx,
+    );
+    const recent = toListItem(issue({ slug: 'recent', listingDate: '2026-10-01' }), ctx);
+    const old = toListItem(issue({ slug: 'old', listingDate: '2026-09-01' }), ctx);
+    expect(
+      dashboardCurrent(
+        { open: [open], upcoming: [upcoming], closed: [stale, closed], listed: [recent, old] },
+        ctx.today,
+      ).map((r) => r.slug),
+    ).toEqual(['vishal-nirmiti-ipo-2026', 'up', 'closed', 'recent']);
+  });
+
+  it('ranks demand within open and closed issues, open first', () => {
+    const low = toListItem(issue({ slug: 'low' }), ctx);
+    const high = toListItem(
+      issue({
+        slug: 'high',
+        subscriptionTotal: {
+          scope: 'consolidated',
+          asOf: '2026-10-01T11:30:00+00:00',
+          sharesBid: 20,
+          sharesOffered: 10,
+        },
+      }),
+      ctx,
+    );
+    const closed = toListItem(
+      issue({ slug: 'closed', openDate: '2026-09-25', closeDate: '2026-09-29' }),
+      ctx,
+    );
+    const none = toListItem(issue({ slug: 'none', subscriptionTotal: null }), ctx);
+    expect(dashboardSubscription([low, none, high], [closed]).map((r) => r.slug)).toEqual([
+      'high',
+      'low',
+      'closed',
+    ]);
+  });
+
+  it('keeps GMP to unlisted issues with a quote, highest premium first, once each', () => {
+    const vnl = toListItem(issue(), ctx);
+    const higher = toListItem(
+      issue({
+        slug: 'higher',
+        latestGmp: {
+          source: 'investorgain',
+          gmpPaise: 5_000,
+          observedAt: '2026-10-02T01:32:00+00:00',
+          sourceUrl: 'https://www.investorgain.com/gmp/x/1/',
+        },
+      }),
+      ctx,
+    );
+    const noQuote = toListItem(
+      issue({
+        slug: 'no-quote',
+        latestGmp: {
+          source: 'investorgain',
+          gmpPaise: null,
+          observedAt: '2026-10-02T01:32:00+00:00',
+          sourceUrl: 'https://www.investorgain.com/gmp/y/2/',
+        },
+      }),
+      ctx,
+    );
+    const listed = toListItem(issue({ slug: 'listed', listingDate: '2026-10-01' }), ctx);
+    expect(dashboardGmp([vnl, higher, noQuote, listed, vnl]).map((r) => r.slug)).toEqual([
+      'higher',
+      'vishal-nirmiti-ipo-2026',
+    ]);
+  });
+
+  it("gives a closed issue's allotment day and the registrar's own page", async () => {
+    const config = await getIpoWebConfig(now.getTime());
+    const row = toAllotmentRow(
+      issue({ openDate: '2026-09-25', closeDate: '2026-09-29', allotmentDate: '2026-09-30' }),
+      config,
+    );
+    expect(row).toMatchObject({
+      allotmentDate: '2026-09-30',
+      allotmentExpected: false,
+      // T+3 from Tue 29 Sep, past the Gandhi Jayanti holiday.
+      listingDate: '2026-10-05',
+      listingExpected: true,
+      registrarName: 'MUFG Intime India Private Limited',
+    });
+    expect(row?.registrarUrl).toMatch(/^https:\/\//);
+    expect(toAllotmentRow(issue({ closeDate: null }), config)).toBeNull();
+  });
+});
+
+describe('services and routes', () => {
+  it('builds the dashboard for one board, with filings only on the mainboard', async () => {
+    mock.list.mockImplementation(async (_db: unknown, f: { status?: string; board?: string }) =>
+      f.status === 'open' ? { rows: [issue()], total: 1 } : { rows: [], total: 0 },
+    );
+    mock.documents.mockResolvedValue([
+      {
+        ipoId: 1,
+        kind: 'rhp',
+        title: 'Red Herring Prospectus',
+        url: 'https://nsearchives.nseindia.com/content/ipo/RHP_VNL.zip',
+        sectionsQuoted: 5,
+      },
+    ]);
+    const main = await getIpoDashboard('mainboard', now);
+    expect(main.board).toBe('mainboard');
+    expect(main.yearStats).toEqual({
+      year: 2026,
+      listed: 88,
+      withListingPrice: 8,
+      openedAboveIssue: 6,
+      withLatestClose: 8,
+      latestAboveIssue: 4,
+    });
+    expect(mock.yearStats).toHaveBeenCalledWith(expect.anything(), {
+      board: 'mainboard',
+      from: '2026-01-01',
+      today: '2026-10-02',
+    });
+    expect(main.current.map((r) => r.slug)).toEqual(['vishal-nirmiti-ipo-2026']);
+    expect(main.gmp).toHaveLength(1);
+    expect(main.documents).toEqual([
+      {
+        slug: 'vishal-nirmiti-ipo-2026',
+        companyName: 'Vishal Nirmiti Limited',
+        kind: 'rhp',
+        url: 'https://nsearchives.nseindia.com/content/ipo/RHP_VNL.zip',
+        host: 'nsearchives.nseindia.com',
+        sectionsQuoted: 5,
+      },
+    ]);
+    expect(main.filings).toHaveLength(1);
+    expect(main.gmpTrack).toMatchObject({ official: false, total: 0 });
+
+    const sme = await getIpoDashboard('sme', now);
+    expect(sme.filings).toEqual([]);
+    for (const call of mock.list.mock.calls) expect(call[1]).toHaveProperty('board');
+  });
+
+  it("lists a board for this year by default, every year on 'all'", async () => {
+    const page = await getIpoListPage('sme', { page: 1 }, now);
+    expect(page.filters).toEqual({ status: null, year: 2026, q: '' });
+    expect(page.years).toEqual([2026, 2025, 2024]);
+    expect(mock.list).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ board: 'sme', year: 2026, page: 1 }),
+    );
+    const all = await getIpoListPage('sme', { page: 1, year: 'all' }, now);
+    expect(all.filters.year).toBeNull();
+    expect(mock.list).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({ board: 'sme', year: undefined }),
+    );
+  });
+
+  it('refuses the dashboard and the list when signed out', async () => {
+    mock.user.mockResolvedValue(null);
+    await expect(getIpoDashboard('mainboard', now)).rejects.toMatchObject({ status: 401 });
+    await expect(getIpoListPage('mainboard', { page: 1 }, now)).rejects.toMatchObject({
+      status: 401,
+    });
+  });
+
+  it('serves the last real page for a page number past the end', async () => {
+    // Page 3 of a result that now fits on page 1: the stale page is empty.
+    mock.list.mockImplementation(async (_db: unknown, f: { page: number; status?: string }) =>
+      f.status === 'open'
+        ? { rows: [issue()], total: 1 }
+        : f.page === 1
+          ? { rows: [issue()], total: 1 }
+          : { rows: [], total: 1 },
+    );
+    const page = await getIposPage({ page: 3 }, now);
+    expect(page.page).toBe(1);
+    expect(page.rows).toHaveLength(1);
+    expect(page.total).toBe(1);
+  });
+
+  it('builds the page with highlights and the GMP policy', async () => {
+    const page = await getIposPage({ page: 1 }, now);
+    expect(page.highlights.openNow).toHaveLength(1);
+    expect(page.highlights.listsThisWeek).toBe(1);
+    expect(page.gmpPolicy).toEqual({
+      enabled: true,
+      sourceName: 'InvestorGain',
+      sourceUrl: 'https://www.investorgain.com/report/ipo-gmp-live/331/',
+    });
+    expect(page.disclaimer).toMatch(/not investment advice/);
+    // SEBI filings are shown on their own, never as issues.
+    expect(page.filings).toEqual([
+      {
+        sebiId: '104866',
+        companyName: 'JAGATJIT AGRI ENGINEERING LIMITED',
+        documentLabel: 'DRHP',
+        filedDate: '2026-10-01',
+        pageUrl:
+          'https://www.sebi.gov.in/filings/public-issues/oct-2026/jagatjit-agri-engineering-limited-drhp_104866.html',
+        abridgedUrl: null,
+        slug: null,
+      },
+    ]);
+    expect(page.rows).toHaveLength(1);
+  });
+
+  it('answers 400 for an invalid filter and 401 when signed out', async () => {
+    const bad = await getListRoute(new Request('http://x/api/ipos?status=hot'));
+    expect(bad.status).toBe(400);
+    expect((await bad.json()).code).toBe('INVALID_STATUS');
+    mock.user.mockResolvedValue(null);
+    const out = await getListRoute(new Request('http://x/api/ipos'));
+    expect(out.status).toBe(401);
+  });
+
+  it('answers 404 for an unknown slug', async () => {
+    mock.bySlug.mockResolvedValue(null);
+    const res = await getDetailRoute(new Request('http://x'), {
+      params: Promise.resolve({ slug: 'nope-ipo-2026' }),
+    });
+    expect(res.status).toBe(404);
+  });
+
+  it('assembles a detail page with sources and the registrar link', async () => {
+    mock.bySlug.mockResolvedValue(issue());
+    mock.parts.mockResolvedValue({
+      subscriptions: [],
+      gmp: [],
+      documents: [],
+      listing: [],
+      sources: [],
+      filings: [],
+      rhp: [
+        {
+          documentId: 7,
+          documentUrl: 'https://nsearchives.nseindia.com/content/ipo/RHP_VNL.zip',
+          documentTitle: 'Red Herring Prospectus',
+          section: 'financials',
+          title: 'Restated financial summary',
+          body: null,
+          items: [],
+          table: {
+            unit: '₹ lakh',
+            columns: ['31 March 2026'],
+            rows: [{ label: 'Revenue from operations', values: ['33,867.73'] }],
+          },
+          pageFrom: 71,
+          pageTo: 73,
+          extractedAt: new Date('2026-10-02T02:50:00Z'),
+        },
+        // A section this build does not know is dropped, not rendered raw.
+        { ...rhpRow(), section: 'valuation' },
+      ],
+    });
+    const detail = await getIpoDetail('vishal-nirmiti-ipo-2026', now);
+    // RHP figures pass through as the document's own strings.
+    expect(detail.rhp).toEqual([
+      {
+        section: 'financials',
+        title: 'Restated financial summary',
+        text: null,
+        items: [],
+        table: {
+          unit: '₹ lakh',
+          columns: ['31 March 2026'],
+          rows: [{ label: 'Revenue from operations', values: ['33,867.73'] }],
+        },
+        pageFrom: 71,
+        pageTo: 73,
+        documentUrl: 'https://nsearchives.nseindia.com/content/ipo/RHP_VNL.zip',
+        extractedAt: '2026-10-02T02:50:00.000Z',
+      },
+    ]);
+    expect(detail.registrar).toMatchObject({
+      name: 'MUFG Intime India Private Limited',
+      allotmentUrl: 'https://in.mpms.mufg.com/Initial_Offer/public-issues.html',
+    });
+    // 13 lots of ₹14,960 fit under ₹2,00,000.
+    expect(detail.maxRetailLots).toBe(13);
+    // Mainboard: each category's application in whole lots at ₹220.
+    expect(detail.investmentLimits.map((l) => [l.kind, l.lots, l.amountPaise])).toEqual([
+      ['retail_min', 1, 1_496_000],
+      ['retail_max', 13, 19_448_000],
+      ['snii_min', 14, 20_944_000],
+      ['snii_max', 66, 98_736_000],
+      ['bnii_min', 67, 100_232_000],
+    ]);
+    expect(detail.fieldSources.lotSize?.sourceName).toBe('NSE');
+    expect(detail.gmpPanel).toMatchObject({
+      official: false,
+      available: false,
+      reason: 'not_tracked',
+    });
+  });
+
+  it('refuses the admin health view to a non-admin', async () => {
+    const res = await getAdminHealthRoute();
+    expect(res.status).toBe(403);
+  });
+});

@@ -102,7 +102,7 @@ export function AppShell({
 
             <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-2 sm:flex-none sm:gap-3">
               {/* Fills whatever the phone header has left; fixed only from `sm` up. */}
-              <div className="min-w-0 flex-1 sm:w-52 sm:flex-none lg:w-64">
+              <div className="min-w-0 flex-1 sm:w-52 sm:flex-none lg:w-44 xl:w-64">
                 <StockSearch onSelect={handleSearchSelect} />
               </div>
               <ThemeToggle />
@@ -168,13 +168,17 @@ function NavLink({
       aria-current={active ? 'page' : undefined}
       className={cn(
         'flex items-center gap-2 rounded-md font-medium transition-colors',
-        variant === 'drawer' ? 'px-3 py-2.5 text-sm' : 'px-3 py-1.5 text-sm',
+        // In the bar between `lg` and `xl` the row is tight: labels stay on
+        // one line and drop their icons, so the account menu stays on screen.
+        variant === 'drawer'
+          ? 'px-3 py-2.5 text-sm'
+          : 'whitespace-nowrap px-2 py-1.5 text-sm xl:px-3',
         active
           ? 'bg-primary/10 text-primary'
           : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground',
       )}
     >
-      <Icon className="size-4 shrink-0" aria-hidden />
+      <Icon className={cn('size-4 shrink-0', variant === 'bar' && 'hidden xl:block')} aria-hidden />
       {item.label}
     </Link>
   );

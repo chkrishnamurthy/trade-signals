@@ -183,6 +183,27 @@
       "when": 1789891200000,
       "tag": "0025_google_oauth",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1790913600000,
+      "tag": "0026_ipos",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1790935200000,
+      "tag": "0027_ipo_rhp_extracts",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1790938800000,
+      "tag": "0028_ipo_sebi_filings",
+      "breakpoints": true
     }
   ]
 }

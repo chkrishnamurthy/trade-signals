@@ -259,6 +259,28 @@ export const API_ROUTES = {
   adminUser: (id: number | string): string => `/api/admin/users/${id}`,
 
   // ---------------------------------------------------------------------------
+  // IPOs (/api/ipos/*) — read-only; GMP is unofficial and labelled as such.
+  // ---------------------------------------------------------------------------
+
+  /** GET /api/ipos?status=&board=&exchange=&q=&page= — the IPOs page data. */
+  ipos: (query?: Record<string, string | number | undefined>): string => {
+    const sp = new URLSearchParams();
+    for (const [k, v] of Object.entries(query ?? {}))
+      if (v !== undefined && v !== '') sp.set(k, String(v));
+    const qs = sp.toString();
+    return `/api/ipos${qs ? `?${qs}` : ''}`;
+  },
+  /** GET /api/ipos/calendar?from=&to= — milestones per day (≤ 62 days). */
+  ipoCalendar: (from: string, to: string): string =>
+    `/api/ipos/calendar?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+  /** GET /api/ipos/gmp-track-record?months= — unofficial GMP vs actual listing gains. */
+  ipoGmpTrackRecord: (months = 12): string => `/api/ipos/gmp-track-record?months=${months}`,
+  /** GET /api/ipos/{slug} — one issue in full. */
+  ipo: (slug: string): string => `/api/ipos/${encodeURIComponent(slug)}`,
+  /** GET /api/admin/ipos/health — IPO pipeline health (Admin only). */
+  adminIpoHealth: '/api/admin/ipos/health',
+
+  // ---------------------------------------------------------------------------
   // Market Data Provider Handshake (Fyers OAuth)
   // ---------------------------------------------------------------------------
 

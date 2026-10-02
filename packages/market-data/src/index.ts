@@ -33,6 +33,21 @@ export { OI_BUCKETS } from './disclosures.js';
 export type { MarketDataFailure } from './errors.js';
 export { isMarketDataProviderError, MarketDataProviderError } from './errors.js';
 export type {
+  FilingSource,
+  GmpSource,
+  IpoKey,
+  IpoSource,
+  RawGmpQuote,
+  RawIpoDetail,
+  RawIpoDocument,
+  RawIpoListing,
+  RawIpoSubscription,
+  RawListingDay,
+  RawRecentListing,
+  RawSebiFiling,
+  RawSubscriptionRow,
+} from './ipos.js';
+export type {
   BarsRequest,
   FuturesOiBar,
   FuturesOiRequest,

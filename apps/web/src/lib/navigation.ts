@@ -1,6 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 import {
   ActivityIcon,
+  CalendarRangeIcon,
   FlaskConicalIcon,
   LandmarkIcon,
   ListIcon,
@@ -85,6 +86,13 @@ export const NAVIGATION: readonly NavGroup[] = [
         label: 'Institutional Flow',
         icon: LandmarkIcon,
         description: 'FII/DII activity, bulk & block deals, and shareholding',
+      },
+      {
+        status: 'ready',
+        href: '/ipos',
+        label: 'IPOs',
+        icon: CalendarRangeIcon,
+        description: 'Mainboard and SME public issues: dates, demand and listing',
       },
     ],
   },

@@ -1,4 +1,10 @@
-import { ChevronRightIcon, ClockIcon, RadioIcon, ShieldCheckIcon } from 'lucide-react';
+import {
+  CalendarRangeIcon,
+  ChevronRightIcon,
+  ClockIcon,
+  RadioIcon,
+  ShieldCheckIcon,
+} from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { PublicFooter } from '@/components/layout/public-footer';
@@ -178,6 +184,35 @@ export default async function DataSourcesPage() {
                 indicator values
               </li>
             </ul>
+          </section>
+
+          <section className="space-y-3">
+            <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
+              <CalendarRangeIcon className="size-5 text-primary" />
+              4. IPO Data
+            </h2>
+            <p>
+              IPO dates, price bands, lot sizes, issue sizes, registrars, lead managers, offer
+              documents and subscription figures come from the{' '}
+              <strong>National Stock Exchange of India (NSE)</strong>&apos;s public IPO pages and
+              are shown with the time each was read. Listing-day prices come from NSE&apos;s
+              end-of-day file. Dates marked &ldquo;expected&rdquo; are calculated from SEBI&apos;s
+              T+3 timetable until the exchange publishes them.
+            </p>
+            <p>
+              Sections shown &ldquo;from the offer document&rdquo; are read automatically from the
+              Red Herring Prospectus the exchange publishes and quoted as the company wrote them,
+              with the page they came from; check the document itself. Draft offer documents (DRHPs)
+              are listed as filed with the{' '}
+              <strong>Securities and Exchange Board of India (SEBI)</strong>, linked to SEBI&apos;s
+              page; a filing is not an announced issue.
+            </p>
+            <p>
+              The <strong>grey-market premium (GMP)</strong> is an unofficial, unregulated quote
+              that no exchange or regulator publishes. EquityWise shows it, clearly labelled as
+              unofficial, as reported by <strong>InvestorGain</strong>, and does not verify it. It
+              is not a forecast of the listing price. Nothing on the IPO pages is investment advice.
+            </p>
           </section>
         </article>
       </main>

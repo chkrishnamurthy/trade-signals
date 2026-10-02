@@ -41,6 +41,17 @@ historical intent; that intraday code no longer exists in the tree.
 > **Both are admin-only:** the pages redirect a non-admin, their APIs answer 403, and
 > they are not in the primary navigation. Do not expose them to users without a decision.
 
+> **Update (2026-10-02):** `/ipos` — Indian mainboard and SME IPOs — is built for **every
+> signed-in user** (in the "Market record" navigation): `/ipos` is a dashboard of compact
+> modules with a Mainboard/SME switch, `/ipos/mainboard` and `/ipos/sme` list every issue,
+> and `/ipos/[slug]` is one issue in full. Official facts come from NSE's
+> public IPO data and end-of-day file; an **unofficial** grey-market premium (GMP) comes
+> from InvestorGain, always labelled, attributed and kept out of every official field.
+> RHP sections are quoted from the document with their pages (figures stay the
+> document's text), and DRHPs filed with SEBI are listed on their own, never as issues.
+> No apply button, no rating, no opinion of any issue. Plan: `docs/planning/ipos-plan.md`;
+> runbook: `docs/operations/ipo-pipeline.md`.
+
 Design & architecture docs: `docs/README.md`, `docs/architecture.md` (topology & stack),
 `docs/domain-and-contracts.md` (schema, indicators & invariants), `docs/api-reference.md`,
 `docs/operations-runbook.md`, and `docs/planning/storybook-plan.md`.

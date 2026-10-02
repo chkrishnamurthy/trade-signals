@@ -1,0 +1,109 @@
+# IPO data sources (docs/planning/ipos-plan.md §5.4).
+#
+# Versioned config, not a database table (CLAUDE.md: config is YAML, no admin
+# CRUD). Zod-validated when the worker starts: an invalid file fails the boot,
+# like intraday-orb.yaml. Turning a source off is `enabled: false` and a worker
+# restart — the IPO jobs then skip it as a logged no-op.
+#
+# kind:
+#   official_exchange / regulator — may supply any official field.
+#   aggregator — may supply ONLY the `gmp` feed. The loader rejects anything else,
+#   and an aggregator is never in `fieldPriority`.
+#
+# userAgent names an entry under `userAgents`. `browser` is for exchanges whose
+# CDN refuses every non-browser client: NSE (owner decision D2, 2026-10-02) and
+# BSE (pending the owner's OK — that source is off until then).
+
+userAgents:
+  equitywise: "EquityWise/1.0 (+https://equitywise.io; support@equitywise.io)"
+  browser: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36"
+
+# The product token robots.txt groups are matched against, for every source.
+robotsAgent: equitywise
+
+sources:
+  nse:
+    enabled: true
+    kind: official_exchange
+    exchange: NSE
+    userAgent: browser
+    minIntervalMs: 2000
+    maxRequestsPerRun: 80
+    timeoutMs: 20000
+    feeds: [calendar, past, detail, subscription, listing, rhp]
+  bse:
+    # Built and verified live on 2026-10-02 (BSE-only SME issues, BSE listing
+    # prices). OFF until the owner extends decision D2 to BSE: BSE's CDN, like
+    # NSE's, refuses every non-browser client, so it needs the browser UA too.
+    # To turn it on: `enabled: true` and restart the worker.
+    enabled: false
+    kind: official_exchange
+    exchange: BSE
+    userAgent: browser
+    minIntervalMs: 3000
+    maxRequestsPerRun: 60
+    timeoutMs: 20000
+    # BSE publishes no past-issue list; closed issues keep what was read while live.
+    feeds: [calendar, detail, subscription, listing, rhp]
+  sebi:
+    # The regulator's public-issue filings list: DRHPs and their addenda, filed
+    # before an issue is scheduled (Phase 11). Honest User-Agent; robots.txt
+    # allows the page (checked 2026-10-02). One page (25 filings) per run.
+    enabled: true
+    kind: regulator
+    userAgent: equitywise
+    minIntervalMs: 3000
+    maxRequestsPerRun: 3
+    timeoutMs: 30000
+    feeds: [filings]
+  investorgain:
+    # D1 (2026-10-02): GMP is shown, from this source only. Flip to false on a
+    # takedown request; every GMP surface then shows the explainer instead.
+    enabled: true
+    kind: aggregator
+    userAgent: equitywise # accepted (200) on 2026-10-02
+    minIntervalMs: 5000
+    maxRequestsPerRun: 3
+    timeoutMs: 30000
+    feeds: [gmp]
+    attribution:
+      name: InvestorGain
+      url: https://www.investorgain.com/report/ipo-gmp-live/331/
+
+# Exchange series codes that are equity IPOs. Everything else (DEBT, N0…, IV
+# InvITs, RR REITs, GS/GB government paper) is ignored.
+equitySeries:
+  mainboard: [EQ, BE, BZ]
+  sme: [SME, SM, ST]
+
+# Official sources, in fallback order after the issue's designated exchange.
+fieldPriority:
+  fallback: [nse, bse]
+
+# Links a source hands us are stored and rendered only on these hosts (and
+# their subdomains). Source HTML is never rendered.
+documentHosts:
+  - nseindia.com
+  - bseindia.com
+  - sebi.gov.in
+
+# Paced, on-demand history load (`--once backfill-ipos`).
+backfill:
+  months: 24
+  minIntervalMs: 3000
+  maxRequests: 900
+
+# Reading sections out of an RHP (Phase 11). A document is fetched through the
+# client of the official source that owns its host — same User-Agent, robots
+# rules and pacing — and only while that source is enabled with the `rhp`
+# feed. Documents on any other host (sebi.gov.in) are linked, never fetched.
+# A document that fails `maxAttempts` times is left alone; see
+# docs/operations/ipo-pipeline.md to retry it.
+rhp:
+  hosts:
+    nseindia.com: nse
+    bseindia.com: bse
+  maxDocumentsPerRun: 2
+  maxBytes: 62914560 # 60 MB per download and per unzipped PDF
+  maxPages: 1500
+  maxAttempts: 3

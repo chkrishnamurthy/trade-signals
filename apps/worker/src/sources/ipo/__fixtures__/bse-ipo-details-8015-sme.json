@@ -1,0 +1,324 @@
+{
+  "TableRows": [
+    {
+      "Label": "DT_TM",
+      "Label_flg": "DT_TM",
+      "Value": "01-10-2026 17:00:00",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "DT_TMC",
+      "Label_flg": "DT_TMC",
+      "Value": "Thursday, October 01 ,  2026  5:00:00 PM",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "ISBID_Detail",
+      "Label_flg": "ISBID_Detail",
+      "Value": "1",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "IPO_NO",
+      "Label_flg": "IPO_NO",
+      "Value": "8,015",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "ScripCode",
+      "Label_flg": "ScripCode",
+      "Value": "4,865",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "ScripName",
+      "Label_flg": "ScripName",
+      "Value": "Dove  Soft Limited",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "Security Type",
+      "Label_flg": "Security Type",
+      "Value": "Equity",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "Symbol",
+      "Label_flg": "Symbol",
+      "Value": "DSL",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "Issue Period",
+      "Label_flg": "Issue Period",
+      "Value": "30 Sep 2026 to 05 Oct 2026",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "Issue Size – No. of Shares",
+      "Label_flg": "Issue Size – No. of Shares",
+      "Value": "66,00,000",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "Price Band",
+      "Label_flg": "Price Band",
+      "Value": "104.00-111.00",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "Price-Band Advertisement",
+      "Label_flg": "Price-Band Advertisement",
+      "Value": "https://www.bseindia.com/downloads/ipo/Price_Band_Advertisment_280920261523.pdf",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "IPO Categories",
+      "Label_flg": "IPO Categories",
+      "Value": "FI, IC, MF, FII, OTH, CO, IND, NOH",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "UPI Categories",
+      "Label_flg": "UPI Categories",
+      "Value": "IND",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "Face Value",
+      "Label_flg": "Face Value",
+      "Value": "10",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "Tick Size",
+      "Label_flg": "Tick Size",
+      "Value": "1",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "Market Lot",
+      "Label_flg": "Market Lot",
+      "Value": "1,200",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "Minimum Bid Quantity",
+      "Label_flg": "Minimum Bid Quantity",
+      "Value": "2,400",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "Maximum Bid Quantity for Qualified Institutional Investors",
+      "Label_flg": "Maximum Bid Quantity for Qualified Institutional Investors",
+      "Value": "62,70,000",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "Maximum Bid Quantity for Non-Institutional Investors",
+      "Label_flg": "Maximum Bid Quantity for Non-Institutional Investors",
+      "Value": "62,05,200",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "Book Running Lead Manager",
+      "Label_flg": "Book Running Lead Manager",
+      "Value": "Swastika Investmart Limited^Office No. 104, 1st Floor, KESHAVA\nCommercial Building, Plot No. C-5, E Block, Bandra\nKurla Complex, Opp GST Bhavan, Bandra (East),\nMumbai-400051, Maharashtra;||||||||mb@swastika.co.in|Mohit R. Goyal",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "Registrar",
+      "Label_flg": "Registrar",
+      "Value": "PURVA SHAREGISTRY INDIA PRIVATE LIMITED^Unit No. 9, Ground Floor, Shiv\nShakti Ind. Estt, J. R. Boricha Marg, Lower Parel East,\nMumbai- 400011, Maharashtra, India;||||||||newissue@purvashare.com",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "Sponsor Bank",
+      "Label_flg": "Sponsor Bank",
+      "Value": "AXIS BANK^Ground Floor, Sixth Sense Mall at Gokhale\nRoad, Elphiston Road & Sayani Road, Parel, Mumbai-\n400025||||||||Saurabh2.Rao@axis.bank.in,bhilasha.Kushwaha@axis.bank.in,Prathamesh2.Pawar@axis.bank.in,UPI_IPO_Onbo|Dilip Ramji Kanaujiya",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "Prospectus & GID",
+      "Label_flg": "Prospectus & GID",
+      "Value": "https://www.bseindia.com/downloads/ipo/RHP&GID_Dove_280920261523.zip",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "Blank ASBA Form",
+      "Label_flg": "Blank ASBA Form",
+      "Value": "https://ibbseforms.bseindia.com/ASBAFORMS/BlankForms_New.aspx?ipo=4865",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "Online ASBA Form",
+      "Label_flg": "Online ASBA Form",
+      "Value": "https://ibbseforms.bseindia.com/ASBAFORMS/BidEntryQuick_New.aspx?ipo=4865",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "Revised Online ASBA Form",
+      "Label_flg": "Revised Online ASBA Form",
+      "Value": "https://ibbseforms.bseindia.com/ASBAFORMS/SrchBid.aspx?ipo=4865",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "Registrars to an Issue and Share Transfer Agents/Depository Participants",
+      "Label_flg": "Registrars to an Issue and Share Transfer Agents/Depository Participants",
+      "Value": "https://www.bseindia.com/Static/PublicIssues/RtaDp.aspx ",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "Branches of SCSBs where syndicate / sub syndicate member to submit ASBA form",
+      "Label_flg": "Branches of SCSBs where syndicate / sub syndicate member to submit ASBA form",
+      "Value": "http://www.sebi.gov.in/sebiweb/other/OtherAction.do?doRecognisedFpi=yes&intmId=34",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "List of SCSBs for Syndicate ASBA and under ASBA facility",
+      "Label_flg": "List of SCSBs for Syndicate ASBA and under ASBA facility",
+      "Value": "http://www.sebi.gov.in/sebiweb/other/OtherAction.do?doRecognisedFpi=yes&intmId=35",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "Self Certified Syndicate Banks eligible as Issuer Banks for UPI",
+      "Label_flg": "Self Certified Syndicate Banks eligible as Issuer Banks for UPI",
+      "Value": "https://www.sebi.gov.in/sebiweb/other/OtherAction.do?doRecognisedFpi=yes&intmId=40",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "ISFormat",
+      "Label_flg": "ISFormat",
+      "Value": "0",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    }
+  ]
+}

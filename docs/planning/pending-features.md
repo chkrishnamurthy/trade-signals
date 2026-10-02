@@ -209,11 +209,10 @@ should be visible, and a dead link is worse than a disabled one."
 | **Watchlists** | **Built** | See [1.3](#13-watchlists-on-the-database-done) |
 | **Alerts** | Schema done | See [1.4](#14-alerts) |
 | **NIFTY 50** | Nothing built | Constituent-level index view. Largely a re-slice of data `/stocks` already loads |
-| **IPOs** | Nothing built | No schema, no provider surface, no engine. The only genuinely greenfield item on this list, and the least connected to the product's three questions |
+| **IPOs** | **Built, not merged** (2026-10-02, branch `feat/ipos`, uncommitted) | `/ipos` and `/ipos/[slug]` for every signed-in user — NSE official data + bhavcopy listing prices, RHP extracts quoted with their pages, SEBI DRHP filings, and an unofficial, labelled GMP from InvestorGain. The BSE source is built but off until the owner approves its browser User-Agent. Pre-merge: DB tests on Docker, real-app QA, VPS check. See [ipos-plan.md](ipos-plan.md) |
 
-The IPO section deserves a deliberate decision rather than default inclusion:
-nothing else in the product is about primary issues, and it would need its own
-ingestion source. Consider dropping it from the nav instead of building it.
+The owner decided on 2026-10-02 to build the IPO section in full (decisions D1–D5 in
+[ipos-plan.md](ipos-plan.md)), with its own ingestion pipeline in the worker.
 
 ---
 

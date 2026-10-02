@@ -1,0 +1,140 @@
+{
+  "dataList": [
+    {
+      "category": "Category",
+      "noOfShareOffered": "No.of shares offered/reserved",
+      "noOfSharesBid": "No. of shares bid for",
+      "noOfTotalMeant": "No. of times of total meant for the category",
+      "srNo": "Sr.No."
+    },
+    {
+      "category": "Qualified Institutional Buyers(QIBs)",
+      "noOfShareOffered": "84710",
+      "noOfSharesBid": "80920",
+      "noOfTotalMeant": "0.955259119348365",
+      "srNo": "1"
+    },
+    {
+      "category": "Foreign Institutional Investors(FIIs)",
+      "noOfShareOffered": "",
+      "noOfSharesBid": "0",
+      "noOfTotalMeant": "",
+      "srNo": "1(a)"
+    },
+    {
+      "category": "Domestic Financial Institutions(Banks/ Financial Institutions(FIs)/ Insurance Companies)",
+      "noOfShareOffered": "",
+      "noOfSharesBid": "0",
+      "noOfTotalMeant": "",
+      "srNo": "1(b)"
+    },
+    {
+      "category": "Mutual funds",
+      "noOfShareOffered": "",
+      "noOfSharesBid": "0",
+      "noOfTotalMeant": "",
+      "srNo": "1(c)"
+    },
+    {
+      "category": "Others",
+      "noOfShareOffered": "",
+      "noOfSharesBid": "80920",
+      "noOfTotalMeant": "",
+      "srNo": "1(d)"
+    },
+    {
+      "category": "Non Institutional Investors",
+      "noOfShareOffered": "2456635",
+      "noOfSharesBid": "1975196",
+      "noOfTotalMeant": "0.8040250179615612",
+      "srNo": "2"
+    },
+    {
+      "category": "Non Institutional Investors(Bid amount of more than Ten Lakh Rupees)",
+      "noOfShareOffered": "1637757",
+      "noOfSharesBid": "1723120",
+      "noOfTotalMeant": "1.052121895983348",
+      "srNo": "2.1"
+    },
+    {
+      "category": "Corporates",
+      "noOfShareOffered": "",
+      "noOfSharesBid": "9112",
+      "noOfTotalMeant": "",
+      "srNo": "2.1(a)"
+    },
+    {
+      "category": "Individuals(Other than RIIs)",
+      "noOfShareOffered": "",
+      "noOfSharesBid": "1562708",
+      "noOfTotalMeant": "",
+      "srNo": "2.1(b)"
+    },
+    {
+      "category": "Others",
+      "noOfShareOffered": "",
+      "noOfSharesBid": "151300",
+      "noOfTotalMeant": "",
+      "srNo": "2.1(c)"
+    },
+    {
+      "category": "Non Institutional Investors(Bid amount of more than Two Lakh Rupees upto Ten Lakh Rupees)",
+      "noOfShareOffered": "818878",
+      "noOfSharesBid": "252076",
+      "noOfTotalMeant": "0.3078309589462655",
+      "srNo": "2.2"
+    },
+    {
+      "category": "Corporates",
+      "noOfShareOffered": "",
+      "noOfSharesBid": "952",
+      "noOfTotalMeant": "",
+      "srNo": "2.2(a)"
+    },
+    {
+      "category": "Individuals(Other than RIIs)",
+      "noOfShareOffered": "",
+      "noOfSharesBid": "249220",
+      "noOfTotalMeant": "",
+      "srNo": "2.2(b)"
+    },
+    {
+      "category": "Others",
+      "noOfShareOffered": "",
+      "noOfSharesBid": "1904",
+      "noOfTotalMeant": "",
+      "srNo": "2.2(c)"
+    },
+    {
+      "category": "Retail Individual Investors(RIIs)",
+      "noOfShareOffered": "5929808",
+      "noOfSharesBid": "2779092",
+      "noOfTotalMeant": "0.4686647527204928",
+      "srNo": "3"
+    },
+    {
+      "category": "Cut Off",
+      "noOfShareOffered": "",
+      "noOfSharesBid": "2430116",
+      "noOfTotalMeant": "",
+      "srNo": "3(a)"
+    },
+    {
+      "category": "Price bids",
+      "noOfShareOffered": "",
+      "noOfSharesBid": "348976",
+      "noOfTotalMeant": "",
+      "srNo": "3(b)"
+    },
+    {
+      "category": "Total",
+      "noOfShareOffered": "8471153.0",
+      "noOfSharesBid": "4835208.0",
+      "noOfTotalMeant": "0.5707851103621904",
+      "srNo": null
+    }
+  ],
+  "heading": null,
+  "symbol": null,
+  "updateTime": "Updated as on 01-Oct-2026 17:00:00"
+}

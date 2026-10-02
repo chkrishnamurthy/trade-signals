@@ -59,6 +59,9 @@ export default async function AdminPage() {
               <Link href="/admin/paper">Paper trading health</Link>
             </Button>
             <Button asChild variant="outline" size="sm">
+              <Link href="/admin/ipos">IPO data health</Link>
+            </Button>
+            <Button asChild variant="outline" size="sm">
               <Link href="/watchlists">
                 <ArrowLeftIcon />
                 Back to app

@@ -1,6 +1,5 @@
 import 'server-only';
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
-import { cookies } from 'next/headers';
 import {
   createGoogleUser,
   findUserByEmail,
@@ -8,6 +7,7 @@ import {
   resolveGoogleIdentity,
   writeAudit,
 } from '@equitywise/db';
+import { cookies } from 'next/headers';
 import { getDatabase } from '@/server/db';
 import { IS_PROD, OAUTH_STATE_COOKIE_NAME } from './cookie-config';
 import {
@@ -182,12 +182,20 @@ export async function handleGoogleCallback(
   cookieJar.set(OAUTH_STATE_COOKIE_NAME, '', { maxAge: 0, path: '/' });
 
   if (!rawCookie) {
-    return { status: 'error', code: 'INVALID_STATE', message: 'OAuth state cookie was missing or expired.' };
+    return {
+      status: 'error',
+      code: 'INVALID_STATE',
+      message: 'OAuth state cookie was missing or expired.',
+    };
   }
 
   const payloadStr = verifyPayload(rawCookie, authSessionSecret());
   if (!payloadStr) {
-    return { status: 'error', code: 'TAMPERED_STATE', message: 'OAuth state could not be verified.' };
+    return {
+      status: 'error',
+      code: 'TAMPERED_STATE',
+      message: 'OAuth state could not be verified.',
+    };
   }
 
   let statePayload: OAuthStatePayload;
@@ -251,7 +259,11 @@ export async function handleGoogleCallback(
 
   if (currentUser) {
     if (currentUser.status === 'disabled') {
-      return { status: 'error', code: 'ACCOUNT_DISABLED', message: 'This account has been disabled.' };
+      return {
+        status: 'error',
+        code: 'ACCOUNT_DISABLED',
+        message: 'This account has been disabled.',
+      };
     }
     if (existingIdentity && existingIdentity.user.id !== currentUser.id) {
       return {
@@ -282,7 +294,11 @@ export async function handleGoogleCallback(
 
   if (existingIdentity) {
     if (existingIdentity.user.status === 'disabled') {
-      return { status: 'error', code: 'ACCOUNT_DISABLED', message: 'This account has been disabled.' };
+      return {
+        status: 'error',
+        code: 'ACCOUNT_DISABLED',
+        message: 'This account has been disabled.',
+      };
     }
 
     await startSession(existingIdentity.user.id, request, {
@@ -306,7 +322,11 @@ export async function handleGoogleCallback(
 
   if (existingUser) {
     if (existingUser.user.status === 'disabled') {
-      return { status: 'error', code: 'ACCOUNT_DISABLED', message: 'This account has been disabled.' };
+      return {
+        status: 'error',
+        code: 'ACCOUNT_DISABLED',
+        message: 'This account has been disabled.',
+      };
     }
 
     const identityId = await linkGoogleIdentity(db, existingUser.user.id, {

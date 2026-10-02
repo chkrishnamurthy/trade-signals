@@ -49,6 +49,17 @@ export {
   intradaySignals,
 } from './intraday.js';
 export {
+  ipoDocuments,
+  ipoGmpSnapshots,
+  ipoIssues,
+  ipoListingPerformance,
+  ipoRhpExtracts,
+  ipoSebiFilings,
+  ipoSourceRecords,
+  ipoSubscriptionSnapshots,
+  type RhpTableData,
+} from './ipos.js';
+export {
   exchangeSessions,
   instrumentProviderRefs,
   paperAuditEvents,

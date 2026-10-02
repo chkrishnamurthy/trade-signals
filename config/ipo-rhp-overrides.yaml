@@ -1,0 +1,16 @@
+# Corrections to automatic RHP extracts (docs/planning/ipos-plan.md Phase 11).
+#
+# Versioned config, reviewed by PR — not an admin screen (CLAUDE.md). An entry
+# HIDES one section of one issue's extracts; the detail page then points at
+# the RHP itself for that section. There is no "replace": a hand-typed quote
+# could not honestly carry the "auto-extracted from PDF page N" label. If the
+# extractor gets a whole class of RHPs wrong, fix the extractor and bump
+# RHP_EXTRACTOR_VERSION instead, which re-reads every document.
+#
+# Read by the web app on each request (cached five minutes); no restart.
+#
+# overrides:
+#   - slug: vishal-nirmiti-ipo-2026
+#     section: risks          # overview | objects | promoters | financials | strengths | risks
+#     reason: Heading 3 is cut mid-sentence by a page break.
+overrides: []

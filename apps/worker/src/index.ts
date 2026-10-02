@@ -10,6 +10,7 @@ import {
 } from './jobs/calendar-refresh.js';
 import { computeIndicators } from './jobs/compute-indicators.js';
 import { crossCheckProviders } from './jobs/cross-check-bars.js';
+import { extractIpoRhp } from './jobs/extract-ipo-rhp.js';
 import { createFeedJob, type FeedJob } from './jobs/feed.js';
 import { ingestDailyCandles } from './jobs/ingest-daily.js';
 import {
@@ -22,6 +23,15 @@ import {
   ingestShareholding,
 } from './jobs/ingest-disclosures.js';
 import { ingestFuturesOi } from './jobs/ingest-futures-oi.js';
+import {
+  backfillIpos,
+  ingestIpoCalendar,
+  ingestIpoDetails,
+  ingestIpoGmp,
+  ingestIpoListings,
+  ingestIpoSubscriptions,
+  ingestSebiFilings,
+} from './jobs/ingest-ipos.js';
 import { createIntradayJobs } from './jobs/intraday-orb.js';
 import { createPaperJobs } from './jobs/paper.js';
 import { refreshProviderCredential } from './jobs/refresh-credential.js';
@@ -107,6 +117,34 @@ const SCHEDULES = {
    * (the same rule as the daily-candle pass). Tue–Sat covers Mon–Fri sessions.
    */
   ingestFuturesOi: '45 6 * * 2-6',
+  /**
+   * IPOs (docs/planning/ipos-plan.md §8). NSE's issue lists change a few times
+   * a day at most: before the open, midday, and after the evening filings.
+   * Saturdays too — issues are announced on weekends.
+   */
+  ingestIpoCalendar: '40 8,12,18 * * 1-6',
+  /** Detail pages (lot, registrar, RHP, anchor report) — morning and evening. */
+  ingestIpoDetails: '50 7,17 * * 1-6',
+  /**
+   * Subscription for open issues while bidding runs (10:00–17:00 IST), and a
+   * final read at 19:05 once the exchange posts the closing figure.
+   */
+  ingestIpoSubscriptions: '35 10,12,14,16,17 * * 1-5',
+  ingestIpoSubscriptionsFinal: '5 19 * * 1-5',
+  /** Listing prices come from the bhavcopy, which lands ~18:30–19:30 IST. */
+  ingestIpoListings: '25 19,20 * * 1-5',
+  /**
+   * The UNOFFICIAL grey-market premium (owner decision D1): three light reads
+   * a day, weekends included — it is quoted then too. One page per run.
+   */
+  ingestIpoGmp: '15 10,15,20 * * *',
+  /**
+   * Reads sections out of new RHPs, half an hour after each detail pass has
+   * found the links. Two documents a run at most; usually there are none.
+   */
+  extractIpoRhp: '20 8,18 * * 1-6',
+  /** SEBI's filings list (DRHPs): one page twice a day covers its few filings a day. */
+  ingestSebiFilings: '45 9,19 * * 1-6',
 } as const;
 
 interface Jobs {
@@ -299,6 +337,72 @@ function buildScheduler(context: WorkerContext): Jobs {
         },
       },
       {
+        name: 'ingest-ipo-calendar',
+        schedule: SCHEDULES.ingestIpoCalendar,
+        run: async () => {
+          await ingestIpoCalendar(context, log.child('ingest-ipo-calendar'));
+        },
+      },
+      {
+        name: 'ingest-ipo-details',
+        schedule: SCHEDULES.ingestIpoDetails,
+        run: async () => {
+          await ingestIpoDetails(context, log.child('ingest-ipo-details'));
+        },
+      },
+      {
+        name: 'ingest-ipo-subscriptions',
+        schedule: SCHEDULES.ingestIpoSubscriptions,
+        run: gated('ingest-ipo-subscriptions', () =>
+          ingestIpoSubscriptions(context, log.child('ingest-ipo-subscriptions')),
+        ),
+      },
+      {
+        name: 'ingest-ipo-subscriptions-final',
+        schedule: SCHEDULES.ingestIpoSubscriptionsFinal,
+        run: gated('ingest-ipo-subscriptions-final', () =>
+          ingestIpoSubscriptions(context, log.child('ingest-ipo-subscriptions-final')),
+        ),
+      },
+      {
+        name: 'ingest-ipo-listings',
+        schedule: SCHEDULES.ingestIpoListings,
+        run: async () => {
+          await ingestIpoListings(context, log.child('ingest-ipo-listings'));
+        },
+      },
+      {
+        name: 'ingest-ipo-gmp',
+        schedule: SCHEDULES.ingestIpoGmp,
+        run: async () => {
+          await ingestIpoGmp(context, log.child('ingest-ipo-gmp'));
+        },
+      },
+      {
+        name: 'ingest-sebi-filings',
+        schedule: SCHEDULES.ingestSebiFilings,
+        run: async () => {
+          await ingestSebiFilings(context, log.child('ingest-sebi-filings'));
+        },
+      },
+      {
+        name: 'extract-ipo-rhp',
+        schedule: SCHEDULES.extractIpoRhp,
+        run: async () => {
+          await extractIpoRhp(context, log.child('extract-ipo-rhp'));
+        },
+      },
+      {
+        // On demand only (`--once backfill-ipos`): ~24 months of past issues,
+        // their detail pages and listing days, paced at the slower backfill
+        // interval under one budget. Idempotent. Never scheduled.
+        name: 'backfill-ipos',
+        schedule: '0 0 31 2 *',
+        run: async () => {
+          await backfillIpos(context, log.child('backfill-ipos'));
+        },
+      },
+      {
         // On demand only (`--once backfill-flows`): walks ~45 days of the
         // delivery and participant-OI archives so the flow page has its
         // trailing averages from day one. Idempotent. Never scheduled.
@@ -429,6 +533,14 @@ async function main(): Promise<void> {
           'ingest-shareholding',
           'ingest-futures-oi',
           'backfill-flows',
+          'ingest-ipo-calendar',
+          'ingest-ipo-details',
+          'ingest-ipo-subscriptions',
+          'ingest-ipo-listings',
+          'ingest-ipo-gmp',
+          'extract-ipo-rhp',
+          'ingest-sebi-filings',
+          'backfill-ipos',
           'calendar-refresh',
           'calendar-check',
           'paper-entries',

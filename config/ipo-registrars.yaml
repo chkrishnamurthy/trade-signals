@@ -1,0 +1,53 @@
+# IPO registrars → their public allotment-status pages (docs/planning/ipos-plan.md §5.4).
+#
+# Versioned config, read by the web app's IPO detail page. These are LINKS a
+# user opens in their own browser: the pages ask for a PAN and a captcha, and
+# EquityWise never fills them in or calls them.
+#
+# `match` is a case-insensitive regular expression tested against the
+# registrar name the exchange publishes. `checked` is the date the URL last
+# answered 200 from a plain request; `null` means it could not be confirmed
+# from the dev network and is shown as-is.
+
+registrars:
+  - name: MUFG Intime India
+    match: "mufg intime|link intime"
+    allotmentUrl: https://in.mpms.mufg.com/Initial_Offer/public-issues.html
+    checked: 2026-10-02
+  - name: KFin Technologies
+    match: "kfin|karvy"
+    allotmentUrl: https://ipostatus.kfintech.com/
+    checked: 2026-10-02
+  - name: Bigshare Services
+    match: "bigshare"
+    allotmentUrl: https://ipo.bigshareonline.com/IPO_Status.html
+    checked: null
+  - name: Cameo Corporate Services
+    match: "cameo"
+    allotmentUrl: https://ipo.cameoindia.com/
+    checked: 2026-10-02
+  - name: Mudra RTA Ventures
+    match: "mudra"
+    allotmentUrl: https://www.mudrarta.com/
+    checked: 2026-10-02
+  - name: Skyline Financial Services
+    match: "skyline"
+    allotmentUrl: https://www.skylinerta.com/ipo.php
+    checked: 2026-10-02
+  - name: Purva Sharegistry
+    match: "purva"
+    allotmentUrl: https://www.purvashare.com/investor-service/ipo-query
+    checked: 2026-10-02
+  - name: Maashitla Securities
+    match: "maashitla"
+    allotmentUrl: https://maashitla.com/allotment-status/public-issues
+    checked: 2026-10-02
+
+# Shown on every issue: the exchanges' own application-status pages.
+exchangeAllotment:
+  - exchange: BSE
+    label: BSE application status
+    url: https://www.bseindia.com/investors/appli_check.aspx
+  - exchange: NSE
+    label: NSE bid verification
+    url: https://www.nseindia.com/invest/check-trades-bids-verify-ipo-bids

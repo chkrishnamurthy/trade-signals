@@ -125,7 +125,8 @@ export function ConnectedMethods({
 
         {!hasPassword ? (
           <p className="text-muted-foreground text-xs">
-            Google is currently your only sign-in method. Add a password in the section above before disconnecting it.
+            Google is currently your only sign-in method. Add a password in the section above before
+            disconnecting it.
           </p>
         ) : null}
       </CardContent>
