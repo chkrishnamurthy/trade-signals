@@ -1,15 +1,15 @@
 export type { AdxResult } from './adx.js';
 export { adx } from './adx.js';
 export { atr } from './atr.js';
+export type { BollingerResult } from './bollinger.js';
+export { bollinger } from './bollinger.js';
 export type { MacdConfig, MacdResult } from './macd.js';
 export { macd } from './macd.js';
 export { ema, sma, wilderSmooth } from './moving-average.js';
 export { roc } from './roc.js';
 export { rsi } from './rsi.js';
-export { typicalPrice, vwap, vwapSlopePercent } from './vwap.js';
-export type { BollingerResult } from './bollinger.js';
-export { bollinger } from './bollinger.js';
 export type { StochasticResult } from './stochastic.js';
 export { stochastic } from './stochastic.js';
 export type { SupertrendResult } from './supertrend.js';
 export { supertrend } from './supertrend.js';
+export { typicalPrice, vwap, vwapSlopePercent } from './vwap.js';

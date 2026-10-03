@@ -85,7 +85,11 @@ async function requireViewer(): Promise<Viewer> {
 }
 
 function invalid(message: string, code = 'INVALID_SCREEN'): MarketDataError {
-  return new MarketDataError(message, { code, status: 400, remedy: 'Adjust the screen and try again.' });
+  return new MarketDataError(message, {
+    code,
+    status: 400,
+    remedy: 'Adjust the screen and try again.',
+  });
 }
 
 function assertFilter(filter: FilterNode | null, viewer: Viewer): void {
@@ -95,11 +99,15 @@ function assertFilter(filter: FilterNode | null, viewer: Viewer): void {
   if (first !== undefined) throw invalid(first);
 }
 
-function parseSort(raw: string, viewer: Viewer): { metric: MetricKey | 'symbol'; direction: 'asc' | 'desc' } {
+function parseSort(
+  raw: string,
+  viewer: Viewer,
+): { metric: MetricKey | 'symbol'; direction: 'asc' | 'desc' } {
   const [key = 'rsRank', dir = 'desc'] = raw.split(':');
   if (key === 'symbol') return { metric: 'symbol', direction: dir === 'asc' ? 'asc' : 'desc' };
   if (!isMetricKey(key)) throw invalid('Unknown sort column.');
-  if (metricDefinition(key).adminOnly === true && !viewer.isAdmin) throw invalid('Unknown sort column.');
+  if (metricDefinition(key).adminOnly === true && !viewer.isAdmin)
+    throw invalid('Unknown sort column.');
   return { metric: key, direction: dir === 'asc' ? 'asc' : 'desc' };
 }
 
@@ -127,8 +135,12 @@ async function resolveSession(asOf: string | undefined): Promise<{
   const latest = await latestSnapshotBuild(db);
   if (asOf !== undefined) {
     const dates = await snapshotDates(db, 400);
-    if (!dates.includes(asOf)) throw invalid('No snapshot exists for that date.', 'UNKNOWN_SESSION');
-    return { tradingDate: asOf, builtAt: latest?.tradingDate === asOf ? (latest.finishedAt?.toISOString() ?? null) : null };
+    if (!dates.includes(asOf))
+      throw invalid('No snapshot exists for that date.', 'UNKNOWN_SESSION');
+    return {
+      tradingDate: asOf,
+      builtAt: latest?.tradingDate === asOf ? (latest.finishedAt?.toISOString() ?? null) : null,
+    };
   }
   return {
     tradingDate: latest?.tradingDate ?? null,
@@ -184,7 +196,16 @@ export async function runScreenForViewer(input: RunScreenInput): Promise<ScreenR
   const universe = await resolveUniverse(input.universe, viewer);
   const session = await resolveSession(input.asOf);
   if (session.tradingDate === null) {
-    return { tradingDate: null, builtAt: null, stale: true, total: 0, base: 0, limit: input.limit, offset: input.offset, rows: [] };
+    return {
+      tradingDate: null,
+      builtAt: null,
+      stale: true,
+      total: 0,
+      base: 0,
+      limit: input.limit,
+      offset: input.offset,
+      rows: [],
+    };
   }
   const result = await runScreen(getDatabase(), {
     tradingDate: session.tradingDate,
@@ -256,7 +277,9 @@ const presetFileSchema = z.object({
 
 function configDir(): string {
   const fromApp = join(process.cwd(), '..', '..', 'config');
-  return existsSync(join(fromApp, 'screener-presets.yaml')) ? fromApp : join(process.cwd(), 'config');
+  return existsSync(join(fromApp, 'screener-presets.yaml'))
+    ? fromApp
+    : join(process.cwd(), 'config');
 }
 
 let presetCache: { at: number; presets: PresetDto[] } | null = null;
@@ -296,7 +319,8 @@ export async function getScreenerMeta(): Promise<ScreenerMetaDto> {
     unit: d.unit,
     description: d.description,
     decimals: d.decimals ?? null,
-    options: d.key === 'industry' ? industries.map((v) => ({ value: v, label: v })) : (d.options ?? null),
+    options:
+      d.key === 'industry' ? industries.map((v) => ({ value: v, label: v })) : (d.options ?? null),
   }));
   const categories = METRIC_CATEGORIES.filter((c) => metrics.some((m) => m.category === c)).map(
     (c) => ({ key: c, label: CATEGORY_LABELS[c] }),

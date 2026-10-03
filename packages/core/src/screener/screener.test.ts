@@ -31,7 +31,8 @@ describe('catalogue', () => {
   });
 
   it('never uses advisory wording in a label or description', () => {
-    const banned = /\b(buy|sell|target|undervalued|overvalued|recommend|multibagger|entry price)\b/i;
+    const banned =
+      /\b(buy|sell|target|undervalued|overvalued|recommend|multibagger|entry price)\b/i;
     for (const def of METRIC_CATALOGUE) {
       expect(banned.test(def.label), def.key).toBe(false);
       expect(banned.test(def.description), def.key).toBe(false);
@@ -49,7 +50,9 @@ describe('parseCorporateActionSubject', () => {
 
   it('handles Re and decimal face values', () => {
     // From Re 1 to Re 0.50 → 50 ÷ 100 = 1/2
-    const a = parseCorporateActionSubject('Face Value Split (Sub-Division) - From Re 1/- To Re 0.50/-');
+    const a = parseCorporateActionSubject(
+      'Face Value Split (Sub-Division) - From Re 1/- To Re 0.50/-',
+    );
     expect(a?.ratio).toBe('0.5000000000');
   });
 
@@ -57,7 +60,10 @@ describe('parseCorporateActionSubject', () => {
     // Bonus 1:2 → 1 new for every 2 held → 2 ÷ 3
     expect(parseCorporateActionSubject('Bonus 1:2')?.ratio).toBe('0.6666666667');
     // Bonus 4:1 → 1 ÷ 5
-    expect(parseCorporateActionSubject('Bonus 4:1')).toMatchObject({ kind: 'bonus', ratio: '0.2000000000' });
+    expect(parseCorporateActionSubject('Bonus 4:1')).toMatchObject({
+      kind: 'bonus',
+      ratio: '0.2000000000',
+    });
   });
 
   it('reads a consolidation as a ratio above one', () => {
@@ -124,7 +130,12 @@ describe('supplementary metrics', () => {
       '2026-10-02',
     );
     // previous OI 1100 → +110 ÷ 1100 = 10%
-    expect(m).toMatchObject({ fnoEligible: true, futOi: 1210, oiBuildup: 'long_buildup', oiBuildupStreak: 2 });
+    expect(m).toMatchObject({
+      fnoEligible: true,
+      futOi: 1210,
+      oiBuildup: 'long_buildup',
+      oiBuildupStreak: 2,
+    });
     expect(m.futOiChgPct).toBeCloseTo(10, 10);
     expect(fnoMetrics([], '2026-10-02').fnoEligible).toBe(false);
   });
@@ -173,11 +184,26 @@ describe('filter', () => {
       ],
     };
     expect(validateFilter(bad, { isAdmin: false })).toHaveLength(4);
-    expect(validateFilter({ metric: 'signalStrength', cmp: 'gt', value: 50 }, { isAdmin: true })).toEqual([]);
+    expect(
+      validateFilter({ metric: 'signalStrength', cmp: 'gt', value: 50 }, { isAdmin: true }),
+    ).toEqual([]);
   });
 
   it('enforces depth and size limits', () => {
-    const deep: FilterNode = { op: 'and', children: [{ op: 'and', children: [{ op: 'and', children: [{ op: 'and', children: [{ metric: 'rsi14', cmp: 'gt', value: 1 }] }] }] }] };
+    const deep: FilterNode = {
+      op: 'and',
+      children: [
+        {
+          op: 'and',
+          children: [
+            {
+              op: 'and',
+              children: [{ op: 'and', children: [{ metric: 'rsi14', cmp: 'gt', value: 1 }] }],
+            },
+          ],
+        },
+      ],
+    };
     expect(validateFilter(deep, { isAdmin: false }).length).toBeGreaterThan(0);
   });
 
@@ -190,14 +216,26 @@ describe('filter', () => {
   });
 
   it('matches list membership by overlap and compares two metrics', () => {
-    expect(evaluateFilter({ metric: 'indexKeys', cmp: 'in', value: ['nifty50'] }, { indexKeys: ['nifty100', 'nifty50'] })).toBe(true);
-    expect(evaluateFilter({ metric: 'closeVsEma20', cmp: 'gt', rhsMetric: 'closeVsEma50' }, { closeVsEma20: 2, closeVsEma50: 1 })).toBe(true);
+    expect(
+      evaluateFilter(
+        { metric: 'indexKeys', cmp: 'in', value: ['nifty50'] },
+        { indexKeys: ['nifty100', 'nifty50'] },
+      ),
+    ).toBe(true);
+    expect(
+      evaluateFilter(
+        { metric: 'closeVsEma20', cmp: 'gt', rhsMetric: 'closeVsEma50' },
+        { closeVsEma20: 2, closeVsEma50: 1 },
+      ),
+    ).toBe(true);
   });
 
   it('describes conditions in plain words', () => {
     expect(describeLeaf({ metric: 'rsi14', cmp: 'gte', value: 60 })).toBe('RSI (14) ≥ 60');
     expect(describeLeaf({ metric: 'close', cmp: 'gt', value: 124_550 })).toBe('Close > ₹1,245.50');
-    expect(describeLeaf({ metric: 'emaStack', cmp: 'is', value: 'bullish' })).toBe('EMA stack is Bullish');
+    expect(describeLeaf({ metric: 'emaStack', cmp: 'is', value: 'bullish' })).toBe(
+      'EMA stack is Bullish',
+    );
     expect(describeLeaf({ metric: 'rsiAbove60Days', cmp: 'within', value: 3 })).toBe(
       'RSI crossed above 60 within 3 sessions',
     );
@@ -216,7 +254,14 @@ describe('filter', () => {
 describe('breadth', () => {
   const DAY = 86_400_000;
   const mk = (closes: number[]): Bar[] =>
-    closes.map((c, i) => ({ timestamp: Date.UTC(2026, 0, 1) + i * DAY, open: c, high: c, low: c, close: c, volume: 1 }));
+    closes.map((c, i) => ({
+      timestamp: Date.UTC(2026, 0, 1) + i * DAY,
+      open: c,
+      high: c,
+      low: c,
+      close: c,
+      volume: 1,
+    }));
 
   it('counts advances and declines per session across stocks', () => {
     const days = aggregateBreadth([breadthPoints(mk([10, 11, 10])), breadthPoints(mk([10, 9, 9]))]);

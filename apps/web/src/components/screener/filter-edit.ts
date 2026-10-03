@@ -31,7 +31,8 @@ export const COMPARATOR_LABELS: Readonly<Record<Comparator, string>> = {
 };
 
 export function comparatorsFor(metric: MetricDto): Comparator[] {
-  if (metric.unit === 'sessions' || metric.unit === 'days') return ['within', 'lte', 'gte', 'between'];
+  if (metric.unit === 'sessions' || metric.unit === 'days')
+    return ['within', 'lte', 'gte', 'between'];
   if (NUMERIC.has(metric.unit)) return ['gte', 'gt', 'lte', 'lt', 'between'];
   if (metric.unit === 'boolean') return ['is'];
   if (metric.unit === 'enum') return ['is', 'in'];
@@ -70,16 +71,34 @@ export function withComparator(leaf: FilterLeaf, cmp: Comparator, metric: Metric
   const v = leaf.value;
   if (cmp === 'between') {
     const base = typeof v === 'number' ? v : 0;
-    return { metric: leaf.metric, cmp, value: [base, base + (metric.unit === 'paise' ? 10_000 : 10)] };
+    return {
+      metric: leaf.metric,
+      cmp,
+      value: [base, base + (metric.unit === 'paise' ? 10_000 : 10)],
+    };
   }
   if (cmp === 'in') {
-    return { metric: leaf.metric, cmp, value: typeof v === 'string' ? [v] : Array.isArray(v) ? v : [] };
+    return {
+      metric: leaf.metric,
+      cmp,
+      value: typeof v === 'string' ? [v] : Array.isArray(v) ? v : [],
+    };
   }
   if (cmp === 'is' && metric.unit === 'enum') {
     const first = Array.isArray(v) ? v[0] : v;
-    return { metric: leaf.metric, cmp, value: typeof first === 'string' ? first : (metric.options?.[0]?.value ?? '') };
+    return {
+      metric: leaf.metric,
+      cmp,
+      value: typeof first === 'string' ? first : (metric.options?.[0]?.value ?? ''),
+    };
   }
-  const n = Array.isArray(v) ? (typeof v[0] === 'number' ? v[0] : 0) : typeof v === 'number' ? v : 0;
+  const n = Array.isArray(v)
+    ? typeof v[0] === 'number'
+      ? v[0]
+      : 0
+    : typeof v === 'number'
+      ? v
+      : 0;
   return { metric: leaf.metric, cmp, value: n };
 }
 

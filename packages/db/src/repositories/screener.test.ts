@@ -4,7 +4,8 @@ import { describe, expect, it } from 'vitest';
 import { compileFilter, snapshotHasColumn } from './screener.js';
 
 const dialect = new PgDialect({ casing: 'snake_case' });
-const render = (node: Parameters<typeof compileFilter>[0]) => dialect.sqlToQuery(compileFilter(node));
+const render = (node: Parameters<typeof compileFilter>[0]) =>
+  dialect.sqlToQuery(compileFilter(node));
 
 describe('screener snapshot table', () => {
   it('has a column for every catalogue metric', () => {

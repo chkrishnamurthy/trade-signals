@@ -4,9 +4,11 @@ import {
   CalendarDaysIcon,
   CalendarRangeIcon,
   FlaskConicalIcon,
+  GaugeIcon,
   LandmarkIcon,
   ListIcon,
   MegaphoneIcon,
+  SlidersHorizontalIcon,
   SunriseIcon,
   UserIcon,
 } from 'lucide-react';
@@ -68,6 +70,27 @@ export const NAVIGATION: readonly NavGroup[] = [
         label: 'My watchlists',
         icon: ListIcon,
         description: 'The names you have chosen to follow',
+      },
+    ],
+  },
+  {
+    label: 'Discover',
+    items: [
+      {
+        status: 'ready',
+        href: '/screener',
+        label: 'Screener',
+        icon: SlidersHorizontalIcon,
+        description:
+          'Multi-condition technical, delivery, F&O and ownership filters across every NSE stock',
+      },
+      {
+        status: 'ready',
+        href: '/markets/breadth',
+        label: 'Market breadth',
+        icon: GaugeIcon,
+        description:
+          'Advances, declines, stocks above key averages, highs vs lows and industry rotation',
       },
     ],
   },

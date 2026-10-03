@@ -1,7 +1,7 @@
 import type { EquityListEntry } from '@equitywise/db';
 import { rupeesToPaise } from '@equitywise/shared';
 import { z } from 'zod';
-import { csvRecords, cellNumber, parseDdMonYyyy } from './india-disclosures.js';
+import { cellNumber, csvRecords, parseDdMonYyyy } from './india-disclosures.js';
 import { PoliteHttpClient, SourceHttpError } from './ipo/http.js';
 
 /**
@@ -263,7 +263,10 @@ export function createNseMarketSource(options: NseMarketSourceOptions = {}): Nse
       parseCorporateActions(
         await client.getJson(
           `${NSE_API}/corporates-corporateActions?index=equities&from_date=${ddmmyyyy(from, '-')}&to_date=${ddmmyyyy(to, '-')}`,
-          { accept: 'application/json', referer: `${REFERER}companies-listing/corporate-filings-actions` },
+          {
+            accept: 'application/json',
+            referer: `${REFERER}companies-listing/corporate-filings-actions`,
+          },
         ),
       ),
   };

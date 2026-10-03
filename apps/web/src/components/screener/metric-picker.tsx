@@ -91,7 +91,9 @@ export function MetricPicker({
           )}
           <ul className="flex flex-col gap-0.5 overflow-y-auto p-1.5">
             {visible.length === 0 && (
-              <li className="px-2 py-6 text-center text-muted-foreground text-xs">No metric matches “{query}”.</li>
+              <li className="px-2 py-6 text-center text-muted-foreground text-xs">
+                No metric matches “{query}”.
+              </li>
             )}
             {visible.map((m) => (
               <li key={m.key}>
@@ -101,7 +103,9 @@ export function MetricPicker({
                   className="flex w-full cursor-pointer flex-col items-start gap-0.5 rounded-md px-2.5 py-2 text-left hover:bg-accent focus-visible:bg-accent"
                 >
                   <span className="font-medium text-sm">{m.label}</span>
-                  <span className="text-muted-foreground text-xs leading-snug">{m.description}</span>
+                  <span className="text-muted-foreground text-xs leading-snug">
+                    {m.description}
+                  </span>
                 </button>
               </li>
             ))}

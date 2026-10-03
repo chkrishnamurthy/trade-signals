@@ -42,7 +42,10 @@ export const MIN_DELIVERY_HISTORY = 5;
  * Today is excluded from its own average for the same reason relative volume
  * excludes it: including it damps the spike the metric exists to show.
  */
-export function deliveryMetrics(points: readonly DeliveryPoint[], session: string): DeliveryMetrics {
+export function deliveryMetrics(
+  points: readonly DeliveryPoint[],
+  session: string,
+): DeliveryMetrics {
   const today = points.find((p) => p.tradingDate === session);
   const prior = points
     .filter((p) => p.tradingDate < session)
@@ -238,7 +241,9 @@ export function daysUntilNext(
 }
 
 /** Size bucket from index membership — explicitly not market cap. */
-export function sizeBucket(indexKeys: readonly string[]): 'large' | 'mid' | 'small' | 'micro' | 'other' {
+export function sizeBucket(
+  indexKeys: readonly string[],
+): 'large' | 'mid' | 'small' | 'micro' | 'other' {
   if (indexKeys.includes('nifty100')) return 'large';
   if (indexKeys.includes('niftymidcap150')) return 'mid';
   if (indexKeys.includes('niftysmallcap250')) return 'small';

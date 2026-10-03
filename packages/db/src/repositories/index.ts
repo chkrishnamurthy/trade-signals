@@ -279,7 +279,6 @@ export { listMarketEvents, marketEventSummary, upsertMarketEvents } from './mark
 export * from './minute-bars.js';
 export * from './paper.js';
 export * from './paper-ops.js';
-export * from './screener.js';
 export type { ProfilePatch } from './profile.js';
 export {
   deleteOtherSessionsForUser,
@@ -289,6 +288,7 @@ export {
   updateProfile,
   updateUserEmail,
 } from './profile.js';
+export * from './screener.js';
 export type {
   InstrumentSignal,
   SignalFactorInput,

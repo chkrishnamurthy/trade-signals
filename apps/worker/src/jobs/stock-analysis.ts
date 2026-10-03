@@ -172,10 +172,7 @@ export async function syncCorporateActions(
       actions.push(...(await source.fetchCorporateActions(start, end)));
     }
     const recorded = await recordedCorporateActionKeys(context.db, from);
-    const ids = await resolveInstrumentIds(
-      context.db,
-      [...new Set(actions.map((a) => a.symbol))],
-    );
+    const ids = await resolveInstrumentIds(context.db, [...new Set(actions.map((a) => a.symbol))]);
 
     let written = 0;
     const outcomes: Record<string, number> = {};
@@ -198,7 +195,11 @@ export async function syncCorporateActions(
       const verdict =
         around.lastCloseBefore === null || around.firstOpenOnOrAfter === null
           ? 'raw'
-          : classifyStoredSeries(around.lastCloseBefore, around.firstOpenOnOrAfter, Number(parsed.ratio));
+          : classifyStoredSeries(
+              around.lastCloseBefore,
+              around.firstOpenOnOrAfter,
+              Number(parsed.ratio),
+            );
       if (verdict !== 'raw') {
         count(verdict);
         log.info('action not applied', { symbol: action.symbol, exDate: action.exDate, verdict });
@@ -313,7 +314,8 @@ export async function backfillBhavcopy(
       log.warn('bhavcopy backfill stopped', { date, ...errorFields(error) });
       break;
     }
-    if (sessions > 0 && sessions % 25 === 0) log.info('bhavcopy backfill progress', { date, sessions, written });
+    if (sessions > 0 && sessions % 25 === 0)
+      log.info('bhavcopy backfill progress', { date, sessions, written });
   }
   log.info('bhavcopy backfill finished', { sessions, written });
   return { sessions, written };
@@ -441,8 +443,16 @@ export async function buildScreenerSnapshot(
       rowsWritten: result.written,
       skipped: result.fetched - result.written,
     });
-    log.info('snapshot built', { session, rows: result.written, skipped: result.fetched - result.written });
-    return { tradingDate: session, written: result.written, skipped: result.fetched - result.written };
+    log.info('snapshot built', {
+      session,
+      rows: result.written,
+      skipped: result.fetched - result.written,
+    });
+    return {
+      tradingDate: session,
+      written: result.written,
+      skipped: result.fetched - result.written,
+    };
   } catch (error) {
     await finishSnapshotBuild(db, buildId, {
       status: 'failed',
@@ -470,7 +480,12 @@ async function buildRows(
   const benchmark: Bar[] | null =
     nifty === null
       ? null
-      : await getDailyBars(db, { instrumentId: nifty.id, from: new Date(0), to: sessionEnd, limit: LOOKBACK_BARS });
+      : await getDailyBars(db, {
+          instrumentId: nifty.id,
+          from: new Date(0),
+          to: sessionEnd,
+          limit: LOOKBACK_BARS,
+        });
 
   const group = <T extends { instrumentId: number }>(rows: readonly T[]) => {
     const m = new Map<number, T[]>();
@@ -486,7 +501,10 @@ async function buildRows(
   const holdings = group(await shareholdingPointsSince(db, shiftDate(session, -900)));
   const deals = await dealCountsSince(db, shiftDate(session, -28), session);
   const events = await upcomingEventDates(db, session, shiftDate(session, 30));
-  const announcements = await announcementCountsSince(db, new Date(`${shiftDate(session, -7)}T00:00:00Z`));
+  const announcements = await announcementCountsSince(
+    db,
+    new Date(`${shiftDate(session, -7)}T00:00:00Z`),
+  );
   const signalRows = await latestSignalsOnOrBefore(db, session);
 
   const rows: SnapshotInsert[] = [];
@@ -651,7 +669,11 @@ async function buildRows(
   const written = await upsertScreenerSnapshots(db, rows);
   const breadthRows: BreadthUpsert[] = [
     ...[...all.values()].map((d) => ({ universe: 'all', tradingDate: d.date, ...stripDate(d) })),
-    ...[...n500.values()].map((d) => ({ universe: 'nifty500', tradingDate: d.date, ...stripDate(d) })),
+    ...[...n500.values()].map((d) => ({
+      universe: 'nifty500',
+      tradingDate: d.date,
+      ...stripDate(d),
+    })),
   ].filter((r) => r.tradingDate <= session);
   const breadthWritten = await upsertBreadth(db, breadthRows);
   log.info('breadth rebuilt', { rows: breadthWritten });
@@ -717,7 +739,11 @@ export async function backfillStockAnalysis(
   await syncReferenceUniverse(context, log.child('reference'), { now });
   const bars = await backfillBhavcopy(context, log.child('bhavcopy'), { from, to: today, now });
   // Actions after bars: the raw-vs-adjusted check needs the stored series.
-  await syncCorporateActions(context, log.child('corporate-actions'), { from, to: shiftDate(today, 30), now });
+  await syncCorporateActions(context, log.child('corporate-actions'), {
+    from,
+    to: shiftDate(today, 30),
+    now,
+  });
   if (options.afterBars !== undefined) await options.afterBars();
   const snapshot = await buildScreenerSnapshot(context, log.child('snapshot'), { now });
   if (snapshot.written > 0) {

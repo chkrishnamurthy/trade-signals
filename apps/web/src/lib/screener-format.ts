@@ -56,7 +56,10 @@ function toneOfNumber(value: number): Tone {
   return value > 0 ? 'bullish' : value < 0 ? 'bearish' : 'neutral';
 }
 
-export function formatMetric(metric: MetricDto | undefined, value: ScreenerCellValue | undefined): Formatted {
+export function formatMetric(
+  metric: MetricDto | undefined,
+  value: ScreenerCellValue | undefined,
+): Formatted {
   const none: Formatted = { text: DASH, tone: null, badge: false };
   if (metric === undefined || value === null || value === undefined) return none;
   const d = metric.decimals ?? 2;
@@ -71,7 +74,11 @@ export function formatMetric(metric: MetricDto | undefined, value: ScreenerCellV
   }
   if (typeof value === 'string') {
     const label = metric.options?.find((o) => o.value === value)?.label ?? value;
-    const tone = POSITIVE_ENUMS.has(value) ? 'bullish' : NEGATIVE_ENUMS.has(value) ? 'bearish' : null;
+    const tone = POSITIVE_ENUMS.has(value)
+      ? 'bullish'
+      : NEGATIVE_ENUMS.has(value)
+        ? 'bearish'
+        : null;
     return { text: label, tone, badge: metric.unit === 'enum' };
   }
   if (typeof value !== 'number' || !Number.isFinite(value)) return none;
@@ -79,8 +86,13 @@ export function formatMetric(metric: MetricDto | undefined, value: ScreenerCellV
   switch (metric.unit) {
     case 'paise':
       if (!Number.isInteger(value)) return none;
-      if (LARGE_MONEY.has(metric.key)) return { text: fmt.largeCurrency(value), tone: null, badge: false };
-      return { text: formatPaise(value), tone: metric.key === 'macdHist' ? toneOfNumber(value) : null, badge: false };
+      if (LARGE_MONEY.has(metric.key))
+        return { text: fmt.largeCurrency(value), tone: null, badge: false };
+      return {
+        text: formatPaise(value),
+        tone: metric.key === 'macdHist' ? toneOfNumber(value) : null,
+        badge: false,
+      };
     case 'percent':
       return SIGNED_PERCENT.has(metric.key)
         ? { text: signed(value, d, '%'), tone: toneOfNumber(value), badge: false }
@@ -97,7 +109,8 @@ export function formatMetric(metric: MetricDto | undefined, value: ScreenerCellV
       return { text: value === 0 ? 'Today' : `${value} d`, tone: null, badge: false };
     case 'count':
       return {
-        text: metric.key === 'promoterStreak' ? signed(value, 0, ' q') : value.toLocaleString('en-IN'),
+        text:
+          metric.key === 'promoterStreak' ? signed(value, 0, ' q') : value.toLocaleString('en-IN'),
         tone: metric.key === 'promoterStreak' ? toneOfNumber(value) : null,
         badge: false,
       };

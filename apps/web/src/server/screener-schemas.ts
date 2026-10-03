@@ -1,4 +1,4 @@
-import { FILTER_LIMITS, type FilterNode, isMetricKey, METRIC_KEYS } from '@equitywise/core';
+import { FILTER_LIMITS, type FilterNode, isMetricKey, type METRIC_KEYS } from '@equitywise/core';
 import { z } from 'zod';
 
 /**
@@ -82,7 +82,11 @@ export type CountsInput = z.infer<typeof countsSchema>;
 
 export const savedScreenSchema = z
   .object({
-    name: z.string().trim().min(1, 'Name the screen.').max(80, 'Keep the name under 80 characters.'),
+    name: z
+      .string()
+      .trim()
+      .min(1, 'Name the screen.')
+      .max(80, 'Keep the name under 80 characters.'),
     filter: filterNodeSchema,
     columns: z.array(metricKey).min(1).max(20),
     sort: sortSchema,

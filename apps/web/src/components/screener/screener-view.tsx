@@ -59,8 +59,8 @@ import type {
 } from '@/lib/screener-types';
 import { cn } from '@/lib/utils';
 import { ColumnPicker } from './column-picker';
-import { asGroup, leafCount, toFilter } from './filter-edit';
 import { FilterBuilder } from './filter-builder';
+import { asGroup, leafCount, toFilter } from './filter-edit';
 import { ResultsTable } from './results-table';
 
 export interface ScreenerInitialState {
@@ -88,12 +88,23 @@ async function postJson<T>(url: string, body: unknown, signal?: AbortSignal): Pr
 
 function shortDate(date: string): string {
   const d = new Date(`${date}T00:00:00Z`);
-  return d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+  return d.toLocaleDateString('en-IN', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
 }
 
 function istTime(iso: string | null): string {
   if (iso === null) return '';
-  return new Date(iso).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Kolkata' });
+  return new Date(iso).toLocaleTimeString('en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: 'Asia/Kolkata',
+  });
 }
 
 export function ScreenerView({
@@ -150,7 +161,17 @@ export function ScreenerView({
     if (initial.asOf !== null) qs.set('a', initial.asOf);
     const next = `/screener${qs.size === 0 ? '' : `?${qs.toString()}`}`;
     router.replace(next as Route, { scroll: false });
-  }, [presetId, filter, universe, sort, columns, router, presetById, meta.defaultColumns, initial.asOf]);
+  }, [
+    presetId,
+    filter,
+    universe,
+    sort,
+    columns,
+    router,
+    presetById,
+    meta.defaultColumns,
+    initial.asOf,
+  ]);
 
   // Debounced queries: results whenever anything changes; counts when the
   // filter or universe does. The previous request is aborted, so a slow answer
@@ -169,7 +190,11 @@ export function ScreenerView({
       try {
         const base = { filter, universe, ...(initial.asOf === null ? {} : { asOf: initial.asOf }) };
         const [run, c] = await Promise.all([
-          postJson<ScreenResultDto>(API_ROUTES.screenerRun, { ...base, sort, limit: PAGE, offset }, controller.signal),
+          postJson<ScreenResultDto>(
+            API_ROUTES.screenerRun,
+            { ...base, sort, limit: PAGE, offset },
+            controller.signal,
+          ),
           postJson<ConditionCountsDto>(API_ROUTES.screenerCounts, base, controller.signal),
         ]);
         setResult(run);
@@ -215,7 +240,11 @@ export function ScreenerView({
 
   const onSort = (key: string) => {
     const [k, dir] = sort.split(':');
-    setSort(k === key ? `${key}:${dir === 'desc' ? 'asc' : 'desc'}` : `${key}:${key === 'symbol' ? 'asc' : 'desc'}`);
+    setSort(
+      k === key
+        ? `${key}:${dir === 'desc' ? 'asc' : 'desc'}`
+        : `${key}:${key === 'symbol' ? 'asc' : 'desc'}`,
+    );
     setOffset(0);
   };
 
@@ -261,7 +290,11 @@ export function ScreenerView({
       onChange={editGroup}
       metrics={meta.metrics}
       categories={meta.categories}
-      counts={counts === null || counts.individual.length !== group.children.length ? null : counts.individual}
+      counts={
+        counts === null || counts.individual.length !== group.children.length
+          ? null
+          : counts.individual
+      }
     />
   );
 
@@ -274,7 +307,8 @@ export function ScreenerView({
           <PageHeading>
             <PageTitle>Screener</PageTitle>
             <PageDescription>
-              Multi-condition technical, delivery, F&amp;O and ownership filters across every NSE stock.
+              Multi-condition technical, delivery, F&amp;O and ownership filters across every NSE
+              stock.
             </PageDescription>
           </PageHeading>
           <PageActions className="flex-wrap">
@@ -282,7 +316,9 @@ export function ScreenerView({
               <span
                 className={cn(
                   'inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs',
-                  result.stale ? 'border-warning-line bg-warning-soft text-warning-foreground' : 'border-border text-muted-foreground',
+                  result.stale
+                    ? 'border-warning-line bg-warning-soft text-warning-foreground'
+                    : 'border-border text-muted-foreground',
                 )}
               >
                 <ClockIcon aria-hidden className="size-3.5" />
@@ -333,7 +369,11 @@ export function ScreenerView({
             <p role="status" className="flex items-center gap-2 text-muted-foreground text-sm">
               <CheckIcon aria-hidden className="size-4 text-bullish" />
               {notice}
-              <button type="button" className="cursor-pointer text-xs underline" onClick={() => setNotice(null)}>
+              <button
+                type="button"
+                className="cursor-pointer text-xs underline"
+                onClick={() => setNotice(null)}
+              >
                 Dismiss
               </button>
             </p>
@@ -341,12 +381,20 @@ export function ScreenerView({
           {result.stale && result.tradingDate !== null && (
             <p className="flex items-center gap-2 rounded-lg border border-warning-line bg-warning-soft px-3 py-2 text-sm text-warning-foreground">
               <TriangleAlertIcon aria-hidden className="size-4" />
-              These values are from {shortDate(result.tradingDate)} — the nightly snapshot has not run since.
+              These values are from {shortDate(result.tradingDate)} — the nightly snapshot has not
+              run since.
             </p>
           )}
 
           <section aria-label="Universe and presets" className="flex flex-col gap-3">
-            <UniversePicker value={universe} meta={meta} onChange={(u) => { setUniverse(u); setOffset(0); }} />
+            <UniversePicker
+              value={universe}
+              meta={meta}
+              onChange={(u) => {
+                setUniverse(u);
+                setOffset(0);
+              }}
+            />
             <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
               <span className="sr-only">Presets</span>
               {meta.presets.map((p) => (
@@ -370,20 +418,32 @@ export function ScreenerView({
           </section>
 
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-            <Card className="hidden w-full shrink-0 flex-col gap-3 p-4 lg:flex lg:w-[22rem]" aria-label="Filter builder">
+            <Card
+              className="hidden w-full shrink-0 flex-col gap-3 p-4 lg:flex lg:w-[22rem]"
+              aria-label="Filter builder"
+            >
               <div className="flex items-baseline justify-between gap-2">
                 <div className="min-w-0">
-                  <span className="text-2xs text-muted-foreground uppercase tracking-wide">Screen</span>
-                  <h2 className="truncate font-semibold text-base">{screenName ?? (filter === null ? 'All stocks' : 'Custom screen')}</h2>
+                  <span className="text-2xs text-muted-foreground uppercase tracking-wide">
+                    Screen
+                  </span>
+                  <h2 className="truncate font-semibold text-base">
+                    {screenName ?? (filter === null ? 'All stocks' : 'Custom screen')}
+                  </h2>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => editGroup({ op: 'and', children: [] })}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => editGroup({ op: 'and', children: [] })}
+                >
                   Reset
                 </Button>
               </div>
               {builder}
               {problems.length > 0 && <p className="text-destructive text-xs">{problems[0]}</p>}
               <p className="text-2xs text-muted-foreground">
-                Counts update as you edit. Unknown values never match — a stock without enough history is left out, not counted as zero.
+                Counts update as you edit. Unknown values never match — a stock without enough
+                history is left out, not counted as zero.
               </p>
             </Card>
 
@@ -391,35 +451,62 @@ export function ScreenerView({
               <div className="flex flex-col gap-3 border-border border-b p-4">
                 <div className="flex flex-wrap items-baseline justify-between gap-3">
                   <p className="flex items-baseline gap-2" aria-live="polite">
-                    <span className="figure font-semibold text-2xl">{result.total.toLocaleString('en-IN')}</span>
+                    <span className="figure font-semibold text-2xl">
+                      {result.total.toLocaleString('en-IN')}
+                    </span>
                     <span className="text-muted-foreground text-sm">
-                      of <span className="figure">{result.base.toLocaleString('en-IN')}</span> stocks match
+                      of <span className="figure">{result.base.toLocaleString('en-IN')}</span>{' '}
+                      stocks match
                     </span>
                   </p>
                   <div className="flex flex-wrap items-center gap-2">
-                    <Button variant="outline" className="lg:hidden" onClick={() => setSheetOpen(true)}>
+                    <Button
+                      variant="outline"
+                      className="lg:hidden"
+                      onClick={() => setSheetOpen(true)}
+                    >
                       <SlidersHorizontalIcon aria-hidden />
                       Filters
                       <span className="figure text-muted-foreground text-xs">{conditions}</span>
                     </Button>
-                    <ColumnPicker metrics={meta.metrics} categories={meta.categories} columns={columns} onChange={setColumns} />
+                    <ColumnPicker
+                      metrics={meta.metrics}
+                      categories={meta.categories}
+                      columns={columns}
+                      onChange={setColumns}
+                    />
                     {selected.size > 0 && (
-                      <AddToWatchlist count={selected.size} watchlists={meta.watchlists} onAdd={addToWatchlist} />
+                      <AddToWatchlist
+                        count={selected.size}
+                        watchlists={meta.watchlists}
+                        onAdd={addToWatchlist}
+                      />
                     )}
                   </div>
                 </div>
                 {counts !== null && funnel.length > 0 && (
-                  <ol aria-label="How each condition narrows the list" className="flex flex-wrap items-center gap-1.5">
+                  <ol
+                    aria-label="How each condition narrows the list"
+                    className="flex flex-wrap items-center gap-1.5"
+                  >
                     <FunnelStep n={counts.base} label="Universe" />
                     {funnel.map((n, i) => (
-                      <FunnelStep key={counts.labels[i] ?? i} n={n} label={counts.labels[i] ?? ''} arrow />
+                      <FunnelStep
+                        key={counts.labels[i] ?? i}
+                        n={n}
+                        label={counts.labels[i] ?? ''}
+                        arrow
+                      />
                     ))}
                   </ol>
                 )}
               </div>
 
               {error !== null && (
-                <p role="alert" className="m-4 rounded-md border border-destructive-line bg-destructive-soft px-3 py-2 text-destructive text-sm">
+                <p
+                  role="alert"
+                  className="m-4 rounded-md border border-destructive-line bg-destructive-soft px-3 py-2 text-destructive text-sm"
+                >
                   {error}
                 </p>
               )}
@@ -457,14 +544,25 @@ export function ScreenerView({
               {result.total > 0 && (
                 <div className="flex flex-wrap items-center justify-between gap-2 border-border border-t px-4 py-2.5">
                   <span className="figure text-muted-foreground text-xs">
-                    {offset + 1}–{Math.min(offset + PAGE, result.total)} of {result.total.toLocaleString('en-IN')}
+                    {offset + 1}–{Math.min(offset + PAGE, result.total)} of{' '}
+                    {result.total.toLocaleString('en-IN')}
                   </span>
                   <div className="flex gap-1.5">
-                    <Button variant="outline" size="sm" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - PAGE))}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={offset === 0}
+                      onClick={() => setOffset(Math.max(0, offset - PAGE))}
+                    >
                       <ChevronLeftIcon aria-hidden />
                       Previous
                     </Button>
-                    <Button variant="outline" size="sm" disabled={offset + PAGE >= result.total} onClick={() => setOffset(offset + PAGE)}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={offset + PAGE >= result.total}
+                      onClick={() => setOffset(offset + PAGE)}
+                    >
                       Next
                       <ChevronRightIcon aria-hidden />
                     </Button>
@@ -475,8 +573,8 @@ export function ScreenerView({
           </div>
 
           <PageDisclaimer>
-            Technical readings describe price structure; nothing here is a recommendation. End-of-day NSE data; F&amp;O
-            open interest trails by a session.
+            Technical readings describe price structure; nothing here is a recommendation.
+            End-of-day NSE data; F&amp;O open interest trails by a session.
           </PageDisclaimer>
         </PageContent>
       </PageContainer>
@@ -495,7 +593,9 @@ export function ScreenerView({
             <Button variant="outline" onClick={() => editGroup({ op: 'and', children: [] })}>
               Reset
             </Button>
-            <Button onClick={() => setSheetOpen(false)}>Show {result.total.toLocaleString('en-IN')} stocks</Button>
+            <Button onClick={() => setSheetOpen(false)}>
+              Show {result.total.toLocaleString('en-IN')} stocks
+            </Button>
           </SheetFooter>
         </SheetContent>
       </Sheet>
@@ -507,7 +607,10 @@ function FunnelStep({ n, label, arrow = false }: { n: number; label: string; arr
   return (
     <li className="flex items-center gap-1.5">
       {arrow && <ChevronRightIcon aria-hidden className="size-3.5 text-subtle-foreground" />}
-      <span className="flex max-w-48 flex-col rounded-md border border-border bg-surface-sunken px-2.5 py-1" title={label}>
+      <span
+        className="flex max-w-48 flex-col rounded-md border border-border bg-surface-sunken px-2.5 py-1"
+        title={label}
+      >
         <span className="figure font-semibold text-sm">{n.toLocaleString('en-IN')}</span>
         <span className="truncate text-2xs text-muted-foreground">{label}</span>
       </span>
@@ -532,8 +635,13 @@ function UniversePicker({
   const inQuick = quick.some((q) => q.value === value);
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="font-medium text-muted-foreground text-xs uppercase tracking-wide">Screen within</span>
-      <div role="group" aria-label="Universe" className="inline-flex rounded-md border border-border bg-surface-sunken p-0.5">
+      <span className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
+        Screen within
+      </span>
+      <fieldset
+        aria-label="Universe"
+        className="min-w-0 inline-flex rounded-md border border-border bg-surface-sunken p-0.5"
+      >
         {quick.map((q) => (
           <button
             key={q.value}
@@ -542,13 +650,15 @@ function UniversePicker({
             onClick={() => onChange(q.value)}
             className={cn(
               'h-7 cursor-pointer rounded px-2.5 font-medium text-xs',
-              value === q.value ? 'bg-surface text-foreground shadow-subtle' : 'text-muted-foreground hover:text-foreground',
+              value === q.value
+                ? 'bg-surface text-foreground shadow-subtle'
+                : 'text-muted-foreground hover:text-foreground',
             )}
           >
             {q.label}
           </button>
         ))}
-      </div>
+      </fieldset>
       <label className="inline-flex items-center">
         <span className="sr-only">Other universe</span>
         <select
@@ -556,7 +666,9 @@ function UniversePicker({
           onChange={(e) => e.target.value !== '' && onChange(e.target.value)}
           className={cn(
             'h-8 cursor-pointer rounded-md border bg-surface px-2 text-xs',
-            inQuick ? 'border-border text-muted-foreground' : 'border-foreground font-medium text-foreground',
+            inQuick
+              ? 'border-border text-muted-foreground'
+              : 'border-foreground font-medium text-foreground',
           )}
         >
           <option value="">More indices or a watchlist…</option>
@@ -603,7 +715,9 @@ function SavedScreensMenu({
       </PopoverTrigger>
       <PopoverContent align="end" className="w-72 p-1.5">
         {saved.length === 0 ? (
-          <p className="px-2 py-4 text-center text-muted-foreground text-xs">No saved screens yet. Build one and press Save.</p>
+          <p className="px-2 py-4 text-center text-muted-foreground text-xs">
+            No saved screens yet. Build one and press Save.
+          </p>
         ) : (
           <ul className="flex max-h-80 flex-col overflow-y-auto">
             {saved.map((s) => (
@@ -618,7 +732,12 @@ function SavedScreensMenu({
                 >
                   {s.name}
                 </button>
-                <Button variant="ghost" size="icon-sm" aria-label={`Delete ${s.name}`} onClick={() => onDelete(s.id)}>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={`Delete ${s.name}`}
+                  onClick={() => onDelete(s.id)}
+                >
                   <TrashIcon aria-hidden />
                 </Button>
               </li>
@@ -659,7 +778,9 @@ function SaveDialog({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Save screen</DialogTitle>
-            <DialogDescription>Saved screens keep the conditions, columns, sort and universe. Only you can see them.</DialogDescription>
+            <DialogDescription>
+              Saved screens keep the conditions, columns, sort and universe. Only you can see them.
+            </DialogDescription>
           </DialogHeader>
           <form
             className="flex flex-col gap-2"
@@ -677,10 +798,16 @@ function SaveDialog({
               }
             }}
           >
-            <label className="flex flex-col gap-1 text-sm">
+            <label htmlFor="screen-name" className="text-sm">
               Name
-              <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={80} required />
             </label>
+            <Input
+              id="screen-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              maxLength={80}
+              required
+            />
             {error !== null && <p className="text-destructive text-xs">{error}</p>}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>

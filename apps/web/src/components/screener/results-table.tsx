@@ -17,16 +17,27 @@ import { cn } from '@/lib/utils';
  * "—" for unknown, never 0. A row opens the stock page.
  */
 
-function Cell({ metric, value }: { metric: MetricDto | undefined; value: ScreenerRowDto['values'][string] }) {
+function Cell({
+  metric,
+  value,
+}: {
+  metric: MetricDto | undefined;
+  value: ScreenerRowDto['values'][string];
+}) {
   const f = formatMetric(metric, value);
   if (f.badge && f.text !== '—') {
     return (
-      <Badge variant={f.tone === 'bullish' ? 'bullish' : f.tone === 'bearish' ? 'bearish' : 'neutral'} size="sm">
+      <Badge
+        variant={f.tone === 'bullish' ? 'bullish' : f.tone === 'bearish' ? 'bearish' : 'neutral'}
+        size="sm"
+      >
         {f.text}
       </Badge>
     );
   }
-  return <span className={cn('figure', f.tone !== null && toneText({ tone: f.tone }))}>{f.text}</span>;
+  return (
+    <span className={cn('figure', f.tone !== null && toneText({ tone: f.tone }))}>{f.text}</span>
+  );
 }
 
 export function ResultsTable({
@@ -56,19 +67,30 @@ export function ResultsTable({
   return (
     <>
       {/* Wide screens: the table. */}
-      <div className={cn('hidden overflow-x-auto sm:block', loading && 'opacity-60')} aria-busy={loading}>
+      <div
+        className={cn('hidden overflow-x-auto sm:block', loading && 'opacity-60')}
+        aria-busy={loading}
+      >
         <table className="w-full border-separate border-spacing-0 text-sm">
           <caption className="sr-only">Stocks matching the screen</caption>
           <thead>
             <tr>
-              <th scope="col" className="sticky left-0 z-20 w-9 border-border border-b bg-surface-sunken px-2 py-2.5">
+              <th
+                scope="col"
+                className="sticky left-0 z-20 w-9 border-border border-b bg-surface-sunken px-2 py-2.5"
+              >
                 <span className="sr-only">Select</span>
               </th>
               <th
                 scope="col"
                 className="sticky left-9 z-20 min-w-48 border-border border-b bg-surface-sunken px-3 py-2.5 text-left font-medium text-muted-foreground text-xs"
               >
-                <SortButton label="Stock" active={sortKey === 'symbol'} dir={sortDir} onClick={() => onSort('symbol')} />
+                <SortButton
+                  label="Stock"
+                  active={sortKey === 'symbol'}
+                  dir={sortDir}
+                  onClick={() => onSort('symbol')}
+                />
               </th>
               {columns.map((key) => {
                 const m = metrics.get(key);
@@ -89,7 +111,10 @@ export function ResultsTable({
                   </th>
                 );
               })}
-              <th scope="col" className="border-border border-b bg-surface-sunken px-3 py-2.5 text-right font-medium text-muted-foreground text-xs">
+              <th
+                scope="col"
+                className="border-border border-b bg-surface-sunken px-3 py-2.5 text-right font-medium text-muted-foreground text-xs"
+              >
                 60 sessions
               </th>
             </tr>
@@ -112,7 +137,10 @@ export function ResultsTable({
                     <span className="flex items-center gap-1.5 font-semibold text-foreground">
                       {row.symbol}
                       {row.dataIssue !== null && (
-                        <TriangleAlertIcon aria-label="History withheld: possible unrecorded split" className="size-3.5 text-warning" />
+                        <TriangleAlertIcon
+                          aria-label="History withheld: possible unrecorded split"
+                          className="size-3.5 text-warning"
+                        />
                       )}
                     </span>
                     <span className="truncate text-muted-foreground text-xs">
@@ -122,14 +150,22 @@ export function ResultsTable({
                   </Link>
                 </td>
                 {columns.map((key) => (
-                  <td key={key} className="whitespace-nowrap border-border border-b px-3 py-2 text-right group-hover:bg-accent">
+                  <td
+                    key={key}
+                    className="whitespace-nowrap border-border border-b px-3 py-2 text-right group-hover:bg-accent"
+                  >
                     <Cell metric={metrics.get(key)} value={row.values[key] ?? null} />
                   </td>
                 ))}
                 <td className="border-border border-b px-3 py-2 group-hover:bg-accent">
                   <div className="flex justify-end">
                     {row.spark !== null && row.spark.length > 1 && (
-                      <Sparkline values={row.spark} width={80} height={24} label={`${row.symbol}, last 60 sessions`} />
+                      <Sparkline
+                        values={row.spark}
+                        width={80}
+                        height={24}
+                        label={`${row.symbol}, last 60 sessions`}
+                      />
                     )}
                   </div>
                 </td>
@@ -140,7 +176,10 @@ export function ResultsTable({
       </div>
 
       {/* Phones: cards. */}
-      <ul className={cn('flex flex-col gap-2 sm:hidden', loading && 'opacity-60')} aria-busy={loading}>
+      <ul
+        className={cn('flex flex-col gap-2 sm:hidden', loading && 'opacity-60')}
+        aria-busy={loading}
+      >
         {rows.map((row) => (
           <li key={row.instrumentId}>
             <Link
@@ -202,7 +241,11 @@ function SortButton({
     >
       {label}
       {active &&
-        (dir === 'asc' ? <ArrowUpIcon aria-hidden className="size-3" /> : <ArrowDownIcon aria-hidden className="size-3" />)}
+        (dir === 'asc' ? (
+          <ArrowUpIcon aria-hidden className="size-3" />
+        ) : (
+          <ArrowDownIcon aria-hidden className="size-3" />
+        ))}
     </button>
   );
 }

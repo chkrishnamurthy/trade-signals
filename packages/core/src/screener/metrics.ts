@@ -463,7 +463,9 @@ export function candlePatterns(today: Bar, yesterday: Bar | undefined): CandlePa
   const flat = range <= 0;
 
   const single = {
-    hammer: flat ? false : body <= 0.35 * range && lower >= 2 * body && upper <= 0.15 * range && body > 0,
+    hammer: flat
+      ? false
+      : body <= 0.35 * range && lower >= 2 * body && upper <= 0.15 * range && body > 0,
     shootingStar: flat
       ? false
       : body <= 0.35 * range && upper >= 2 * body && lower <= 0.15 * range && body > 0,

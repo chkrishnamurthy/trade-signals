@@ -20,7 +20,8 @@ export async function PATCH(request: Request, { params }: Params): Promise<NextR
     const body = await parseBody(request, savedScreenPatchSchema);
     if (!body.ok) return body.response;
     const screen = await patchScreen(id, body.data);
-    if (screen === null) return jsonError('That screen no longer exists.', 404, { code: 'NOT_FOUND' });
+    if (screen === null)
+      return jsonError('That screen no longer exists.', 404, { code: 'NOT_FOUND' });
     return ok(screen);
   });
 }

@@ -25,11 +25,7 @@ export interface BollingerResult {
   readonly width: Series;
 }
 
-export function bollinger(
-  closes: readonly number[],
-  period = 20,
-  multiplier = 2,
-): BollingerResult {
+export function bollinger(closes: readonly number[], period = 20, multiplier = 2): BollingerResult {
   if (!Number.isInteger(period) || period < 2) {
     throw new RangeError(`bollinger: period must be an integer ≥ 2, got ${String(period)}`);
   }

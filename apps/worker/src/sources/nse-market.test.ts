@@ -86,7 +86,13 @@ describe('parseBhavdataBars', () => {
 describe('parseCorporateActions', () => {
   it('reads the API rows and ISO ex-dates', () => {
     const rows = parseCorporateActions([
-      { symbol: 'SURYAROSNI', series: 'EQ', subject: 'Bonus 1:1', exDate: '01-Jan-2025', comp: 'x' },
+      {
+        symbol: 'SURYAROSNI',
+        series: 'EQ',
+        subject: 'Bonus 1:1',
+        exDate: '01-Jan-2025',
+        comp: 'x',
+      },
       { symbol: 'BAD', subject: 'Bonus 1:1', exDate: 'not a date' },
       { nope: true },
     ]);

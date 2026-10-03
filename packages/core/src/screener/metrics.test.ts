@@ -20,7 +20,14 @@ import {
 const DAY = 86_400_000;
 const T0 = Date.UTC(2025, 0, 1);
 
-function bar(i: number, open: number, high: number, low: number, close: number, volume = 1000): Bar {
+function bar(
+  i: number,
+  open: number,
+  high: number,
+  low: number,
+  close: number,
+  volume = 1000,
+): Bar {
   return { timestamp: T0 + i * DAY, open, high, low, close, volume };
 }
 
@@ -208,7 +215,9 @@ describe('computeTechnicalMetrics', () => {
 
   it('describes session k identically whatever comes after it (no lookahead)', () => {
     const base = trending(300);
-    const altered = base.map((b, i) => (i > 250 ? { ...b, close: b.close * 3, high: b.high * 3 } : b));
+    const altered = base.map((b, i) =>
+      i > 250 ? { ...b, close: b.close * 3, high: b.high * 3 } : b,
+    );
     expect(computeTechnicalMetrics(base.slice(0, 251))).toEqual(
       computeTechnicalMetrics(altered.slice(0, 251)),
     );
@@ -217,7 +226,9 @@ describe('computeTechnicalMetrics', () => {
   it('keeps only single-session fields across an unexplained gap', () => {
     const bars = trending(100);
     const gapped = bars.map((b, i) =>
-      i >= 80 ? { ...b, open: b.open / 2, high: b.high / 2, low: b.low / 2, close: b.close / 2 } : b,
+      i >= 80
+        ? { ...b, open: b.open / 2, high: b.high / 2, low: b.low / 2, close: b.close / 2 }
+        : b,
     );
     const m = computeTechnicalMetrics(gapped);
     expect(m?.dataIssue).toBe('unadjusted_gap');

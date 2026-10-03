@@ -189,7 +189,9 @@ export async function syncIndexMembership(
     const current = await tx
       .select({ instrumentId: indexMemberships.instrumentId })
       .from(indexMemberships)
-      .where(and(eq(indexMemberships.indexKey, input.indexKey), isNull(indexMemberships.effectiveTo)));
+      .where(
+        and(eq(indexMemberships.indexKey, input.indexKey), isNull(indexMemberships.effectiveTo)),
+      );
     const have = new Set(current.map((r) => r.instrumentId));
     const toAdd = [...wanted].filter((id) => !have.has(id));
     const toRemove = [...have].filter((id) => !wanted.has(id));
@@ -233,7 +235,9 @@ export async function setIndustries(
   const ids = await db
     .select({ id: instruments.id, symbol: instruments.symbol })
     .from(instruments)
-    .where(and(inArray(instruments.symbol, [...industries.keys()]), eq(instruments.exchange, 'NSE')));
+    .where(
+      and(inArray(instruments.symbol, [...industries.keys()]), eq(instruments.exchange, 'NSE')),
+    );
   let updated = 0;
   for (const row of ids) {
     const industry = industries.get(row.symbol);
@@ -383,16 +387,23 @@ export async function upcomingEventDates(
   for (const row of rows) {
     if (row.instrumentId === null) continue;
     const entry = out.get(row.instrumentId) ?? { results: [], exDates: [] };
-    if (row.eventType === 'result' || row.eventType === 'board_meeting') entry.results.push(row.eventDate);
+    if (row.eventType === 'result' || row.eventType === 'board_meeting')
+      entry.results.push(row.eventDate);
     else if (exTypes.has(row.eventType)) entry.exDates.push(row.eventDate);
     out.set(row.instrumentId, entry);
   }
   return out;
 }
 
-export async function announcementCountsSince(db: Database, since: Date): Promise<Map<number, number>> {
+export async function announcementCountsSince(
+  db: Database,
+  since: Date,
+): Promise<Map<number, number>> {
   const rows = await db
-    .select({ instrumentId: corporateAnnouncements.instrumentId, count: sql<number>`count(*)::int` })
+    .select({
+      instrumentId: corporateAnnouncements.instrumentId,
+      count: sql<number>`count(*)::int`,
+    })
     .from(corporateAnnouncements)
     .where(gte(corporateAnnouncements.announcedAt, since))
     .groupBy(corporateAnnouncements.instrumentId);
@@ -412,7 +423,12 @@ export async function latestSignalsOnOrBefore(
     WHERE trading_date <= ${date} AND trading_date >= (${date}::date - 7)
     ORDER BY instrument_id, trading_date DESC
   `);
-  return new Map(rows.rows.map((r) => [r.instrument_id, { direction: r.direction, strength: Number(r.strength) }]));
+  return new Map(
+    rows.rows.map((r) => [
+      r.instrument_id,
+      { direction: r.direction, strength: Number(r.strength) },
+    ]),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -435,7 +451,13 @@ export async function startSnapshotBuild(
 export async function finishSnapshotBuild(
   db: Database,
   id: number,
-  result: { status: 'ok' | 'failed'; instruments: number; rowsWritten: number; skipped: number; error?: string },
+  result: {
+    status: 'ok' | 'failed';
+    instruments: number;
+    rowsWritten: number;
+    skipped: number;
+    error?: string;
+  },
 ): Promise<void> {
   await db
     .update(screenerSnapshotBuilds)
@@ -485,7 +507,10 @@ export async function upsertScreenerSnapshots(
 /** The newest session with a successful build, or null. */
 export async function latestSnapshotDate(db: Database): Promise<string | null> {
   const [row] = await db
-    .select({ tradingDate: screenerSnapshotBuilds.tradingDate, finishedAt: screenerSnapshotBuilds.finishedAt })
+    .select({
+      tradingDate: screenerSnapshotBuilds.tradingDate,
+      finishedAt: screenerSnapshotBuilds.finishedAt,
+    })
     .from(screenerSnapshotBuilds)
     .where(eq(screenerSnapshotBuilds.status, 'ok'))
     .orderBy(desc(screenerSnapshotBuilds.tradingDate), desc(screenerSnapshotBuilds.id))
@@ -537,10 +562,16 @@ export function compileLeaf(leaf: FilterLeaf): SQL {
   }
   const v = leaf.value;
   if (op !== undefined && typeof v === 'number') return sql`(${col} ${sql.raw(op)} ${v})`;
-  if (leaf.cmp === 'between' && Array.isArray(v) && typeof v[0] === 'number' && typeof v[1] === 'number')
+  if (
+    leaf.cmp === 'between' &&
+    Array.isArray(v) &&
+    typeof v[0] === 'number' &&
+    typeof v[1] === 'number'
+  )
     return sql`(${col} BETWEEN ${v[0]} AND ${v[1]})`;
   if (leaf.cmp === 'within' && typeof v === 'number') return sql`(${col} BETWEEN 0 AND ${v})`;
-  if (leaf.cmp === 'is' && (typeof v === 'boolean' || typeof v === 'string')) return sql`(${col} = ${v})`;
+  if (leaf.cmp === 'is' && (typeof v === 'boolean' || typeof v === 'string'))
+    return sql`(${col} = ${v})`;
   if (leaf.cmp === 'in' && Array.isArray(v) && v.every((x) => typeof x === 'string')) {
     const values = v as readonly string[];
     return leaf.metric === 'indexKeys'
@@ -595,14 +626,20 @@ export async function runScreen(
   if (u !== undefined) scope.push(u);
   const where = query.filter === null ? and(...scope) : and(...scope, compileFilter(query.filter));
 
-  const sortCol = query.sort.metric === 'symbol' ? screenerSnapshots.symbol : column(query.sort.metric);
+  const sortCol =
+    query.sort.metric === 'symbol' ? screenerSnapshots.symbol : column(query.sort.metric);
   const order =
-    query.sort.direction === 'asc' ? sql`${sortCol} ASC NULLS LAST` : sql`${sortCol} DESC NULLS LAST`;
+    query.sort.direction === 'asc'
+      ? sql`${sortCol} ASC NULLS LAST`
+      : sql`${sortCol} DESC NULLS LAST`;
 
   const [counts] = await db
     .select({
       base: sql<number>`count(*)::int`,
-      total: query.filter === null ? sql<number>`count(*)::int` : sql<number>`(count(*) FILTER (WHERE ${compileFilter(query.filter)}))::int`,
+      total:
+        query.filter === null
+          ? sql<number>`count(*)::int`
+          : sql<number>`(count(*) FILTER (WHERE ${compileFilter(query.filter)}))::int`,
     })
     .from(screenerSnapshots)
     .where(and(...scope));
@@ -640,10 +677,12 @@ export async function conditionCounts(
 
   const compiled = input.conditions.map(compileFilter);
   const selections: SQL[] = [sql`count(*)::int`];
-  compiled.forEach((c) => selections.push(sql`(count(*) FILTER (WHERE ${c}))::int`));
-  compiled.forEach((_, i) =>
-    selections.push(sql`(count(*) FILTER (WHERE ${sql.join(compiled.slice(0, i + 1), sql` AND `)}))::int`),
-  );
+  for (const c of compiled) selections.push(sql`(count(*) FILTER (WHERE ${c}))::int`);
+  compiled.forEach((_, i) => {
+    selections.push(
+      sql`(count(*) FILTER (WHERE ${sql.join(compiled.slice(0, i + 1), sql` AND `)}))::int`,
+    );
+  });
   const result = await db.execute<Record<string, number>>(sql`
     SELECT ${sql.join(
       selections.map((s, i) => sql`${s} AS ${sql.raw(`c${i}`)}`),
@@ -714,7 +753,10 @@ export async function snapshotLeaders(
   input: { tradingDate: string; metric: MetricKey; filter: FilterNode | null; limit: number },
 ): Promise<SnapshotRow[]> {
   const col = column(input.metric);
-  const conditions = [eq(screenerSnapshots.tradingDate, input.tradingDate), sql`${col} IS NOT NULL`];
+  const conditions = [
+    eq(screenerSnapshots.tradingDate, input.tradingDate),
+    sql`${col} IS NOT NULL`,
+  ];
   if (input.filter !== null) conditions.push(compileFilter(input.filter));
   return db
     .select()
@@ -735,7 +777,10 @@ export interface IndustryAggregate {
 }
 
 /** Median returns and % above EMA 50 per industry on a session. */
-export async function industryAggregates(db: Database, tradingDate: string): Promise<IndustryAggregate[]> {
+export async function industryAggregates(
+  db: Database,
+  tradingDate: string,
+): Promise<IndustryAggregate[]> {
   const result = await db.execute<{
     industry: string;
     stocks: number;
@@ -820,7 +865,12 @@ export async function breadthHistory(
   return db
     .select()
     .from(marketBreadthDaily)
-    .where(and(eq(marketBreadthDaily.universe, input.universe), gte(marketBreadthDaily.tradingDate, input.from)))
+    .where(
+      and(
+        eq(marketBreadthDaily.universe, input.universe),
+        gte(marketBreadthDaily.tradingDate, input.from),
+      ),
+    )
     .orderBy(asc(marketBreadthDaily.tradingDate));
 }
 
@@ -900,7 +950,11 @@ export async function updateSavedScreen(
   return row ?? null;
 }
 
-export async function deleteSavedScreen(db: Database, ownerId: number, id: number): Promise<boolean> {
+export async function deleteSavedScreen(
+  db: Database,
+  ownerId: number,
+  id: number,
+): Promise<boolean> {
   const rows = await db
     .delete(savedScreens)
     .where(and(eq(savedScreens.ownerId, ownerId), eq(savedScreens.id, id)))
@@ -952,7 +1006,10 @@ export async function recordCorporateAction(
 }
 
 /** `instrumentId|exDate|kind` for every recorded action on or after `from`. */
-export async function recordedCorporateActionKeys(db: Database, from: string): Promise<Set<string>> {
+export async function recordedCorporateActionKeys(
+  db: Database,
+  from: string,
+): Promise<Set<string>> {
   const rows = await db
     .select({
       instrumentId: corporateActions.instrumentId,
@@ -962,4 +1019,57 @@ export async function recordedCorporateActionKeys(db: Database, from: string): P
     .from(corporateActions)
     .where(gte(corporateActions.exDate, from));
   return new Set(rows.map((r) => `${r.instrumentId}|${r.exDate}|${r.kind}`));
+}
+
+/** The newest trading date stored from a given candle source, or null. */
+export async function latestCandleDate(db: Database, providerId: string): Promise<string | null> {
+  const [row] = await db
+    .select({ ts: sql<Date | null>`max(${dailyCandles.ts})` })
+    .from(dailyCandles)
+    .where(eq(dailyCandles.providerId, providerId));
+  const ts = row?.ts;
+  return ts === null || ts === undefined ? null : new Date(ts).toISOString().slice(0, 10);
+}
+
+// ---------------------------------------------------------------------------
+// Stock page helpers
+// ---------------------------------------------------------------------------
+
+/** One stock's calendar events in a window, soonest first. */
+export async function marketEventsForInstrument(
+  db: Database,
+  input: { instrumentId: number; from: string; to: string },
+) {
+  return db
+    .select({
+      eventDate: marketEvents.eventDate,
+      eventType: marketEvents.eventType,
+      title: marketEvents.title,
+    })
+    .from(marketEvents)
+    .where(
+      and(
+        eq(marketEvents.instrumentId, input.instrumentId),
+        gte(marketEvents.eventDate, input.from),
+        lte(marketEvents.eventDate, input.to),
+      ),
+    )
+    .orderBy(asc(marketEvents.eventDate))
+    .limit(30);
+}
+
+/** The latest stored signal for one stock, with its id for the factor breakdown. */
+export async function latestSignalRow(db: Database, instrumentId: number) {
+  const [row] = await db
+    .select({
+      id: signals.id,
+      tradingDate: signals.tradingDate,
+      direction: signals.direction,
+      strength: signals.strength,
+    })
+    .from(signals)
+    .where(eq(signals.instrumentId, instrumentId))
+    .orderBy(desc(signals.tradingDate))
+    .limit(1);
+  return row ?? null;
 }

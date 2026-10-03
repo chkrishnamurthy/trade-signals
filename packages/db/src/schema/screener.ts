@@ -240,10 +240,7 @@ export const screenerSnapshots = pgTable(
     // Classification
     industry: text(),
     series: text(),
-    indexKeys: text()
-      .array()
-      .notNull()
-      .default(sql`ARRAY[]::text[]`),
+    indexKeys: text().array().notNull().default(sql`ARRAY[]::text[]`),
     sizeBucket: text(),
 
     // Signals (served to admins only)

@@ -130,7 +130,10 @@ function validateLeaf(leaf: FilterLeaf, isAdmin: boolean): string[] {
   if (def.unit === 'enum' || def.unit === 'text') {
     const allowed = def.unit === 'enum' ? new Set((def.options ?? []).map((o) => o.value)) : null;
     const ok = (s: unknown): boolean =>
-      typeof s === 'string' && s.length > 0 && s.length <= 80 && (allowed === null || allowed.has(s));
+      typeof s === 'string' &&
+      s.length > 0 &&
+      s.length <= 80 &&
+      (allowed === null || allowed.has(s));
     if (leaf.cmp === 'is') return ok(v) ? [] : [`${name}: choose a valid option.`];
     if (leaf.cmp === 'in')
       return Array.isArray(v) && v.length > 0 && v.length <= 50 && v.every(ok)

@@ -54,7 +54,8 @@ export function FilterBuilder({
     if (metric === undefined) return;
     onChange({ op: group.op, children: [...group.children, defaultLeaf(metric)] });
   };
-  const addGroup = () => onChange({ op: group.op, children: [...group.children, { op: 'or', children: [] }] });
+  const addGroup = () =>
+    onChange({ op: group.op, children: [...group.children, { op: 'or', children: [] }] });
 
   return (
     <div className="flex flex-col gap-3">
@@ -98,7 +99,11 @@ export function FilterBuilder({
             Add condition
           </Button>
         </MetricPicker>
-        <Button variant="ghost" onClick={addGroup} title="A group whose conditions are combined the other way">
+        <Button
+          variant="ghost"
+          onClick={addGroup}
+          title="A group whose conditions are combined the other way"
+        >
           <ListPlusIcon aria-hidden />
           Add group
         </Button>
@@ -113,7 +118,10 @@ function childKey(node: FilterNode, i: number): string {
 
 function OpToggle({ op, onChange }: { op: 'and' | 'or'; onChange: (op: 'and' | 'or') => void }) {
   return (
-    <div role="group" aria-label="Combine conditions" className="inline-flex rounded-md border border-border bg-surface-sunken p-0.5">
+    <fieldset
+      aria-label="Combine conditions"
+      className="min-w-0 inline-flex rounded-md border border-border bg-surface-sunken p-0.5"
+    >
       {(['and', 'or'] as const).map((value) => (
         <button
           key={value}
@@ -122,13 +130,15 @@ function OpToggle({ op, onChange }: { op: 'and' | 'or'; onChange: (op: 'and' | '
           onClick={() => onChange(value)}
           className={cn(
             'h-7 cursor-pointer rounded px-2.5 font-medium text-xs',
-            op === value ? 'bg-surface text-foreground shadow-subtle' : 'text-muted-foreground hover:text-foreground',
+            op === value
+              ? 'bg-surface text-foreground shadow-subtle'
+              : 'text-muted-foreground hover:text-foreground',
           )}
         >
           {value === 'and' ? 'ALL of' : 'ANY of'}
         </button>
       ))}
-    </div>
+    </fieldset>
   );
 }
 
@@ -145,7 +155,8 @@ function SubGroup({
 }) {
   const add = (key: string) => {
     const metric = ctx.metrics.get(key);
-    if (metric !== undefined) onChange({ op: group.op, children: [...group.children, defaultLeaf(metric)] });
+    if (metric !== undefined)
+      onChange({ op: group.op, children: [...group.children, defaultLeaf(metric)] });
   };
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-border-strong border-dashed bg-surface-sunken p-2.5">
@@ -153,7 +164,12 @@ function SubGroup({
         <OpToggle op={group.op} onChange={(op) => onChange({ op, children: group.children })} />
         <div className="flex items-center gap-1">
           <CountLabel count={count} />
-          <Button variant="ghost" size="icon-sm" aria-label="Remove group" onClick={() => onChange(null)}>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Remove group"
+            onClick={() => onChange(null)}
+          >
             <XIcon aria-hidden />
           </Button>
         </div>
@@ -240,10 +256,15 @@ export function ConditionRow({
                 </option>
               ))}
             </select>
-            <ChevronDownIcon aria-hidden className="pointer-events-none absolute top-2.5 right-1.5 size-3.5 text-muted-foreground" />
+            <ChevronDownIcon
+              aria-hidden
+              className="pointer-events-none absolute top-2.5 right-1.5 size-3.5 text-muted-foreground"
+            />
           </label>
         ) : (
-          <span className="px-1 font-mono text-muted-foreground text-sm">{COMPARATOR_LABELS[leaf.cmp]}</span>
+          <span className="px-1 font-mono text-muted-foreground text-sm">
+            {COMPARATOR_LABELS[leaf.cmp]}
+          </span>
         )}
         <ValueInput leaf={leaf} metric={metric} onChange={onChange} />
       </div>
@@ -291,7 +312,13 @@ function NumberField({
         onChange={(e) => {
           const n = Number(e.target.value);
           if (e.target.value === '' || !Number.isFinite(n)) return;
-          onChange(isMoney ? Math.round(n * 100) : metric.unit === 'sessions' || metric.unit === 'days' ? Math.max(0, Math.round(n)) : n);
+          onChange(
+            isMoney
+              ? Math.round(n * 100)
+              : metric.unit === 'sessions' || metric.unit === 'days'
+                ? Math.max(0, Math.round(n))
+                : n,
+          );
         }}
         className="figure w-20 bg-transparent font-semibold text-sm outline-none"
       />
@@ -311,11 +338,18 @@ function ValueInput({
 }) {
   const v = leaf.value;
   const set = (value: FilterLeaf['value']) =>
-    onChange(value === undefined ? { metric: leaf.metric, cmp: leaf.cmp } : { metric: leaf.metric, cmp: leaf.cmp, value });
+    onChange(
+      value === undefined
+        ? { metric: leaf.metric, cmp: leaf.cmp }
+        : { metric: leaf.metric, cmp: leaf.cmp, value },
+    );
 
   if (metric.unit === 'boolean') {
     return (
-      <div role="group" aria-label={`${metric.label}: yes or no`} className="inline-flex rounded-md border border-border p-0.5">
+      <fieldset
+        aria-label={`${metric.label}: yes or no`}
+        className="min-w-0 inline-flex rounded-md border border-border p-0.5"
+      >
         {[true, false].map((b) => (
           <button
             key={String(b)}
@@ -324,24 +358,41 @@ function ValueInput({
             onClick={() => set(b)}
             className={cn(
               'h-7 cursor-pointer rounded px-2.5 font-medium text-xs',
-              v === b ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground',
+              v === b
+                ? 'bg-foreground text-background'
+                : 'text-muted-foreground hover:text-foreground',
             )}
           >
             {b ? 'Yes' : 'No'}
           </button>
         ))}
-      </div>
+      </fieldset>
     );
   }
 
-  if (leaf.cmp === 'between' && Array.isArray(v) && typeof v[0] === 'number' && typeof v[1] === 'number') {
+  if (
+    leaf.cmp === 'between' &&
+    Array.isArray(v) &&
+    typeof v[0] === 'number' &&
+    typeof v[1] === 'number'
+  ) {
     const lo = v[0] as number;
     const hi = v[1] as number;
     return (
       <span className="inline-flex flex-wrap items-center gap-1">
-        <NumberField value={lo} metric={metric} label={`${metric.label} from`} onChange={(n) => set([n, Math.max(n, hi)])} />
+        <NumberField
+          value={lo}
+          metric={metric}
+          label={`${metric.label} from`}
+          onChange={(n) => set([n, Math.max(n, hi)])}
+        />
         <span className="text-muted-foreground text-xs">and</span>
-        <NumberField value={hi} metric={metric} label={`${metric.label} to`} onChange={(n) => set([Math.min(lo, n), n])} />
+        <NumberField
+          value={hi}
+          metric={metric}
+          label={`${metric.label} to`}
+          onChange={(n) => set([Math.min(lo, n), n])}
+        />
       </span>
     );
   }
@@ -366,7 +417,10 @@ function ValueInput({
             </option>
           ))}
         </select>
-        <ChevronDownIcon aria-hidden className="pointer-events-none absolute top-2.5 right-1.5 size-3.5 text-muted-foreground" />
+        <ChevronDownIcon
+          aria-hidden
+          className="pointer-events-none absolute top-2.5 right-1.5 size-3.5 text-muted-foreground"
+        />
       </label>
     );
   }
@@ -390,19 +444,27 @@ function ValueInput({
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="max-h-72 w-64 overflow-y-auto p-1.5">
-        {options.length === 0 && <p className="px-2 py-3 text-muted-foreground text-xs">No values available yet.</p>}
+        {options.length === 0 && (
+          <p className="px-2 py-3 text-muted-foreground text-xs">No values available yet.</p>
+        )}
         {options.map((o) => {
           const checked = selected.includes(o.value);
           return (
-            <label key={o.value} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent">
+            <div
+              key={o.value}
+              className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent"
+            >
               <Checkbox
+                id={`${leaf.metric}-${o.value}`}
                 checked={checked}
                 onCheckedChange={(on) =>
                   set(on === true ? [...selected, o.value] : selected.filter((s) => s !== o.value))
                 }
               />
-              {o.label}
-            </label>
+              <label htmlFor={`${leaf.metric}-${o.value}`} className="flex-1 cursor-pointer">
+                {o.label}
+              </label>
+            </div>
           );
         })}
       </PopoverContent>

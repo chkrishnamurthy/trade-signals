@@ -13,7 +13,8 @@ import { decodeFilterParam, sortSchema, universeSchema } from '@/server/screener
 
 export const metadata: Metadata = {
   title: 'Screener — EquityWise',
-  description: 'Multi-condition technical, delivery, F&O and ownership filters across every NSE stock.',
+  description:
+    'Multi-condition technical, delivery, F&O and ownership filters across every NSE stock.',
   // Signed-in only (plan §12): never indexed.
   robots: { index: false, follow: false },
 };
@@ -38,7 +39,10 @@ export default async function ScreenerRoute({ searchParams }: { searchParams: Se
     const [meta, saved] = await Promise.all([getScreenerMeta(), getSavedScreens()]);
     const preset = meta.presets.find((p) => p.id === one(params.p)) ?? null;
     const filterParam = decodeFilterParam(one(params.f));
-    const fallback = filterParam === null && preset === null && one(params.f) === undefined ? meta.presets[0] ?? null : null;
+    const fallback =
+      filterParam === null && preset === null && one(params.f) === undefined
+        ? (meta.presets[0] ?? null)
+        : null;
     const activePreset = preset ?? fallback;
     const filter = activePreset?.filter ?? filterParam;
 
@@ -62,15 +66,33 @@ export default async function ScreenerRoute({ searchParams }: { searchParams: Se
     const base = { filter, universe, ...(asOf === null ? {} : { asOf }) };
     const [result, counts] = await Promise.all([
       runScreenForViewer({ ...base, sort, limit: 50, offset: 0 }).catch(() =>
-        runScreenForViewer({ filter: null, universe: 'all', sort: 'rsRank:desc', limit: 50, offset: 0 }),
+        runScreenForViewer({
+          filter: null,
+          universe: 'all',
+          sort: 'rsRank:desc',
+          limit: 50,
+          offset: 0,
+        }),
       ),
-      screenCountsForViewer(base).catch(() => ({ base: 0, labels: [], individual: [], cumulative: [] })),
+      screenCountsForViewer(base).catch(() => ({
+        base: 0,
+        labels: [],
+        individual: [],
+        cumulative: [],
+      })),
     ]);
     return (
-      <ScreenerView meta={meta} initial={initial} initialResult={result} initialCounts={counts} initialSaved={saved} />
+      <ScreenerView
+        meta={meta}
+        initial={initial}
+        initialResult={result}
+        initialCounts={counts}
+        initialSaved={saved}
+      />
     );
   } catch (error) {
-    if (error instanceof MarketDataError && error.status === 401) redirect('/login?next=%2Fscreener');
+    if (error instanceof MarketDataError && error.status === 401)
+      redirect('/login?next=%2Fscreener');
     throw error;
   }
 }
