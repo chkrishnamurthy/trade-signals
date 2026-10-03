@@ -11,9 +11,12 @@ import {
   issueSizePaise,
   listingUnconfirmed,
   maxRetailLots,
+  minApplicationLots,
   minInvestmentPaise,
   percentChange,
   RHP_EXTRACTOR_VERSION,
+  readableCompanyName,
+  smeInvestmentLimits,
   subscriptionTimes,
 } from '@equitywise/core';
 import {
@@ -238,9 +241,10 @@ export function toListItem(row: IpoListRow, ctx: MapContext): IpoListItemDto {
     !listingUnconfirmed(dates, ctx.today, ctx.calendar)
       ? expectedTimeline(row.closeDate, ctx.calendar).listing
       : null;
+  const minLots = minApplicationLots(row.board as IpoBoard, row.openDate);
   return {
     slug: row.slug,
-    companyName: row.companyName,
+    companyName: readableCompanyName(row.companyName),
     board: row.board as IpoBoard,
     status,
     closedStage: closedStage(
@@ -261,11 +265,13 @@ export function toListItem(row: IpoListRow, ctx: MapContext): IpoListItemDto {
         : null,
     issuePricePaise: row.issuePricePaise,
     lotSize: row.lotSize,
+    minApplicationLots: minLots,
     minInvestmentPaise: minInvestmentPaise({
       lotSize: row.lotSize,
       minBidQuantity: row.minBidQuantity,
       priceBandHighPaise: row.priceBandHighPaise,
       issuePricePaise: row.issuePricePaise,
+      minLots,
     }),
     issueSizePaise: size?.totalPaise ?? null,
     issueSizeBasis: size?.basis ?? null,
@@ -301,7 +307,7 @@ export function buildAgenda(
       const list = days.get(event.date) ?? [];
       list.push({
         slug: issue.slug,
-        companyName: issue.companyName,
+        companyName: readableCompanyName(issue.companyName),
         board: issue.board as IpoBoard,
         kind: event.kind,
         expected: event.expected,
@@ -349,7 +355,7 @@ const FILINGS_SHOWN = 10;
 export function toFiling(row: SebiFilingRow): SebiFilingDto {
   return {
     sebiId: row.sebiId,
-    companyName: row.companyName,
+    companyName: readableCompanyName(row.companyName),
     documentLabel: row.documentLabel,
     filedDate: row.filedDate,
     pageUrl: row.pageUrl,
@@ -581,6 +587,7 @@ export function toTrackRecord(
   }[],
   months: number,
   thisSlug: string | null,
+  board: IpoBoard | null = null,
 ): GmpTrackRecordDto {
   const boardOf = new Map(rows.map((r) => [r.slug, r.board]));
   const inputs = rows.flatMap((r) => {
@@ -591,7 +598,7 @@ export function toTrackRecord(
       : [
           {
             slug: r.slug,
-            companyName: r.companyName,
+            companyName: readableCompanyName(r.companyName),
             listingDate: r.listingDate,
             lastGmpPercent: gmp,
             listingGainPercent: gain,
@@ -606,6 +613,7 @@ export function toTrackRecord(
   return {
     official: false,
     months,
+    board,
     tolerancePoints: record.tolerancePoints,
     total: record.total,
     within: record.within,
@@ -707,7 +715,7 @@ export function toAllotmentRow(
       : config.registrars.find((r) => r.pattern.test(row.registrarName ?? ''));
   return {
     slug: row.slug,
-    companyName: row.companyName,
+    companyName: readableCompanyName(row.companyName),
     allotmentDate: row.allotmentDate ?? expected.allotment,
     allotmentExpected: row.allotmentDate === null,
     listingDate: row.listingDate ?? expected.listing,
@@ -890,7 +898,7 @@ export async function getIpoDashboard(
       : [
           {
             slug: r.slug,
-            companyName: r.companyName,
+            companyName: readableCompanyName(r.companyName),
             kind: doc.kind as IpoDocumentKind,
             url: doc.url,
             host: hostOf(doc.url),
@@ -900,7 +908,7 @@ export async function getIpoDashboard(
   });
 
   const statuses = toFeedStatuses(feeds, health, now, config);
-  const record = track === null ? null : toTrackRecord(track, GMP_TRACK_MONTHS, null);
+  const record = track === null ? null : toTrackRecord(track, GMP_TRACK_MONTHS, null, board);
   return {
     board,
     today: ctx.today,
@@ -1023,7 +1031,7 @@ export async function getGmpTrackRecord(
   await requireSignedIn();
   const since = addDays(istDateKey(now), -Math.round(input.months * 30.44));
   const rows = await gmpTrackRows(getDatabase(), since, input.board);
-  return toTrackRecord(rows, input.months, null);
+  return toTrackRecord(rows, input.months, null, input.board ?? null);
 }
 
 function factSources(row: IpoIssueRow, config: IpoWebConfig): Record<string, FactSourceDto> {
@@ -1054,7 +1062,8 @@ export async function getIpoDetail(slug: string, now: Date = new Date()): Promis
   const { ctx, config } = await context(now);
   const [parts, trackRows] = await Promise.all([
     ipoDetailParts(db, row.id),
-    gmpTrackRows(db, addDays(ctx.today, -365)),
+    // The same board only: SME and mainboard grey markets behave differently.
+    gmpTrackRows(db, addDays(ctx.today, -365), row.board as IpoBoard),
   ]);
   const listing: ListingPerformanceRow | undefined =
     parts.listing.find((l) => l.exchange === row.designatedExchange) ?? parts.listing[0];
@@ -1136,7 +1145,14 @@ export async function getIpoDetail(slug: string, now: Date = new Date()): Promis
             },
             row.retailMaxPaise ?? undefined,
           )
-        : [],
+        : smeInvestmentLimits(
+            {
+              lotSize: row.lotSize,
+              priceBandHighPaise: row.priceBandHighPaise,
+              issuePricePaise: row.issuePricePaise,
+            },
+            minApplicationLots('sme', row.openDate),
+          ),
     employeeDiscountPaise: row.employeeDiscountPaise,
     sharesOffered: row.sharesOffered,
     issueSize: {
@@ -1185,7 +1201,7 @@ export async function getIpoDetail(slug: string, now: Date = new Date()): Promis
     rhp: visibleRhp(parts.rhp, config.rhpHidden.get(row.slug)),
     filings: parts.filings.map(toFiling),
     gmpPanel: toGmpPanel(parts.gmp, row.priceBandHighPaise, ctx),
-    gmpTrackRecord: toTrackRecord(trackRows, 12, row.slug),
+    gmpTrackRecord: toTrackRecord(trackRows, 12, row.slug, row.board as IpoBoard),
     sources: parts.sources.map((s) => ({
       source: s.source,
       sourceName: sourceName(config, s.source),

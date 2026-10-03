@@ -69,6 +69,19 @@ describe('observationsFrom', () => {
   it('ignores feeds that are not issue facts', () => {
     expect(observationsFrom([row({ feed: 'gmp', payload: { gmpPaise: 2_000 } })])).toEqual([]);
   });
+  it('prefers a properly cased name over an ALL-CAPS one from a higher-ranked feed', () => {
+    const names = observationsFrom([
+      row({ feed: 'detail', payload: { companyName: 'SRIT INDIA LIMITED' } }),
+      row({ feed: 'past', payload: { companyName: 'Srit India Limited' } }),
+    ]).filter((o) => o.field === 'companyName');
+    expect(names.map((o) => o.value)).toEqual(['Srit India Limited']);
+  });
+  it('still takes an ALL-CAPS name when it is the only one', () => {
+    const names = observationsFrom([
+      row({ feed: 'detail', payload: { companyName: 'SRIT INDIA LIMITED' } }),
+    ]).filter((o) => o.field === 'companyName');
+    expect(names.map((o) => o.value)).toEqual(['SRIT INDIA LIMITED']);
+  });
 });
 
 describe('resolvePatch', () => {

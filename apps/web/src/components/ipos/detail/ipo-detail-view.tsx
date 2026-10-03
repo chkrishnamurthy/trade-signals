@@ -20,7 +20,7 @@ import { IpoDocuments } from './ipo-documents';
 import { IpoKeyFacts } from './ipo-key-facts';
 import { IpoKeyFigures } from './ipo-key-figures';
 import { IpoLimits } from './ipo-limits';
-import { IpoListing } from './ipo-listing';
+import { IpoListing, IpoNotListedOnNse } from './ipo-listing';
 import { IpoAllotmentLinks, IpoParticipants } from './ipo-participants';
 import { IpoRhp } from './ipo-rhp';
 import { IpoSources } from './ipo-sources';
@@ -135,6 +135,13 @@ export function IpoDetailView({ ipo, today }: { ipo: IpoDetailDto; today: string
               {ipo.listing !== null && (
                 <div className={at('order-3')}>
                   <IpoListing listing={ipo.listing} />
+                </div>
+              )}
+              {ipo.listing === null && ipo.closedStage === 'listing_unconfirmed' && (
+                <div className={at('order-3')}>
+                  <IpoNotListedOnNse
+                    expectedListing={ipo.timeline.find((e) => e.kind === 'listing')?.date ?? null}
+                  />
                 </div>
               )}
               {ipo.investmentLimits.length > 0 && ipo.listing === null && (

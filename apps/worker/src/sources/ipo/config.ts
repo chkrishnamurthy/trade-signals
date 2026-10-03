@@ -62,6 +62,11 @@ const configSchema = z
         /** Document host → the official source whose client fetches from it. */
         hosts: z.record(z.string().min(1)),
         maxDocumentsPerRun: z.number().int().min(1).max(10),
+        /**
+         * Only issues that opened in the last N days (or have no dates yet):
+         * past issues' prospectuses are linked, not downloaded by the hundred.
+         */
+        recentDays: z.number().int().min(7).max(3_650),
         maxBytes: z
           .number()
           .int()

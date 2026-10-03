@@ -85,7 +85,12 @@ export interface IpoListItemDto {
   readonly priceBand: PriceBandDto | null;
   readonly issuePricePaise: number | null;
   readonly lotSize: number | null;
-  /** Minimum order quantity (or one lot) × the upper band. */
+  /**
+   * Lots in an individual's smallest application: 1 on the mainboard, 2 on
+   * SME since SEBI's March 2025 rule (see `minApplicationLots` in core).
+   */
+  readonly minApplicationLots: number;
+  /** Minimum order quantity (or `minApplicationLots` lots) × the upper band. */
   readonly minInvestmentPaise: number | null;
   readonly issueSizePaise: number | null;
   readonly issueSizeBasis: 'official' | 'derived_at_upper_band' | null;
@@ -372,6 +377,8 @@ export interface GmpTrackRowDto {
 export interface GmpTrackRecordDto {
   readonly official: false;
   readonly months: number;
+  /** The board compared; null when every board is mixed in. */
+  readonly board: IpoBoard | null;
   readonly tolerancePoints: number;
   readonly total: number;
   readonly within: number;
@@ -440,7 +447,7 @@ export interface RhpExtractDto {
 
 /** One category's smallest or largest application, in whole lots at the upper band. */
 export interface InvestmentLimitDto {
-  readonly kind: 'retail_min' | 'retail_max' | 'snii_min' | 'snii_max' | 'bnii_min';
+  readonly kind: 'individual' | 'retail_min' | 'retail_max' | 'snii_min' | 'snii_max' | 'bnii_min';
   readonly lots: number;
   readonly shares: number;
   readonly amountPaise: number;
@@ -455,7 +462,10 @@ export interface IpoDetailDto extends IpoListItemDto {
   readonly minBidQuantity: number | null;
   readonly retailMaxPaise: number | null;
   readonly maxRetailLots: number | null;
-  /** Mainboard only, computed from the lot, the upper band and SEBI's category limits. */
+  /**
+   * Computed from the lot, the upper band and SEBI's category limits — the
+   * mainboard's retail/NII split, or SME's fixed individual lots and NII.
+   */
   readonly investmentLimits: readonly InvestmentLimitDto[];
   readonly employeeDiscountPaise: number | null;
   readonly sharesOffered: number | null;

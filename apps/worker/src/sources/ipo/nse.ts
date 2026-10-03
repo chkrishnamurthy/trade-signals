@@ -84,8 +84,29 @@ const listRowSchema = z
   .passthrough();
 
 /**
+ * NSE writes some outcomes into the company name of a past-issue row:
+ * `…Limited-Issue Withdrawn`, `…Limited-Issue postponed`. A
+ * `- Withdrawal Window` / `-Special Withdrawal Option` row is not an issue at
+ * all: it is a window for bidders to withdraw from an existing one (after a
+ * revision), under its own symbol or dates. Observed 2026-10-03.
+ */
+const NAME_STATUS = /\s*-\s*(issue\s+(?:withdrawn|postponed|deferred|cancell?ed))\s*$/i;
+const WITHDRAWAL_WINDOW = /-\s*(?:special\s+)?withdrawal\s+(?:window|option)\s*$/i;
+
+/** The name without NSE's status suffix, and the status it stated (if any). */
+export function splitNameStatus(name: string): {
+  readonly name: string;
+  readonly status: string | null;
+} {
+  const match = NAME_STATUS.exec(name);
+  if (match === null) return { name, status: null };
+  return { name: name.slice(0, match.index).trim(), status: match[1] ?? null };
+}
+
+/**
  * Parses `ipo-current-issue`, `all-upcoming-issues` and `public-past-issues`
- * rows into listings. Non-equity series (debt, InvITs, REITs, …) are dropped.
+ * rows into listings. Non-equity series (debt, InvITs, REITs, …) are dropped,
+ * and so are withdrawal-window rows (they are not issues).
  *
  * Field meanings differ by list, all observed on 2026-10-02:
  *   - current/upcoming: `issuePrice` is the band text; `issueSize` is a SHARE
@@ -107,8 +128,9 @@ export function parseNseIssueList(
     const series = (row.series ?? row.securityType ?? '').trim().toUpperCase();
     const board = boardOf(series);
     if (board === null) continue;
-    const companyName = cleanText(row.companyName ?? row.company);
-    if (companyName === null) continue;
+    const rawName = cleanText(row.companyName ?? row.company);
+    if (rawName === null || WITHDRAWAL_WINDOW.test(rawName)) continue;
+    const { name: companyName, status: nameStatus } = splitNameStatus(rawName);
     const isPast = row.ipoStartDate !== undefined || row.securityType !== undefined;
     const openDate = parseDdMonYyyy(row.issueStartDate ?? row.ipoStartDate ?? '');
     const closeDate = parseDdMonYyyy(row.issueEndDate ?? row.ipoEndDate ?? '');
@@ -135,7 +157,7 @@ export function parseNseIssueList(
       issuePricePaise: finalPrice !== null && finalPrice > 0 ? finalPrice : null,
       lotSize: parseCount(str(row.lotSize)),
       sharesOffered: isPast ? null : parseCount(str(row.issueSize)),
-      sourceStatus: cleanText(row.status),
+      sourceStatus: cleanText(row.status) ?? nameStatus,
     });
   }
   return out;
@@ -153,6 +175,8 @@ const bidRowSchema = z
     noOfShareOffered: text,
     noOfsharesBid: text,
     noOfSharesBid: text,
+    // SME detail rows spell it this way (and carry no shares-offered column).
+    noOfshareBid: text,
   })
   .passthrough();
 
@@ -165,6 +189,15 @@ const detailSchema = z
     }),
     bidDetails: z.array(z.unknown()).nullish(),
     demandDataNSE: z.array(z.object({ timestamp: z.string().nullish() }).passthrough()).nullish(),
+    /** The whole book, every platform: shares in the issue and shares bid. */
+    demandGraphALL: z
+      .object({
+        totalIssueSize: text,
+        totalBidRecieved: text,
+        timestamp: z.string().nullish(),
+      })
+      .passthrough()
+      .nullish(),
   })
   .passthrough();
 
@@ -187,10 +220,57 @@ export function parseSubscriptionRows(rows: readonly unknown[]): RawSubscription
       category: classifySubscriptionLabel(label),
       label,
       sharesOffered: parseCount(str(row.noOfSharesOffered ?? row.noOfShareOffered)),
-      sharesBid: parseCount(str(row.noOfsharesBid ?? row.noOfSharesBid)),
+      sharesBid: parseCount(str(row.noOfsharesBid ?? row.noOfSharesBid ?? row.noOfshareBid)),
     });
   }
   return out;
+}
+
+type DetailPayload = z.infer<typeof detailSchema>;
+
+/**
+ * The bids on a detail payload. Two layouts, both observed 2026-10-02:
+ *
+ *   - mainboard: rows state shares offered per category; the figures are
+ *     NSE's own platform (`nse` scope), timed by `demandDataNSE`.
+ *   - SME: rows carry no shares-offered column, and their Total equals
+ *     `demandGraphALL`'s whole-book total — so they are the consolidated
+ *     book, and the only denominator NSE states is the issue size there,
+ *     which goes on the Total row. Categories keep "—": NSE does not publish
+ *     an SME issue's shares reserved per category.
+ *
+ * NSE's category endpoint is no substitute for SME: it reports 0 offered for
+ * every category and leaves the individual-investor row out entirely.
+ */
+function detailSubscription(detail: DetailPayload): RawIpoSubscription | null {
+  const bids = parseSubscriptionRows(detail.bidDetails ?? []);
+  // Before bidding opens NSE sends a zero Total: no bids yet, not "0×".
+  if (bids.length === 0 || bids.every((b) => b.sharesBid === null || b.sharesBid === 0))
+    return null;
+  const whole = detail.demandGraphALL ?? null;
+  const offeredStated = bids.some((b) => b.sharesOffered !== null && b.sharesOffered > 0);
+  const total = bids.find((b) => b.category === 'total') ?? null;
+  const wholeBid = whole === null ? null : parseCount(str(whole.totalBidRecieved));
+  if (!offeredStated && total !== null && wholeBid !== null && total.sharesBid === wholeBid) {
+    const issueSize = parseCount(str(whole?.totalIssueSize));
+    return {
+      source: NSE_SOURCE_ID,
+      scope: 'consolidated',
+      asOf: parseIstDayTime(whole?.timestamp ?? ''),
+      rows: bids.map((b) =>
+        b.category === 'total'
+          ? { ...b, sharesOffered: issueSize !== null && issueSize > 0 ? issueSize : null }
+          : { ...b, sharesOffered: null },
+      ),
+    };
+  }
+  const stamp = detail.demandDataNSE?.[0]?.timestamp ?? null;
+  return {
+    source: NSE_SOURCE_ID,
+    scope: 'nse',
+    asOf: stamp === null ? null : parseIstDayTime(stamp),
+    rows: bids,
+  };
 }
 
 /** `Axis Bank Limited and HDFC Bank Limited` → two names; split only after a legal form. */
@@ -275,8 +355,6 @@ export function parseNseDetail(payload: unknown, context: DetailContext): RawIpo
   const period = fact('Issue Period');
   const [openText, closeText] = (period ?? '').split(/\s+to\s+/i);
   const method = fact('Issue Type');
-  const bids = parseSubscriptionRows(detail.bidDetails ?? []);
-  const stamp = detail.demandDataNSE?.[0]?.timestamp ?? null;
 
   return {
     source: NSE_SOURCE_ID,
@@ -307,15 +385,7 @@ export function parseNseDetail(payload: unknown, context: DetailContext): RawIpo
     marketMaker: fact('Market Maker'),
     sponsorBanks: splitParties(fact('Sponsor Bank', 'Sponsor Banks')),
     documents,
-    subscription:
-      bids.length === 0 || bids.every((b) => b.sharesBid === null)
-        ? null
-        : {
-            source: NSE_SOURCE_ID,
-            scope: 'nse',
-            asOf: stamp === null ? null : parseIstDayTime(stamp),
-            rows: bids,
-          },
+    subscription: detailSubscription(detail),
   };
 }
 
@@ -492,6 +562,11 @@ export function createNseIpoSource({
       return client.getJson(url, { referer: NSE_WARMUP_URL });
     }
   };
+  const fetchDetail = async (key: IpoKey): Promise<RawIpoDetail> => {
+    const board = boardOf(key.series) ?? 'mainboard';
+    const path = `/api/ipo-detail?symbol=${encodeURIComponent(key.symbol)}&series=${detailSeries(board)}`;
+    return parseNseDetail(await api(path), { key, sourceUrl: `${NSE}${path}`, documentHosts });
+  };
 
   return {
     id: NSE_SOURCE_ID,
@@ -524,16 +599,16 @@ export function createNseIpoSource({
         boardOf,
       ),
 
-    fetchDetail: async (key) => {
-      const board = boardOf(key.series) ?? 'mainboard';
-      const path = `/api/ipo-detail?symbol=${encodeURIComponent(key.symbol)}&series=${detailSeries(board)}`;
-      return parseNseDetail(await api(path), { key, sourceUrl: `${NSE}${path}`, documentHosts });
-    },
+    fetchDetail,
 
-    fetchSubscription: async (key) =>
-      parseNseActiveCategory(
+    fetchSubscription: async (key) => {
+      // SME: the category endpoint omits the individual investors and every
+      // shares-offered figure; the detail payload carries the whole book.
+      if (boardOf(key.series) === 'sme') return (await fetchDetail(key)).subscription;
+      return parseNseActiveCategory(
         await api(`/api/ipo-active-category?symbol=${encodeURIComponent(key.symbol)}`),
-      ),
+      );
+    },
 
     fetchListingDay: async (dateKey) => {
       const url = `${NSE_ARCHIVE}/products/content/sec_bhavdata_full_${ddmmyyyy(dateKey)}.csv`;

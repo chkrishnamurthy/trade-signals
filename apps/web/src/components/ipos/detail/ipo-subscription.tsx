@@ -20,8 +20,13 @@ const LABEL: Readonly<Record<SubscriptionRowDto['category'], string>> = {
   total: 'Total',
 };
 
-const label = (row: SubscriptionRowDto) =>
-  row.category === 'other' ? row.label : LABEL[row.category];
+/** SME's retail bucket is SEBI's "individual investors" (two lots since March 2025). */
+const label = (row: SubscriptionRowDto, sme: boolean) =>
+  row.category === 'other'
+    ? row.label
+    : sme && row.category === 'retail'
+      ? 'Individual investors'
+      : LABEL[row.category];
 
 /**
  * Times subscribed as a bar. The scale runs to the table's largest figure (at
@@ -29,7 +34,9 @@ const label = (row: SubscriptionRowDto) =>
  * bids as shares offered.
  */
 function Bar({ times: value, max }: { times: number | null; max: number }) {
-  const width = value === null ? 0 : Math.min(value, max) / max;
+  // No ratio (an SME category: NSE states no shares for it) — no bar, not an empty "0×" one.
+  if (value === null) return null;
+  const width = Math.min(value, max) / max;
   return (
     <span
       aria-hidden
@@ -50,7 +57,7 @@ function Bar({ times: value, max }: { times: number | null; max: number }) {
   );
 }
 
-function Rows({ table }: { table: SubscriptionTableDto }) {
+function Rows({ table, sme }: { table: SubscriptionTableDto; sme: boolean }) {
   const max = Math.max(2, ...table.rows.map((r) => r.times ?? 0));
   return (
     <>
@@ -91,7 +98,7 @@ function Rows({ table }: { table: SubscriptionTableDto }) {
                 )}
                 title={row.label}
               >
-                {label(row)}
+                {label(row, sme)}
               </td>
               <td className="figure hidden px-2 text-right text-muted-foreground md:table-cell">
                 {quantity(row.sharesOffered)}
@@ -126,13 +133,14 @@ function Rows({ table }: { table: SubscriptionTableDto }) {
                   row.category === 'total' && 'font-semibold',
                 )}
               >
-                {label(row)}
+                {label(row, sme)}
               </span>
               <span className="figure font-medium">{times(row.times)}</span>
             </span>
             <Bar times={row.times} max={max} />
             <span className="figure text-muted-foreground text-xs">
-              {quantity(row.sharesBid)} bid of {quantity(row.sharesOffered)} offered
+              {quantity(row.sharesBid)} bid
+              {row.sharesOffered === null ? '' : ` of ${quantity(row.sharesOffered)} offered`}
             </span>
           </li>
         ))}
@@ -155,6 +163,7 @@ export function IpoSubscription({ ipo }: { ipo: IpoDetailDto }) {
   const table =
     nseOnly && ipo.subscriptionNseOnly !== null ? ipo.subscriptionNseOnly : ipo.subscriptionTable;
   const canSwitch = ipo.subscriptionTable !== null && ipo.subscriptionNseOnly !== null;
+  const sme = ipo.board === 'sme';
   return (
     <ModuleCard
       id="subscription"
@@ -199,7 +208,9 @@ export function IpoSubscription({ ipo }: { ipo: IpoDetailDto }) {
           ? undefined
           : nseOnly
             ? 'NSE-only bids leave out bids placed through BSE, so they read lower.'
-            : 'Updated while bidding is open; the last reading after close is the final figure.'
+            : sme
+              ? "NSE does not publish an SME issue's shares per category, so only the total has a ratio: every bid ÷ the issue size NSE states. Updated while bidding is open; the last reading after close is final."
+              : 'Updated while bidding is open; the last reading after close is the final figure.'
       }
     >
       {table === null ? (
@@ -207,7 +218,7 @@ export function IpoSubscription({ ipo }: { ipo: IpoDetailDto }) {
           The exchange has not published bids for this issue yet.
         </p>
       ) : (
-        <Rows table={table} />
+        <Rows table={table} sme={sme} />
       )}
       {!nseOnly && ipo.subscriptionHistory.length > 1 && (
         <div className="border-border border-t">
@@ -222,15 +233,19 @@ export function IpoSubscription({ ipo }: { ipo: IpoDetailDto }) {
                 <th scope="col" className="h-8 pl-4 text-left font-normal">
                   Day
                 </th>
-                <th scope="col" className="px-2 text-right font-normal">
-                  QIB
-                </th>
-                <th scope="col" className="hidden px-2 text-right font-normal sm:table-cell">
-                  NII
-                </th>
-                <th scope="col" className="px-2 text-right font-normal">
-                  Retail
-                </th>
+                {!sme && (
+                  <>
+                    <th scope="col" className="px-2 text-right font-normal">
+                      QIB
+                    </th>
+                    <th scope="col" className="hidden px-2 text-right font-normal sm:table-cell">
+                      NII
+                    </th>
+                    <th scope="col" className="px-2 text-right font-normal">
+                      Retail
+                    </th>
+                  </>
+                )}
                 <th scope="col" className="pr-4 pl-2 text-right font-normal">
                   Total
                 </th>
@@ -240,11 +255,15 @@ export function IpoSubscription({ ipo }: { ipo: IpoDetailDto }) {
               {ipo.subscriptionHistory.map((p) => (
                 <tr key={p.asOf} className="border-border border-b last:border-0">
                   <td className="h-9 pl-4">{shortDate(istDay(p.asOf))}</td>
-                  <td className="figure px-2 text-right">{times(p.qibTimes)}</td>
-                  <td className="figure hidden px-2 text-right sm:table-cell">
-                    {times(p.niiTimes)}
-                  </td>
-                  <td className="figure px-2 text-right">{times(p.retailTimes)}</td>
+                  {!sme && (
+                    <>
+                      <td className="figure px-2 text-right">{times(p.qibTimes)}</td>
+                      <td className="figure hidden px-2 text-right sm:table-cell">
+                        {times(p.niiTimes)}
+                      </td>
+                      <td className="figure px-2 text-right">{times(p.retailTimes)}</td>
+                    </>
+                  )}
                   <td className="figure pr-4 pl-2 text-right font-medium">{times(p.totalTimes)}</td>
                 </tr>
               ))}

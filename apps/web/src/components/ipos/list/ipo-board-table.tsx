@@ -39,7 +39,11 @@ function MinInvestment({ row }: { row: IpoListItemDto }) {
     <span className="inline-flex flex-col items-end">
       <span className="figure">{sharePrice(row.minInvestmentPaise)}</span>
       {row.lotSize !== null && (
-        <span className="text-2xs text-muted-foreground">{quantity(row.lotSize)} shares a lot</span>
+        <span className="text-2xs text-muted-foreground">
+          {row.minApplicationLots > 1
+            ? `${row.minApplicationLots} lots of ${quantity(row.lotSize)}`
+            : `${quantity(row.lotSize)} shares a lot`}
+        </span>
       )}
     </span>
   );

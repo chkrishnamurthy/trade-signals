@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mock = vi.hoisted(() => ({
   user: vi.fn(),
@@ -98,6 +98,15 @@ describe('announcement ownership and coverage', () => {
   });
 });
 describe('announcement state endpoint', () => {
+  // The origin check trusts AUTH_BASE_URL; pin it so a developer's own .env
+  // (which points it at their machine or the live site) cannot change the result.
+  beforeEach(() => {
+    vi.stubEnv('AUTH_BASE_URL', 'http://localhost');
+    vi.stubEnv('AUTH_TRUSTED_ORIGINS', '');
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
   const request = (body: unknown, origin = 'http://localhost') =>
     new Request('http://localhost/api/announcements/10', {
       method: 'PATCH',

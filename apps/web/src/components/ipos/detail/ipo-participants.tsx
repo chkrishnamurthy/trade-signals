@@ -9,16 +9,20 @@ import { FactSource } from './fact-source';
  */
 export function IpoAllotmentLinks({ ipo, today }: { ipo: IpoDetailDto; today: string }) {
   const allotment = ipo.timeline.find((e) => e.kind === 'allotment');
+  // Only a date a source stated is "finalised"; a T+3 day that has passed is
+  // still only when allotment was due.
   const note =
     allotment === undefined
       ? 'Available once allotment is finalised.'
-      : allotment.date <= today
-        ? `Allotment was finalised ${shortDate(allotment.date)}.`
-        : `Available after allotment, ${shortDate(allotment.date)}${allotment.expected ? ' (expected)' : ''}.`;
+      : allotment.date > today
+        ? `Available after allotment, ${shortDate(allotment.date)}${allotment.expected ? ' (expected)' : ''}.`
+        : allotment.expected
+          ? `Allotment was due ${shortDate(allotment.date)} (expected, from SEBI's T+3 timetable).`
+          : `Allotment was finalised ${shortDate(allotment.date)}.`;
   return (
     <ModuleCard id="allotment" title="Check allotment" note={note}>
       {ipo.registrar !== null && (
-        <FactRow label={ipo.registrar.name}>
+        <FactRow label={ipo.registrar.name} wrapLabel>
           {ipo.registrar.allotmentUrl === null ? (
             <span className="text-muted-foreground text-xs">No link on file</span>
           ) : (

@@ -265,10 +265,13 @@ export function ExternalLink({
 /** A label and its value on one line, ruled above — the sidebar cards' row. */
 export function FactRow({
   label,
+  wrapLabel = false,
   className,
   children,
 }: {
   label: React.ReactNode;
+  /** A long label (a registrar's name) wraps and the short value keeps its width. */
+  wrapLabel?: boolean;
   className?: string | undefined;
   children: React.ReactNode;
 }) {
@@ -279,8 +282,15 @@ export function FactRow({
         className,
       )}
     >
-      <span className="shrink-0 text-muted-foreground text-xs">{label}</span>
-      <span className="min-w-0 text-right">{children}</span>
+      <span
+        className={cn(
+          'text-muted-foreground text-xs',
+          wrapLabel ? 'min-w-0 break-words' : 'shrink-0',
+        )}
+      >
+        {label}
+      </span>
+      <span className={cn('text-right', wrapLabel ? 'shrink-0' : 'min-w-0')}>{children}</span>
     </div>
   );
 }

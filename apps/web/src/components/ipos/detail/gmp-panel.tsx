@@ -1,6 +1,6 @@
 import { Sparkline } from '@/components/market/sparkline';
 import { signedPercent } from '@/lib/format';
-import { gmpText, istDayTime, shortName } from '@/lib/ipo-format';
+import { BOARD_WORD, gmpText, istDayTime, shortName } from '@/lib/ipo-format';
 import type { GmpPanelDto, GmpTrackRecordDto } from '@/lib/ipo-types';
 import { UnofficialTag } from '../ipo-chip';
 import { sharePrice } from '../ipo-figures';
@@ -43,15 +43,16 @@ export function GmpTrackRecord({ track }: { track: GmpTrackRecordDto }) {
   if (track.total === 0)
     return (
       <p className="text-muted-foreground text-xs">
-        No listed issue in the last {track.months} months has both a GMP quote and a listing price
-        to compare yet.
+        No listed {track.board === null ? '' : `${BOARD_WORD[track.board]} `}issue in the last{' '}
+        {track.months} months has both a GMP quote and a listing price to compare yet.
       </p>
     );
   return (
     <div className="flex flex-col gap-2 text-xs">
       <p className="text-muted-foreground">
-        Last {track.months} months: the final quote was within ±{track.tolerancePoints} points of
-        the listing-day gain for{' '}
+        Last {track.months} months
+        {track.board === null ? '' : ` of ${BOARD_WORD[track.board]} listings`}: the final quote was
+        within ±{track.tolerancePoints} points of the listing-day gain for{' '}
         <strong className="font-medium text-foreground">
           {track.within} of {track.total}
         </strong>{' '}

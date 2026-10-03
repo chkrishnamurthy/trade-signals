@@ -5,8 +5,11 @@ import {
   investmentLimits,
   issueSizePaise,
   maxRetailLots,
+  minApplicationLots,
+  minApplicationShares,
   minInvestmentPaise,
   percentChange,
+  smeInvestmentLimits,
   subscriptionTimes,
 } from './money.js';
 
@@ -150,6 +153,69 @@ describe('investmentLimits', () => {
     // SME-sized lot: 2,400 × ₹118 = ₹2,83,200, above the retail cap.
     expect(
       investmentLimits({ lotSize: 2_400, priceBandHighPaise: 11_800, issuePricePaise: null }),
+    ).toEqual([]);
+  });
+});
+
+describe('minApplicationLots', () => {
+  it('is one lot on the mainboard', () => {
+    expect(minApplicationLots('mainboard', '2026-09-30')).toBe(1);
+  });
+  it('is two lots on SME from 3 March 2025, one lot before', () => {
+    expect(minApplicationLots('sme', '2026-09-30')).toBe(2);
+    expect(minApplicationLots('sme', '2025-03-03')).toBe(2);
+    expect(minApplicationLots('sme', '2025-03-02')).toBe(1);
+  });
+  it('assumes the current rule for an SME issue with no dates yet', () => {
+    expect(minApplicationLots('sme', null)).toBe(2);
+  });
+});
+
+describe('minInvestmentPaise with minLots', () => {
+  it('prices two lots for an SME issue (EVENTIONS: 2 × 1,200 × ₹118 = ₹2,83,200)', () => {
+    expect(
+      minInvestmentPaise({
+        lotSize: 1_200,
+        minBidQuantity: null,
+        priceBandHighPaise: 11_800,
+        issuePricePaise: null,
+        minLots: 2,
+      }),
+    ).toBe(28_320_000);
+    expect(minApplicationShares({ lotSize: 1_200, minBidQuantity: null, minLots: 2 })).toBe(2_400);
+  });
+  it('lets a stated minimum quantity win over the lot rule', () => {
+    expect(minApplicationShares({ lotSize: 1_200, minBidQuantity: 1_200, minLots: 2 })).toBe(1_200);
+  });
+});
+
+describe('smeInvestmentLimits', () => {
+  it('splits EVENTIONS (1,200 × ₹118 = ₹1,41,600 a lot) into individual, sNII and bNII', () => {
+    // Hand-computed: 2 lots = ₹2,83,200; sNII from 3 lots (₹4,24,800) to
+    // floor(₹10,00,000 / ₹1,41,600) = 7 lots (₹9,91,200); bNII from 8 lots (₹11,32,800).
+    expect(
+      smeInvestmentLimits({ lotSize: 1_200, priceBandHighPaise: 11_800, issuePricePaise: null }),
+    ).toEqual([
+      { kind: 'individual', lots: 2, shares: 2_400, amountPaise: 28_320_000 },
+      { kind: 'snii_min', lots: 3, shares: 3_600, amountPaise: 42_480_000 },
+      { kind: 'snii_max', lots: 7, shares: 8_400, amountPaise: 99_120_000 },
+      { kind: 'bnii_min', lots: 8, shares: 9_600, amountPaise: 113_280_000 },
+    ]);
+  });
+  it('starts small NII above ₹2 lakh when three lots would not reach it', () => {
+    // 1,000 × ₹50 = ₹50,000 a lot: 3 lots is only ₹1,50,000, so sNII starts at 5 lots (₹2,50,000).
+    const limits = smeInvestmentLimits({
+      lotSize: 1_000,
+      priceBandHighPaise: 5_000,
+      issuePricePaise: null,
+    });
+    expect(limits.find((l) => l.kind === 'snii_min')).toMatchObject({ lots: 5 });
+    expect(limits.find((l) => l.kind === 'snii_max')).toMatchObject({ lots: 20 });
+    expect(limits.find((l) => l.kind === 'bnii_min')).toMatchObject({ lots: 21 });
+  });
+  it('is empty without a lot or a price', () => {
+    expect(
+      smeInvestmentLimits({ lotSize: null, priceBandHighPaise: 11_800, issuePricePaise: null }),
     ).toEqual([]);
   });
 });

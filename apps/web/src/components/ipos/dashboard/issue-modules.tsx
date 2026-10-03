@@ -128,13 +128,22 @@ function Times({ value, strong = false }: { value: number | null; strong?: boole
   );
 }
 
-/** Demand so far — not a forecast of anything. */
+/**
+ * Demand so far — not a forecast of anything. SME shows the total alone: NSE
+ * publishes no SME issue's shares reserved per category, so a category ratio
+ * would be invented.
+ */
 export function SubscriptionModule({ data }: { data: IpoDashboardDto }) {
+  const sme = data.board === 'sme';
   return (
     <ModuleCard
       id="ipo-subscription"
       title="Subscription"
-      note="Times subscribed: shares bid ÷ shares offered, NSE and BSE bids together where both publish. Above 1× means more bids than shares."
+      note={
+        sme
+          ? "Times subscribed: every bid ÷ the issue size NSE states. NSE does not publish an SME issue's shares per investor category, so only the total is shown. Above 1× means more bids than shares."
+          : 'Times subscribed: shares bid ÷ shares offered, NSE and BSE bids together where both publish. Above 1× means more bids than shares.'
+      }
       footer="Open issues update about every two hours from 10:35 am to 5:35 pm, then once after close."
       link={{ href: boardHref(data.board, '?status=open'), label: 'Open issues' }}
     >
@@ -155,13 +164,19 @@ export function SubscriptionModule({ data }: { data: IpoDashboardDto }) {
             width: 'w-32',
             cell: (r) => <span className="text-muted-foreground text-xs">{asOfLabel(r)}</span>,
           },
-          {
-            id: 'retail',
-            header: 'Retail',
-            width: 'w-16',
-            align: 'end',
-            cell: (r) => <Times value={r.subscription?.retailTimes ?? null} />,
-          },
+          ...(sme
+            ? []
+            : [
+                {
+                  id: 'retail',
+                  header: 'Retail',
+                  width: 'w-16',
+                  align: 'end' as const,
+                  cell: (r: IpoListItemDto) => (
+                    <Times value={r.subscription?.retailTimes ?? null} />
+                  ),
+                },
+              ]),
           {
             id: 'total',
             header: 'Total',

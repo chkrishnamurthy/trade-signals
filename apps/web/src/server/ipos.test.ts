@@ -207,6 +207,28 @@ describe('toListItem', () => {
     });
   });
 
+  it('prices an SME application at two lots and reads an all-caps name', () => {
+    const item = toListItem(
+      issue({
+        slug: 'eventions-ipo-2026',
+        companyName: 'EVENTIONS LIMITED',
+        board: 'sme',
+        lotSize: 1_200,
+        minBidQuantity: null,
+        priceBandLowPaise: 11_200,
+        priceBandHighPaise: 11_800,
+      }),
+      ctx,
+    );
+    expect(item).toMatchObject({
+      companyName: 'Eventions Limited',
+      minApplicationLots: 2,
+      // SEBI (March 2025): two lots × 1,200 × ₹118 = ₹2,83,200.
+      minInvestmentPaise: 28_320_000,
+    });
+    expect(toListItem(issue(), ctx).minApplicationLots).toBe(1);
+  });
+
   it('computes subscription times within one scope only', () => {
     const item = toListItem(issue(), ctx);
     expect(item.subscription?.scope).toBe('consolidated');
@@ -673,7 +695,8 @@ describe('services and routes', () => {
     expect(page.filings).toEqual([
       {
         sebiId: '104866',
-        companyName: 'JAGATJIT AGRI ENGINEERING LIMITED',
+        // SEBI publishes it in capitals; the page shows it readable.
+        companyName: 'Jagatjit Agri Engineering Limited',
         documentLabel: 'DRHP',
         filedDate: '2026-10-01',
         pageUrl:
@@ -766,6 +789,9 @@ describe('services and routes', () => {
       ['snii_max', 66, 98_736_000],
       ['bnii_min', 67, 100_232_000],
     ]);
+    // The GMP track record compares this board's listings only.
+    expect(detail.gmpTrackRecord.board).toBe('mainboard');
+    expect(mock.track).toHaveBeenCalledWith(expect.anything(), expect.any(String), 'mainboard');
     expect(detail.fieldSources.lotSize?.sourceName).toBe('NSE');
     expect(detail.gmpPanel).toMatchObject({
       official: false,
