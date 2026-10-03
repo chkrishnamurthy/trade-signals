@@ -52,6 +52,15 @@ historical intent; that intraday code no longer exists in the tree.
 > No apply button, no rating, no opinion of any issue. Plan: `docs/planning/ipos-plan.md`;
 > runbook: `docs/operations/ipo-pipeline.md`.
 
+> **Update (2026-10-03):** stock analysis — `/screener`, `/stocks/[symbol]` and
+> `/markets/breadth` (the "Discover" navigation) — is built for **every signed-in user**
+> from Dhan, Fyers and data EquityWise already collects. The whole NSE EQ/BE/BZ universe
+> comes from the bhavcopy (split/bonus-adjusted via `corporate_actions`); the worker
+> builds a nightly `screener_snapshots` row per stock (~95 technical, delivery, F&O,
+> ownership and event metrics; catalogue in `packages/core/src/screener/catalogue.ts`).
+> **No fundamentals** (P/E, ROE, market cap…) — those need a new source. Signals inside
+> these pages stay admin-only. Plan: `docs/planning/screener-dhan-fyers-plan.md`.
+
 Design & architecture docs: `docs/README.md`, `docs/architecture.md` (topology & stack),
 `docs/domain-and-contracts.md` (schema, indicators & invariants), `docs/api-reference.md`,
 `docs/operations-runbook.md`, and `docs/planning/storybook-plan.md`.

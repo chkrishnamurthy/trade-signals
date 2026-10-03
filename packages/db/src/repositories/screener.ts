@@ -9,6 +9,7 @@ import {
   inArray,
   isNull,
   lte,
+  notInArray,
   type SQL,
   sql,
 } from 'drizzle-orm';
@@ -157,7 +158,9 @@ export async function syncEquityList(
         eq(instruments.providerId, 'nse'),
         eq(instruments.kind, 'equity'),
         eq(instruments.active, true),
-        sql`${instruments.symbol} <> ALL(${listed})`,
+        // notInArray, not `<> ALL(array)` in a sql template: the template expands a JS
+        // array into a parameter list, which Postgres rejects as an array.
+        notInArray(instruments.symbol, listed),
       ),
     )
     .returning({ id: instruments.id });

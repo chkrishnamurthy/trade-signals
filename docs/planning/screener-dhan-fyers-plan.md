@@ -1,11 +1,11 @@
 ---
 name: Screener and stock page on Dhan + Fyers + our data
-status: ready-for-review
+status: built-on-branch
 horizon: now
 created: 2026-10-03
 updated: 2026-10-03
 area: [web, worker, db, core, providers, design]
-blocked_by: [owner-review-section-16]
+blocked_by: [owner-review, deploy]
 confidence: 4
 summary: A full-market technical, flow and ownership screener, a stock page and a market-breadth page built only from Dhan, Fyers and data EquityWise already collects — no new vendor. Data spine, metric catalogue, UI/UX, data model, jobs, API, phases and mockups.
 related: [company-research-implementation-plan.md, dhan-provider-plan.md, institutional-flow-plan.md, design-system-plan.md]
@@ -21,6 +21,48 @@ owner: krishna
 > V1 the owner chose on 2026-10-03:** build everything that Dhan, Fyers and EquityWise's
 > own data can support, and nothing that needs a new provider. Fundamentals (P/E, ROE,
 > statements, market cap) stay out of V1 and are tracked in the company-research plan.
+
+## 0. Implementation status (2026-10-03, branch `feat/stock-analysis`)
+
+Built end to end, all five phases. Owner decisions taken before coding: **every
+signed-in user** sees the three pages (signals stay admin-only); universe **NSE
+EQ/BE/BZ**; bhavcopy bars count as closed the **same evening**; prices are
+**split/bonus-adjusted, dividend-unadjusted**.
+
+| Area | Where |
+| --- | --- |
+| Indicators (Stochastic, Bollinger, Supertrend), metric catalogue (95 keys), per-stock metrics, filter AST, breadth, corporate-action parser | `packages/core/src/indicators`, `packages/core/src/screener` |
+| Schema + migration `0032_stock_analysis` (instrument_reference, index_memberships, screener_snapshots, screener_snapshot_builds, market_breadth_daily, saved_screens) and the SQL compiler | `packages/db/src/schema/screener.ts`, `packages/db/src/repositories/screener.ts` |
+| NSE source (equity list, index files, bhavcopy bars, corporate actions) and jobs | `apps/worker/src/sources/nse-market.ts`, `apps/worker/src/jobs/stock-analysis.ts` |
+| Screener API + page, presets | `apps/web/src/app/api/screener/*`, `apps/web/src/app/screener`, `config/screener-presets.yaml` |
+| Stock page, market breadth, Discover navigation | `apps/web/src/app/stocks/[symbol]`, `apps/web/src/app/markets/breadth`, `apps/web/src/lib/navigation.ts` |
+| Local real-data loader | `scripts/load-stock-analysis.ts` (refuses non-local hosts) |
+
+**Deviations from the plan text below, and why:**
+
+- **Ownership is promoter and public only.** NSE's shareholding summary carries no
+  FII/DII split (the existing source returns null for both), so the FII/DII metrics
+  and the "FII accumulation" preset were dropped rather than shown empty. A
+  "promoter holding up two quarters running" preset replaces it.
+- **Reference and classification share one table** (`instrument_reference`) instead
+  of `instrument_reference` + `instrument_classifications`; industry comes from the
+  NSE index constituent files (~750 stocks), the rest are "Unclassified".
+- **The screener API is POST** (`/api/screener/run`, `/api/screener/counts`) because
+  the filter is a tree; the page URL still carries it (`?f=` base64url, `?p=` preset).
+- **Deal counts use a 4-week window** (labelled so), not "20 sessions".
+- **Signals stay on the configured universe** (`config/indices.yaml`); indicators now
+  cover every active equity, which also fills watchlist rows outside the old 56.
+
+**Not built yet (follow-ups):** shareholding revisions/`numeric` storage (§3.5),
+option-chain PCR/IV and the admin intraday snapshot (Phase 5 optional items),
+relative strength vs a sector index (RS is vs Nifty 50 only, and needs NIFTY50 daily
+bars from the provider path), and Storybook stories for the new components.
+
+**Deploy notes:** the worker runs `backfill-stock-analysis` once on start (≈2 years
+of bhavcopy files, paced; about half an hour) and then the nightly
+`stock-analysis-eod` at 19:25/21:25 IST. Futures OI needs `MARKET_DATA_PROVIDER=routed`
+(or `dhan`) in production to populate the F&O metrics. Data-display rights (§12) are
+unchanged by this build: the pages are signed-in only.
 
 ## 1. Scope in one page
 
