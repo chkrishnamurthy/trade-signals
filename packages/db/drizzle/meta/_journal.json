@@ -218,6 +218,13 @@
       "when": 1791007200000,
       "tag": "0030_ipo_data_repair",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1791014400000,
+      "tag": "0031_ipo_history_repair",
+      "breakpoints": true
     }
   ]
 }

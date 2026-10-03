@@ -155,6 +155,9 @@ describe('parsePriceBand', () => {
 describe('parseShareQuantity', () => {
   it('reads the lot phrasings', () => {
     expect(parseShareQuantity('68 Equity Shares and in multiples thereof')).toBe(68);
+    // ARDEE (Aug 2026): the lot written as a minimum.
+    expect(parseShareQuantity('Minimum 281 Equity shares and in multiples thereof')).toBe(281);
+    expect(parseShareQuantity('Minimum of 1,200 Equity Shares')).toBe(1_200);
     expect(parseShareQuantity('1600 Equity Shares')).toBe(1_600);
     expect(parseShareQuantity('37 Equity shares and in multiples thereof')).toBe(37);
     expect(parseShareQuantity('1,200 shares')).toBe(1_200);

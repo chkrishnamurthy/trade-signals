@@ -62,7 +62,9 @@ const sourcesSchema = z.object({
       })
       .passthrough(),
   ),
-  rhp: z.object({ maxAttempts: z.number().int().min(1) }).passthrough(),
+  rhp: z
+    .object({ maxAttempts: z.number().int().min(1), since: z.string().optional() })
+    .passthrough(),
 });
 
 export interface IpoWebConfig {
@@ -77,6 +79,8 @@ export interface IpoWebConfig {
   readonly sources: z.infer<typeof sourcesSchema>['sources'];
   /** Failed reads after which the RHP extractor leaves a document alone. */
   readonly rhpMaxAttempts: number;
+  /** Issues opening on or after this day have their offer document read (`rhp.since`). */
+  readonly rhpSince: string | null;
   /** `slug` → RHP sections hidden by hand (`ipo-rhp-overrides.yaml`). */
   readonly rhpHidden: ReadonlyMap<string, ReadonlySet<string>>;
 }
@@ -120,6 +124,7 @@ export async function getIpoWebConfig(now = Date.now()): Promise<IpoWebConfig> {
     exchangeAllotment: registrars.exchangeAllotment.map(({ label, url }) => ({ label, url })),
     sources: sources.sources,
     rhpMaxAttempts: sources.rhp.maxAttempts,
+    rhpSince: sources.rhp.since ?? null,
     rhpHidden,
   };
   cached = { at: now, config };

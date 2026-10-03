@@ -71,7 +71,10 @@ export function lenientHttpsTransport(maxBytes = 20 * 1024 * 1024): Transport {
       req.end();
     });
 
-  return async ({ url, headers, signal }): Promise<TransportResponse> => {
+  return async ({ url, headers, signal, method }): Promise<TransportResponse> => {
+    // GET only: nothing that uses this transport (BSE) pages by POST.
+    if (method !== undefined && method !== 'GET')
+      throw new Error(`${url}: the lenient transport sends GET only`);
     const res = await once(url, headers, signal);
     return { status: res.status, url, headers: res.headers, body: new Uint8Array(res.body) };
   };

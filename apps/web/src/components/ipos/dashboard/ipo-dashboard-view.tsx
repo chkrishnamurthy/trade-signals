@@ -87,11 +87,7 @@ function HeadlineStats({ data }: { data: IpoDashboardDto }) {
       aria-label={`${BOARD_LABEL[data.board]} IPOs at a glance`}
       className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 xl:grid-cols-6"
     >
-      <HeadlineStat
-        label={`Listed in ${y.year}`}
-        value={y.listed}
-        hint={`${board} issues since 1 Jan`}
-      />
+      <HeadlineStat label="Listed so far" value={y.listed} hint={`${board} issues of ${y.year}`} />
       <HeadlineStat
         label="Open now"
         value={counts.open}

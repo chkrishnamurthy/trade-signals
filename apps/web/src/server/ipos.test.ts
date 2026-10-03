@@ -16,6 +16,7 @@ const mock = vi.hoisted(() => ({
   filings: vi.fn(),
   yearStats: vi.fn(),
   years: vi.fn(),
+  firstGmp: vi.fn(),
   documents: vi.fn(),
 }));
 vi.mock('./auth/require-user', () => ({ getSessionUser: mock.user, getAdminUser: mock.admin }));
@@ -35,6 +36,7 @@ vi.mock('@equitywise/db', async (original) => ({
   ipoYearStats: mock.yearStats,
   listIpoYears: mock.years,
   listIssueDocuments: mock.documents,
+  firstGmpObservedAt: mock.firstGmp,
 }));
 
 import { GET as getAdminHealthRoute } from '../app/api/admin/ipos/health/route';
@@ -188,6 +190,8 @@ beforeEach(async () => {
   });
   mock.years.mockResolvedValue([2026, 2025, 2024]);
   mock.documents.mockResolvedValue([]);
+  // GMP recorded from 2 Oct 2026 (the first stored quote).
+  mock.firstGmp.mockResolvedValue(new Date('2026-10-02T01:32:00Z'));
 });
 
 describe('toListItem', () => {
@@ -385,6 +389,19 @@ describe('toGmpPanel', () => {
       reason: 'source_disabled',
     });
     expect(toGmpPanel([], 22_000, ctx)).toMatchObject({ available: false, reason: 'not_tracked' });
+  });
+
+  it('says an issue closed before GMP recording began was never tracked, not unreported', () => {
+    const tracked = { ...ctx, gmpSince: '2026-10-02' };
+    // Bharat Coking Coal closed 13 Jan 2026, long before the first stored quote.
+    expect(toGmpPanel([], 2_300, tracked, '2026-01-13')).toMatchObject({
+      available: false,
+      reason: 'before_tracking',
+    });
+    // An issue closing after recording began, with no quote, is "not tracked".
+    expect(toGmpPanel([], 22_000, tracked, '2026-10-05')).toMatchObject({
+      reason: 'not_tracked',
+    });
   });
 });
 
@@ -619,7 +636,7 @@ describe('services and routes', () => {
     });
     expect(mock.yearStats).toHaveBeenCalledWith(expect.anything(), {
       board: 'mainboard',
-      from: '2026-01-01',
+      year: 2026,
       today: '2026-10-02',
     });
     expect(main.current.map((r) => r.slug)).toEqual(['vishal-nirmiti-ipo-2026']);
@@ -689,6 +706,8 @@ describe('services and routes', () => {
       enabled: true,
       sourceName: 'InvestorGain',
       sourceUrl: 'https://www.investorgain.com/report/ipo-gmp-live/331/',
+      // The day of the first stored quote: no GMP exists before it.
+      trackedSince: '2026-10-02',
     });
     expect(page.disclaimer).toMatch(/not investment advice/);
     // SEBI filings are shown on their own, never as issues.

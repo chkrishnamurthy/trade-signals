@@ -321,6 +321,36 @@ suite('IPO persistence on real PostgreSQL', () => {
     expect(await mine([])).toEqual([]);
   });
 
+  it("queues a fixed-price issue's Prospectus like an RHP, and only from `openedSince`", async () => {
+    const recent = await issue('Prospectus Recent', { open: '2098-02-02', close: '2098-02-04' });
+    const old = await issue('Prospectus Old', { open: '2025-06-02', close: '2025-06-04' });
+    for (const id of [recent, old])
+      await upsertIpoDocuments(
+        handle.db,
+        id,
+        'nse',
+        [
+          {
+            kind: 'prospectus',
+            title: 'Prospectus',
+            url: `https://nsearchives.nseindia.com/x/P${id}.zip`,
+          },
+          { kind: 'price_band_ad', title: 'Ad', url: `https://nsearchives.nseindia.com/x/A${id}.zip` },
+        ],
+        new Date('2026-10-03T05:00:00Z'),
+      );
+    const queued = (
+      await listRhpDocumentsToExtract(handle.db, {
+        version: 1,
+        maxAttempts: 3,
+        limit: 200,
+        hosts: ['nseindia.com'],
+        openedSince: '2026-01-01',
+      })
+    ).filter((d) => d.ipoId === recent || d.ipoId === old);
+    expect(queued.map((d) => [d.ipoId, d.title])).toEqual([[recent, 'Prospectus']]);
+  });
+
   it('reports the real total for a page past the end', async () => {
     await issue('Paged One', { open: '2026-09-01', close: '2026-09-03' });
     await issue('Paged Two', { open: '2026-09-02', close: '2026-09-04' });

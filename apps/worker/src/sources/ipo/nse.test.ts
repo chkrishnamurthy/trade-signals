@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   ddmmyyyy,
+  isNotAnIpo,
   parseNseActiveCategory,
   parseNseBhavcopyPrices,
   parseNseDetail,
@@ -132,6 +133,21 @@ describe('withdrawn, postponed and withdrawal-window rows', () => {
     expect(rows.map((r) => r.symbol)).toEqual(['MOMSBELIEF']);
   });
 
+  it('drops follow-on offers and numbered partly-paid lines, keeps real PP-suffixed IPOs', () => {
+    const rows = parseNseIssueList(
+      [
+        past('Vodafone Idea Limited - FPO', 'IDEAFPO'),
+        past('Adani Enterprises Limited', 'ADANIENPP1'),
+        past('Varanium Cloud Limited', 'CLOUDPP'),
+      ],
+      'https://x',
+      boardOf,
+    );
+    expect(rows.map((r) => r.symbol)).toEqual(['CLOUDPP']);
+    expect(isNotAnIpo('Adani Enterprises Limited-FPO', 'ADANIENTPP')).toBe(true);
+    expect(isNotAnIpo('Silgo Retail Limited', 'SILGOPP')).toBe(false);
+  });
+
   it('leaves a name without a status suffix alone', () => {
     expect(splitNameStatus('Withdrawal Systems Limited')).toEqual({
       name: 'Withdrawal Systems Limited',
@@ -254,14 +270,41 @@ describe('parseNseDetail', () => {
     expect(sub?.rows.find((r) => r.category === 'qib')?.sharesOffered).toBeNull();
   });
 
-  it('keeps NSE-only scope for an SME book that does not match the whole-book total', () => {
+  it('keeps an old SME book whole even when the graph total differs, timed by the graph', () => {
+    // VICTORYEV (Jan 2026): bid rows total 81,36,000; the graph counts 80,28,000.
     const payload = json('nse-detail-eventions-sme.json') as Record<string, unknown>;
     const detail = parseNseDetail(
-      { ...payload, demandGraphALL: { totalIssueSize: '3230400', totalBidRecieved: '1' } },
+      {
+        ...payload,
+        demandDataNSE: [],
+        demandGraphALL: {
+          totalIssueSize: '3230400',
+          totalBidRecieved: '1',
+          timestamp: 'As on 09-Jan-2026 17:42:00 IST',
+        },
+      },
       { key: key('EVENTIONS', 'SME', '2026-09-30'), sourceUrl: 'https://x', documentHosts: HOSTS },
     );
+    expect(detail.subscription?.scope).toBe('consolidated');
+    expect(detail.subscription?.asOf?.toISOString()).toBe('2026-01-09T12:12:00.000Z');
+    expect(detail.subscription?.rows.find((r) => r.category === 'total')?.sharesOffered).toBe(
+      3_230_400,
+    );
+  });
+
+  it("times a closed mainboard issue's NSE-only bids by demandGraph once demandDataNSE is empty", () => {
+    const payload = json('nse-detail-vnl-eq.json') as Record<string, unknown>;
+    const detail = parseNseDetail(
+      {
+        ...payload,
+        demandDataNSE: [],
+        demandGraph: { timestamp: 'As on 13-Jan-2026 19:01:19 IST' },
+      },
+      { key: key('VNL', 'EQ', '2026-09-30'), sourceUrl: 'https://x', documentHosts: HOSTS },
+    );
     expect(detail.subscription?.scope).toBe('nse');
-    expect(detail.subscription?.rows.every((r) => r.sharesOffered === null)).toBe(true);
+    // 19:01:19 IST = 13:31:19 UTC — not "now", which would misdate a final figure.
+    expect(detail.subscription?.asOf?.toISOString()).toBe('2026-01-13T13:31:19.000Z');
   });
 
   it('reads a band written with the "/-" suffix and a ₹5 face value (NITYAS)', () => {

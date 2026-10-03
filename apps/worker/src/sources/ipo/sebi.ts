@@ -37,7 +37,7 @@ export function splitFilingTitle(title: string): {
   documentLabel: string | null;
 } {
   const match =
-    /^(.*?)\s+[-–—]\s+((?:(?:First|Second|Third)\s+)?Addendum(?:\s+[IVX]+)?\s+to\s+(?:the\s+)?DRHP|UDRHP(?:-[IVX]+)?|DRHP|RHP|Draft (?:Red Herring|Letter of Offer|Offer Document)[\w\s]*)\s*$/i.exec(
+    /^(.*?)\s+[-–—]\s+((?:(?:First|Second|Third)\s+)?(?:Addendum(?:-cum-Corrigendum)?|Corrigendum)(?:\s+[IVX]+)?\s+to\s+(?:the\s+)?(?:U?DRHP|Addendum)\.?|UDRHP(?:\s*-\s*(?:[IVX]+|\d+))?|DRHP|RHP|Draft (?:Red Herring|Letter of Offer|Offer Document)[\w\s]*)\s*$/i.exec(
       title,
     );
   if (match === null) return { companyName: title, documentLabel: null };
@@ -49,11 +49,12 @@ export function parseSebiFilings(html: string): RawSebiFiling[] {
   for (const row of html.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g)) {
     const body = row[1] ?? '';
     const date = /<td[^>]*>\s*([^<]+?)\s*<\/td>/.exec(body)?.[1];
-    const link = /<a\s+href="([^"]+)"[^>]*?\btitle="([^"]*)"/.exec(body);
+    // The first page quotes the link with ", the paged list (POST) with '.
+    const link = /<a\s+href=(["'])([^"']+)\1[^>]*?\btitle="([^"]*)"/.exec(body);
     if (date === undefined || link === null) continue;
     const filedDate = parseSebiDate(date);
-    const pageUrl = link[1] ?? '';
-    const titleHtml = link[2] ?? '';
+    const pageUrl = link[2] ?? '';
+    const titleHtml = link[3] ?? '';
     const externalKey = /_(\d+)\.html$/.exec(pageUrl)?.[1];
     if (filedDate === null || externalKey === undefined || !isAllowedHost(pageUrl, HOSTS)) continue;
     const title = cleanText(stripHtml(titleHtml.split(/<br\s*\/?>/i)[0] ?? '')) ?? '';
@@ -75,10 +76,57 @@ export function parseSebiFilings(html: string): RawSebiFiling[] {
   return out;
 }
 
+/**
+ * Older pages of the same list. SEBI pages it with a form POST to this
+ * endpoint (robots.txt allows `/sebiweb/`), and answers only a session that
+ * opened the list page first — a GET is "Invalid Method", a cookieless POST a
+ * 530. `doDirect` is the zero-based page; 25 filings a page, newest first.
+ */
+export const SEBI_FILINGS_PAGE_URL =
+  'https://www.sebi.gov.in/sebiweb/ajax/home/getnewslistinfo.jsp';
+
+export function sebiPageForm(page: number): Record<string, string> {
+  return {
+    nextValue: '1',
+    next: 'n',
+    search: '',
+    fromDate: '',
+    toDate: '',
+    fromYear: '',
+    toYear: '',
+    deptId: '-1',
+    sid: '3',
+    ssid: '15',
+    smid: '10',
+    ssidhidden: '15',
+    intmid: '-1',
+    sText: 'Filings',
+    ssText: 'Public Issues',
+    smText: 'Draft Offer Documents filed with SEBI',
+    doDirect: String(page),
+  };
+}
+
 export function createSebiFilingSource(client: PoliteHttpClient): FilingSource {
+  let opened = false;
+  const fetchFilings = async () => {
+    const html = await client.getText(SEBI_FILINGS_URL, { accept: 'text/html' });
+    opened = true;
+    return parseSebiFilings(html);
+  };
   return {
     id: SEBI_SOURCE_ID,
-    fetchFilings: async () =>
-      parseSebiFilings(await client.getText(SEBI_FILINGS_URL, { accept: 'text/html' })),
+    fetchFilings,
+    fetchFilingsPage: async (page: number) => {
+      if (page <= 0) return fetchFilings();
+      // The session cookie comes from the list page itself.
+      if (!opened) await fetchFilings();
+      return parseSebiFilings(
+        await client.postFormText(SEBI_FILINGS_PAGE_URL, sebiPageForm(page), {
+          accept: 'text/html,*/*;q=0.8',
+          referer: SEBI_FILINGS_URL,
+        }),
+      );
+    },
   };
 }

@@ -382,6 +382,7 @@ const GMP_POLICY = {
   enabled: true,
   sourceName: 'InvestorGain',
   sourceUrl: 'https://www.investorgain.com/report/ipo-gmp-live/331/',
+  trackedSince: '2026-10-02',
 } as const;
 
 const COVERAGE =
@@ -447,7 +448,14 @@ export const DASHBOARD: IpoDashboardDto = {
     },
   ],
   gmpPolicy: GMP_POLICY,
-  gmpTrack: { official: false, months: 12, tolerancePoints: 10, total: 7, within: 5 },
+  gmpTrack: {
+    official: false,
+    months: 12,
+    since: '2026-10-02',
+    tolerancePoints: 10,
+    total: 7,
+    within: 5,
+  },
   coverageNote: COVERAGE,
   disclaimer: DISCLAIMER,
   gmpNote: GMP_NOTE,
@@ -714,6 +722,7 @@ export const DETAIL_VNL: IpoDetailDto = {
     },
   ],
   rhp: RHP_VNL,
+  rhpReadFrom: '2026-01-01',
   filings: [],
   gmpPanel: {
     official: false,
@@ -738,6 +747,7 @@ export const DETAIL_VNL: IpoDetailDto = {
     official: false,
     months: 12,
     board: 'mainboard',
+    since: '2026-10-02',
     tolerancePoints: 10,
     total: 4,
     within: 2,

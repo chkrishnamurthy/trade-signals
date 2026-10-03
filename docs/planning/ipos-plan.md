@@ -31,6 +31,13 @@ status is read from NSE's name suffixes and withdrawal-window rows are skipped; 
 names read in readable case; the GMP track record compares the issue's own board; RHP
 extraction covers issues opened in the last 60 days, three a run, three runs a day; and
 an empty store backfills itself on worker start. See the runbook's "Repairs".
+**History (2026-10-03, `0031_ipo_history_repair`):** the history load now covers every
+issue from **1 Jan 2024** (`backfill.since`) — detail, final consolidated subscription,
+listing-day prices and the latest close — plus SEBI's draft filings from 2023, RHP
+sections for every 2026 issue, and it re-runs on worker start until it has completed
+for that window. FPOs and partly-paid lines are excluded; GMP, which cannot be
+recovered for the past, is labelled "recorded since" its first quote. Coverage table:
+the runbook's "What history exists, and what cannot".
 **Owner decisions (2026-10-02):** **GMP must be shown** (D1). NSE is fetched with a browser
 User-Agent (D2). `/ipos` is for **signed-in users** (D3), **every** user rather than admins only (D4).
 **There are no versions.** All phases 0–11 are built in one go, including BSE and RHP extraction (D5),

@@ -54,7 +54,7 @@ export const GmpSourceOff: Story = {
       ...DASHBOARD,
       gmp: [],
       gmpTrack: null,
-      gmpPolicy: { enabled: false, sourceName: null, sourceUrl: null },
+      gmpPolicy: { enabled: false, sourceName: null, sourceUrl: null, trackedSince: null },
     },
   },
 };

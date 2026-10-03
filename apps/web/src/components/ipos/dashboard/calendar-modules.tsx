@@ -221,6 +221,7 @@ export function AllotmentModule({ data }: { data: IpoDashboardDto }) {
 
 const DOC_KIND: Readonly<Record<string, string>> = {
   rhp: 'RHP',
+  prospectus: 'Prospectus',
   drhp: 'DRHP',
 };
 

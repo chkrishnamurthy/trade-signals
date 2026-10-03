@@ -37,7 +37,8 @@ uses the browser string. Every other source sends
 | `ingest-ipo-gmp` | 10:15, 15:15, 20:15 daily | `ipo-investorgain-gmp` |
 | `extract-ipo-rhp` | 08:20, 13:20, 18:20 Mon–Sat | `ipo-nse-rhp` (`ipo-bse-rhp`) |
 | `ingest-sebi-filings` | 09:45, 19:45 Mon–Sat | `ipo-sebi-filings` |
-| `backfill-ipos` | on demand, and once on worker start when no issue is stored | (runs the calendar, detail and listing steps) |
+| `backfill-ipos` | on demand, and on worker start until it has completed for `backfill.since` | `ipo-history-<since>` (plus the calendar, detail, subscription and listing feeds it drives) |
+| `backfill-ipo-rhp` | on demand, and after the first history load | `ipo-nse-rhp` — up to 200 RHPs from `rhp.since` in one run |
 
 Health is visible at **`/admin/ipos`** (admin only): every feed's last success, last
 attempt and error; observations no issue claims; and official-source conflicts.
@@ -55,14 +56,21 @@ Every job is idempotent: a re-run only bumps `last_seen_at` on unchanged observa
 ## First deploy
 
 1. The migrations run through `deploy.sh`: `0027_ipos.sql` (six tables, append-only and
-   freeze triggers), `0028_ipo_rhp_extracts.sql`, `0029_ipo_sebi_filings.sql` and
-   `0030_ipo_data_repair.sql` (data only — see "Repairs" below).
-2. The backfill runs **by itself**: when the worker starts and finds no issue stored, it
-   runs `backfill-ipos` once in the background, then `ingest-ipo-gmp`. It loads ~24
-   months of past issues, their detail pages and listing days at one request every 3 s,
-   under a 900-request budget — expect 30–45 minutes (`ipo backfill finished` in the
-   worker log). If a restart cuts it short, run `--once backfill-ipos` by hand: it
-   continues where it stopped.
+   freeze triggers), `0028_ipo_rhp_extracts.sql`, `0029_ipo_sebi_filings.sql`,
+   `0030_ipo_data_repair.sql` and `0031_ipo_history_repair.sql` (data only — see
+   "Repairs" below).
+2. The history load runs **by itself**: on every worker start until a run has
+   completed for the configured `backfill.since` (the `ipo-history-<since>` feed has
+   a success), the worker runs `backfill-ipos` in the background, then
+   `ingest-ipo-gmp`, then `backfill-ipo-rhp`. The load takes every issue opening on or
+   after `backfill.since` (2024-01-01: ~640 issues) and fetches what each is missing,
+   newest first: the detail page, the final consolidated subscription (mainboard:
+   NSE's category endpoint, stamped with its own final time; SME: the detail payload's
+   whole book), the listing-day prices and today's close; then SEBI's draft filings
+   back to `backfill.filingsSince` (2023-01-01), linked to their issues. About 1,500
+   requests at one per 3 s — **about two hours**. A run cut short by its budget is
+   recorded as failed and continues on the next start (or `--once backfill-ipos`).
+   Widening the window (an earlier `since`) makes the next start load the difference.
 3. Watch `/admin/ipos` for a day. Its feed health is also the check that NSE answers
    the VPS's IP address (plan Phase 0): a green `ipo-nse-calendar` means it does.
 
@@ -87,6 +95,26 @@ It is idempotent and a no-op on a fresh database:
   them. On SME only the total has a ratio — NSE publishes no SME issue's shares per
   category.
 
+`0031_ipo_history_repair.sql` cleans what the first history load wrote with the
+older parser: follow-on offers (`… - FPO`) and numbered partly-paid lines
+(`ADANIENPP1`), which NSE's past list carries but are not IPOs (a bare `PP` suffix is a
+real IPO's bidding symbol and is kept); closed issues' final figures stamped with the
+time they were collected (NSE empties `demandDataNSE` once an issue closes — the
+parser now reads `demandGraph`'s time); and old SME books read as "NSE only".
+
+## What history exists, and what cannot
+
+| Data | From | Why |
+| --- | --- | --- |
+| Issue list, dates, price band, listing date, status | `backfill.since` (2024-01-01) | NSE's past-issue list (back to 2012) |
+| Lot, issue size, registrar, lead managers, documents | `backfill.since` | NSE keeps each issue's detail page for years |
+| Final subscription (consolidated) | `backfill.since` | NSE's category endpoint (mainboard), the detail book (SME) |
+| Day-by-day subscription | while bidding, from first deploy | Only live readings exist; the final is backfilled |
+| Listing-day prices, latest close | `backfill.since` | NSE's end-of-day archive; BSE-only listings have none |
+| SEBI draft filings | `backfill.filingsSince` (2023-01-01) | SEBI's paged list |
+| RHP sections | `rhp.since` (2026-01-01) | Downloads are heavy; older RHPs are linked |
+| Unofficial GMP | the first stored quote (2 Oct 2026) | InvestorGain's page carries only the last few weeks; the pages say "recorded since …" |
+
 ## Switching a source off
 
 Set `enabled: false` under the source in `config/ipo-sources.yaml` and restart the
@@ -97,7 +125,7 @@ takedown request from a source.**
 
 ## RHP extraction
 
-`extract-ipo-rhp` reads up to `rhp.maxDocumentsPerRun` (3) new RHPs a run (08:20, 13:20 and 18:20 IST, Mon–Sat) for issues that opened in the last `rhp.recentDays` (60) days, newest
+`extract-ipo-rhp` reads up to `rhp.maxDocumentsPerRun` (3) new RHPs a run (08:20, 13:20 and 18:20 IST, Mon–Sat) for issues that opened on or after `rhp.since` (2026-01-01; `backfill-ipo-rhp` reads up to 200 at once after the first history load), newest
 issues first: download (zip or PDF, capped at `rhp.maxBytes`), unzip, pdf.js text
 (capped at `rhp.maxPages`), then the pure extractor in
 `packages/core/src/ipos/rhp.ts`. A 550-page RHP takes about 3 s. What it can read with
@@ -122,7 +150,9 @@ listed by both exchanges is read once.
 ## SEBI filings
 
 `ingest-sebi-filings` reads the first page (25 filings) of SEBI's public-issue filings
-list. Filings are stored in `ipo_sebi_filings` on their own: a filing is not an
+list; the history load reads older pages back to `backfill.filingsSince` through the
+list's own paging (a form POST to `/sebiweb/ajax/home/getnewslistinfo.jsp` in the list
+page's session — robots.txt allows `/sebiweb/`). Filings are stored in `ipo_sebi_filings` on their own: a filing is not an
 announced issue and never creates or changes one. It is linked to an issue for
 display only when exactly one issue has the same normalised name and opens after the
 filing (within ~18 months); unlinked filings are retried on every run. `/ipos` shows

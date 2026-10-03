@@ -263,3 +263,15 @@ export const AGENDA_LABEL: Readonly<Record<AgendaEventKind, string>> = {
 
 /** The short line shown beside every GMP figure, card and header included. */
 export const GMP_SHORT_NOTE = 'Unofficial grey-market quote — not verified, not a forecast.';
+
+/**
+ * The span a GMP track record covers: "Last 12 months", or — while GMP has
+ * been recorded for less than that — "Since 2 Oct", so a short record never
+ * reads as a year's.
+ */
+export function trackSpan(track: {
+  readonly months: number;
+  readonly since: string | null;
+}): string {
+  return track.since === null ? `Last ${track.months} months` : `Since ${shortDate(track.since)}`;
+}

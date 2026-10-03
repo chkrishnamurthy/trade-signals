@@ -393,6 +393,8 @@ export interface IpoWorkRow {
   readonly priceBandLowPaise: number | null;
   readonly priceBandHighPaise: number | null;
   readonly isin: string | null;
+  /** Null until a detail page states it — the history load re-reads such an issue. */
+  readonly lotSize: number | null;
 }
 
 const workColumns = {
@@ -411,6 +413,7 @@ const workColumns = {
   priceBandLowPaise: ipoIssues.priceBandLowPaise,
   priceBandHighPaise: ipoIssues.priceBandHighPaise,
   isin: ipoIssues.isin,
+  lotSize: ipoIssues.lotSize,
 };
 
 const asWork = (rows: (Omit<IpoWorkRow, 'board'> & { board: string })[]): IpoWorkRow[] =>
@@ -474,9 +477,54 @@ export async function listIssuesListedSince(db: Database, since: string): Promis
   return asWork(rows);
 }
 
+/**
+ * Issues whose dates fall on or after `since` (open, else close, else listing
+ * date), newest first — the history load's work list, so the most recent
+ * issues complete first when a run is cut short. Withdrawn and postponed
+ * issues are included: their pages exist too.
+ */
+export async function listIssuesOpenedSince(db: Database, since: string): Promise<IpoWorkRow[]> {
+  const rows = await db
+    .select(workColumns)
+    .from(ipoIssues)
+    .where(
+      sql`coalesce(${ipoIssues.openDate}, ${ipoIssues.closeDate}, ${ipoIssues.listingDate}) >= ${since}::date`,
+    )
+    .orderBy(sql`coalesce(${ipoIssues.openDate}, ${ipoIssues.closeDate}) desc nulls last`);
+  return asWork(rows);
+}
+
 // ---------------------------------------------------------------------------
 // Subscription, documents, listing performance, GMP
 // ---------------------------------------------------------------------------
+
+/** Which of `ipoIds` have at least one subscription reading in `scope`. */
+export async function issuesWithSubscription(
+  db: Database,
+  scope: SubscriptionScope,
+  ipoIds: readonly number[],
+): Promise<Set<number>> {
+  if (ipoIds.length === 0) return new Set();
+  const rows = await db
+    .selectDistinct({ ipoId: ipoSubscriptionSnapshots.ipoId })
+    .from(ipoSubscriptionSnapshots)
+    .where(
+      and(
+        eq(ipoSubscriptionSnapshots.scope, scope),
+        inArray(ipoSubscriptionSnapshots.ipoId, [...ipoIds]),
+      ),
+    );
+  return new Set(rows.map((r) => r.ipoId));
+}
+
+/** When the first unofficial GMP quote was stored — where GMP coverage begins. */
+export async function firstGmpObservedAt(db: Database): Promise<Date | null> {
+  const rows = await db
+    .select({ first: sql<Date | null>`min(${ipoGmpSnapshots.observedAt})` })
+    .from(ipoGmpSnapshots);
+  const first = rows[0]?.first ?? null;
+  return first === null ? null : new Date(first);
+}
 
 export interface SubscriptionSnapshotInput {
   readonly ipoId: number;
@@ -886,13 +934,16 @@ export interface IpoYearStats {
 }
 
 /**
- * How a board's listings in [from, today] went, from the designated
- * exchange's own end-of-day prices: how many opened above the issue price and
- * how many closed above it on the latest day recorded.
+ * How a year's issues that have listed went, from the designated exchange's
+ * own end-of-day prices: how many opened above the issue price and how many
+ * closed above it on the latest day recorded. "A year's issues" is the board
+ * list's own rule (the year bidding opened), so the dashboard's count and the
+ * list's "Listed" filter always agree — an issue bid in December and listed in
+ * January counts in December's year on both.
  */
 export async function ipoYearStats(
   db: Database,
-  filters: { readonly board?: IpoBoard | undefined; readonly from: string; readonly today: string },
+  filters: { readonly board?: IpoBoard | undefined; readonly year: number; readonly today: string },
 ): Promise<IpoYearStats> {
   const perf = sql`(
     select l.listing_open_paise as open, l.latest_close_paise as latest, l.issue_price_paise as issue
@@ -913,7 +964,8 @@ export async function ipoYearStats(
     .where(
       and(
         isNull(ipoIssues.lifecycleOverride),
-        sql`${ipoIssues.listingDate} between ${filters.from}::date and ${filters.today}::date`,
+        sql`${issueYear} = ${filters.year}`,
+        sql`${ipoIssues.listingDate} <= ${filters.today}::date`,
         filters.board === undefined ? undefined : eq(ipoIssues.board, filters.board),
       ),
     );
@@ -1130,7 +1182,8 @@ export async function listRhpDocumentsToExtract(
     .innerJoin(ipoIssues, eq(ipoIssues.id, ipoDocuments.ipoId))
     .where(
       and(
-        eq(ipoDocuments.kind, 'rhp'),
+        // A fixed-price SME issue files a Prospectus, not an RHP: same sections.
+        inArray(ipoDocuments.kind, ['rhp', 'prospectus']),
         or(
           isNull(ipoDocuments.extractorVersion),
           sql`${ipoDocuments.extractorVersion} < ${options.version}`,
@@ -1286,7 +1339,7 @@ export async function rhpExtractionCounts(
         filter (where ${ipoDocuments.extractError} is not null))[1]`,
     })
     .from(ipoDocuments)
-    .where(eq(ipoDocuments.kind, 'rhp'));
+    .where(inArray(ipoDocuments.kind, ['rhp', 'prospectus']));
   const extracted = row?.extracted ?? 0;
   const failed = row?.failed ?? 0;
   return {

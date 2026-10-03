@@ -11,8 +11,10 @@ export function IpoAllotmentLinks({ ipo, today }: { ipo: IpoDetailDto; today: st
   const allotment = ipo.timeline.find((e) => e.kind === 'allotment');
   // Only a date a source stated is "finalised"; a T+3 day that has passed is
   // still only when allotment was due.
-  const note =
-    allotment === undefined
+  const listed = ipo.listingDate !== null && ipo.listingDate <= today;
+  const note = listed
+    ? `Allotment was completed before the shares listed on ${shortDate(ipo.listingDate ?? today)}.`
+    : allotment === undefined
       ? 'Available once allotment is finalised.'
       : allotment.date > today
         ? `Available after allotment, ${shortDate(allotment.date)}${allotment.expected ? ' (expected)' : ''}.`

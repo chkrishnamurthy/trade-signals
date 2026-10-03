@@ -137,6 +137,8 @@ export interface GmpPolicyDto {
   readonly enabled: boolean;
   readonly sourceName: string | null;
   readonly sourceUrl: string | null;
+  /** The IST day GMP coverage begins (the first stored quote); null before any. */
+  readonly trackedSince: string | null;
 }
 
 /**
@@ -225,6 +227,8 @@ export interface IpoDocumentLinkDto {
 export interface GmpTrackSummaryDto {
   readonly official: false;
   readonly months: number;
+  /** Where GMP coverage begins, when that is inside the window. */
+  readonly since: string | null;
   readonly tolerancePoints: number;
   readonly total: number;
   readonly within: number;
@@ -359,7 +363,7 @@ export type GmpPanelDto =
   | {
       readonly official: false;
       readonly available: false;
-      readonly reason: 'no_quote' | 'source_disabled' | 'not_tracked';
+      readonly reason: 'no_quote' | 'source_disabled' | 'not_tracked' | 'before_tracking';
       readonly sourceName: string | null;
     };
 
@@ -379,6 +383,8 @@ export interface GmpTrackRecordDto {
   readonly months: number;
   /** The board compared; null when every board is mixed in. */
   readonly board: IpoBoard | null;
+  /** Where GMP coverage begins, when that is inside the window — the record is shorter. */
+  readonly since: string | null;
   readonly tolerancePoints: number;
   readonly total: number;
   readonly within: number;
@@ -481,6 +487,8 @@ export interface IpoDetailDto extends IpoListItemDto {
   readonly subscriptionHistory: readonly SubscriptionPointDto[];
   readonly documents: readonly IpoDocumentDto[];
   readonly rhp: readonly RhpExtractDto[];
+  /** Issues opening on or after this day have their offer document quoted; older ones are linked. */
+  readonly rhpReadFrom: string | null;
   /** This issue's DRHP and addenda as filed with SEBI, oldest first. */
   readonly filings: readonly SebiFilingDto[];
   readonly gmpPanel: GmpPanelDto;

@@ -23,6 +23,7 @@ import {
   countIposByStatus,
   type FeedHealthRow,
   feedHealth,
+  firstGmpObservedAt,
   type GmpSnapshotRow,
   getIpoBySlug,
   gmpTrackRows,
@@ -60,6 +61,7 @@ import type {
   GmpChipDto,
   GmpPanelDto,
   GmpPointDto,
+  GmpPolicyDto,
   GmpTrackRecordDto,
   GmpTrackRowDto,
   IpoAdminHealthDto,
@@ -137,6 +139,22 @@ export interface MapContext {
   readonly now: Date;
   readonly calendar: CalendarConfig;
   readonly gmp: { readonly name: string; readonly url: string } | null;
+  /**
+   * The IST day the first GMP quote was stored: before it there is no GMP for
+   * any issue, and no source to recover one from (the aggregator's page only
+   * carries the last few weeks). Null before any quote is stored.
+   */
+  readonly gmpSince?: string | null;
+}
+
+/** The GMP source as a page states it, with where its coverage begins. */
+function gmpPolicyOf(ctx: Pick<MapContext, 'gmp' | 'gmpSince'>): GmpPolicyDto {
+  return {
+    enabled: ctx.gmp !== null,
+    sourceName: ctx.gmp?.name ?? null,
+    sourceUrl: ctx.gmp?.url ?? null,
+    trackedSince: ctx.gmp === null ? null : (ctx.gmpSince ?? null),
+  };
 }
 
 function datesOf(row: IpoIssueRow) {
@@ -545,12 +563,25 @@ export function subscriptionViews(
 export function toGmpPanel(
   snapshots: readonly GmpSnapshotRow[],
   bandHighPaise: number | null,
-  ctx: Pick<MapContext, 'now' | 'gmp'>,
+  ctx: Pick<MapContext, 'now' | 'gmp' | 'gmpSince'>,
+  closeDate: string | null = null,
 ): GmpPanelDto {
   if (ctx.gmp === null)
     return { official: false, available: false, reason: 'source_disabled', sourceName: null };
-  if (snapshots.length === 0)
-    return { official: false, available: false, reason: 'not_tracked', sourceName: ctx.gmp.name };
+  if (snapshots.length === 0) {
+    // Bidding ended before EquityWise stored its first quote: not "unreported".
+    const before =
+      closeDate !== null &&
+      ctx.gmpSince !== undefined &&
+      ctx.gmpSince !== null &&
+      closeDate < ctx.gmpSince;
+    return {
+      official: false,
+      available: false,
+      reason: before ? 'before_tracking' : 'not_tracked',
+      sourceName: ctx.gmp.name,
+    };
+  }
   const latest = snapshots.at(-1) as GmpSnapshotRow;
   if (latest.gmpPaise === null && snapshots.every((s) => s.gmpPaise === null))
     return { official: false, available: false, reason: 'no_quote', sourceName: ctx.gmp.name };
@@ -588,6 +619,7 @@ export function toTrackRecord(
   months: number,
   thisSlug: string | null,
   board: IpoBoard | null = null,
+  since: string | null = null,
 ): GmpTrackRecordDto {
   const boardOf = new Map(rows.map((r) => [r.slug, r.board]));
   const inputs = rows.flatMap((r) => {
@@ -614,6 +646,7 @@ export function toTrackRecord(
     official: false,
     months,
     board,
+    since,
     tolerancePoints: record.tolerancePoints,
     total: record.total,
     within: record.within,
@@ -740,10 +773,19 @@ const yearOf = (dateKey: string) => Number(dateKey.slice(0, 4));
 // ---------------------------------------------------------------------------
 
 async function context(now: Date): Promise<{ ctx: MapContext; config: IpoWebConfig }> {
-  const config = await getIpoWebConfig(now.getTime());
+  const [config, firstGmp] = await Promise.all([
+    getIpoWebConfig(now.getTime()),
+    firstGmpObservedAt(getDatabase()),
+  ]);
   return {
     config,
-    ctx: { today: istDateKey(now), now, calendar: config.calendar, gmp: gmpSource(config) },
+    ctx: {
+      today: istDateKey(now),
+      now,
+      calendar: config.calendar,
+      gmp: gmpSource(config),
+      gmpSince: firstGmp === null ? null : istDateKey(firstGmp),
+    },
   };
 }
 
@@ -802,7 +844,6 @@ export async function getIposPage(
         .filter((d) => d.date <= weekEnd)
         .flatMap((d) => d.events.filter((e) => e.kind === kind).map((e) => e.slug)),
     ).size;
-  const gmp = gmpSource(config);
   return {
     today: ctx.today,
     filters: {
@@ -828,11 +869,7 @@ export async function getIposPage(
     page,
     pageSize: PAGE_SIZE,
     feeds: toFeedStatuses(feeds, health, now, config),
-    gmpPolicy: {
-      enabled: gmp !== null,
-      sourceName: gmp?.name ?? null,
-      sourceUrl: gmp?.url ?? null,
-    },
+    gmpPolicy: gmpPolicyOf(ctx),
     coverageNote: coverageNote(config),
     filings: filings.map(toFiling),
     disclaimer: IPO_DISCLAIMER,
@@ -869,7 +906,7 @@ export async function getIpoDashboard(
         db,
         feeds.map((f) => f.id),
       ),
-      ipoYearStats(db, { board, from: `${year}-01-01`, today: ctx.today }),
+      ipoYearStats(db, { board, year, today: ctx.today }),
       board === 'mainboard' && filingsEnabled(config)
         ? listSebiFilings(db, 5)
         : Promise.resolve([]),
@@ -883,16 +920,20 @@ export async function getIpoDashboard(
   const closedItems = items(closed.rows);
   const listedItems = items(listed.rows);
 
-  // Offer documents of the issues still ahead: the RHP, else the DRHP.
+  // Offer documents of the issues still ahead: the RHP (a fixed-price issue's
+  // Prospectus), else the DRHP.
   const ahead = [...open.rows, ...upcoming.rows];
   const docs = await listIssueDocuments(
     db,
     ahead.map((r) => r.id),
-    ['rhp', 'drhp'],
+    ['rhp', 'prospectus', 'drhp'],
   );
   const documents: IpoDocumentLinkDto[] = ahead.flatMap((r) => {
     const own = docs.filter((d) => d.ipoId === r.id);
-    const doc = own.find((d) => d.kind === 'rhp') ?? own.find((d) => d.kind === 'drhp');
+    const doc =
+      own.find((d) => d.kind === 'rhp') ??
+      own.find((d) => d.kind === 'prospectus') ??
+      own.find((d) => d.kind === 'drhp');
     return doc === undefined
       ? []
       : [
@@ -908,7 +949,10 @@ export async function getIpoDashboard(
   });
 
   const statuses = toFeedStatuses(feeds, health, now, config);
-  const record = track === null ? null : toTrackRecord(track, GMP_TRACK_MONTHS, null, board);
+  const record =
+    track === null
+      ? null
+      : toTrackRecord(track, GMP_TRACK_MONTHS, null, board, ctx.gmpSince ?? null);
   return {
     board,
     today: ctx.today,
@@ -939,17 +983,14 @@ export async function getIpoDashboard(
     documents: documents.slice(0, 4),
     filings: filings.map(toFiling),
     exchangeAllotment: config.exchangeAllotment,
-    gmpPolicy: {
-      enabled: gmp !== null,
-      sourceName: gmp?.name ?? null,
-      sourceUrl: gmp?.url ?? null,
-    },
+    gmpPolicy: gmpPolicyOf(ctx),
     gmpTrack:
       record === null
         ? null
         : {
             official: false,
             months: record.months,
+            since: record.since,
             tolerancePoints: record.tolerancePoints,
             total: record.total,
             within: record.within,
@@ -990,7 +1031,6 @@ export async function getIpoListPage(
     page === query.page
       ? first
       : await listIpos(db, { ...filters, status: query.status, page, pageSize: LIST_PAGE_SIZE });
-  const gmp = gmpSource(config);
   return {
     board,
     today: ctx.today,
@@ -1002,11 +1042,7 @@ export async function getIpoListPage(
     page,
     pageSize: LIST_PAGE_SIZE,
     feeds: toFeedStatuses(feeds, health, now, config),
-    gmpPolicy: {
-      enabled: gmp !== null,
-      sourceName: gmp?.name ?? null,
-      sourceUrl: gmp?.url ?? null,
-    },
+    gmpPolicy: gmpPolicyOf(ctx),
     coverageNote: coverageNote(config),
     disclaimer: IPO_DISCLAIMER,
     gmpNote: GMP_NOTE,
@@ -1029,9 +1065,10 @@ export async function getGmpTrackRecord(
   now: Date = new Date(),
 ): Promise<GmpTrackRecordDto> {
   await requireSignedIn();
+  const { ctx } = await context(now);
   const since = addDays(istDateKey(now), -Math.round(input.months * 30.44));
   const rows = await gmpTrackRows(getDatabase(), since, input.board);
-  return toTrackRecord(rows, input.months, null, input.board ?? null);
+  return toTrackRecord(rows, input.months, null, input.board ?? null, ctx.gmpSince ?? null);
 }
 
 function factSources(row: IpoIssueRow, config: IpoWebConfig): Record<string, FactSourceDto> {
@@ -1199,9 +1236,16 @@ export async function getIpoDetail(slug: string, now: Date = new Date()): Promis
       host: hostOf(d.url),
     })),
     rhp: visibleRhp(parts.rhp, config.rhpHidden.get(row.slug)),
+    rhpReadFrom: config.rhpSince,
     filings: parts.filings.map(toFiling),
-    gmpPanel: toGmpPanel(parts.gmp, row.priceBandHighPaise, ctx),
-    gmpTrackRecord: toTrackRecord(trackRows, 12, row.slug, row.board as IpoBoard),
+    gmpPanel: toGmpPanel(parts.gmp, row.priceBandHighPaise, ctx, row.closeDate),
+    gmpTrackRecord: toTrackRecord(
+      trackRows,
+      12,
+      row.slug,
+      row.board as IpoBoard,
+      ctx.gmpSince ?? null,
+    ),
     sources: parts.sources.map((s) => ({
       source: s.source,
       sourceName: sourceName(config, s.source),

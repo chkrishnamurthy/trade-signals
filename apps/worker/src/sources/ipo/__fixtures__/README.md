@@ -42,6 +42,7 @@ lenient `node:https` transport (BSE's servers send header lines `fetch` rejects)
 | File | Source | Notes |
 | --- | --- | --- |
 | `sebi-public-issues.html` | `www.sebi.gov.in/sebiweb/home/HomeAction.do?doListing=yes&sid=3&ssid=15&smid=10` | **Excerpt** (2026-10-02): the filings table (25 rows, unmodified) and the record count; the site chrome is cut. The title attribute nests an `<a>` to the abridged prospectus. |
+| `sebi-public-issues-page2.html` | `POST www.sebi.gov.in/sebiweb/ajax/home/getnewslistinfo.jsp` (`doDirect=1`, with the list page's session cookie) | Unmodified (2026-10-03): the second page of the same list (25 rows, 11 Sep → 17 Aug 2026). Links are single-quoted here. |
 | `packages/core/src/ipos/__fixtures__/rhp-vnl-pages.json` | `nsearchives.nseindia.com/content/ipo/RHP_VNL.zip` → `RHP.pdf` | **Excerpt**: pdf.js page texts of the 551-page Vishal Nirmiti RHP, only the pages the extractor reads (contents, risk factors, restated summary, objects, business, promoters); the rest are blank. Kept beside the pure extractor it tests. |
 
 The zip reader and PDF text step are tested on archives and PDFs built inside the

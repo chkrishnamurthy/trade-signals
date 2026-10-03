@@ -219,7 +219,8 @@ export function parsePriceBand(value: string | null | undefined): PriceBand | nu
  */
 export function parseShareQuantity(value: string | null | undefined): number | null {
   if (value === null || value === undefined) return null;
-  const match = /^\s*"?\s*([\d,]+)\s*(?:equity\s+)?shares?\b/i.exec(value);
+  // "68 Equity Shares …", and the same with a leading "Minimum" (seen 2026).
+  const match = /^\s*"?\s*(?:minimum(?:\s+of)?\s+)?([\d,]+)\s*(?:equity\s+)?shares?\b/i.exec(value);
   if (match === null) return null;
   const count = parseCount(match[1] ?? '');
   return count !== null && count > 0 ? count : null;

@@ -30,11 +30,14 @@ const LABEL: Readonly<Record<string, string>> = {
  */
 export function IpoTimeline({ ipo, today }: { ipo: IpoDetailDto; today: string }) {
   const nextIndex = ipo.timeline.findIndex((e) => !e.done);
+  // Allotment and demat credit precede listing: once the exchange states the
+  // listing, the steps before it happened, though their dates stay computed.
+  const listed = ipo.listingDate !== null && ipo.listingDate <= today;
   const rows: Row[] = ipo.timeline.flatMap((event, i) => {
     const step: Step = event.done ? 'done' : i === nextIndex ? 'next' : 'ahead';
     // A computed date that has passed is still only expected: no source said it happened.
     const chip = event.done
-      ? event.expected
+      ? event.expected && !listed
         ? 'Expected'
         : 'Done'
       : event.date === today
@@ -70,7 +73,11 @@ export function IpoTimeline({ ipo, today }: { ipo: IpoDetailDto; today: string }
     <ModuleCard
       id="timeline"
       title="Timeline"
-      note="“Expected” dates follow SEBI's T+3 timetable until the exchange confirms them."
+      note={
+        listed
+          ? 'Allotment, refund and demat-credit dates follow SEBI’s T+3 timetable; the listing date is the exchange’s.'
+          : '“Expected” dates follow SEBI’s T+3 timetable until the exchange confirms them.'
+      }
     >
       {rows.length === 0 ? (
         <p className="border-border border-t px-4 py-6 text-center text-muted-foreground text-sm">

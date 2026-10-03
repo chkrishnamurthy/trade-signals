@@ -16,10 +16,12 @@ import {
   insertSubscriptionSnapshot,
   ipoFeedId,
   issuesWithListingDay,
+  issuesWithSubscription,
   linkSebiFiling,
   listIssueIdentities,
   listIssuesForDetail,
   listIssuesListedSince,
+  listIssuesOpenedSince,
   listOpenIssues,
   listRecentlyClosedIssues,
   listUnlinkedSebiFilings,
@@ -285,7 +287,8 @@ export async function ingestIpoCalendar(
     log.info('no enabled source carries the ipo calendar; skipped');
     return { fetched: 0, written: 0 };
   }
-  const windowStart = addDays(today, -config.backfill.months * 31);
+  // Past issues from the configured first day of history (`backfill.since`).
+  const windowStart = config.backfill.since;
   let fetched = 0;
   let written = 0;
   for (const { id, source } of sources) {
@@ -498,9 +501,14 @@ const LISTING_DAYS_PER_RUN = 5;
 export async function ingestIpoListings(
   context: WorkerContext,
   log: Logger,
-  options: IpoJobOptions & { readonly listingDaysPerRun?: number } = {},
+  options: IpoJobOptions & {
+    readonly listingDaysPerRun?: number;
+    /** First listing day considered (default `backfill.since`). */
+    readonly listedSince?: string;
+  } = {},
 ): Promise<IngestCount> {
   const { config, now, today, sources } = await setup(options, 'listing');
+  const listedSince = options.listedSince ?? config.backfill.since;
   let fetched = 0;
   let written = 0;
   for (const { id, source } of sources) {
@@ -559,8 +567,9 @@ export async function ingestIpoListings(
       // 2. Listing-day rows still missing, NEWEST listing dates first. A date whose
       //    file never has the row (an old issue missing from it) stays "missing" for
       //    ever; oldest-first would retry it every run and starve today's listings.
-      //    Old dates are the backfill's job (it runs with a 400-day allowance).
-      const listed = (await listIssuesListedSince(context.db, addDays(today, -400))).filter(
+      //    Every issue listed since the first day of history is considered, so its
+      //    latest close (step 3) keeps moving; old dates are the backfill's job.
+      const listed = (await listIssuesListedSince(context.db, listedSince)).filter(
         (i) => i.listingDate !== null && i.listingDate <= today && i.exchanges.includes(exchange),
       );
       const have = await issuesWithListingDay(
@@ -605,7 +614,7 @@ export async function ingestIpoListings(
         }
       }
 
-      // 3. Latest close for issues listed within a year, from today's file.
+      // 3. Latest close for every issue listed since the first day of history, from today's file.
       const latest = await fileFor(today);
       for (const issue of listed) {
         const row = rowFor(latest, issue, exchange);
@@ -636,11 +645,17 @@ export async function ingestIpoListings(
   return { fetched, written };
 }
 
+/** The feed that records a completed history load for one `backfill.since`. */
+export const ipoHistoryFeedId = (since: string) => `ipo-history-${since}`;
+
 /**
- * On demand only (`--once backfill-ipos`): history for the backfill window —
- * every past issue, its detail page, and its listing day — paced at the
- * config's slower interval under one large budget. Idempotent: a re-run only
- * fills what is still missing.
+ * The history load (`--once backfill-ipos`, and once on worker start until it
+ * has completed for this `backfill.since`): every issue from that day with its
+ * detail page, its final subscription and its listing day, and SEBI's draft
+ * filings back to `backfill.filingsSince` linked to their issues. Paced at the
+ * backfill interval under one budget. Idempotent: each step fetches only what
+ * is still missing, newest first, so a run cut short continues on the next —
+ * and the run is recorded as complete only when nothing was cut short.
  */
 export async function backfillIpos(
   context: WorkerContext,
@@ -648,69 +663,174 @@ export async function backfillIpos(
   options: IpoJobOptions = {},
 ): Promise<IngestCount> {
   const config = options.config ?? (await loadIpoSourcesConfig());
-  // One client per source for the whole backfill, so its budget caps the run.
-  const built = new Map<string, BuiltSource>();
-  const pacedSources = (feed: string): BuiltSource[] =>
-    officialSources(config, feed as Parameters<typeof officialSources>[1], {
+  const now = options.now ?? new Date();
+  const { since, filingsSince } = config.backfill;
+  return withFeedHealth(context, ipoHistoryFeedId(since), now, async () => {
+    const pacing = {
       maxRequestsPerRun: config.backfill.maxRequests,
       minIntervalMs: config.backfill.minIntervalMs,
       ...(options.transport === undefined ? {} : { transport: options.transport }),
-    }).map((fresh) => {
-      const existing = built.get(fresh.id);
-      if (existing !== undefined) return existing;
-      built.set(fresh.id, fresh);
-      return fresh;
-    });
-  const paced = { ...options, config, sources: options.sources ?? pacedSources };
-  const now = options.now ?? new Date();
-  const calendar = await ingestIpoCalendar(context, log.child('calendar'), paced);
+    };
+    // One client per source for the whole run, so its budget caps the run.
+    const built = new Map<string, BuiltSource>();
+    const pacedSources = (feed: string): BuiltSource[] =>
+      officialSources(config, feed as Parameters<typeof officialSources>[1], pacing).map(
+        (fresh) => {
+          const existing = built.get(fresh.id);
+          if (existing !== undefined) return existing;
+          built.set(fresh.id, fresh);
+          return fresh;
+        },
+      );
+    const paced = { ...options, config, sources: options.sources ?? pacedSources };
+    const today = istDateKey(now);
+    let cutShort = false;
+    const budgetSpent = (error: unknown) =>
+      error instanceof Error && error.name === 'BudgetExceededError';
 
-  // Details for every issue in the window that has never had one from this
-  // source. Re-fetching the rest would spend the shared budget the listing
-  // step below needs, so a re-run would never reach the oldest listing days.
-  let detailed = 0;
-  for (const { id, source } of paced.sources('detail')) {
-    const inWindow = await listIssuesListedSince(
-      context.db,
-      addDays(istDateKey(now), -config.backfill.months * 31),
-    );
-    const haveDetail = await sourceKeysFor(
-      context.db,
-      id,
-      'detail',
-      inWindow.map((i) => i.id),
-    );
-    const issues = inWindow.filter((i) => !haveDetail.has(i.id));
-    log.info('backfill details to fetch', {
-      source: id,
-      inWindow: inWindow.length,
-      missing: issues.length,
-    });
-    const keys = await keysFor(context.db, id, issues);
-    for (const issue of issues) {
-      const key = keys.get(issue.id) ?? null;
-      if (key === null) continue;
-      try {
-        detailed += await observeDetail(context.db, source, issue, key, config, now);
-      } catch (error) {
-        log.warn('backfill detail failed', { issue: issue.id, ...errorFields(error) });
-        if (error instanceof Error && error.name === 'BudgetExceededError') break;
+    // 1. The issue list, back to `since`.
+    const calendar = await ingestIpoCalendar(context, log.child('calendar'), paced);
+
+    // 2. Detail for every issue from `since` that never had one from this
+    //    source, or whose detail left the lot unread (a parser since improved
+    //    reads it now). Re-fetching the rest would spend the budget later steps need.
+    let detailed = 0;
+    for (const { id, source } of paced.sources('detail')) {
+      const inWindow = await listIssuesOpenedSince(context.db, since);
+      const have = await sourceKeysFor(
+        context.db,
+        id,
+        'detail',
+        inWindow.map((i) => i.id),
+      );
+      const issues = inWindow.filter((i) => !have.has(i.id) || i.lotSize === null);
+      log.info('history: details to fetch', {
+        source: id,
+        inWindow: inWindow.length,
+        missing: issues.length,
+      });
+      const keys = await keysFor(context.db, id, issues);
+      for (const issue of issues) {
+        const key = keys.get(issue.id) ?? null;
+        if (key === null) continue;
+        try {
+          detailed += await observeDetail(context.db, source, issue, key, config, now);
+        } catch (error) {
+          log.warn('history: detail failed', { issue: issue.id, ...errorFields(error) });
+          if (budgetSpent(error)) {
+            cutShort = true;
+            break;
+          }
+        }
       }
     }
-  }
-  const listings = await ingestIpoListings(context, log.child('listings'), {
-    ...paced,
-    listingDaysPerRun: 400,
+
+    // 3. The final consolidated subscription of every closed issue from `since`
+    //    that has none (the live job only reads issues closed in the last day).
+    //    Mainboard: NSE's category endpoint, stamped with its own final time;
+    //    SME: the detail payload's whole book.
+    let finals = 0;
+    if (!cutShort)
+      for (const { id, source } of paced.sources('subscription')) {
+        const closed = (await listIssuesOpenedSince(context.db, since)).filter(
+          (i) => i.closeDate !== null && i.closeDate < today,
+        );
+        const have = await issuesWithSubscription(
+          context.db,
+          'consolidated',
+          closed.map((i) => i.id),
+        );
+        const issues = closed.filter((i) => !have.has(i.id));
+        log.info('history: final subscriptions to fetch', { source: id, missing: issues.length });
+        const keys = await keysFor(context.db, id, issues);
+        for (const issue of issues) {
+          const key = keys.get(issue.id) ?? null;
+          if (key === null) continue;
+          try {
+            const subscription = await source.fetchSubscription(key);
+            if (subscription !== null)
+              finals += await recordSubscription(context.db, issue.id, subscription, now);
+          } catch (error) {
+            log.warn('history: subscription failed', { issue: issue.id, ...errorFields(error) });
+            if (budgetSpent(error)) {
+              cutShort = true;
+              break;
+            }
+          }
+        }
+      }
+
+    // 4. Listing-day prices for every issue listed since `since`, and today's close.
+    let listings: IngestCount = { fetched: 0, written: 0 };
+    if (!cutShort)
+      try {
+        listings = await ingestIpoListings(context, log.child('listings'), {
+          ...paced,
+          listingDaysPerRun: 2_000,
+          listedSince: since,
+        });
+      } catch (error) {
+        if (!budgetSpent(error)) throw error;
+        cutShort = true;
+      }
+
+    // 5. SEBI's draft filings back to `filingsSince`, then linked to issues.
+    let filings = 0;
+    if (!cutShort)
+      for (const { id, source } of options.filings?.() ??
+        filingSources(config, { ...pacing, maxRequestsPerRun: 400 })) {
+        if (source.fetchFilingsPage === undefined) continue;
+        // Stop once a page reaches back past `filingsSince` — or makes no
+        // progress (SEBI answering the same page again must not loop).
+        let reached = today;
+        for (let page = 0; page < 300; page += 1) {
+          const rows = await source.fetchFilingsPage(page);
+          filings += await upsertSebiFilings(
+            context.db,
+            rows.map((f) => ({
+              sebiId: f.externalKey,
+              companyName: f.companyName,
+              documentLabel: f.documentLabel,
+              title: f.title,
+              filedDate: f.filedDate,
+              pageUrl: f.pageUrl,
+              abridgedUrl: f.abridgedUrl,
+            })),
+            now,
+          );
+          const oldest = rows.reduce((min, f) => (f.filedDate < min ? f.filedDate : min), today);
+          if (rows.length === 0 || oldest < filingsSince || (page > 0 && oldest >= reached)) break;
+          reached = oldest;
+        }
+        const identities = await listIssueIdentities(context.db);
+        let linked = 0;
+        for (const filing of await listUnlinkedSebiFilings(context.db, filingsSince)) {
+          const ipoId = matchFiling(filing, identities);
+          if (ipoId === null) continue;
+          await linkSebiFiling(context.db, filing.sebiId, ipoId);
+          linked += 1;
+        }
+        log.info('history: sebi filings read', { source: id, added: filings, linked });
+      }
+
+    log.info('ipo history load finished', {
+      since,
+      issues: calendar.written,
+      detailed,
+      finals,
+      listingRows: listings.written,
+      filings,
+      complete: !cutShort,
+    });
+    if (cutShort)
+      throw new Error(
+        `history load cut short by its request budget (${config.backfill.maxRequests}); the next run continues`,
+      );
+    return {
+      fetched: calendar.fetched + listings.fetched,
+      written: calendar.written + detailed + finals + listings.written + filings,
+    };
   });
-  log.info('ipo backfill finished', {
-    issues: calendar.written,
-    detailed,
-    listingRows: listings.written,
-  });
-  return {
-    fetched: calendar.fetched + listings.fetched,
-    written: calendar.written + detailed + listings.written,
-  };
 }
 
 /**

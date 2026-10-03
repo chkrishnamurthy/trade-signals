@@ -92,6 +92,20 @@ const listRowSchema = z
  */
 const NAME_STATUS = /\s*-\s*(issue\s+(?:withdrawn|postponed|deferred|cancell?ed))\s*$/i;
 const WITHDRAWAL_WINDOW = /-\s*(?:special\s+)?withdrawal\s+(?:window|option)\s*$/i;
+/**
+ * Not initial public offers, though NSE's past list carries them: follow-on
+ * offers (`Vodafone Idea Limited - FPO`, symbol `IDEAFPO`) and the numbered
+ * partly-paid line of a listed company's rights issue (`ADANIENPP1`, listed
+ * three times over). A bare `PP` suffix is NOT a sign: real IPOs bid under
+ * `CLOUDPP` (Varanium Cloud) and `SILGOPP` (Silgo Retail). Observed 2026-10-03.
+ */
+const FOLLOW_ON = /-\s*FPO\s*$/i;
+const NOT_AN_IPO_SYMBOL = /(?:FPO|PP\d+)$/;
+
+/** True for a past-list row that is not an IPO (an FPO or a partly-paid line). */
+export function isNotAnIpo(name: string, symbol: string): boolean {
+  return FOLLOW_ON.test(name) || NOT_AN_IPO_SYMBOL.test(symbol.trim().toUpperCase());
+}
 
 /** The name without NSE's status suffix, and the status it stated (if any). */
 export function splitNameStatus(name: string): {
@@ -106,7 +120,7 @@ export function splitNameStatus(name: string): {
 /**
  * Parses `ipo-current-issue`, `all-upcoming-issues` and `public-past-issues`
  * rows into listings. Non-equity series (debt, InvITs, REITs, …) are dropped,
- * and so are withdrawal-window rows (they are not issues).
+ * and so are withdrawal-window rows, FPOs and partly-paid lines (not IPOs).
  *
  * Field meanings differ by list, all observed on 2026-10-02:
  *   - current/upcoming: `issuePrice` is the band text; `issueSize` is a SHARE
@@ -129,7 +143,8 @@ export function parseNseIssueList(
     const board = boardOf(series);
     if (board === null) continue;
     const rawName = cleanText(row.companyName ?? row.company);
-    if (rawName === null || WITHDRAWAL_WINDOW.test(rawName)) continue;
+    if (rawName === null || WITHDRAWAL_WINDOW.test(rawName) || isNotAnIpo(rawName, row.symbol))
+      continue;
     const { name: companyName, status: nameStatus } = splitNameStatus(rawName);
     const isPast = row.ipoStartDate !== undefined || row.securityType !== undefined;
     const openDate = parseDdMonYyyy(row.issueStartDate ?? row.ipoStartDate ?? '');
@@ -189,6 +204,8 @@ const detailSchema = z
     }),
     bidDetails: z.array(z.unknown()).nullish(),
     demandDataNSE: z.array(z.object({ timestamp: z.string().nullish() }).passthrough()).nullish(),
+    /** NSE's own platform; its timestamp outlives `demandDataNSE` on closed issues. */
+    demandGraph: z.object({ timestamp: z.string().nullish() }).passthrough().nullish(),
     /** The whole book, every platform: shares in the issue and shares bid. */
     demandGraphALL: z
       .object({
@@ -229,15 +246,18 @@ export function parseSubscriptionRows(rows: readonly unknown[]): RawSubscription
 type DetailPayload = z.infer<typeof detailSchema>;
 
 /**
- * The bids on a detail payload. Two layouts, both observed 2026-10-02:
+ * The bids on a detail payload. Two layouts, both observed 2026-10-02 and
+ * again on issues back to 2024 (2026-10-03):
  *
  *   - mainboard: rows state shares offered per category; the figures are
- *     NSE's own platform (`nse` scope), timed by `demandDataNSE`.
- *   - SME: rows carry no shares-offered column, and their Total equals
- *     `demandGraphALL`'s whole-book total — so they are the consolidated
- *     book, and the only denominator NSE states is the issue size there,
- *     which goes on the Total row. Categories keep "—": NSE does not publish
- *     an SME issue's shares reserved per category.
+ *     NSE's own platform (`nse` scope), timed by `demandDataNSE` while bidding
+ *     runs and by `demandGraph` once that list is emptied (closed issues).
+ *   - SME: rows carry no shares-offered column. They are the whole book (they
+ *     can exceed `demandGraphALL`'s graph total, which counts valid bids at a
+ *     price point), so the scope is consolidated; the only denominator NSE
+ *     states is the issue size in `demandGraphALL`, which goes on the Total
+ *     row, timed by that graph. Categories keep "—": NSE does not publish an
+ *     SME issue's shares reserved per category.
  *
  * NSE's category endpoint is no substitute for SME: it reports 0 offered for
  * every category and leaves the individual-investor row out entirely.
@@ -247,24 +267,22 @@ function detailSubscription(detail: DetailPayload): RawIpoSubscription | null {
   // Before bidding opens NSE sends a zero Total: no bids yet, not "0×".
   if (bids.length === 0 || bids.every((b) => b.sharesBid === null || b.sharesBid === 0))
     return null;
-  const whole = detail.demandGraphALL ?? null;
-  const offeredStated = bids.some((b) => b.sharesOffered !== null && b.sharesOffered > 0);
-  const total = bids.find((b) => b.category === 'total') ?? null;
-  const wholeBid = whole === null ? null : parseCount(str(whole.totalBidRecieved));
-  if (!offeredStated && total !== null && wholeBid !== null && total.sharesBid === wholeBid) {
+  const live = detail.demandDataNSE?.[0]?.timestamp ?? null;
+  if (bids.every((b) => b.sharesOffered === null)) {
+    const whole = detail.demandGraphALL ?? null;
     const issueSize = parseCount(str(whole?.totalIssueSize));
     return {
       source: NSE_SOURCE_ID,
       scope: 'consolidated',
-      asOf: parseIstDayTime(whole?.timestamp ?? ''),
+      asOf: parseIstDayTime(whole?.timestamp ?? live ?? ''),
       rows: bids.map((b) =>
         b.category === 'total'
           ? { ...b, sharesOffered: issueSize !== null && issueSize > 0 ? issueSize : null }
-          : { ...b, sharesOffered: null },
+          : b,
       ),
     };
   }
-  const stamp = detail.demandDataNSE?.[0]?.timestamp ?? null;
+  const stamp = live ?? detail.demandGraph?.timestamp ?? null;
   return {
     source: NSE_SOURCE_ID,
     scope: 'nse',

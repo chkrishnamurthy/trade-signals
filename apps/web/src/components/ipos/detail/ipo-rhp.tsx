@@ -1,4 +1,5 @@
 import type * as React from 'react';
+import { longDate } from '@/lib/ipo-format';
 import type { IpoDocumentDto, RhpExtractDto } from '@/lib/ipo-types';
 import { cn } from '@/lib/utils';
 import { ExternalLink, ModuleCard } from '../module-card';
@@ -124,14 +125,31 @@ function List({ extract }: { extract: RhpExtractDto }) {
  * quoted and cited by page — never EquityWise's opinion of the issue. When
  * nothing has been extracted the card points at the document itself.
  */
+const DOCUMENT_NAME: Readonly<Record<string, string>> = {
+  rhp: 'Red Herring Prospectus',
+  prospectus: 'Prospectus',
+  drhp: 'Draft Red Herring Prospectus',
+};
+
 export function IpoRhp({
   extracts,
   documents,
+  openDate = null,
+  readFrom = null,
 }: {
   extracts: readonly RhpExtractDto[];
   documents: readonly IpoDocumentDto[];
+  /** When bidding opened; with `readFrom`, says why an older document is only linked. */
+  openDate?: string | null;
+  /** The first issue date whose offer document EquityWise reads (`rhp.since`). */
+  readFrom?: string | null;
 }) {
-  const rhp = documents.find((d) => d.kind === 'rhp') ?? documents.find((d) => d.kind === 'drhp');
+  // A fixed-price issue files a Prospectus rather than an RHP.
+  const rhp =
+    documents.find((d) => d.kind === 'rhp') ??
+    documents.find((d) => d.kind === 'prospectus') ??
+    documents.find((d) => d.kind === 'drhp');
+  const older = readFrom !== null && openDate !== null && openDate < readFrom;
   const get = (section: RhpExtractDto['section']) => extracts.find((e) => e.section === section);
   const overview = get('overview');
   const financials = get('financials');
@@ -146,9 +164,11 @@ export function IpoRhp({
       id="company"
       title="From the offer document"
       note={
-        extracts.length === 0
-          ? 'The company overview, objects, promoters, financials and risk factors are in the offer document.'
-          : 'Read automatically from the RHP and quoted as the company wrote it. Check the cited pages in the document.'
+        extracts.length > 0
+          ? 'Read automatically from the offer document and quoted as the company wrote it. Check the cited pages in the document.'
+          : older
+            ? `EquityWise quotes the offer documents of issues from ${longDate(readFrom ?? '')}; this earlier one is linked — the company overview, objects, promoters, financials and risk factors are in it.`
+            : 'The company overview, objects, promoters, financials and risk factors are in the offer document.'
       }
     >
       <div className="flex flex-col gap-5 border-border border-t p-4">
@@ -159,9 +179,7 @@ export function IpoRhp({
             </p>
           ) : (
             <ExternalLink href={rhp.url} className="text-sm">
-              Open the{' '}
-              {rhp.kind === 'rhp' ? 'Red Herring Prospectus' : 'Draft Red Herring Prospectus'} (
-              {rhp.host})
+              Open the {DOCUMENT_NAME[rhp.kind] ?? 'offer document'} ({rhp.host})
             </ExternalLink>
           ))}
         {overview !== undefined && (

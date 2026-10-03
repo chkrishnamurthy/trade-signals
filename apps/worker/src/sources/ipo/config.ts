@@ -52,7 +52,10 @@ const configSchema = z
     documentHosts: z.array(z.string().regex(/^[a-z0-9.-]+$/)).min(1),
     backfill: z
       .object({
-        months: z.number().int().min(1).max(240),
+        /** The first IST day of history: issues opening on or after it are kept. */
+        since: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        /** SEBI's draft filings back to here (DRHPs come months before an issue). */
+        filingsSince: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
         minIntervalMs: z.number().int().min(1_000),
         maxRequests: z.number().int().min(1).max(5_000),
       })
@@ -63,10 +66,10 @@ const configSchema = z
         hosts: z.record(z.string().min(1)),
         maxDocumentsPerRun: z.number().int().min(1).max(10),
         /**
-         * Only issues that opened in the last N days (or have no dates yet):
-         * past issues' prospectuses are linked, not downloaded by the hundred.
+         * Only issues that opened on or after this IST day (or have no dates
+         * yet): older prospectuses are linked, not downloaded by the hundred.
          */
-        recentDays: z.number().int().min(7).max(3_650),
+        since: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
         maxBytes: z
           .number()
           .int()

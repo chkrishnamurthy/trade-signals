@@ -1,4 +1,4 @@
-import { hasIpoIssues, withRetry } from '@equitywise/db';
+import { feedHealth, withRetry } from '@equitywise/db';
 import { config as loadEnv } from 'dotenv';
 import { createContext, type WorkerContext } from './context.js';
 import { authMaintenance } from './jobs/auth-maintenance.js';
@@ -31,6 +31,7 @@ import {
   ingestIpoListings,
   ingestIpoSubscriptions,
   ingestSebiFilings,
+  ipoHistoryFeedId,
 } from './jobs/ingest-ipos.js';
 import { createIntradayJobs } from './jobs/intraday-orb.js';
 import { marketCalendarSync } from './jobs/market-calendar-sync.js';
@@ -38,6 +39,7 @@ import { createPaperJobs } from './jobs/paper.js';
 import { refreshProviderCredential } from './jobs/refresh-credential.js';
 import { createLogger, errorFields } from './log.js';
 import { createScheduler, type Scheduler } from './scheduler.js';
+import { loadIpoSourcesConfig } from './sources/ipo/config.js';
 
 // Repo-root .env; this process starts from apps/worker.
 loadEnv({ path: new URL('../../../.env', import.meta.url).pathname });
@@ -414,6 +416,16 @@ function buildScheduler(context: WorkerContext): Jobs {
         },
       },
       {
+        // On demand (`--once backfill-ipo-rhp`, and after the first history
+        // load): reads up to 200 RHPs from `rhp.since` in one run instead of
+        // three a run. Newest issues first; idempotent. Never scheduled.
+        name: 'backfill-ipo-rhp',
+        schedule: '0 0 31 2 *',
+        run: async () => {
+          await extractIpoRhp(context, log.child('backfill-ipo-rhp'), { maxDocuments: 200 });
+        },
+      },
+      {
         // On demand only (`--once backfill-flows`): walks ~45 days of the
         // delivery and participant-OI archives so the flow page has its
         // trailing averages from day one. Idempotent. Never scheduled.
@@ -552,6 +564,7 @@ async function main(): Promise<void> {
           'extract-ipo-rhp',
           'ingest-sebi-filings',
           'backfill-ipos',
+          'backfill-ipo-rhp',
           'calendar-refresh',
           'calendar-check',
           'market-calendar-sync',
@@ -597,19 +610,23 @@ async function main(): Promise<void> {
   feed = jobs.feed;
   log.info('worker running; ctrl-c to stop');
 
-  // IPO first run: an empty IPO store (a fresh deploy) loads its history once
-  // rather than waiting for someone to run `--once backfill-ipos`, then reads
-  // GMP so the dashboard is whole. Not awaited — the backfill is paced and
-  // takes 30–45 minutes; the scheduler's guard keeps each job from running
-  // twice at once. A store that already has issues is left to the schedules.
+  // IPO history: until the history load has completed for the configured
+  // first day (`backfill.since`), run it once on start — a fresh deploy, or a
+  // wider window, fills itself instead of waiting for `--once backfill-ipos`.
+  // Then GMP, and the RHPs from `rhp.since` in one larger run. Not awaited: the
+  // load is paced and takes about an hour; the scheduler's guard keeps each job
+  // from running twice at once. A load cut short is retried on the next start.
   void (async () => {
     try {
-      if (await hasIpoIssues(context.db)) return;
-      log.info('no IPOs stored yet; running the IPO backfill once');
+      const { since } = (await loadIpoSourcesConfig()).backfill;
+      const feed = ipoHistoryFeedId(since);
+      if ((await feedHealth(context.db, [feed])).get(feed)?.lastSuccess) return;
+      log.info('IPO history not loaded for this window; loading it once', { since });
       await jobs.scheduler.trigger('backfill-ipos');
       await jobs.scheduler.trigger('ingest-ipo-gmp');
+      await jobs.scheduler.trigger('backfill-ipo-rhp');
     } catch (error) {
-      log.warn('ipo first-run backfill failed', errorFields(error));
+      log.warn('ipo history load could not start', errorFields(error));
     }
   })();
 

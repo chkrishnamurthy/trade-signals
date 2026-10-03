@@ -11,6 +11,7 @@ import {
   stateLabel,
   statusParts,
   times,
+  trackSpan,
 } from '@/lib/ipo-format';
 import type { IpoDashboardDto, IpoListItemDto } from '@/lib/ipo-types';
 import { cn } from '@/lib/utils';
@@ -230,8 +231,8 @@ export function GmpModule({ data }: { data: IpoDashboardDto }) {
           </span>
           {track !== null && track.total > 0 && (
             <span className="block">
-              Last {track.months} months: the final quote was within ±{track.tolerancePoints} points
-              of the listing-day gain for {track.within} of {track.total} listings.
+              {trackSpan(track)}: the final quote was within ±{track.tolerancePoints} points of the
+              listing-day gain for {track.within} of {track.total} listings.
             </span>
           )}
         </>

@@ -153,7 +153,12 @@ export function IpoDetailView({ ipo, today }: { ipo: IpoDetailDto; today: string
                 <IpoSubscription ipo={ipo} />
               </div>
               <div className={at('order-7')}>
-                <IpoRhp extracts={ipo.rhp} documents={ipo.documents} />
+                <IpoRhp
+                  extracts={ipo.rhp}
+                  documents={ipo.documents}
+                  openDate={ipo.openDate}
+                  readFrom={ipo.rhpReadFrom}
+                />
               </div>
             </div>
             <aside

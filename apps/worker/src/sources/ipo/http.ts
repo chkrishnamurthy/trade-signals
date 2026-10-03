@@ -24,6 +24,9 @@ export interface TransportRequest {
   readonly url: string;
   readonly headers: Readonly<Record<string, string>>;
   readonly signal: AbortSignal;
+  /** GET unless stated. A POST carries a form body (SEBI's list pages). */
+  readonly method?: 'GET' | 'POST';
+  readonly body?: string;
 }
 
 export interface TransportResponse {
@@ -41,9 +44,15 @@ const DEFAULT_MAX_BYTES = 20 * 1024 * 1024;
 
 export const fetchTransport =
   (maxBytes = DEFAULT_MAX_BYTES): Transport =>
-  async ({ url, headers, signal }) => {
+  async ({ url, headers, signal, method = 'GET', body: payload }) => {
     // The client follows redirects itself, hop by hop, with its own checks.
-    const response = await fetch(url, { headers, signal, redirect: 'manual' });
+    const response = await fetch(url, {
+      method,
+      headers,
+      signal,
+      redirect: 'manual',
+      ...(payload === undefined ? {} : { body: payload }),
+    });
     const map = new Map<string, string[]>();
     response.headers.forEach((value, name) => {
       if (name !== 'set-cookie') map.set(name, [value]);
@@ -140,6 +149,8 @@ export interface RequestOptions {
   readonly accept?: string;
   readonly referer?: string;
   readonly headers?: Readonly<Record<string, string>>;
+  /** A form to POST instead of a GET (`application/x-www-form-urlencoded`). */
+  readonly form?: Readonly<Record<string, string>>;
 }
 
 const sleepReal = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -246,6 +257,21 @@ export class PoliteHttpClient {
     return (await this.get(url, options)).body;
   }
 
+  /**
+   * One serialised, robots-checked, paced, retried form POST — for a list page
+   * that only pages by POST (SEBI). Same budget, pacing and cookies as a GET;
+   * a redirect is not followed.
+   */
+  async postFormText(
+    url: string,
+    form: Readonly<Record<string, string>>,
+    options: Omit<RequestOptions, 'form'> = {},
+  ): Promise<string> {
+    const response = await this.get(url, { ...options, form });
+    if (REDIRECT_STATUSES.has(response.status)) throw new SourceHttpError(response.status, url);
+    return new TextDecoder().decode(response.body);
+  }
+
   /** One serialised, robots-checked, paced, retried GET. Non-2xx throws `SourceHttpError`. */
   async get(url: string, options: RequestOptions = {}): Promise<TransportResponse> {
     const run = this.queue.then(() => this.getNow(url, options));
@@ -258,7 +284,8 @@ export class PoliteHttpClient {
     let current = start;
     for (let hop = 0; ; hop += 1) {
       const response = await this.fetchOnce(current.href, options);
-      if (!REDIRECT_STATUSES.has(response.status)) return response;
+      // A POST's redirect is the caller's to refuse, never re-sent as a GET.
+      if (!REDIRECT_STATUSES.has(response.status) || options.form !== undefined) return response;
       if (hop >= MAX_REDIRECTS) throw new Error(`${url}: more than ${MAX_REDIRECTS} redirects`);
       const location = response.headers.get('location')?.[0];
       if (location === undefined) throw new SourceHttpError(response.status, current.href);
@@ -341,7 +368,16 @@ export class PoliteHttpClient {
 
     const timeout = AbortSignal.timeout(this.options.timeoutMs);
     const signal = this.signal === undefined ? timeout : AbortSignal.any([timeout, this.signal]);
-    const response = await this.transport({ url, headers, signal });
+    const form = options.form;
+    if (form !== undefined) headers['Content-Type'] = 'application/x-www-form-urlencoded';
+    const response = await this.transport({
+      url,
+      headers,
+      signal,
+      ...(form === undefined
+        ? {}
+        : { method: 'POST' as const, body: new URLSearchParams(form).toString() }),
+    });
     for (const cookie of response.headers.get('set-cookie') ?? []) {
       const pair = cookie.split(';')[0] ?? '';
       const eq = pair.indexOf('=');

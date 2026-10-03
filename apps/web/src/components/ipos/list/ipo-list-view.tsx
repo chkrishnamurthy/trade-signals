@@ -15,7 +15,7 @@ import {
   PageTitle,
 } from '@/components/layout/page';
 import { Card } from '@/components/ui/card';
-import { BOARD_LABEL, BOARD_WORD } from '@/lib/ipo-format';
+import { BOARD_LABEL, BOARD_WORD, shortDate } from '@/lib/ipo-format';
 import type { IpoListPageDto } from '@/lib/ipo-types';
 import { cn } from '@/lib/utils';
 import { BoardTabs } from '../board-tabs';
@@ -215,8 +215,13 @@ export function IpoListView({ data }: { data: IpoListPageDto }) {
             <p className="lg:max-w-xl lg:text-right">
               * Expected, from SEBI&apos;s T+3 timetable · † Part of the issue size priced at the
               upper end of the band.
-              {data.gmpPolicy.enabled && ` GMP: ${data.gmpPolicy.sourceName}, unofficial.`} Listing:
-              the exchange&apos;s end-of-day prices. {data.coverageNote}
+              {data.gmpPolicy.enabled &&
+                ` GMP: ${data.gmpPolicy.sourceName}, unofficial${
+                  data.gmpPolicy.trackedSince === null
+                    ? ''
+                    : `, recorded since ${shortDate(data.gmpPolicy.trackedSince)} — earlier issues have none`
+                }.`}{' '}
+              Listing: the exchange&apos;s end-of-day prices. {data.coverageNote}
             </p>
           </div>
 

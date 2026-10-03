@@ -7,7 +7,6 @@ import {
   recordRhpFailure,
   saveRhpExtracts,
 } from '@equitywise/db';
-import { istDateKey } from '@equitywise/shared';
 import type { WorkerContext } from '../context.js';
 import type { Logger } from '../log.js';
 import { type IpoSourcesConfig, loadIpoSourcesConfig, sourceFor } from '../sources/ipo/config.js';
@@ -40,6 +39,8 @@ export interface RhpJobOptions {
   readonly client?: (sourceId: string) => PoliteHttpClient;
   /** Replaces pdf.js (tests). */
   readonly pageTexts?: (pdf: Uint8Array, maxPages: number) => Promise<string[]>;
+  /** Documents this run may read (default `rhp.maxDocumentsPerRun`); the catch-up raises it. */
+  readonly maxDocuments?: number;
 }
 
 function errorText(error: unknown): string {
@@ -79,12 +80,6 @@ async function extractOne(
   });
 }
 
-/** The IST day `days` before `dateKey`. */
-function daysBefore(dateKey: string, days: number): string {
-  const [y, m, d] = dateKey.split('-').map(Number);
-  return new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1, (d ?? 1) - days)).toISOString().slice(0, 10);
-}
-
 export async function extractIpoRhp(
   context: WorkerContext,
   log: Logger,
@@ -101,9 +96,9 @@ export async function extractIpoRhp(
     version: RHP_EXTRACTOR_VERSION,
     maxAttempts: config.rhp.maxAttempts,
     // Over-fetch so one source's share does not cap another's.
-    limit: config.rhp.maxDocumentsPerRun * 5,
+    limit: (options.maxDocuments ?? config.rhp.maxDocumentsPerRun) * 5,
     hosts,
-    openedSince: daysBefore(istDateKey(now), config.rhp.recentDays),
+    openedSince: config.rhp.since,
   });
 
   // Every source that may fetch documents gets a run recorded, even an empty
@@ -123,7 +118,7 @@ export async function extractIpoRhp(
     return { fetched: 0, written: 0 };
   }
 
-  let budget = config.rhp.maxDocumentsPerRun;
+  let budget = options.maxDocuments ?? config.rhp.maxDocumentsPerRun;
   let fetched = 0;
   let written = 0;
   for (const [id, list] of bySource) {
@@ -131,7 +126,15 @@ export async function extractIpoRhp(
     budget -= batch.length;
     const client =
       options.client?.(id) ??
-      clientFor(config, id, { maxBytes: config.rhp.maxBytes, timeoutMs: DOCUMENT_TIMEOUT_MS });
+      clientFor(config, id, {
+        maxBytes: config.rhp.maxBytes,
+        timeoutMs: DOCUMENT_TIMEOUT_MS,
+        // One download per document plus robots: a catch-up run may need more
+        // than the source's everyday budget.
+        ...(options.maxDocuments === undefined
+          ? {}
+          : { maxRequestsPerRun: options.maxDocuments * 2 + 2 }),
+      });
     const count = await withFeedHealth(context, ipoFeedId(id, 'rhp'), now, async () => {
       let read = 0;
       let sections = 0;

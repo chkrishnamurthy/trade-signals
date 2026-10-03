@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { parseSebiDate, parseSebiFilings, splitFilingTitle } from './sebi.js';
+import { parseSebiDate, parseSebiFilings, sebiPageForm, splitFilingTitle } from './sebi.js';
 
 const fixture = readFileSync(
   new URL('./__fixtures__/sebi-public-issues.html', import.meta.url),
@@ -52,6 +52,49 @@ describe('parseSebiFilings (2026-10-02 page)', () => {
     expect(() => parseSebiFilings('<html><body>Maintenance</body></html>')).toThrow(
       /no filing rows/,
     );
+  });
+});
+
+describe('parseSebiFilings (the paged list, page 2)', () => {
+  const page2 = readFileSync(
+    new URL('./__fixtures__/sebi-public-issues-page2.html', import.meta.url),
+    'utf8',
+  );
+  it('reads a POSTed page whose links are single-quoted', () => {
+    const filings = parseSebiFilings(page2);
+    expect(filings).toHaveLength(25);
+    expect(filings[0]).toMatchObject({
+      filedDate: '2026-09-11',
+      companyName: 'NOPAPERFORMS SOLUTIONS LIMITED',
+      documentLabel: 'UDRHP-1',
+    });
+    expect(filings.at(-1)?.filedDate).toBe('2026-08-17');
+    expect(filings.every((f) => f.pageUrl.startsWith('https://www.sebi.gov.in/'))).toBe(true);
+  });
+  it('builds the page form SEBI expects (zero-based doDirect)', () => {
+    expect(sebiPageForm(3)).toMatchObject({ doDirect: '3', sid: '3', ssid: '15', smid: '10' });
+  });
+});
+
+describe('splitFilingTitle: every label SEBI used, Aug–Oct 2026', () => {
+  it.each([
+    'DRHP',
+    'UDRHP',
+    'UDRHP-1',
+    'UDRHP-I',
+    'Addendum to DRHP',
+    'Addendum to the DRHP',
+    'Addendum II to DRHP',
+    'Second Addendum to DRHP',
+    'Addendum-cum-Corrigendum to DRHP',
+    'Corrigendum to DRHP',
+    'Corrigendum to UDRHP',
+    'Corrigendum to Addendum.',
+  ])('splits "%s" off the company name', (label) => {
+    expect(splitFilingTitle(`ACME FOODS LIMITED - ${label}`)).toEqual({
+      companyName: 'ACME FOODS LIMITED',
+      documentLabel: label,
+    });
   });
 });
 

@@ -87,11 +87,16 @@ documentHosts:
   - bseindia.com
   - sebi.gov.in
 
-# Paced, on-demand history load (`--once backfill-ipos`).
+# The paced history load (`--once backfill-ipos`; also run once on worker start
+# until it has completed for this `since`). Every issue opening on or after
+# `since` gets its detail, final subscription and listing-day prices; SEBI's
+# draft filings are read back to `filingsSince`. ~630 issues from 2024: about
+# 1,500 requests at one per 3 s. A run cut short continues on the next.
 backfill:
-  months: 24
+  since: '2024-01-01'
+  filingsSince: '2023-01-01'
   minIntervalMs: 3000
-  maxRequests: 900
+  maxRequests: 2000
 
 # Reading sections out of an RHP (Phase 11). A document is fetched through the
 # client of the official source that owns its host — same User-Agent, robots
@@ -104,9 +109,9 @@ rhp:
     nseindia.com: nse
     bseindia.com: bse
   maxDocumentsPerRun: 3
-  # Only issues that opened in the last 60 days (or have no dates yet). A
-  # backfill finds hundreds of past RHPs; those stay links, not downloads.
-  recentDays: 60
+  # Only issues that opened on or after this day (or have no dates yet): every
+  # 2026 issue is read, newest first; older RHPs stay links, not downloads.
+  since: '2026-01-01'
   maxBytes: 62914560 # 60 MB per download and per unzipped PDF
   maxPages: 1500
   maxAttempts: 3

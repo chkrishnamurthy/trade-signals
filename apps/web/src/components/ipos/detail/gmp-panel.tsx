@@ -1,6 +1,6 @@
 import { Sparkline } from '@/components/market/sparkline';
 import { signedPercent } from '@/lib/format';
-import { BOARD_WORD, gmpText, istDayTime, shortName } from '@/lib/ipo-format';
+import { BOARD_WORD, gmpText, istDayTime, shortDate, shortName, trackSpan } from '@/lib/ipo-format';
 import type { GmpPanelDto, GmpTrackRecordDto } from '@/lib/ipo-types';
 import { UnofficialTag } from '../ipo-chip';
 import { sharePrice } from '../ipo-figures';
@@ -26,7 +26,11 @@ export function GmpExplainer() {
   );
 }
 
-const REASON: Readonly<Record<'no_quote' | 'source_disabled' | 'not_tracked', string>> = {
+const REASON: Readonly<
+  Record<'no_quote' | 'source_disabled' | 'not_tracked' | 'before_tracking', string>
+> = {
+  before_tracking:
+    'Bidding closed before EquityWise began recording GMP, and the source keeps no history to recover it from.',
   no_quote: 'The source reports no grey-market quote for this issue.',
   source_disabled: 'EquityWise is not showing GMP at the moment.',
   not_tracked: 'The GMP source has not reported this issue.',
@@ -43,14 +47,17 @@ export function GmpTrackRecord({ track }: { track: GmpTrackRecordDto }) {
   if (track.total === 0)
     return (
       <p className="text-muted-foreground text-xs">
-        No listed {track.board === null ? '' : `${BOARD_WORD[track.board]} `}issue in the last{' '}
-        {track.months} months has both a GMP quote and a listing price to compare yet.
+        No listed {track.board === null ? '' : `${BOARD_WORD[track.board]} `}issue{' '}
+        {track.since === null
+          ? `in the last ${track.months} months`
+          : `since ${shortDate(track.since)}`}{' '}
+        has both a GMP quote and a listing price to compare yet.
       </p>
     );
   return (
     <div className="flex flex-col gap-2 text-xs">
       <p className="text-muted-foreground">
-        Last {track.months} months
+        {trackSpan(track)}
         {track.board === null ? '' : ` of ${BOARD_WORD[track.board]} listings`}: the final quote was
         within ±{track.tolerancePoints} points of the listing-day gain for{' '}
         <strong className="font-medium text-foreground">

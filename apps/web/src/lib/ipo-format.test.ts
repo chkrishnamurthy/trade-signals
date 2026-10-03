@@ -15,6 +15,7 @@ import {
   stateLabel,
   statusParts,
   times,
+  trackSpan,
 } from './ipo-format';
 import type { IpoListItemDto } from './ipo-types';
 
@@ -66,6 +67,13 @@ describe('nextMilestone', () => {
     expect(nextMilestone(item({ status: 'upcoming', openDate: null }), '2026-10-02')).toBe(
       'Dates not announced',
     );
+  });
+});
+
+describe('trackSpan', () => {
+  it('names the start of GMP coverage while it is shorter than the window', () => {
+    expect(trackSpan({ months: 12, since: '2026-10-02' })).toBe('Since Fri 2 Oct');
+    expect(trackSpan({ months: 12, since: null })).toBe('Last 12 months');
   });
 });
 

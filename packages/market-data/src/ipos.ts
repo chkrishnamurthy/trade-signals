@@ -226,5 +226,8 @@ export interface RawSebiFiling {
 
 export interface FilingSource {
   readonly id: string;
+  /** The newest page of filings. */
   fetchFilings(): Promise<readonly RawSebiFiling[]>;
+  /** An older page, zero-based and newest first — for the history load. */
+  fetchFilingsPage?(page: number): Promise<readonly RawSebiFiling[]>;
 }

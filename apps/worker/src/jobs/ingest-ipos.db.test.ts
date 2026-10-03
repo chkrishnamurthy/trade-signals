@@ -177,15 +177,37 @@ suite('IPO ingestion jobs on real PostgreSQL', () => {
 
   it('backfills details only for issues that never had one', async () => {
     const asked: string[] = [];
+    const finals: string[] = [];
     const counting: IpoSource = {
       ...fixtureSource,
       fetchDetail: async (key) => {
         asked.push(key.symbol);
         return fixtureSource.fetchDetail(key);
       },
+      fetchSubscription: async (key) => {
+        finals.push(key.symbol);
+        return fixtureSource.fetchSubscription(key);
+      },
     };
+    // SEBI's paged list, from the captured second page (no network in tests).
+    const pages: number[] = [];
+    const filings = () => [
+      {
+        id: 'sebi',
+        client: {} as PoliteHttpClient,
+        source: {
+          id: 'sebi',
+          fetchFilings: async () => parseSebiFilings(fixture('sebi-public-issues.html')),
+          fetchFilingsPage: async (page: number) => {
+            pages.push(page);
+            return parseSebiFilings(fixture('sebi-public-issues-page2.html'));
+          },
+        },
+      },
+    ];
     const backfill = {
       ...options,
+      filings,
       sources: () => [{ id: 'nse', source: counting, client: {} as PoliteHttpClient }],
     };
     await backfillIpos(context, log, backfill);
@@ -196,6 +218,20 @@ suite('IPO ingestion jobs on real PostgreSQL', () => {
     await backfillIpos(context, log, backfill);
     // Only issues whose detail still could not be read are asked again.
     expect(asked.every((s) => first.includes(s))).toBe(true);
+    // Filings pages are read newest first and stop when a page makes no
+    // progress (the fixture answers the same page every time).
+    expect(pages.slice(0, 2)).toEqual([0, 1]);
+    expect(pages.length).toBeLessThan(10);
+    // Closed issues without a consolidated final are asked for one; issues
+    // still bidding (VNL closes 5 Oct) are left to the live job.
+    expect(finals).toContain('AONESTEELS');
+    expect(finals).not.toContain('VNL');
+    // A run that was not cut short is recorded as the completed history load.
+    const marker = await query<{ succeeded: boolean }>(
+      'select succeeded from feed_ingestion_runs where feed = $1 order by completed_at desc limit 1',
+      [`ipo-history-${config.backfill.since}`],
+    );
+    expect(marker[0]?.succeeded).toBe(true);
   });
 
   it('attaches unofficial GMP only to the exactly-matching issue', async () => {
