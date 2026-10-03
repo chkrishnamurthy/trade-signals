@@ -1,9 +1,10 @@
 ---
 name: Stock research platform
-status: draft
+status: superseded
 horizon: later
 created: 2026-09-07
-updated: 2026-09-07
+updated: 2026-10-03
+superseded_by: company-research-implementation-plan.md
 board: EW-052
 area: [web, db]
 blocked_by: [market-data-scaling-plan, dhan-provider-plan]
@@ -13,6 +14,10 @@ owner: krishna
 ---
 
 # EquityWise — Stock Screener + Stock Detail/Analysis Platform
+
+> **Superseded 2026-10-03** by [company-research-implementation-plan.md](company-research-implementation-plan.md).
+> Its screener wireframe, filter AST and saved-screen design were carried forward there
+> (Appendix A); its repository audit and fundamentals-first sequencing are stale.
 
 > **Status:** Plan. Nothing here is implemented. This is the architecture and roadmap
 > document requested before any code is written. It answers deliverables **A–G**
