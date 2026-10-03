@@ -1,6 +1,7 @@
 import 'server-only';
 import {
   breadthHistory,
+  conditionCounts,
   industryAggregates,
   latestSnapshotBuild,
   type SnapshotRow,
@@ -52,6 +53,8 @@ export interface MarketBreadthDto {
     ret3m: number | null;
     above50Pct: number | null;
   }[];
+  /** Stocks with delivery ≥ 1.5× average, up, on ≥ 1.5× volume (null before a snapshot). */
+  readonly deliverySpikes: number | null;
   readonly leaders: {
     readonly delivery: readonly LeaderDto[];
     readonly volume: readonly LeaderDto[];
@@ -90,6 +93,7 @@ export async function getMarketBreadth(universe: 'all' | 'nifty500'): Promise<Ma
       stale: true,
       history: [],
       industries: [],
+      deliverySpikes: null,
       leaders: { delivery: [], volume: [], buildup: [], highs: [] },
     };
   }
@@ -107,7 +111,15 @@ export async function getMarketBreadth(universe: 'all' | 'nifty500'): Promise<Ma
         ? scope
         : { op: 'and' as const, children: [scope, extra] };
 
-  const [history, industries, delivery, volume, buildup, highs] = await Promise.all([
+  const spikeFilter = {
+    op: 'and' as const,
+    children: [
+      { metric: 'deliveryRatio' as const, cmp: 'gte' as const, value: 1.5 },
+      { metric: 'relVolume' as const, cmp: 'gte' as const, value: 1.5 },
+      { metric: 'changePct' as const, cmp: 'gt' as const, value: 0 },
+    ],
+  };
+  const [history, industries, delivery, volume, buildup, highs, spikes] = await Promise.all([
     breadthHistory(db, { universe, from: from.toISOString().slice(0, 10) }),
     industryAggregates(db, session),
     snapshotLeaders(db, {
@@ -140,6 +152,11 @@ export async function getMarketBreadth(universe: 'all' | 'nifty500'): Promise<Ma
       filter: withScope({ metric: 'breakout52w', cmp: 'is', value: true }),
       limit: 6,
     }),
+    conditionCounts(db, {
+      tradingDate: session,
+      universe: universe === 'nifty500' ? { kind: 'index', indexKey: 'nifty500' } : { kind: 'all' },
+      conditions: [spikeFilter],
+    }),
   ]);
 
   const today = Date.parse(`${istDateKey(new Date())}T00:00:00Z`);
@@ -160,6 +177,7 @@ export async function getMarketBreadth(universe: 'all' | 'nifty500'): Promise<Ma
       newLows: d.newLows,
     })),
     industries,
+    deliverySpikes: spikes.cumulative[0] ?? 0,
     leaders: {
       delivery: delivery.map((r) => leader(r, r.deliveryPct)),
       volume: volume.map((r) => leader(r, r.relVolume)),

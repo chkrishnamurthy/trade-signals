@@ -141,6 +141,8 @@ export function ScreenerView({
   const [saved, setSaved] = useState<readonly SavedScreenDto[]>(initialSaved);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  /** The screen has changed since its preset or saved version was loaded. */
+  const [edited, setEdited] = useState(false);
 
   const filter = useMemo(() => toFilter(group), [group]);
   const problems = useMemo(
@@ -149,29 +151,27 @@ export function ScreenerView({
   );
   const conditions = leafCount(filter);
 
-  // URL state: a screen is a link.
+  // URL state: a screen is a link. `history.replaceState`, not
+  // `router.replace`: the router would re-render the server page — and re-run
+  // the screen server-side — on every edit, when the client already has the
+  // answer. Next keeps its router in sync with native history updates.
+  const preset = presetId === null ? null : (presetById.get(presetId) ?? null);
+  const defaultSort = preset?.sort ?? 'rsRank:desc';
+  const defaultColumns = meta.defaultColumns.join(',');
+  const asOf = initial.asOf;
   useEffect(() => {
     const qs = new URLSearchParams();
     if (presetId !== null) qs.set('p', presetId);
     else if (filter !== null) qs.set('f', encodeFilter(filter));
     if (universe !== 'all') qs.set('u', universe);
-    const preset = presetId === null ? null : presetById.get(presetId);
-    if (sort !== (preset?.sort ?? 'rsRank:desc')) qs.set('s', sort);
-    if (columns.join(',') !== meta.defaultColumns.join(',')) qs.set('c', columns.join(','));
-    if (initial.asOf !== null) qs.set('a', initial.asOf);
+    if (sort !== defaultSort) qs.set('s', sort);
+    if (columns.join(',') !== defaultColumns) qs.set('c', columns.join(','));
+    if (asOf !== null) qs.set('a', asOf);
     const next = `/screener${qs.size === 0 ? '' : `?${qs.toString()}`}`;
-    router.replace(next as Route, { scroll: false });
-  }, [
-    presetId,
-    filter,
-    universe,
-    sort,
-    columns,
-    router,
-    presetById,
-    meta.defaultColumns,
-    initial.asOf,
-  ]);
+    if (`${window.location.pathname}${window.location.search}` !== next) {
+      window.history.replaceState(window.history.state, '', next);
+    }
+  }, [presetId, filter, universe, sort, columns, defaultSort, defaultColumns, asOf]);
 
   // Debounced queries: results whenever anything changes; counts when the
   // filter or universe does. The previous request is aborted, so a slow answer
@@ -214,6 +214,7 @@ export function ScreenerView({
   const editGroup = useCallback((next: FilterGroup) => {
     setGroup(next);
     setPresetId(null);
+    setEdited(true);
     setOffset(0);
   }, []);
 
@@ -222,6 +223,7 @@ export function ScreenerView({
     if (preset === undefined) return;
     setGroup(asGroup(preset.filter));
     setPresetId(id);
+    setEdited(false);
     setScreenName(preset.label);
     setSort(preset.sort);
     setOffset(0);
@@ -231,6 +233,7 @@ export function ScreenerView({
   const loadSaved = (screen: SavedScreenDto) => {
     setGroup(asGroup(screen.filter));
     setPresetId(null);
+    setEdited(false);
     setScreenName(screen.name);
     setSort(screen.sort);
     setColumns([...screen.columns]);
@@ -311,7 +314,7 @@ export function ScreenerView({
               stock.
             </PageDescription>
           </PageHeading>
-          <PageActions className="flex-wrap">
+          <PageActions className="w-full min-w-0 flex-wrap sm:w-auto">
             {result.tradingDate !== null && (
               <span
                 className={cn(
@@ -358,6 +361,7 @@ export function ScreenerView({
                 });
                 setSaved((s) => [screen, ...s]);
                 setScreenName(screen.name);
+                setEdited(false);
                 setNotice(`Saved “${screen.name}”.`);
               }}
             />
@@ -429,6 +433,11 @@ export function ScreenerView({
                   </span>
                   <h2 className="truncate font-semibold text-base">
                     {screenName ?? (filter === null ? 'All stocks' : 'Custom screen')}
+                    {edited && screenName !== null && (
+                      <span className="ml-2 align-middle font-normal text-2xs text-muted-foreground">
+                        edited
+                      </span>
+                    )}
                   </h2>
                 </div>
                 <Button

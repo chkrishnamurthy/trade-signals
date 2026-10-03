@@ -1,7 +1,7 @@
 import { METRIC_KEYS } from '@equitywise/core';
 import { PgDialect } from 'drizzle-orm/pg-core';
 import { describe, expect, it } from 'vitest';
-import { compileFilter, snapshotHasColumn } from './screener.js';
+import { compileFilter, snakeCase, snapshotHasColumn } from './screener.js';
 
 const dialect = new PgDialect({ casing: 'snake_case' });
 const render = (node: Parameters<typeof compileFilter>[0]) =>
@@ -11,6 +11,29 @@ describe('screener snapshot table', () => {
   it('has a column for every catalogue metric', () => {
     const missing = METRIC_KEYS.filter((key) => !snapshotHasColumn(key));
     expect(missing).toEqual([]);
+  });
+});
+
+describe('snakeCase', () => {
+  it('matches the column names the migration created', () => {
+    // Every pair below is a real column in 0032_stock_analysis.sql.
+    expect(snakeCase('buildId')).toBe('build_id');
+    expect(snakeCase('dist52wHigh')).toBe('dist52w_high');
+    expect(snakeCase('rsiAbove60Days')).toBe('rsi_above60_days');
+    expect(snakeCase('ret1w')).toBe('ret1w');
+    expect(snakeCase('avgVolume20')).toBe('avg_volume20');
+  });
+
+  it('agrees with drizzle for every snapshot column', () => {
+    const dialect2 = new PgDialect({ casing: 'snake_case' });
+    for (const key of METRIC_KEYS) {
+      const rendered = dialect2.sqlToQuery(
+        compileFilter({ metric: key, cmp: 'gt', value: 0 } as never),
+      ).sql;
+      if (rendered.includes('"screener_snapshots"')) {
+        expect(rendered).toContain(`"screener_snapshots"."${snakeCase(key)}"`);
+      }
+    }
   });
 });
 

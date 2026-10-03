@@ -88,13 +88,18 @@ export function AppShell({
                 search box and the theme toggle together outrun a 390px
                 viewport, and a header that cannot shrink widens the whole
                 document — the page then scrolls sideways under the user. */}
-            <Brand href="/today" className="shrink-0 sm:hidden" showWordmark={false} />
-            <Brand href="/today" className="hidden shrink-0 sm:flex" />
+            <Brand
+              href="/today"
+              className="shrink-0 sm:hidden xl:flex 2xl:hidden"
+              showWordmark={false}
+            />
+            <Brand href="/today" className="hidden shrink-0 sm:flex xl:hidden 2xl:flex" />
 
             {/* Primary destinations. A single row of names — the whole point of
                 the redesign — so the app announces where you can go instead of
-                hiding it behind icons. Six names, the search box and the theme
-                toggle need 1280px; below that the menu button opens them. */}
+                hiding it behind icons. Eight names, the search box and the theme
+                toggle need 1280px with the brand reduced to its mark (the full
+                wordmark returns at 2xl); below that the menu button opens them. */}
             <nav aria-label="Primary" className="hidden items-center gap-0.5 xl:flex">
               {PRIMARY_NAV.map((item) => (
                 <NavLink key={item.href} item={item} />
@@ -103,7 +108,7 @@ export function AppShell({
 
             <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-2 sm:flex-none sm:gap-3">
               {/* Fills whatever the phone header has left; fixed only from `sm` up. */}
-              <div className="min-w-0 flex-1 sm:w-52 sm:flex-none xl:w-44 2xl:w-64">
+              <div className="min-w-0 flex-1 sm:w-52 sm:flex-none xl:w-36 2xl:w-56">
                 <StockSearch onSelect={handleSearchSelect} />
               </div>
               <ThemeToggle />
@@ -169,8 +174,8 @@ function NavLink({
       aria-current={active ? 'page' : undefined}
       className={cn(
         'flex items-center gap-2 rounded-md font-medium transition-colors',
-        // In the bar between `xl` and `2xl` the row is tight: labels stay on
-        // one line and drop their icons, so the account menu stays on screen.
+        // In the bar the row is tight: labels stay on one line and carry no
+        // icon at any width, so all eight fit with the account menu on screen.
         variant === 'drawer'
           ? 'px-3 py-2.5 text-sm'
           : 'whitespace-nowrap px-2 py-1.5 text-sm 2xl:px-3',
@@ -179,10 +184,7 @@ function NavLink({
           : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground',
       )}
     >
-      <Icon
-        className={cn('size-4 shrink-0', variant === 'bar' && 'hidden 2xl:block')}
-        aria-hidden
-      />
+      <Icon className={cn('size-4 shrink-0', variant === 'bar' && 'hidden')} aria-hidden />
       {item.label}
     </Link>
   );

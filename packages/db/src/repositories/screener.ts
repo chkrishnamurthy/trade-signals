@@ -57,6 +57,11 @@ function column(key: string): PgColumn {
   return col;
 }
 
+/** camelCase → snake_case, matching drizzle's `casing: 'snake_case'`. */
+export function snakeCase(key: string): string {
+  return key.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase();
+}
+
 /** Every catalogue key must be a column; exported so a unit test can assert it. */
 export function snapshotHasColumn(key: string): boolean {
   return COLUMNS[key] !== undefined;
@@ -488,9 +493,10 @@ export async function upsertScreenerSnapshots(
 ): Promise<number> {
   let written = 0;
   const updatable = Object.keys(COLUMNS).filter((k) => k !== 'tradingDate' && k !== 'instrumentId');
-  const set = Object.fromEntries(
-    updatable.map((k) => [k, sql.raw(`excluded."${column(k).name}"`)]),
-  );
+  // Drizzle applies snake_case when it builds a query, so a raw `excluded."…"`
+  // reference must be converted here the same way (`buildId` → `build_id`,
+  // `dist52wHigh` → `dist52w_high`).
+  const set = Object.fromEntries(updatable.map((k) => [k, sql.raw(`excluded."${snakeCase(k)}"`)]));
   for (let i = 0; i < rows.length; i += SNAPSHOT_CHUNK) {
     const chunk = rows.slice(i, i + SNAPSHOT_CHUNK);
     if (chunk.length === 0) continue;

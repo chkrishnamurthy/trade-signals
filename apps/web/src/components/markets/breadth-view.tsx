@@ -171,7 +171,7 @@ export function BreadthView({ data }: { data: MarketBreadthDto }) {
                 <Tile
                   label="Delivery spikes"
                   value={
-                    data.leaders.delivery.length === 0 ? '—' : `${data.leaders.delivery.length}+`
+                    data.deliverySpikes === null ? '—' : data.deliverySpikes.toLocaleString('en-IN')
                   }
                   hint="≥ 1.5× average, up on volume"
                   href={screenHref(
