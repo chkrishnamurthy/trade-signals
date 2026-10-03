@@ -7,6 +7,7 @@ that is proposed or in progress but not yet built.
 | --- | --- |
 | [pending-features.md](pending-features.md) | The authoritative backlog — what is built, built-but-unwired, and declared-but-absent, ordered by cost-to-value |
 | [announcement-interpretation-sources.md](announcement-interpretation-sources.md) | Announcement interpretation feasibility: best free sources, FYERS capabilities, reuse rights, existing implementation gaps and staged delivery |
+| [company-research-implementation-plan.md](company-research-implementation-plan.md) | **Ready for provider spike, 2026-10-03.** Repository audit, provider/licensing research, feasibility limits, architecture, data model and phased implementation plan for `/stocks/[symbol]` company research |
 | [signals-page-plan.md](signals-page-plan.md) | **Superseded 2026-09-17** by the intraday strategy plan below. Design history of the removed `/signals` page (Confirmed VWAP Trend Pullback) |
 | [authentication-plan.md](authentication-plan.md) | First-party **multi-user** authentication architecture (self-hosted, per-user isolation, Resend email) — supersedes the Better Auth plan |
 | [market-data-scaling-plan.md](market-data-scaling-plan.md) | Serving many users from one Fyers account — the fan-in plan (users read from our DB; only the worker calls Fyers). To be done after auth, before public traffic |
