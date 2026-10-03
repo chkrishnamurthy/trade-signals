@@ -345,8 +345,8 @@ const DEFINITIONS: Readonly<Record<MetricKey, Def>> = {
   publicChgQoq: { label: 'Public holding QoQ', category: 'ownership', unit: 'pp', decimals: 2, description: 'Change in public holding vs the previous quarter.' },
   promoterStreak: { label: 'Promoter holding streak', category: 'ownership', unit: 'count', decimals: 0, description: 'Consecutive quarters of promoter increase (positive) or decrease (negative).' },
 
-  bulkDeals20d: { label: 'Bulk deals (20 sessions)', category: 'events', unit: 'count', decimals: 0, description: 'Bulk deals reported in the last 20 sessions.' },
-  blockDeals20d: { label: 'Block deals (20 sessions)', category: 'events', unit: 'count', decimals: 0, description: 'Block deals reported in the last 20 sessions.' },
+  bulkDeals20d: { label: 'Bulk deals (4 weeks)', category: 'events', unit: 'count', decimals: 0, description: 'Bulk deals reported in the last 4 weeks.' },
+  blockDeals20d: { label: 'Block deals (4 weeks)', category: 'events', unit: 'count', decimals: 0, description: 'Block deals reported in the last 4 weeks.' },
   resultsInDays: { label: 'Results board meeting in', category: 'events', unit: 'days', description: 'Days until the next board meeting to consider results (within 30).' },
   exDateInDays: { label: 'Ex-date in', category: 'events', unit: 'days', description: 'Days until the next ex-date (within 30).' },
   announcements7d: { label: 'Announcements (7 days)', category: 'events', unit: 'count', decimals: 0, description: 'Corporate announcements filed in the last 7 days.' },

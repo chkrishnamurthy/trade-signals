@@ -281,6 +281,21 @@ export const API_ROUTES = {
   adminIpoHealth: '/api/admin/ipos/health',
 
   // ---------------------------------------------------------------------------
+  // Screener (/api/screener/*) — reads the worker-built snapshot only
+  // ---------------------------------------------------------------------------
+
+  /** POST /api/screener/run — one page of a screen. */
+  screenerRun: '/api/screener/run',
+  /** POST /api/screener/counts — per-condition and cumulative match counts. */
+  screenerCounts: '/api/screener/counts',
+  /** GET /api/screener/meta — catalogue, presets, sessions, watchlists. */
+  screenerMeta: '/api/screener/meta',
+  /** GET/POST /api/screener/screens — the caller's saved screens. */
+  screenerScreens: '/api/screener/screens',
+  /** PATCH/DELETE /api/screener/screens/{id}. */
+  screenerScreen: (id: number): string => `/api/screener/screens/${id}`,
+
+  // ---------------------------------------------------------------------------
   // Market Data Provider Handshake (Fyers OAuth)
   // ---------------------------------------------------------------------------
 
