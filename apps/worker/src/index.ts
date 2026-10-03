@@ -37,6 +37,15 @@ import { createIntradayJobs } from './jobs/intraday-orb.js';
 import { marketCalendarSync } from './jobs/market-calendar-sync.js';
 import { createPaperJobs } from './jobs/paper.js';
 import { refreshProviderCredential } from './jobs/refresh-credential.js';
+import {
+  backfillStockAnalysis,
+  buildScreenerSnapshot,
+  runStockAnalysisEod,
+  stockAnalysisBackfillDone,
+  sweepShareholding,
+  syncCorporateActions,
+  syncReferenceUniverse,
+} from './jobs/stock-analysis.js';
 import { createLogger, errorFields } from './log.js';
 import { createScheduler, type Scheduler } from './scheduler.js';
 import { loadIpoSourcesConfig } from './sources/ipo/config.js';
@@ -111,6 +120,17 @@ const SCHEDULES = {
    * upsert makes the repeat harmless.
    */
   ingestDelivery: '10 19,20 * * 1-5',
+  /**
+   * Stock analysis (docs/planning/screener-dhan-fyers-plan.md §10). The equity
+   * list and index files before the open; corporate actions after them, so a
+   * new listing resolves; tonight's bhavcopy → candles → snapshot + breadth
+   * after the delivery file (re-run at 21:25 in case NSE publishes late).
+   */
+  referenceUniverseSync: '30 8 * * 1-5',
+  corporateActionsSync: '40 8 * * 1-5',
+  stockAnalysisEod: '25 19,21 * * 1-5',
+  /** 300 stocks a weekday: the whole universe's shareholding in about a week. */
+  shareholdingSweep: '20 6 * * 1-5',
   ingestParticipantOi: '20 19,20 * * 1-5',
   /** Shareholding changes quarterly; a weekly sweep is ample. */
   ingestShareholding: '15 6 * * 6',
@@ -319,6 +339,61 @@ function buildScheduler(context: WorkerContext): Jobs {
         schedule: SCHEDULES.ingestDeals,
         run: async () => {
           await ingestDeals(context, log.child('ingest-deals'));
+        },
+      },
+      {
+        name: 'reference-universe-sync',
+        schedule: SCHEDULES.referenceUniverseSync,
+        run: async () => {
+          await syncReferenceUniverse(context, log.child('reference-universe-sync'));
+        },
+      },
+      {
+        name: 'corporate-actions-sync',
+        schedule: SCHEDULES.corporateActionsSync,
+        run: async () => {
+          await syncCorporateActions(context, log.child('corporate-actions-sync'));
+        },
+      },
+      {
+        name: 'stock-analysis-eod',
+        schedule: SCHEDULES.stockAnalysisEod,
+        run: async () => {
+          await runStockAnalysisEod(context, log.child('stock-analysis-eod'), {
+            // Watchlists read daily_indicators; refresh them on tonight's bars.
+            afterBars: async () => {
+              await computeIndicators(context, log.child('stock-analysis-indicators'));
+            },
+          });
+        },
+      },
+      {
+        name: 'shareholding-sweep',
+        schedule: SCHEDULES.shareholdingSweep,
+        run: async () => {
+          await sweepShareholding(context, log.child('shareholding-sweep'));
+        },
+      },
+      {
+        // The first-run history load: reference, two years of bhavcopy bars and
+        // corporate actions, then a snapshot. Resumable. Never scheduled; the
+        // worker triggers it on start until it has completed once.
+        name: 'backfill-stock-analysis',
+        schedule: '0 0 31 2 *',
+        run: async () => {
+          await backfillStockAnalysis(context, log.child('backfill-stock-analysis'), {
+            afterBars: async () => {
+              await computeIndicators(context, log.child('backfill-stock-analysis-indicators'));
+            },
+          });
+        },
+      },
+      {
+        // Rebuild the latest snapshot by hand (`--once build-screener-snapshot`).
+        name: 'build-screener-snapshot',
+        schedule: '0 0 31 2 *',
+        run: async () => {
+          await buildScreenerSnapshot(context, log.child('build-screener-snapshot'));
         },
       },
       {
@@ -627,6 +702,18 @@ async function main(): Promise<void> {
       await jobs.scheduler.trigger('backfill-ipo-rhp');
     } catch (error) {
       log.warn('ipo history load could not start', errorFields(error));
+    }
+  })();
+
+  // Stock analysis: until the two-year history load has completed once, run it
+  // on start (paced NSE file downloads, roughly half an hour). Not awaited.
+  void (async () => {
+    try {
+      if (await stockAnalysisBackfillDone(context)) return;
+      log.info('stock-analysis history not loaded; loading it once');
+      await jobs.scheduler.trigger('backfill-stock-analysis');
+    } catch (error) {
+      log.warn('stock-analysis history load could not start', errorFields(error));
     }
   })();
 

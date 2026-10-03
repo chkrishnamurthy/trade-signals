@@ -19,6 +19,7 @@ import {
 import { istDateKey } from '@equitywise/shared';
 import type { WorkerContext } from '../context.js';
 import { errorFields, type Logger } from '../log.js';
+import { loadUniverse } from '../universe.js';
 
 /**
  * End-of-day indicator and signal pass.
@@ -65,7 +66,16 @@ export async function computeIndicators(
   );
 
   const active = await listActiveInstruments(db, 'equity');
-  log.info('starting', { instruments: active.length, strategyVersionId });
+  // Indicators cover every active equity (the watchlist reads them); signals
+  // stay on the configured universe (config/indices.yaml) they were designed
+  // and validated for — widening the instrument table must not silently
+  // widen what the admin-only signal engine scores.
+  const signalUniverse = new Set((await loadUniverse()).map((entry) => entry.symbol));
+  log.info('starting', {
+    instruments: active.length,
+    signalUniverse: signalUniverse.size,
+    strategyVersionId,
+  });
 
   const rows: IndicatorUpsert[] = [];
   const skipped: string[] = [];
@@ -99,6 +109,7 @@ export async function computeIndicators(
 
       // The engine sees exactly the same bars, so the stored signal and the
       // stored indicators can never describe different inputs.
+      if (!signalUniverse.has(instrument.symbol)) continue;
       const report = evaluateSignals(bars, DEFAULT_STRATEGY);
       if (!report.insufficientData) {
         await saveSignal(db, {

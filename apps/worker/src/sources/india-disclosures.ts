@@ -256,7 +256,7 @@ export function splitCsvLine(line: string): string[] {
  * bhavdata cell with a leading space, so trimming both is the difference
  * between a working parser and one that finds no columns.
  */
-function csvRecords(csv: string, headerLine = 0): Record<string, string>[] {
+export function csvRecords(csv: string, headerLine = 0): Record<string, string>[] {
   const lines = csv.split(/\r?\n/);
   const header = splitCsvLine(lines[headerLine] ?? '').map((h) => h.trim());
   const out: Record<string, string>[] = [];
@@ -274,7 +274,7 @@ function csvRecords(csv: string, headerLine = 0): Record<string, string>[] {
 }
 
 /** A numeric cell; `-`, blank and non-numbers are null, never 0. */
-function cellNumber(value: string | undefined): number | null {
+export function cellNumber(value: string | undefined): number | null {
   if (value === undefined) return null;
   const cleaned = value.replace(/,/g, '').trim();
   if (cleaned === '' || cleaned === '-') return null;
