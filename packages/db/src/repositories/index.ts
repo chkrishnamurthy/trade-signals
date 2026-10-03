@@ -228,6 +228,7 @@ export {
   getIpoById,
   getIpoBySlug,
   gmpTrackRows,
+  hasIpoIssues,
   insertGmpSnapshots,
   insertSubscriptionSnapshot,
   ipoDetailParts,

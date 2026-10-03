@@ -1,4 +1,4 @@
-import { withRetry } from '@equitywise/db';
+import { hasIpoIssues, withRetry } from '@equitywise/db';
 import { config as loadEnv } from 'dotenv';
 import { createContext, type WorkerContext } from './context.js';
 import { authMaintenance } from './jobs/auth-maintenance.js';
@@ -140,10 +140,11 @@ const SCHEDULES = {
    */
   ingestIpoGmp: '15 10,15,20 * * *',
   /**
-   * Reads sections out of new RHPs, half an hour after each detail pass has
-   * found the links. Two documents a run at most; usually there are none.
+   * Reads sections out of new RHPs, half an hour after each detail pass (and
+   * after the midday calendar pass, which fetches new issues' detail). Three
+   * documents a run at most, recent issues only; usually there are none.
    */
-  extractIpoRhp: '20 8,18 * * 1-6',
+  extractIpoRhp: '20 8,13,18 * * 1-6',
   /** SEBI's filings list (DRHPs): one page twice a day covers its few filings a day. */
   ingestSebiFilings: '45 9,19 * * 1-6',
   /** Refresh the versioned user-facing event calendar after the session calendar. */
@@ -595,6 +596,22 @@ async function main(): Promise<void> {
   scheduler = jobs.scheduler;
   feed = jobs.feed;
   log.info('worker running; ctrl-c to stop');
+
+  // IPO first run: an empty IPO store (a fresh deploy) loads its history once
+  // rather than waiting for someone to run `--once backfill-ipos`, then reads
+  // GMP so the dashboard is whole. Not awaited — the backfill is paced and
+  // takes 30–45 minutes; the scheduler's guard keeps each job from running
+  // twice at once. A store that already has issues is left to the schedules.
+  void (async () => {
+    try {
+      if (await hasIpoIssues(context.db)) return;
+      log.info('no IPOs stored yet; running the IPO backfill once');
+      await jobs.scheduler.trigger('backfill-ipos');
+      await jobs.scheduler.trigger('ingest-ipo-gmp');
+    } catch (error) {
+      log.warn('ipo first-run backfill failed', errorFields(error));
+    }
+  })();
 
   // Restart recovery (plan §9.3): today's session row, then — if the session
   // is under way — the socket, a decision pass for intents still inside their

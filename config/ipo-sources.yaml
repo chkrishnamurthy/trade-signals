@@ -103,7 +103,10 @@ rhp:
   hosts:
     nseindia.com: nse
     bseindia.com: bse
-  maxDocumentsPerRun: 2
+  maxDocumentsPerRun: 3
+  # Only issues that opened in the last 60 days (or have no dates yet). A
+  # backfill finds hundreds of past RHPs; those stay links, not downloads.
+  recentDays: 60
   maxBytes: 62914560 # 60 MB per download and per unzipped PDF
   maxPages: 1500
   maxAttempts: 3

@@ -7,7 +7,7 @@ How `/ipos` gets its data, and what to do when it goes wrong. Design and decisio
 
 | Source | Kind | What it supplies | Config |
 | --- | --- | --- | --- |
-| NSE (`www.nseindia.com/api/*`, `nsearchives.nseindia.com`) | Official exchange | Calendar, past issues, issue detail, consolidated subscription, new listings (ISIN), listing-day prices (bhavcopy) | `config/ipo-sources.yaml` → `sources.nse` |
+| NSE (`www.nseindia.com/api/*`, `nsearchives.nseindia.com`) | Official exchange | Calendar, past issues, issue detail, consolidated subscription (mainboard: `ipo-active-category`; SME: the detail payload's `bidDetails` + `demandGraphALL`), new listings (ISIN), listing-day prices (bhavcopy) | `config/ipo-sources.yaml` → `sources.nse` |
 | BSE (`api.bseindia.com`) | Official exchange | BSE-only SME issues and BSE-side facts | `sources.bse` |
 | SEBI (`www.sebi.gov.in`) | Regulator | DRHPs and their addenda filed before an issue is scheduled | `sources.sebi` |
 | InvestorGain (`www.investorgain.com`) | **Aggregator** | The **unofficial** GMP only | `sources.investorgain` |
@@ -35,9 +35,9 @@ uses the browser string. Every other source sends
 | `ingest-ipo-subscriptions-final` | 19:05 Mon–Fri, trading days only | `ipo-nse-subscription` |
 | `ingest-ipo-listings` | 19:25, 20:25 Mon–Fri | `ipo-nse-listing` |
 | `ingest-ipo-gmp` | 10:15, 15:15, 20:15 daily | `ipo-investorgain-gmp` |
-| `extract-ipo-rhp` | 08:20, 18:20 Mon–Sat | `ipo-nse-rhp` (`ipo-bse-rhp`) |
+| `extract-ipo-rhp` | 08:20, 13:20, 18:20 Mon–Sat | `ipo-nse-rhp` (`ipo-bse-rhp`) |
 | `ingest-sebi-filings` | 09:45, 19:45 Mon–Sat | `ipo-sebi-filings` |
-| `backfill-ipos` | on demand only | (runs the calendar, detail and listing steps) |
+| `backfill-ipos` | on demand, and once on worker start when no issue is stored | (runs the calendar, detail and listing steps) |
 
 Health is visible at **`/admin/ipos`** (admin only): every feed's last success, last
 attempt and error; observations no issue claims; and official-source conflicts.
@@ -55,11 +55,37 @@ Every job is idempotent: a re-run only bumps `last_seen_at` on unchanged observa
 ## First deploy
 
 1. The migrations run through `deploy.sh`: `0027_ipos.sql` (six tables, append-only and
-   freeze triggers), `0028_ipo_rhp_extracts.sql` and `0029_ipo_sebi_filings.sql`.
-2. Run the backfill once: `--once backfill-ipos`. It loads ~24 months of past issues,
-   their detail pages and listing days at one request every 3 s, under a 900-request
-   budget — expect 30–45 minutes. Re-running it continues where it stopped.
-3. Watch `/admin/ipos` for a day.
+   freeze triggers), `0028_ipo_rhp_extracts.sql`, `0029_ipo_sebi_filings.sql` and
+   `0030_ipo_data_repair.sql` (data only — see "Repairs" below).
+2. The backfill runs **by itself**: when the worker starts and finds no issue stored, it
+   runs `backfill-ipos` once in the background, then `ingest-ipo-gmp`. It loads ~24
+   months of past issues, their detail pages and listing days at one request every 3 s,
+   under a 900-request budget — expect 30–45 minutes (`ipo backfill finished` in the
+   worker log). If a restart cuts it short, run `--once backfill-ipos` by hand: it
+   continues where it stopped.
+3. Watch `/admin/ipos` for a day. Its feed health is also the check that NSE answers
+   the VPS's IP address (plan Phase 0): a green `ipo-nse-calendar` means it does.
+
+## Repairs (2026-10-03)
+
+`0030_ipo_data_repair.sql` cleans rows written before the parser fixes of 2026-10-03.
+It is idempotent and a no-op on a fresh database:
+
+- **Withdrawal windows.** NSE's past list carries `- Withdrawal Window` /
+  `-Special Withdrawal Option` rows: windows for bidders to withdraw from an existing
+  issue, not issues. The parser now skips them; the migration deletes their stored
+  observations and any issue only such a row created.
+- **Status in the name.** NSE writes `-Issue Withdrawn` / `-Issue postponed` into some
+  past rows' names. The parser now strips it into the status, so the next calendar run
+  marks the issue withdrawn or postponed and corrects its name; the migration cleans
+  the slug where the clean one is free (a company that came back later the same year
+  keeps the clean slug for its later issue).
+- **SME subscription.** NSE's category endpoint reports 0 shares offered for every SME
+  category and leaves out the individual investors; the job now reads the detail
+  payload's complete book instead. The migration drops the incomplete SME readings;
+  the detail job (issues closed in the last 30 days) and the subscription job refill
+  them. On SME only the total has a ratio — NSE publishes no SME issue's shares per
+  category.
 
 ## Switching a source off
 
@@ -71,7 +97,7 @@ takedown request from a source.**
 
 ## RHP extraction
 
-`extract-ipo-rhp` reads up to `rhp.maxDocumentsPerRun` (2) new RHPs a run, newest
+`extract-ipo-rhp` reads up to `rhp.maxDocumentsPerRun` (3) new RHPs a run (08:20, 13:20 and 18:20 IST, Mon–Sat) for issues that opened in the last `rhp.recentDays` (60) days, newest
 issues first: download (zip or PDF, capped at `rhp.maxBytes`), unzip, pdf.js text
 (capped at `rhp.maxPages`), then the pure extractor in
 `packages/core/src/ipos/rhp.ts`. A 550-page RHP takes about 3 s. What it can read with

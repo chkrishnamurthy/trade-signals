@@ -132,9 +132,11 @@ export function dayLabel(dateKey: string, today: string): string {
 
 const CLOSED_CHIP: Readonly<Record<IpoClosedStage, string>> = {
   allotment_pending: 'Allotment pending',
-  allotment_done: 'Allotment out',
+  // The T+1 day has come; no source confirms allotment, so it is "due", not "out".
+  allotment_done: 'Allotment due',
   listing_pending: 'Listing next',
-  listing_unconfirmed: 'No listing reported',
+  // NSE's past-issue list says no listing date well past T+3: often a BSE-only listing.
+  listing_unconfirmed: 'Not listed on NSE',
 };
 
 /**

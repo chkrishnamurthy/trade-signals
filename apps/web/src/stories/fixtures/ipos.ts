@@ -49,6 +49,7 @@ const base = (
   priceBand: null,
   issuePricePaise: null,
   lotSize: null,
+  minApplicationLots: over.board === 'sme' ? 2 : 1,
   minInvestmentPaise: null,
   issueSizePaise: null,
   issueSizeBasis: null,
@@ -117,10 +118,10 @@ export const EVENTIONS = base({
   issueSizePaise: 3_811_872_000,
   issueSizeBasis: 'derived_at_upper_band',
   subscription: {
-    scope: 'nse',
+    scope: 'consolidated',
     asOf: '2026-10-01T11:30:00.000Z',
     totalTimes: 1.75,
-    retailTimes: 2.4,
+    retailTimes: null,
   },
 });
 
@@ -135,7 +136,8 @@ export const RKFAL = base({
   expectedListingDate: '2026-10-12',
   priceBand: { lowPaise: 7_700, highPaise: 8_200 },
   lotSize: 1_600,
-  minInvestmentPaise: 13_120_000,
+  // Two lots: 2 × 1,600 × ₹82.
+  minInvestmentPaise: 26_240_000,
   issueSizePaise: 3_499_104_000,
   issueSizeBasis: 'derived_at_upper_band',
 });
@@ -735,6 +737,7 @@ export const DETAIL_VNL: IpoDetailDto = {
   gmpTrackRecord: {
     official: false,
     months: 12,
+    board: 'mainboard',
     tolerancePoints: 10,
     total: 4,
     within: 2,

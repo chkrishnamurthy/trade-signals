@@ -21,6 +21,10 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# Start from empty even when a container is already up (e.g. after
+# `pnpm test:db:up`): the DB suites assume a fresh database, and reusing one
+# reads rows an earlier run left behind.
+cleanup
 docker compose -f docker-compose.test.yml up -d --wait
 
 pnpm vitest run "$@"

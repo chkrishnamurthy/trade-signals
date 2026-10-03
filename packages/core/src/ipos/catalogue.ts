@@ -58,3 +58,38 @@ export function isAllowedHost(url: string, hosts: readonly string[]): boolean {
   const host = parsed.hostname.toLowerCase();
   return hosts.some((allowed) => host === allowed || host.endsWith(`.${allowed}`));
 }
+
+const LOWER_WORDS = new Set(['of', 'and', 'the', 'for', 'in', 'on', 'to', 'at', 'by', 'with']);
+const LEGAL_FORMS: Readonly<Record<string, string>> = {
+  limited: 'Limited',
+  ltd: 'Ltd',
+  private: 'Private',
+  pvt: 'Pvt',
+  co: 'Co',
+  corp: 'Corp',
+  inc: 'Inc',
+  llp: 'LLP',
+};
+
+/**
+ * An ALL-CAPS company name (`JAGATJIT AGRI ENGINEERING LIMITED`, as SEBI and
+ * some exchange feeds publish it) in readable case. A name with any lowercase
+ * letter is returned unchanged — its case is the source's own. Words without
+ * a vowel (`JSW`, `MRF`) and one- or two-letter words (`IT`, `JK`) stay
+ * capitals, since they are usually initials; words with digits are untouched.
+ */
+export function readableCompanyName(name: string): string {
+  if (/\p{Ll}/u.test(name)) return name;
+  let first = true;
+  return name.replace(/[A-Za-z][A-Za-z']*(?:\d[A-Za-z\d]*)?/g, (word) => {
+    const isFirst = first;
+    first = false;
+    if (/\d/.test(word)) return word;
+    const lower = word.toLowerCase();
+    const legal = LEGAL_FORMS[lower];
+    if (legal !== undefined) return legal;
+    if (!isFirst && LOWER_WORDS.has(lower)) return lower;
+    if (word.length <= 2 || !/[aeiouy]/.test(lower)) return word;
+    return lower.charAt(0).toUpperCase() + lower.slice(1);
+  });
+}

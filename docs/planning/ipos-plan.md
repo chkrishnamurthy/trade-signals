@@ -19,8 +19,18 @@ owner: krishna
 request). Phases 1–8, 10 and 11 are complete in code with tests; the UI was redesigned from
 owner-approved mockups and checked in the running app. The migrations ship as
 `0027_ipos`, `0028_ipo_rhp_extracts` and `0029_ipo_sebi_filings` (renumbered after
-`0026_market_calendar`). Still open: the VPS check (Phase 0). BSE is built but
-`enabled: false` until the owner extends D2 to BSE.
+`0026_market_calendar`). Still open: the VPS check (Phase 0) — `/admin/ipos` feed health
+answers it once the worker runs on the VPS. BSE is built but `enabled: false` until the
+owner extends D2 to BSE.
+**Review fixes (2026-10-03, `0030_ipo_data_repair`):** SME subscription now reads the
+detail payload's complete book (the category endpoint drops individual investors and
+states 0 offered); SME applications are priced at SEBI's two-lot minimum (March 2025)
+with SME investment limits; a passed T+3 day reads "due"/"expected", never "out"/"done";
+an issue NSE never lists reads "Not listed on NSE" with the reason; withdrawn/postponed
+status is read from NSE's name suffixes and withdrawal-window rows are skipped; ALL-CAPS
+names read in readable case; the GMP track record compares the issue's own board; RHP
+extraction covers issues opened in the last 60 days, three a run, three runs a day; and
+an empty store backfills itself on worker start. See the runbook's "Repairs".
 **Owner decisions (2026-10-02):** **GMP must be shown** (D1). NSE is fetched with a browser
 User-Agent (D2). `/ipos` is for **signed-in users** (D3), **every** user rather than admins only (D4).
 **There are no versions.** All phases 0–11 are built in one go, including BSE and RHP extraction (D5),

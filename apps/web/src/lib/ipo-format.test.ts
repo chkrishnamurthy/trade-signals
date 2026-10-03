@@ -34,6 +34,7 @@ const item = (over: Partial<IpoListItemDto>): IpoListItemDto => ({
   priceBand: null,
   issuePricePaise: null,
   lotSize: null,
+  minApplicationLots: 1,
   minInvestmentPaise: null,
   issueSizePaise: null,
   issueSizeBasis: null,
@@ -83,7 +84,7 @@ describe('statusParts and stateLabel', () => {
       expectedListingDate: '2026-10-06',
     });
     expect(statusParts(awaiting, today)).toEqual({
-      chip: 'Allotment out',
+      chip: 'Allotment due',
       note: 'lists Tue 6 Oct*',
       tone: 'waiting',
     });
@@ -103,7 +104,7 @@ describe('statusParts and stateLabel', () => {
     });
     expect(
       statusParts(item({ status: 'closed', closedStage: 'listing_unconfirmed' }), today),
-    ).toEqual({ chip: 'No listing reported', note: null, tone: 'inactive' });
+    ).toEqual({ chip: 'Not listed on NSE', note: null, tone: 'inactive' });
     expect(stateLabel(item({ status: 'upcoming', openDate: null }), today).label).toBe(
       'Dates not announced',
     );

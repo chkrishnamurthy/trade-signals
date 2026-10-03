@@ -859,6 +859,12 @@ export async function listIposAround(
     .orderBy(asc(ipoIssues.openDate));
 }
 
+/** True once any issue is stored — false on a fresh database. */
+export async function hasIpoIssues(db: Database): Promise<boolean> {
+  const rows = await db.select({ id: ipoIssues.id }).from(ipoIssues).limit(1);
+  return rows.length > 0;
+}
+
 /** The years that have issues on a board, newest first. */
 export async function listIpoYears(db: Database, board?: IpoBoard): Promise<number[]> {
   const rows = await db
@@ -1098,6 +1104,8 @@ export async function listRhpDocumentsToExtract(
      * fetch never fill the batch ahead of ones that can be read.
      */
     readonly hosts: readonly string[];
+    /** Only issues that opened on or after this IST day, or have no open date yet. */
+    readonly openedSince?: string;
   },
 ): Promise<RhpWorkRow[]> {
   if (options.hosts.length === 0) return [];
@@ -1129,6 +1137,9 @@ export async function listRhpDocumentsToExtract(
         ),
         sql`${ipoDocuments.extractAttempts} < ${options.maxAttempts}`,
         fetchable,
+        options.openedSince === undefined
+          ? undefined
+          : sql`(${ipoIssues.openDate} IS NULL OR ${ipoIssues.openDate} >= ${options.openedSince}::date)`,
         sql`not exists (
           select 1 from ipo_rhp_extracts e
           where e.ipo_id = ${ipoDocuments.ipoId} and e.extractor_version >= ${options.version}

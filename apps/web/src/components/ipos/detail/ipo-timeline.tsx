@@ -32,8 +32,11 @@ export function IpoTimeline({ ipo, today }: { ipo: IpoDetailDto; today: string }
   const nextIndex = ipo.timeline.findIndex((e) => !e.done);
   const rows: Row[] = ipo.timeline.flatMap((event, i) => {
     const step: Step = event.done ? 'done' : i === nextIndex ? 'next' : 'ahead';
+    // A computed date that has passed is still only expected: no source said it happened.
     const chip = event.done
-      ? 'Done'
+      ? event.expected
+        ? 'Expected'
+        : 'Done'
       : event.date === today
         ? 'Today'
         : event.expected

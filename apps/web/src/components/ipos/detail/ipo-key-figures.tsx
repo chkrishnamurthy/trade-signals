@@ -53,7 +53,16 @@ function sizeHint(size: IpoDetailDto['issueSize']): string | undefined {
  */
 export function IpoKeyFigures({ ipo }: { ipo: IpoDetailDto }) {
   const upper = ipo.priceBand?.highPaise ?? ipo.issuePricePaise;
-  const minQty = ipo.minBidQuantity ?? ipo.lotSize;
+  const lots = ipo.minApplicationLots;
+  const minQty =
+    ipo.minBidQuantity ?? (ipo.lotSize === null ? null : ipo.lotSize * Math.max(1, lots));
+  // A stated minimum order that is not a whole number of lots is called what it is.
+  const minLabel =
+    ipo.minBidQuantity !== null && ipo.minBidQuantity !== (ipo.lotSize ?? 0) * lots
+      ? 'minimum order · '
+      : lots === 1
+        ? '1 lot · '
+        : `${lots} lots · `;
   const gmp = ipo.gmpPanel;
   return (
     <section
@@ -78,7 +87,7 @@ export function IpoKeyFigures({ ipo }: { ipo: IpoDetailDto }) {
         hint={
           minQty === null || upper === null
             ? undefined
-            : `${minQty === ipo.lotSize ? '1 lot · ' : 'minimum order · '}${quantity(minQty)} shares at ${sharePrice(upper)}`
+            : `${minLabel}${quantity(minQty)} shares at ${sharePrice(upper)}`
         }
       />
       <Tile

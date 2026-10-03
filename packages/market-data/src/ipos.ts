@@ -110,7 +110,10 @@ export interface RawIpoDetail {
   readonly marketMaker: string | null;
   readonly sponsorBanks: readonly string[];
   readonly documents: readonly RawIpoDocument[];
-  /** Bids carried on the detail payload itself (NSE: NSE-only bids). */
+  /**
+   * Bids carried on the detail payload itself — NSE mainboard: NSE's own
+   * platform; NSE SME: the consolidated book (see the NSE adapter).
+   */
   readonly subscription: RawIpoSubscription | null;
 }
 

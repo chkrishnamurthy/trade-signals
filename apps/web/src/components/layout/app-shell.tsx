@@ -78,7 +78,7 @@ export function AppShell({
               variant="ghost"
               size="icon"
               onClick={() => setDrawerOpen(true)}
-              className="shrink-0 lg:hidden"
+              className="shrink-0 xl:hidden"
               aria-label="Open navigation"
             >
               <MenuIcon />
@@ -93,8 +93,9 @@ export function AppShell({
 
             {/* Primary destinations. A single row of names — the whole point of
                 the redesign — so the app announces where you can go instead of
-                hiding it behind icons. */}
-            <nav aria-label="Primary" className="hidden items-center gap-0.5 lg:flex">
+                hiding it behind icons. Six names, the search box and the theme
+                toggle need 1280px; below that the menu button opens them. */}
+            <nav aria-label="Primary" className="hidden items-center gap-0.5 xl:flex">
               {PRIMARY_NAV.map((item) => (
                 <NavLink key={item.href} item={item} />
               ))}
@@ -102,7 +103,7 @@ export function AppShell({
 
             <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-2 sm:flex-none sm:gap-3">
               {/* Fills whatever the phone header has left; fixed only from `sm` up. */}
-              <div className="min-w-0 flex-1 sm:w-52 sm:flex-none lg:w-44 xl:w-64">
+              <div className="min-w-0 flex-1 sm:w-52 sm:flex-none xl:w-44 2xl:w-64">
                 <StockSearch onSelect={handleSearchSelect} />
               </div>
               <ThemeToggle />
@@ -168,17 +169,20 @@ function NavLink({
       aria-current={active ? 'page' : undefined}
       className={cn(
         'flex items-center gap-2 rounded-md font-medium transition-colors',
-        // In the bar between `lg` and `xl` the row is tight: labels stay on
+        // In the bar between `xl` and `2xl` the row is tight: labels stay on
         // one line and drop their icons, so the account menu stays on screen.
         variant === 'drawer'
           ? 'px-3 py-2.5 text-sm'
-          : 'whitespace-nowrap px-2 py-1.5 text-sm xl:px-3',
+          : 'whitespace-nowrap px-2 py-1.5 text-sm 2xl:px-3',
         active
           ? 'bg-primary/10 text-primary'
           : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground',
       )}
     >
-      <Icon className={cn('size-4 shrink-0', variant === 'bar' && 'hidden xl:block')} aria-hidden />
+      <Icon
+        className={cn('size-4 shrink-0', variant === 'bar' && 'hidden 2xl:block')}
+        aria-hidden
+      />
       {item.label}
     </Link>
   );

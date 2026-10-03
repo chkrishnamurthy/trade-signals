@@ -1,5 +1,5 @@
 import { PercentChange } from '@/components/market/numeric';
-import { longDate } from '@/lib/ipo-format';
+import { longDate, shortDate } from '@/lib/ipo-format';
 import type { ListingSummaryDto } from '@/lib/ipo-types';
 import { sharePrice } from '../ipo-figures';
 import { FactRow, ModuleCard } from '../module-card';
@@ -39,6 +39,27 @@ export function IpoListing({ listing }: { listing: ListingSummaryDto }) {
           <Moved paise={listing.latestClosePaise} percent={listing.sinceIssuePercent} />
         </FactRow>
       )}
+    </ModuleCard>
+  );
+}
+
+/**
+ * A closed issue NSE has reported no listing for, well past its T+3 date.
+ * EquityWise reads NSE's data only, so it says what NSE says and why that may
+ * not be the whole story — it never concludes the issue failed to list.
+ */
+export function IpoNotListedOnNse({ expectedListing }: { expectedListing: string | null }) {
+  return (
+    <ModuleCard id="listing" title="Listing">
+      <p className="border-border border-t px-4 py-3 text-sm">
+        NSE has reported no listing for this issue
+        {expectedListing === null
+          ? ''
+          : `, which was expected around ${shortDate(expectedListing)}`}
+        . Some issues list on BSE alone — an exchange cannot list its own shares on itself, for one
+        — and EquityWise does not read BSE&apos;s data yet. If the issue was withdrawn or deferred,
+        this page says so once the exchange does.
+      </p>
     </ModuleCard>
   );
 }

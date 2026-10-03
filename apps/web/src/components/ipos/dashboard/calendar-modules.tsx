@@ -118,11 +118,23 @@ export function AgendaModule({ data }: { data: IpoDashboardDto }) {
   );
 }
 
-/** `Out · 1 Oct` once the day has come, else the day (`*` when only expected). */
-function allotmentText(row: IpoAllotmentRowDto, today: string): string {
+/**
+ * Where allotment stands. Only a STATED date that has come reads "Out"; a day
+ * computed from the T+3 timetable stays expected (`*`) even once it has
+ * passed — no source has confirmed the allotment, so EquityWise does not say
+ * it happened. `casing: 'inline'` starts lowercase for use mid-sentence.
+ */
+function allotmentText(
+  row: IpoAllotmentRowDto,
+  today: string,
+  casing: 'start' | 'inline' = 'start',
+): string {
   if (row.allotmentDate === null) return '—';
-  if (row.allotmentDate <= today) return `Out · ${shortDate(row.allotmentDate).slice(4)}`;
-  return `${shortDate(row.allotmentDate)}${row.allotmentExpected ? '*' : ''}`;
+  const star = row.allotmentExpected ? '*' : '';
+  if (row.allotmentDate > today) return `${shortDate(row.allotmentDate)}${star}`;
+  const day = shortDate(row.allotmentDate).slice(4);
+  const word = row.allotmentExpected ? 'Due' : 'Out ·';
+  return `${casing === 'inline' ? word.toLowerCase() : word} ${day}${star}`;
 }
 
 const listsText = (row: IpoAllotmentRowDto) =>
@@ -133,9 +145,7 @@ const listsText = (row: IpoAllotmentRowDto) =>
  * exchange's. EquityWise never looks an application up or fills those forms in.
  */
 export function AllotmentModule({ data }: { data: IpoDashboardDto }) {
-  const expected = data.allotment.some(
-    (r) => (r.allotmentExpected && (r.allotmentDate ?? '') > data.today) || r.listingExpected,
-  );
+  const expected = data.allotment.some((r) => r.allotmentExpected || r.listingExpected);
   return (
     <ModuleCard
       id="ipo-allotment"
@@ -200,7 +210,7 @@ export function AllotmentModule({ data }: { data: IpoDashboardDto }) {
         ]}
         mobile={(r) => ({
           title: r.companyName,
-          sub: `Allotment ${allotmentText(r, data.today).toLowerCase()} · lists ${listsText(r)}`,
+          sub: `Allotment ${allotmentText(r, data.today, 'inline')} · lists ${listsText(r)}`,
           href: r.registrarUrl ?? issueHref(r.slug),
           external: r.registrarUrl !== null,
         })}

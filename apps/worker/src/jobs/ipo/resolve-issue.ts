@@ -107,16 +107,28 @@ function fieldsOf(row: SourceObservationRow): Record<string, unknown> {
 }
 
 /**
+ * A source's lists do not agree on case: NSE's current-issue feed can say
+ * `SRIT INDIA LIMITED` where its past-issue list says `Srit India Limited`.
+ * An ALL-CAPS name yields to any properly cased one the same source gives.
+ */
+function fieldRank(field: string, value: unknown, feedRank: number): number {
+  if (field === 'companyName' && typeof value === 'string' && !/\p{Ll}/u.test(value))
+    return feedRank - 10;
+  return feedRank;
+}
+
+/**
  * One observation per (field, source): the highest-ranked feed, then the most
  * recently seen. Exported for tests.
  */
 export function observationsFrom(rows: readonly SourceObservationRow[]): FieldObservation[] {
   const best = new Map<string, { rank: number; obs: FieldObservation }>();
   for (const row of rows) {
-    const rank = FEED_RANK[row.feed];
-    if (rank === undefined) continue;
+    const feedRank = FEED_RANK[row.feed];
+    if (feedRank === undefined) continue;
     for (const [field, value] of Object.entries(fieldsOf(row))) {
       if (value === null || value === undefined) continue;
+      const rank = fieldRank(field, value, feedRank);
       const obs: FieldObservation = {
         field,
         value,

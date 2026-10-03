@@ -7,6 +7,7 @@ import {
   recordRhpFailure,
   saveRhpExtracts,
 } from '@equitywise/db';
+import { istDateKey } from '@equitywise/shared';
 import type { WorkerContext } from '../context.js';
 import type { Logger } from '../log.js';
 import { type IpoSourcesConfig, loadIpoSourcesConfig, sourceFor } from '../sources/ipo/config.js';
@@ -78,6 +79,12 @@ async function extractOne(
   });
 }
 
+/** The IST day `days` before `dateKey`. */
+function daysBefore(dateKey: string, days: number): string {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  return new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1, (d ?? 1) - days)).toISOString().slice(0, 10);
+}
+
 export async function extractIpoRhp(
   context: WorkerContext,
   log: Logger,
@@ -96,6 +103,7 @@ export async function extractIpoRhp(
     // Over-fetch so one source's share does not cap another's.
     limit: config.rhp.maxDocumentsPerRun * 5,
     hosts,
+    openedSince: daysBefore(istDateKey(now), config.rhp.recentDays),
   });
 
   // Every source that may fetch documents gets a run recorded, even an empty

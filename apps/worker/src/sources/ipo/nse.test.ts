@@ -9,6 +9,7 @@ import {
   parseNseRecentListings,
   parseUpiCutoff,
   type SeriesBoard,
+  splitNameStatus,
   splitParties,
 } from './nse.js';
 
@@ -91,6 +92,54 @@ describe('parseNseIssueList', () => {
   });
 });
 
+describe('withdrawn, postponed and withdrawal-window rows', () => {
+  const past = (company: string, symbol: string) => ({
+    company,
+    symbol,
+    securityType: 'SME',
+    ipoStartDate: '24-JUN-2026',
+    ipoEndDate: '29-JUN-2026',
+    listingDate: '-',
+    issuePrice: '-',
+    priceRange: 'Rs.100 to Rs.105',
+  });
+
+  it('reads the status NSE writes into the name, and strips it', () => {
+    const rows = parseNseIssueList(
+      [
+        past('Sri Priyanka Geo Commex Limited-Issue Withdrawn', 'SPGCL'),
+        past('IC Electricals Company Limited-Issue postponed', 'ICEL'),
+      ],
+      'https://x',
+      boardOf,
+    );
+    expect(rows.map((r) => [r.companyName, r.sourceStatus])).toEqual([
+      ['Sri Priyanka Geo Commex Limited', 'Issue Withdrawn'],
+      ['IC Electricals Company Limited', 'Issue postponed'],
+    ]);
+  });
+
+  it('drops withdrawal-window rows: they are not issues', () => {
+    const rows = parseNseIssueList(
+      [
+        past('C2C Advanced Systems Limited- Withdrawal Window', 'C2CW'),
+        past('Rajputana Stainless Limited-Special Withdrawal Option', 'RSL'),
+        past('Rays of Belief Limited- For Profit Social Enterprise (FPSE)', 'MOMSBELIEF'),
+      ],
+      'https://x',
+      boardOf,
+    );
+    expect(rows.map((r) => r.symbol)).toEqual(['MOMSBELIEF']);
+  });
+
+  it('leaves a name without a status suffix alone', () => {
+    expect(splitNameStatus('Withdrawal Systems Limited')).toEqual({
+      name: 'Withdrawal Systems Limited',
+      status: null,
+    });
+  });
+});
+
 describe('parseNseDetail', () => {
   it('reads a mainboard issue by title (VNL)', () => {
     const detail = parseNseDetail(json('nse-detail-vnl-eq.json'), {
@@ -169,7 +218,7 @@ describe('parseNseDetail', () => {
     expect(detail.upiCutoffAt?.toISOString()).toBe('2026-10-07T11:30:00.000Z');
   });
 
-  it('keeps an SME QIB row with zero offered rather than inventing a ratio (EVENTIONS)', () => {
+  it('reads the SME book from bidDetails + demandGraphALL, individuals included (EVENTIONS)', () => {
     const detail = parseNseDetail(json('nse-detail-eventions-sme.json'), {
       key: key('EVENTIONS', 'SME', '2026-09-30'),
       sourceUrl: 'https://x',
@@ -177,6 +226,42 @@ describe('parseNseDetail', () => {
     });
     expect(detail.lotSize).toBe(1_200);
     expect(detail.registrarName).toBe('Mudra RTA Ventures Private Limited');
+    // SME rows spell the bid column `noOfshareBid` and state no shares offered;
+    // their Total equals demandGraphALL's, so this is the consolidated book.
+    const sub = detail.subscription;
+    expect(sub?.scope).toBe('consolidated');
+    // "As on 01-Oct-2026 17:00:00 IST" = 11:30 UTC.
+    expect(sub?.asOf?.toISOString()).toBe('2026-10-01T11:30:00.000Z');
+    expect(sub?.rows.map((r) => r.category)).toEqual([
+      'qib',
+      'nii',
+      'nii_big',
+      'nii_small',
+      'retail',
+      'total',
+    ]);
+    expect(sub?.rows.find((r) => r.category === 'retail')).toMatchObject({
+      label: 'Individual Investors (IND category bidding for 2 Lots)',
+      sharesBid: 1_197_600,
+      sharesOffered: null,
+    });
+    // NSE's own ratio: 56,64,000 ÷ 32,30,400 = 1.75×. No category is given a
+    // denominator NSE does not publish.
+    expect(sub?.rows.find((r) => r.category === 'total')).toMatchObject({
+      sharesBid: 5_664_000,
+      sharesOffered: 3_230_400,
+    });
+    expect(sub?.rows.find((r) => r.category === 'qib')?.sharesOffered).toBeNull();
+  });
+
+  it('keeps NSE-only scope for an SME book that does not match the whole-book total', () => {
+    const payload = json('nse-detail-eventions-sme.json') as Record<string, unknown>;
+    const detail = parseNseDetail(
+      { ...payload, demandGraphALL: { totalIssueSize: '3230400', totalBidRecieved: '1' } },
+      { key: key('EVENTIONS', 'SME', '2026-09-30'), sourceUrl: 'https://x', documentHosts: HOSTS },
+    );
+    expect(detail.subscription?.scope).toBe('nse');
+    expect(detail.subscription?.rows.every((r) => r.sharesOffered === null)).toBe(true);
   });
 
   it('reads a band written with the "/-" suffix and a ₹5 face value (NITYAS)', () => {
