@@ -27,15 +27,15 @@ concurrency:
 
 jobs:
   checks:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
 
       - name: Install Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -56,7 +56,7 @@ jobs:
         run: pnpm --filter @equitywise/web build-storybook
 
   db-tests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     services:
       # Matches production and docker-compose.test.yml: PG 17 + TimescaleDB, so
       # the migrations' hypertables and CREATE EXTENSION run for real.
@@ -77,13 +77,13 @@ jobs:
       # Present, so the DB-backed suites are required and cannot silently skip.
       TEST_DATABASE_URL: postgresql://equitywise:equitywise@localhost:5433/nse_signals_test
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
 
       - name: Install Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
           cache: pnpm

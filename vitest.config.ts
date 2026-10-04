@@ -12,6 +12,8 @@ const DB_SUITES = [
   '{apps,packages}/*/src/**/*.db.test.ts',
 ];
 
+const GENERATED_PREVIEW = 'apps/.web-preview/**';
+
 export default defineConfig({
   // Match Next's automatic JSX runtime for server-rendered component tests.
   esbuild: { jsx: 'automatic' },
@@ -37,7 +39,7 @@ export default defineConfig({
         test: {
           name: 'unit',
           include: ['{apps,packages}/*/src/**/*.{test,spec}.ts'],
-          exclude: [...configDefaults.exclude, ...DB_SUITES],
+          exclude: [...configDefaults.exclude, GENERATED_PREVIEW, ...DB_SUITES],
         },
       },
       {
@@ -46,6 +48,7 @@ export default defineConfig({
         test: {
           name: 'db',
           include: DB_SUITES,
+          exclude: [...configDefaults.exclude, GENERATED_PREVIEW],
           pool: 'forks',
           poolOptions: { forks: { singleFork: true } },
         },

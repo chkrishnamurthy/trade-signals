@@ -1,5 +1,6 @@
 packages:
   - 'apps/*'
+  - '!apps/.web-preview'
   - 'packages/*'
 
 # esbuild (via tsx and drizzle-kit) and sharp (via next) fetch a platform binary
