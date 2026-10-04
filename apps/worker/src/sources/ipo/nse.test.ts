@@ -322,6 +322,64 @@ describe('parseNseDetail', () => {
     });
   });
 
+  it('joins an archive link NSE split with a stray space (PRANAV, SRM)', () => {
+    // As published: the archive serves RHP_PRANAV.zip and RHP_SRM.zip; the
+    // spaced spellings 404.
+    const detail = parseNseDetail(
+      {
+        issueInfo: {
+          dataList: [
+            {
+              title: 'Red Herring Prospectus',
+              value: 'https://nsearchives.nseindia.com/content/ipo/RHP_PRANAV .zip',
+            },
+            {
+              title: 'Ratios / Basis of Issue Price',
+              value: 'https://nsearchives.nseindia.com/content/ipo/RATIOS_ SRM.zip',
+            },
+            {
+              title: 'Anchor Allocation Report',
+              value: 'https://nsearchives.nseindia.com/content/ipo/ANCHOR_PRANAV.zip',
+            },
+          ],
+        },
+      },
+      { key: key('PRANAV', 'EQ', '2026-09-07'), sourceUrl: 'https://x', documentHosts: HOSTS },
+    );
+    expect(detail.documents.map((d) => d.url)).toEqual([
+      'https://nsearchives.nseindia.com/content/ipo/RHP_PRANAV.zip',
+      'https://nsearchives.nseindia.com/content/ipo/RATIOS_SRM.zip',
+      'https://nsearchives.nseindia.com/content/ipo/ANCHOR_PRANAV.zip',
+    ]);
+  });
+
+  it('keeps two complete links apart, and leaves an HTML link with its attributes alone', () => {
+    const detail = parseNseDetail(
+      {
+        issueInfo: {
+          dataList: [
+            {
+              title: 'Addendum',
+              value:
+                'https://nsearchives.nseindia.com/content/ipo/ADD_1.pdf https://nsearchives.nseindia.com/content/ipo/ADD_2.pdf',
+            },
+            {
+              title: 'Corrigendum',
+              value:
+                '<a href=https://nsearchives.nseindia.com/content/ipo/CORR_X target=new>CORR.pdf</a>',
+            },
+          ],
+        },
+      },
+      { key: key('X', 'EQ', '2026-10-01'), sourceUrl: 'https://x', documentHosts: HOSTS },
+    );
+    expect(detail.documents.map((d) => d.url)).toEqual([
+      'https://nsearchives.nseindia.com/content/ipo/ADD_1.pdf',
+      'https://nsearchives.nseindia.com/content/ipo/ADD_2.pdf',
+      'https://nsearchives.nseindia.com/content/ipo/CORR_X',
+    ]);
+  });
+
   it('never keeps a link to a host outside the allowlist', () => {
     const detail = parseNseDetail(
       {

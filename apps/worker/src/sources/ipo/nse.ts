@@ -312,8 +312,18 @@ const DOCUMENT_TITLES: readonly { readonly match: RegExp; readonly kind: IpoDocu
   { match: /ratios|basis of issue price/i, kind: 'price_band_ad' },
 ];
 
+/**
+ * NSE sometimes types a stray space into an archive link — `RHP_PRANAV .zip`,
+ * `RHP_ SRM.zip` — and the file it serves is the link without it. A link with
+ * no extension yet, followed by a word that ends in one, is joined back up.
+ */
+const SPLIT_FILE_LINK = /(https?:\/\/[^\s"'<>]+)\s+([^\s"'<>]*\.(?:pdf|zip))(?=$|[\s"'<>])/gi;
+
 function urlsIn(value: string): string[] {
-  return [...value.matchAll(/https?:\/\/[^\s"'<>]+/g)].map((m) => m[0]);
+  const joined = value.replace(SPLIT_FILE_LINK, (whole, link: string, rest: string) =>
+    /\.[a-z0-9]{2,5}$/i.test(link) ? whole : link + rest,
+  );
+  return [...joined.matchAll(/https?:\/\/[^\s"'<>]+/g)].map((m) => m[0]);
 }
 
 /** `05-Oct-2026 (upto 5:00 PM) The cut-off …` → that instant, UTC. */

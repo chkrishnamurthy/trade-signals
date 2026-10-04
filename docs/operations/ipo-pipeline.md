@@ -57,7 +57,8 @@ Every job is idempotent: a re-run only bumps `last_seen_at` on unchanged observa
 
 1. The migrations run through `deploy.sh`: `0027_ipos.sql` (six tables, append-only and
    freeze triggers), `0028_ipo_rhp_extracts.sql`, `0029_ipo_sebi_filings.sql`,
-   `0030_ipo_data_repair.sql` and `0031_ipo_history_repair.sql` (data only — see
+   `0030_ipo_data_repair.sql`, `0031_ipo_history_repair.sql` and
+   `0033_ipo_document_links.sql` (data only — see
    "Repairs" below).
 2. The history load runs **by itself**: on every worker start until a run has
    completed for the configured `backfill.since` (the `ipo-history-<since>` feed has
@@ -101,6 +102,18 @@ older parser: follow-on offers (`… - FPO`) and numbered partly-paid lines
 real IPO's bidding symbol and is kept); closed issues' final figures stamped with the
 time they were collected (NSE empties `demandDataNSE` once an issue closes — the
 parser now reads `demandGraph`'s time); and old SME books read as "NSE only".
+
+`0033_ipo_document_links.sql` (2026-10-04) repairs document links NSE published with a
+stray space (`RHP_PRANAV .zip`, `RHP_ SRM.zip`). The old parser stopped at the space and
+stored `…/RHP_PRANAV`, which 404s, so every RHP run that held only that document failed
+and the pages warned "RHP extracts: the last update failed". The parser now joins such a
+link back up; the migration corrects the six stored rows (PRANAV, SAWALIYA, SRM — each
+new link checked against NSE's archive) and lets the PRANAV RHP be read again. To find
+any new case: `SELECT id, url FROM ipo_documents WHERE url !~* '\.[a-z0-9]{2,5}$';`
+should return nothing.
+
+RHP and DRHP-filing failures are no longer shown to readers (a failed run leaves what
+was already read correct); they stay on `/admin/ipos` with their error.
 
 ## What history exists, and what cannot
 

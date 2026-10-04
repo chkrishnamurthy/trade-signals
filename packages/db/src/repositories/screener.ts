@@ -22,6 +22,7 @@ import {
   dailyCandles,
   deliveryStats,
   derivativeOiDaily,
+  dividends,
   indexMemberships,
   instrumentReference,
   instruments,
@@ -32,6 +33,7 @@ import {
   screenerSnapshots,
   shareholdingPatterns,
   signals,
+  userRatioLayouts,
 } from '../schema/index.js';
 
 /**
@@ -1081,4 +1083,124 @@ export async function latestSignalRow(db: Database, instrumentId: number) {
     .orderBy(desc(signals.tradingDate))
     .limit(1);
   return row ?? null;
+}
+
+// ---------------------------------------------------------------------------
+// Dividends (stock-header plan §7 R4)
+// ---------------------------------------------------------------------------
+
+export interface DividendInsert {
+  readonly instrumentId: number;
+  readonly exDate: string;
+  readonly kind: string;
+  readonly amountPaise: number | null;
+  readonly subject: string;
+  readonly source: string;
+}
+
+/** Records dividends; an existing (instrument, ex-date, kind) row is kept. Returns rows written. */
+export async function recordDividends(
+  db: Database,
+  rows: readonly DividendInsert[],
+): Promise<number> {
+  let written = 0;
+  for (let i = 0; i < rows.length; i += 1_000) {
+    const result = await db
+      .insert(dividends)
+      .values(rows.slice(i, i + 1_000).map((r) => ({ ...r })))
+      .onConflictDoNothing()
+      .returning({ instrumentId: dividends.instrumentId });
+    written += result.length;
+  }
+  return written;
+}
+
+/** Every dividend with an ex-date on or after `from`, for the snapshot build. */
+export async function dividendPointsSince(db: Database, from: string) {
+  return db
+    .select({
+      instrumentId: dividends.instrumentId,
+      exDate: dividends.exDate,
+      amountPaise: dividends.amountPaise,
+    })
+    .from(dividends)
+    .where(gte(dividends.exDate, from));
+}
+
+/** Share-basis changes (the `corporate_actions` ratios) on or after `from`. */
+export async function shareBasisChangesSince(db: Database, from: string) {
+  const rows = await db
+    .select({
+      instrumentId: corporateActions.instrumentId,
+      exDate: corporateActions.exDate,
+      ratio: corporateActions.ratio,
+    })
+    .from(corporateActions)
+    .where(gte(corporateActions.exDate, from));
+  return rows.map((r) => ({ ...r, ratio: Number(r.ratio) }));
+}
+
+/** One stock's dividends, newest first. */
+export async function dividendHistory(db: Database, instrumentId: number, limit = 12) {
+  return db
+    .select({
+      exDate: dividends.exDate,
+      kind: dividends.kind,
+      amountPaise: dividends.amountPaise,
+      subject: dividends.subject,
+    })
+    .from(dividends)
+    .where(eq(dividends.instrumentId, instrumentId))
+    .orderBy(desc(dividends.exDate), asc(dividends.kind))
+    .limit(limit);
+}
+
+/** Exchange reference facts for one instrument, or null if it has none. */
+export async function instrumentReferenceFor(db: Database, instrumentId: number) {
+  const [row] = await db
+    .select({
+      series: instrumentReference.series,
+      listingDate: instrumentReference.listingDate,
+      faceValuePaise: instrumentReference.faceValuePaise,
+      industry: instrumentReference.industry,
+      industrySource: instrumentReference.industrySource,
+    })
+    .from(instrumentReference)
+    .where(eq(instrumentReference.instrumentId, instrumentId))
+    .limit(1);
+  return row ?? null;
+}
+
+// ---------------------------------------------------------------------------
+// Ratio board layouts (owner-scoped)
+// ---------------------------------------------------------------------------
+
+/** The owner's saved tile keys as stored (unvalidated), or null when none is saved. */
+export async function getRatioLayout(db: Database, ownerId: number): Promise<unknown[] | null> {
+  const [row] = await db
+    .select({ keys: userRatioLayouts.keys })
+    .from(userRatioLayouts)
+    .where(eq(userRatioLayouts.ownerId, ownerId))
+    .limit(1);
+  return row === undefined || !Array.isArray(row.keys) ? null : (row.keys as unknown[]);
+}
+
+/** Replaces the owner's layout; keys must already be validated by the caller. */
+export async function saveRatioLayout(
+  db: Database,
+  ownerId: number,
+  keys: readonly string[],
+): Promise<void> {
+  await db
+    .insert(userRatioLayouts)
+    .values({ ownerId, keys: [...keys] })
+    .onConflictDoUpdate({
+      target: userRatioLayouts.ownerId,
+      set: { keys: [...keys], updatedAt: sql`now()` },
+    });
+}
+
+/** Removes the owner's layout, so the default applies again. */
+export async function deleteRatioLayout(db: Database, ownerId: number): Promise<void> {
+  await db.delete(userRatioLayouts).where(eq(userRatioLayouts.ownerId, ownerId));
 }

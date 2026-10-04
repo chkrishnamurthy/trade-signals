@@ -1,29 +1,27 @@
 'use client';
 
-import {
-  ArrowLeftIcon,
-  CheckCircle2Icon,
-  ExternalLinkIcon,
-  ListPlusIcon,
-  TriangleAlertIcon,
-} from 'lucide-react';
+import { CATEGORY_LABELS, METRIC_CATEGORIES } from '@equitywise/core';
+import { formatPaise } from '@equitywise/shared';
+import { ArrowLeftIcon, ExternalLinkIcon } from 'lucide-react';
 import type { Route } from 'next';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { AppShell } from '@/components/layout/app-shell';
 import { PageContainer, PageContent, PageDisclaimer } from '@/components/layout/page';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { API_ROUTES } from '@/lib/api-routes';
+import { buildTile, ratiosCsv } from '@/lib/ratio-board';
 import { formatMetric, stockHref } from '@/lib/screener-format';
 import type { MetricDto, ScreenerCellValue } from '@/lib/screener-types';
 import type { StockPageDto } from '@/lib/stock-types';
 import { toneText } from '@/lib/tone';
 import { cn } from '@/lib/utils';
+import { CompanyFile, profileFacts } from './company-file';
 import { PriceChart } from './price-chart';
+import { RatioBoard } from './ratio-board';
+import { StandsOut } from './stands-out';
+import { StockHeader } from './stock-header';
 
 /**
  * One stock in full (plan §6): what the price is doing and why it surfaced,
@@ -48,16 +46,6 @@ function useFmt(metrics: readonly MetricDto[], values: Values | null) {
 
 function Toned({ text, tone }: { text: string; tone: ReturnType<typeof formatMetric>['tone'] }) {
   return <span className={cn('figure', tone !== null && toneText({ tone }))}>{text}</span>;
-}
-
-function sessionLabel(date: string): string {
-  return new Date(`${date}T00:00:00Z`).toLocaleDateString('en-IN', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    timeZone: 'UTC',
-  });
 }
 
 function shortDate(date: string): string {
@@ -97,13 +85,55 @@ export function StockView({ data, backHref }: { data: StockPageDto; backHref: st
 
   const close = num('close');
   const change = num('changePct');
-  const high = num('high52w') ?? (raw('high52w') as number | null);
+  const high = num('high52w');
   const low = num('low52w');
-  const position =
-    close !== null && high !== null && low !== null && high > low
-      ? ((close - low) / (high - low)) * 100
-      : null;
   const fno = raw('fnoEligible') === true;
+  const tabsRef = useRef<HTMLElement>(null);
+  const openTab = (next: Tab) => {
+    setTab(next);
+    tabsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const [ratio, setRatio] = useState<{ keys: readonly string[]; saved: boolean }>({
+    keys: data.ratioKeys,
+    saved: data.ratioSaved,
+  });
+  const metricMap = useMemo(() => new Map(data.metrics.map((m) => [m.key, m])), [data.metrics]);
+  const extras = useMemo(
+    () => new Map(data.ratioExtras.map((e) => [e.key, e])),
+    [data.ratioExtras],
+  );
+  const tiles = useMemo(
+    () =>
+      ratio.keys.flatMap((key) => {
+        const tile = buildTile(key, metricMap, data.values, extras, data.faceValuePaise);
+        return tile === null ? [] : [tile];
+      }),
+    [ratio.keys, metricMap, data.values, extras, data.faceValuePaise],
+  );
+  const categories = useMemo(
+    () =>
+      METRIC_CATEGORIES.filter((c) => data.metrics.some((m) => m.category === c)).map((c) => ({
+        key: c,
+        label: CATEGORY_LABELS[c],
+      })),
+    [data.metrics],
+  );
+  const facts = useMemo(() => profileFacts(data), [data]);
+  const exportCsv = () => {
+    const csv = ratiosCsv({
+      symbol: data.symbol,
+      session: data.session,
+      tiles,
+      profile: facts.map((p) => [p.label, p.note === null ? p.value : `${p.value} (${p.note})`]),
+    });
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${data.symbol}-ratios-${data.session ?? 'latest'}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <AppShell onSearchSelect={(symbol) => router.push(stockHref(symbol) as Route)}>
@@ -121,142 +151,38 @@ export function StockView({ data, backHref }: { data: StockPageDto; backHref: st
             </Link>
           </div>
 
-          {data.match !== null && (
-            <section
-              aria-label="Why this stock matched"
-              className={cn(
-                'flex items-start gap-3 rounded-lg border px-4 py-3',
-                data.match.matched
-                  ? 'border-info-line bg-info-soft'
-                  : 'border-warning-line bg-warning-soft',
-              )}
-            >
-              {data.match.matched ? (
-                <CheckCircle2Icon aria-hidden className="mt-0.5 size-4 shrink-0 text-info" />
-              ) : (
-                <TriangleAlertIcon aria-hidden className="mt-0.5 size-4 shrink-0 text-warning" />
-              )}
-              <div className="flex min-w-0 flex-col gap-2">
-                <p className="font-medium text-sm">
-                  {data.match.matched
-                    ? 'Matched because'
-                    : 'No longer matches this screen on the latest session'}
-                </p>
-                {data.match.reasons.length > 0 && (
-                  <ul className="flex flex-wrap gap-1.5">
-                    {data.match.reasons.map((r) => (
-                      <li key={r}>
-                        <Badge variant="outline" className="bg-surface">
-                          {r}
-                        </Badge>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </section>
-          )}
+          <StockHeader
+            data={data}
+            close={f('close')}
+            change={change}
+            ret3m={f('ret3m')}
+            low52w={low}
+            high52w={high}
+            fromHigh={f('dist52wHigh')}
+            formatPrice={(paise) => formatMetric(def('close'), paise).text}
+            onExport={exportCsv}
+            onOpenFno={() => openTab('fno')}
+          />
 
-          <Card className="flex flex-col gap-4 p-4 sm:p-5">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div className="flex min-w-0 flex-col gap-1.5">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="font-display font-semibold text-3xl tracking-tight">
-                    {data.symbol}
-                  </h1>
-                  {data.series !== null && <Badge variant="neutral">NSE · {data.series}</Badge>}
-                  {data.indexLabels.slice(0, 2).map((l) => (
-                    <Badge key={l} variant="neutral">
-                      {l}
-                    </Badge>
-                  ))}
-                  {fno && <Badge variant="neutral">F&amp;O</Badge>}
-                </div>
-                <p className="text-muted-foreground text-sm">
-                  {data.name}
-                  {data.industry !== null && ` · ${data.industry}`}
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-4">
-                <div className="flex flex-col items-end">
-                  <span className="figure font-semibold text-3xl tracking-tight">
-                    {f('close').text}
-                  </span>
-                  {change !== null && (
-                    <span
-                      className={cn(
-                        'figure font-medium text-sm',
-                        toneText({
-                          tone: change > 0 ? 'bullish' : change < 0 ? 'bearish' : 'neutral',
-                        }),
-                      )}
-                    >
-                      {change > 0 ? '▲' : change < 0 ? '▼' : '→'} {f('changePct').text}
-                    </span>
-                  )}
-                  <span className="text-2xs text-muted-foreground">
-                    {data.session === null
-                      ? 'No snapshot yet'
-                      : `Close · ${sessionLabel(data.session)} · NSE end-of-day`}
-                  </span>
-                </div>
-                <AddToWatchlist symbol={data.symbol} />
-              </div>
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-start">
+            <RatioBoard
+              tiles={tiles}
+              keys={ratio.keys}
+              saved={ratio.saved}
+              fnoEligible={fno}
+              metrics={data.metrics}
+              categories={categories}
+              onKeysChange={(keys, saved) => setRatio({ keys, saved })}
+            />
+            <div className="flex min-w-0 flex-col gap-4">
+              <StandsOut
+                points={data.keyPoints}
+                hasSnapshot={data.values !== null}
+                onOpenTab={openTab}
+              />
+              <CompanyFile facts={facts} />
             </div>
-
-            {data.stale && data.session !== null && (
-              <p className="flex items-center gap-2 rounded-md border border-warning-line bg-warning-soft px-3 py-2 text-sm text-warning-foreground">
-                <TriangleAlertIcon aria-hidden className="size-4" />
-                These figures are from {sessionLabel(data.session)}; this stock has no newer
-                session.
-              </p>
-            )}
-
-            {position !== null && low !== null && high !== null && (
-              <div className="flex flex-col gap-1.5">
-                <div className="figure flex justify-between gap-2 text-2xs text-muted-foreground">
-                  <span>52W low {formatMetric(def('close'), low).text}</span>
-                  <span className="text-foreground">
-                    {f('dist52wHigh').text} from the 52-week high
-                  </span>
-                  <span>52W high {formatMetric(def('close'), high).text}</span>
-                </div>
-                <div className="relative h-2 rounded-full border border-border bg-gradient-to-r from-bearish-soft via-muted to-bullish-soft">
-                  <span
-                    aria-label={`Close at ${position.toFixed(0)}% of the 52-week range`}
-                    role="img"
-                    className="absolute -top-1 h-4 w-1 -translate-x-1/2 rounded bg-foreground"
-                    style={{ left: `${Math.min(100, Math.max(0, position))}%` }}
-                  />
-                </div>
-              </div>
-            )}
-
-            <dl className="grid grid-cols-2 overflow-hidden rounded-lg border border-border sm:grid-cols-3 xl:grid-cols-6">
-              <Stat
-                label="Relative volume"
-                value={f('relVolume')}
-                hint={`avg ${f('avgVolume20').text}`}
-              />
-              <Stat
-                label="Delivery"
-                value={f('deliveryPct')}
-                hint={`20D avg ${f('avgDelivery20').text}`}
-              />
-              <Stat label="ATR (14)" value={f('atrPct')} hint={f('atr14').text} />
-              <Stat label="RS rank (3M)" value={f('rsRank')} hint={`vs Nifty ${f('rs3m').text}`} />
-              <Stat
-                label="OI build-up"
-                value={fno ? f('oiBuildup') : { text: 'Not in F&O', tone: null, badge: false }}
-                hint={fno ? `OI ${f('futOiChgPct').text}` : 'no stock futures'}
-              />
-              <Stat
-                label="Promoter"
-                value={f('promoterPct')}
-                hint={`QoQ ${f('promoterChgQoq').text}`}
-              />
-            </dl>
-          </Card>
+          </div>
 
           <div className="flex flex-col gap-4 xl:flex-row xl:items-start">
             <div className="flex min-w-0 flex-1 flex-col gap-4">
@@ -270,7 +196,7 @@ export function StockView({ data, backHref }: { data: StockPageDto; backHref: st
                 />
               </Card>
 
-              <Card className="overflow-hidden">
+              <Card ref={tabsRef} className="scroll-mt-20 overflow-hidden">
                 <div
                   role="tablist"
                   aria-label="Analysis"
@@ -421,87 +347,12 @@ export function StockView({ data, backHref }: { data: StockPageDto; backHref: st
 
           <PageDisclaimer>
             Prices are split/bonus-adjusted NSE end-of-day values. Readings describe price
-            structure, not advice. Fundamentals are not shown in this version.
+            structure, not advice. Prices are not adjusted for dividends. Fundamentals are not shown
+            in this version.
           </PageDisclaimer>
         </PageContent>
       </PageContainer>
     </AppShell>
-  );
-}
-
-function Stat({
-  label,
-  value,
-  hint,
-}: {
-  label: string;
-  value: ReturnType<typeof formatMetric>;
-  hint: string;
-}) {
-  return (
-    <div className="flex min-w-0 flex-col gap-0.5 border-border border-r border-b px-3 py-2.5 [&:nth-child(2n)]:border-r-0 sm:[&:nth-child(2n)]:border-r sm:[&:nth-child(3n)]:border-r-0 xl:border-b-0 xl:[&:nth-child(3n)]:border-r xl:[&:nth-child(6n)]:border-r-0">
-      <dt className="truncate text-2xs text-muted-foreground uppercase tracking-wide">{label}</dt>
-      <dd className="font-semibold text-lg">
-        <Toned {...value} />
-      </dd>
-      <dd className="figure truncate text-2xs text-muted-foreground">{hint}</dd>
-    </div>
-  );
-}
-
-function AddToWatchlist({ symbol }: { symbol: string }) {
-  const [lists, setLists] = useState<readonly { id: number; name: string }[] | null>(null);
-  const [status, setStatus] = useState<string | null>(null);
-  const load = async () => {
-    if (lists !== null) return;
-    const r = await fetch(API_ROUTES.watchlists);
-    const body = (await r.json().catch(() => [])) as unknown;
-    const rows = Array.isArray(body)
-      ? body
-      : ((body as { watchlists?: unknown[] }).watchlists ?? []);
-    setLists(
-      rows.flatMap((w) =>
-        typeof w === 'object' && w !== null && 'id' in w && 'name' in w
-          ? [{ id: Number(w.id), name: String(w.name) }]
-          : [],
-      ),
-    );
-  };
-  return (
-    <Popover onOpenChange={(open) => open && void load()}>
-      <PopoverTrigger asChild>
-        <Button>
-          <ListPlusIcon aria-hidden />
-          Add to watchlist
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-60 p-1.5">
-        {status !== null && <p className="px-2 py-1.5 text-muted-foreground text-xs">{status}</p>}
-        {lists === null ? (
-          <p className="px-2 py-3 text-muted-foreground text-xs">Loading…</p>
-        ) : lists.length === 0 ? (
-          <p className="px-2 py-3 text-muted-foreground text-xs">Create a watchlist first.</p>
-        ) : (
-          lists.map((w) => (
-            <button
-              key={w.id}
-              type="button"
-              className="w-full cursor-pointer truncate rounded-md px-2 py-2 text-left text-sm hover:bg-accent"
-              onClick={async () => {
-                const r = await fetch(`${API_ROUTES.watchlist(w.id)}/items`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ symbols: [symbol] }),
-                });
-                setStatus(r.ok ? `Added to ${w.name}.` : 'Could not add it.');
-              }}
-            >
-              {w.name}
-            </button>
-          ))
-        )}
-      </PopoverContent>
-    </Popover>
   );
 }
 
@@ -1022,6 +873,40 @@ function EventsTab({ data }: { data: StockPageDto }) {
             ))}
           </ul>
         )}
+      </section>
+      <section className="md:col-span-2">
+        <h3 className="mb-1 font-semibold text-sm">Dividends</h3>
+        {data.dividends.length === 0 ? (
+          <p className="py-2 text-muted-foreground text-sm">No cash dividends recorded.</p>
+        ) : (
+          <ul>
+            {data.dividends.map((d) => (
+              <li
+                key={`${d.exDate}-${d.kind}`}
+                className="flex justify-between gap-3 border-border border-b py-2 text-sm last:border-b-0"
+              >
+                <span>
+                  <span className="capitalize">
+                    {d.kind === 'dividend' ? 'Dividend' : `${d.kind} dividend`}
+                  </span>
+                  {' · '}
+                  <span className="figure">
+                    {d.amountPaise === null
+                      ? 'amount not readable exactly'
+                      : `${formatPaise(d.amountPaise)} a share`}
+                  </span>
+                </span>
+                <span className="figure text-muted-foreground text-xs">
+                  ex-date {shortDate(d.exDate)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="mt-1 text-2xs text-muted-foreground">
+          Amounts as announced, on the share basis of their ex-date. Prices are not adjusted for
+          dividends.
+        </p>
       </section>
     </div>
   );
