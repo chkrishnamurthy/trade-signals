@@ -69,11 +69,11 @@ const DENSITY_KEY = 'ew:ipo-list:density';
  * under it show through; it follows its row's tint and hover.
  */
 const PINNED_FILL: Readonly<Partial<Record<IpoTone, string>>> = {
-  open: 'bg-[color-mix(in_oklch,var(--bullish-soft)_45%,var(--surface))]',
-  waiting: 'bg-[color-mix(in_oklch,var(--warning-soft)_50%,var(--surface))]',
+  open: 'bg-[color-mix(in_srgb,var(--bullish-soft)_45%,var(--surface))]',
+  waiting: 'bg-[color-mix(in_srgb,var(--warning-soft)_50%,var(--surface))]',
 };
 const PINNED_CELL =
-  'sticky left-0 z-10 [tr:hover_&]:bg-[color-mix(in_oklch,var(--accent)_60%,var(--surface))]';
+  'sticky left-0 z-10 [tr:hover_&]:bg-[color-mix(in_srgb,var(--accent)_60%,var(--surface))]';
 
 /** Reads a per-viewer preference; storage can be missing or blocked. */
 function readStored(key: string): string | null {
@@ -200,7 +200,7 @@ function Cell({ column, row, today }: { column: ColumnId; row: IpoListItemDto; t
             <Link
               href={href(row.slug)}
               title={row.companyName}
-              className="max-w-64 truncate font-medium underline-offset-4 hover:underline"
+              className="max-w-52 truncate font-medium underline-offset-4 hover:underline"
             >
               {row.companyName}
             </Link>
@@ -293,7 +293,7 @@ function ColumnsMenu({
           </span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-60">
+      <PopoverContent align="end" className="w-72">
         <p className="mb-2 font-medium text-muted-foreground text-xs">Show columns</p>
         <ul className="flex flex-col">
           {hideable.map((c) => {
@@ -315,7 +315,7 @@ function ColumnsMenu({
                     }}
                   />
                   <span className="text-sm">{MENU_LABEL[c.id]}</span>
-                  <span className="ml-auto text-2xs text-muted-foreground">
+                  <span className="ml-auto whitespace-nowrap text-2xs text-muted-foreground">
                     {GROUP_LABEL[c.group]}
                   </span>
                 </label>
@@ -511,8 +511,9 @@ export function IpoBoardTable({
                   )}
                 >
                   {g.id === 'gmp' ? (
-                    <span className="inline-flex items-center gap-1.5">
-                      {GROUP_LABEL[g.id]}
+                    // One narrow column: the tag alone heads it; the column says GMP.
+                    <span className="inline-flex items-center">
+                      <span className="sr-only">{GROUP_LABEL[g.id]}, </span>
                       <UnofficialTag className="px-1.5 py-0 normal-case tracking-normal" />
                     </span>
                   ) : (
@@ -535,8 +536,9 @@ export function IpoBoardTable({
                       : undefined
                   }
                   className={cn(
+                    'px-2.5',
                     c.id === 'company' &&
-                      'sticky left-0 z-20 min-w-60 border-border border-r bg-surface-sunken pl-4',
+                      'sticky left-0 z-20 min-w-56 border-border border-r bg-surface-sunken pl-4',
                     groupStarts.has(c.id) && 'border-border border-l',
                   )}
                 >
@@ -558,6 +560,7 @@ export function IpoBoardTable({
                       key={c.id}
                       numeric={c.numeric}
                       className={cn(
+                        'px-2.5',
                         c.id === 'company' &&
                           cn(
                             PINNED_CELL,

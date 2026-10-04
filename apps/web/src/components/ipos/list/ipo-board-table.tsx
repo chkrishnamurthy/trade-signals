@@ -200,7 +200,7 @@ function Cell({ column, row, today }: { column: ColumnId; row: IpoListItemDto; t
             <Link
               href={href(row.slug)}
               title={row.companyName}
-              className="max-w-64 truncate font-medium underline-offset-4 hover:underline"
+              className="max-w-52 truncate font-medium underline-offset-4 hover:underline"
             >
               {row.companyName}
             </Link>
@@ -293,7 +293,7 @@ function ColumnsMenu({
           </span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-60">
+      <PopoverContent align="end" className="w-72">
         <p className="mb-2 font-medium text-muted-foreground text-xs">Show columns</p>
         <ul className="flex flex-col">
           {hideable.map((c) => {
@@ -315,7 +315,7 @@ function ColumnsMenu({
                     }}
                   />
                   <span className="text-sm">{MENU_LABEL[c.id]}</span>
-                  <span className="ml-auto text-2xs text-muted-foreground">
+                  <span className="ml-auto whitespace-nowrap text-2xs text-muted-foreground">
                     {GROUP_LABEL[c.group]}
                   </span>
                 </label>
@@ -536,8 +536,9 @@ export function IpoBoardTable({
                       : undefined
                   }
                   className={cn(
+                    'px-2.5',
                     c.id === 'company' &&
-                      'sticky left-0 z-20 min-w-60 border-border border-r bg-surface-sunken pl-4',
+                      'sticky left-0 z-20 min-w-56 border-border border-r bg-surface-sunken pl-4',
                     groupStarts.has(c.id) && 'border-border border-l',
                   )}
                 >
@@ -559,6 +560,7 @@ export function IpoBoardTable({
                       key={c.id}
                       numeric={c.numeric}
                       className={cn(
+                        'px-2.5',
                         c.id === 'company' &&
                           cn(
                             PINNED_CELL,

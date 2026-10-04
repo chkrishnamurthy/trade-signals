@@ -109,9 +109,7 @@ export function buildTile(
       label: extra?.label ?? '52W high / low',
       description: extra?.description ?? '',
       value: {
-        text: known
-          ? `${formatPaise(high, { decimals: 0 })} / ${formatPaise(low, { decimals: 0 })}`
-          : '—',
+        text: known ? `${formatPaise(high)} / ${formatPaise(low)}` : '—',
         tone: null,
         badge: false,
       },
@@ -178,13 +176,9 @@ function contextFor(
     case 'close':
       return has('changePct') ? `${f('changePct').text} on the session` : null;
     case 'dist52wHigh':
-      return has('high52w')
-        ? `High ${formatPaise(num(values, 'high52w') ?? 0, { decimals: 0 })}`
-        : null;
+      return has('high52w') ? `High ${formatPaise(num(values, 'high52w') ?? 0)}` : null;
     case 'dist52wLow':
-      return has('low52w')
-        ? `Low ${formatPaise(num(values, 'low52w') ?? 0, { decimals: 0 })}`
-        : null;
+      return has('low52w') ? `Low ${formatPaise(num(values, 'low52w') ?? 0)}` : null;
     case 'deliveryPct':
       return has('avgDelivery20') ? `20-session avg ${f('avgDelivery20').text}` : null;
     case 'relVolume':

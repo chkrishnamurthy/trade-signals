@@ -885,8 +885,10 @@ function EventsTab({ data }: { data: StockPageDto }) {
                 key={`${d.exDate}-${d.kind}`}
                 className="flex justify-between gap-3 border-border border-b py-2 text-sm last:border-b-0"
               >
-                <span className="capitalize">
-                  {d.kind === 'dividend' ? 'Dividend' : `${d.kind} dividend`}
+                <span>
+                  <span className="capitalize">
+                    {d.kind === 'dividend' ? 'Dividend' : `${d.kind} dividend`}
+                  </span>
                   {' · '}
                   <span className="figure">
                     {d.amountPaise === null

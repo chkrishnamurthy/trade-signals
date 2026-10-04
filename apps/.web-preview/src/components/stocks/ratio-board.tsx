@@ -121,6 +121,7 @@ export function RatioBoard({
   const pickable = useMemo(() => metrics.filter((m) => !keys.includes(m.key)), [metrics, keys]);
   const canAdd = keys.length < LIMITS.max;
   const hiddenOnPhone = !showAll && !editing && tiles.length > PHONE_VISIBLE;
+  const cellCount = tiles.length + (canAdd ? 1 : 0);
 
   return (
     <Card className="flex min-w-0 flex-col gap-3 p-4 sm:p-5" aria-labelledby="at-a-glance">
@@ -186,7 +187,7 @@ export function RatioBoard({
               </Tooltip>
               <dd
                 className={cn(
-                  'figure truncate font-semibold text-lg leading-tight tracking-tight',
+                  'figure break-words font-semibold text-base leading-tight tracking-tight sm:text-lg',
                   tile.value.tone !== null && toneText({ tone: tile.value.tone }),
                 )}
               >
@@ -198,7 +199,9 @@ export function RatioBoard({
                 </dd>
               )}
               {tile.context !== null && (
-                <dd className="figure truncate text-2xs text-muted-foreground">{tile.context}</dd>
+                <dd className="figure text-2xs text-muted-foreground leading-snug">
+                  {tile.context}
+                </dd>
               )}
             </dl>
             {editing && (
@@ -249,6 +252,14 @@ export function RatioBoard({
             </MetricPicker>
           </li>
         )}
+        {/* Blank cells complete the last row, so the hairline grid never shows a gap. */}
+        {FILLER_KEYS.slice(0, fillers(cellCount, 3)).map((k) => (
+          <li key={`f3-${k}`} aria-hidden className="bg-surface max-sm:hidden" />
+        ))}
+        {!hiddenOnPhone &&
+          FILLER_KEYS.slice(0, fillers(cellCount, 2)).map((k) => (
+            <li key={`f2-${k}`} aria-hidden className="bg-surface sm:hidden" />
+          ))}
       </ul>
 
       {hiddenOnPhone && (
@@ -258,6 +269,12 @@ export function RatioBoard({
       )}
     </Card>
   );
+}
+
+const FILLER_KEYS = ['a', 'b'] as const;
+
+function fillers(cells: number, columns: number): number {
+  return (columns - (cells % columns)) % columns;
 }
 
 /** The tile's visual cue: a meter, a centre-zero bar or the 52-week ribbon. */

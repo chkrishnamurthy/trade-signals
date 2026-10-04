@@ -48,7 +48,7 @@ describe('buildTile', () => {
   it('draws the 52-week ribbon with the close’s position', () => {
     // (72100 − 68200) / (102000 − 68200) = 3900 / 33800 = 11.5% → "12%".
     const tile = buildTile('range52w', metrics, values, extras, null);
-    expect(tile?.value.text).toBe('₹1,020 / ₹682');
+    expect(tile?.value.text).toBe('₹1,020.00 / ₹682.00');
     expect(tile?.cue).toEqual({ kind: 'range', low: 68_200, high: 102_000, value: 72_100 });
     expect(tile?.context).toBe('Close at 12% of the range');
   });

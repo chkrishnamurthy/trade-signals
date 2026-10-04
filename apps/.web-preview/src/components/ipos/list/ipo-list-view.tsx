@@ -224,8 +224,11 @@ export function IpoListView({ data }: { data: IpoListPageDto }) {
             )}
             <footer className="flex flex-col gap-2 border-border border-t px-4 py-2.5 text-muted-foreground text-xs sm:flex-row sm:items-center sm:justify-between">
               <span>
-                Min. investment is the minimum order at the upper end of the band · Demand bar: log
-                scale, the tick is fully subscribed (1×)
+                Min. investment is the minimum order at the upper end of the band
+                <span className="hidden lg:inline">
+                  {' '}
+                  · Demand bar: log scale, the tick is fully subscribed (1×)
+                </span>
               </span>
               {pageCount > 1 && (
                 <span className="flex gap-1.5">

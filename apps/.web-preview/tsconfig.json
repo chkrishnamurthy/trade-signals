@@ -6,38 +6,18 @@
     // noUncheckedIndexedAccess, ES2022 — is inherited unchanged.
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "lib": [
-      "ES2022",
-      "ES2023.Intl",
-      "DOM",
-      "DOM.Iterable"
-    ],
+    "lib": ["ES2022", "ES2023.Intl", "DOM", "DOM.Iterable"],
     "jsx": "preserve",
     "noEmit": true,
     "declaration": false,
     "declarationMap": false,
     "allowJs": true,
     "incremental": true,
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ],
+    "plugins": [{ "name": "next" }],
     "paths": {
-      "@/*": [
-        "./src/*"
-      ]
+      "@/*": ["./src/*"]
     }
   },
-  "include": [
-    "**/*.ts",
-    "**/*.tsx",
-    ".next/types/**/*.ts",
-    "next-env.d.ts",
-    ".next-localdb/types/**/*.ts"
-  ],
-  "exclude": [
-    "node_modules",
-    ".next"
-  ]
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules", ".next"]
 }

@@ -37,7 +37,8 @@ const SERIES_MEANING: Readonly<Record<string, string>> = {
   BZ: 'Trade-for-trade, restricted: every trade settles by delivery.',
 };
 
-const SPARK_SESSIONS = 63;
+/** 63 sessions back plus today: the same closes the 3M return compares. */
+const SPARK_CLOSES = 64;
 
 function initials(name: string, symbol: string): string {
   const words = name
@@ -91,7 +92,7 @@ export function StockHeader({
   const fno = data.values?.fnoEligible === true;
   const tone =
     change === null ? 'neutral' : change > 0 ? 'bullish' : change < 0 ? 'bearish' : 'neutral';
-  const closes = data.bars.slice(-SPARK_SESSIONS).map((b) => b.c);
+  const closes = data.bars.slice(-SPARK_CLOSES).map((b) => b.c);
   const lastClose = typeof data.values?.close === 'number' ? data.values.close : null;
 
   const copyIsin = async () => {
