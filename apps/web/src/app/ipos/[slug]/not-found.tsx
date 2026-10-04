@@ -14,7 +14,7 @@ export default function IpoNotFound() {
             description="This issue isn't in EquityWise's list. It may have been renamed, or the link may be mistyped."
             action={
               <Button asChild variant="outline" size="sm">
-                <Link href="/ipos">All IPOs</Link>
+                <Link href="/ipos/all">All IPOs</Link>
               </Button>
             }
           />

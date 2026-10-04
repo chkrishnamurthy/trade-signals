@@ -224,6 +224,7 @@ export {
   attachSourceKey,
   canonicalJson,
   countIposByStatus,
+  countSebiFilingsSince,
   createIpoIssue,
   firstGmpObservedAt,
   getIpoById,

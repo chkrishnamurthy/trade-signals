@@ -18,6 +18,7 @@ const mock = vi.hoisted(() => ({
   years: vi.fn(),
   firstGmp: vi.fn(),
   documents: vi.fn(),
+  filedCount: vi.fn(),
 }));
 vi.mock('./auth/require-user', () => ({ getSessionUser: mock.user, getAdminUser: mock.admin }));
 vi.mock('./db', () => ({ getDatabase: () => ({}) }));
@@ -31,6 +32,7 @@ vi.mock('@equitywise/db', async (original) => ({
   ipoDetailParts: mock.parts,
   gmpTrackRows: mock.track,
   listSebiFilings: mock.filings,
+  countSebiFilingsSince: mock.filedCount,
   listUnmatchedSourceRecords: mock.unmatched,
   listIssuesWithConflicts: mock.conflicts,
   ipoYearStats: mock.yearStats,
@@ -45,9 +47,8 @@ import { GET as getListRoute } from '../app/api/ipos/route';
 import { getIpoWebConfig } from './ipo-config';
 import {
   buildAgenda,
-  dashboardCurrent,
   dashboardGmp,
-  dashboardSubscription,
+  dashboardPreview,
   feedIdsFor,
   getIpoDashboard,
   getIpoDetail,
@@ -181,6 +182,7 @@ beforeEach(async () => {
   mock.around.mockResolvedValue([issue()]);
   mock.health.mockResolvedValue(new Map());
   mock.track.mockResolvedValue([]);
+  mock.filedCount.mockResolvedValue(14);
   mock.yearStats.mockResolvedValue({
     listed: 88,
     withListingPrice: 8,
@@ -507,55 +509,34 @@ describe('dashboard building blocks', () => {
     expect(nextSettlementDays('2026-10-05', 5, config.calendar).to).toBe('2026-10-09');
   });
 
-  it('orders the board: open, upcoming, awaiting listing, then listed this week', () => {
+  it("previews the master table: this year's issues in stage order", () => {
     const open = toListItem(issue(), ctx);
     const upcoming = toListItem(
       issue({ slug: 'up', openDate: '2026-10-07', closeDate: '2026-10-09' }),
       ctx,
     );
+    const undated = toListItem(issue({ slug: 'undated', openDate: null, closeDate: null }), ctx);
     const closed = toListItem(
       issue({ slug: 'closed', openDate: '2026-09-25', closeDate: '2026-09-29' }),
-      ctx,
-    );
-    // Closed long ago with no listing: "no listing reported", not "yet to list".
-    const stale = toListItem(
-      issue({ slug: 'stale', openDate: '2026-08-01', closeDate: '2026-08-05' }),
       ctx,
     );
     const recent = toListItem(issue({ slug: 'recent', listingDate: '2026-10-01' }), ctx);
-    const old = toListItem(issue({ slug: 'old', listingDate: '2026-09-01' }), ctx);
-    expect(
-      dashboardCurrent(
-        { open: [open], upcoming: [upcoming], closed: [stale, closed], listed: [recent, old] },
-        ctx.today,
-      ).map((r) => r.slug),
-    ).toEqual(['vishal-nirmiti-ipo-2026', 'up', 'closed', 'recent']);
-  });
-
-  it('ranks demand within open and closed issues, open first', () => {
-    const low = toListItem(issue({ slug: 'low' }), ctx);
-    const high = toListItem(
+    // Bid in 2025: outside the table's default year, so outside its preview.
+    const lastYear = toListItem(
       issue({
-        slug: 'high',
-        subscriptionTotal: {
-          scope: 'consolidated',
-          asOf: '2026-10-01T11:30:00+00:00',
-          sharesBid: 20,
-          sharesOffered: 10,
-        },
+        slug: 'last-year',
+        openDate: '2025-12-01',
+        closeDate: '2025-12-03',
+        listingDate: '2025-12-08',
       }),
       ctx,
     );
-    const closed = toListItem(
-      issue({ slug: 'closed', openDate: '2026-09-25', closeDate: '2026-09-29' }),
-      ctx,
-    );
-    const none = toListItem(issue({ slug: 'none', subscriptionTotal: null }), ctx);
-    expect(dashboardSubscription([low, none, high], [closed]).map((r) => r.slug)).toEqual([
-      'high',
-      'low',
-      'closed',
-    ]);
+    expect(
+      dashboardPreview([recent, lastYear, upcoming, closed, open, open, undated], ctx.today).map(
+        (r) => r.slug,
+      ),
+    ).toEqual(['vishal-nirmiti-ipo-2026', 'closed', 'up', 'undated', 'recent']);
+    expect(dashboardPreview([open, upcoming, closed], ctx.today, 2)).toHaveLength(2);
   });
 
   it('keeps GMP to unlisted issues with a quote, highest premium first, once each', () => {
@@ -611,7 +592,7 @@ describe('dashboard building blocks', () => {
 });
 
 describe('services and routes', () => {
-  it('builds the dashboard for one board, with filings only on the mainboard', async () => {
+  it('builds the Overview for a board scope, with filings never on SME', async () => {
     mock.list.mockImplementation(async (_db: unknown, f: { status?: string; board?: string }) =>
       f.status === 'open' ? { rows: [issue()], total: 1 } : { rows: [], total: 0 },
     );
@@ -639,7 +620,8 @@ describe('services and routes', () => {
       year: 2026,
       today: '2026-10-02',
     });
-    expect(main.current.map((r) => r.slug)).toEqual(['vishal-nirmiti-ipo-2026']);
+    expect(main.open.map((r) => r.slug)).toEqual(['vishal-nirmiti-ipo-2026']);
+    expect(main.preview.map((r) => r.slug)).toEqual(['vishal-nirmiti-ipo-2026']);
     expect(main.gmp).toHaveLength(1);
     expect(main.documents).toEqual([
       {
@@ -652,14 +634,26 @@ describe('services and routes', () => {
       },
     ]);
     expect(main.filings).toHaveLength(1);
-    expect(main.gmpTrack).toMatchObject({ official: false, total: 0 });
+    expect(main.filedRecently).toBe(14);
+    expect(mock.filedCount).toHaveBeenCalledWith(expect.anything(), '2026-07-04');
+    expect(main.gmpTracks).toEqual([expect.objectContaining({ board: 'mainboard', total: 0 })]);
+    for (const call of mock.list.mock.calls) expect(call[1]).toMatchObject({ board: 'mainboard' });
 
     const sme = await getIpoDashboard('sme', now);
     expect(sme.filings).toEqual([]);
-    for (const call of mock.list.mock.calls) expect(call[1]).toHaveProperty('board');
+    expect(sme.filedRecently).toBeNull();
+
+    // Both boards: no board filter, and a GMP record per board, never pooled.
+    mock.list.mockClear();
+    const all = await getIpoDashboard('all', now);
+    expect(all.board).toBe('all');
+    for (const call of mock.list.mock.calls) expect(call[1].board).toBeUndefined();
+    expect(all.gmpTracks.map((t) => t.board)).toEqual(['mainboard', 'sme']);
+    expect(mock.track).toHaveBeenLastCalledWith(expect.anything(), expect.any(String), 'sme');
+    expect(all.filings).toHaveLength(1);
   });
 
-  it("lists a board for this year by default, every year on 'all'", async () => {
+  it("lists the table for this year by default, every year on 'all', both boards by default", async () => {
     const page = await getIpoListPage('sme', { page: 1 }, now);
     expect(page.filters).toEqual({ status: null, year: 2026, q: '' });
     expect(page.years).toEqual([2026, 2025, 2024]);
@@ -673,6 +667,10 @@ describe('services and routes', () => {
       expect.anything(),
       expect.objectContaining({ board: 'sme', year: undefined }),
     );
+    const both = await getIpoListPage('all', { page: 1 }, now);
+    expect(both.board).toBe('all');
+    expect(mock.list.mock.lastCall?.[1].board).toBeUndefined();
+    expect(mock.years).toHaveBeenLastCalledWith(expect.anything(), undefined);
   });
 
   it('sorts the whole board before paging, and counts every status for the tiles', async () => {

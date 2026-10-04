@@ -21,6 +21,7 @@ import {
 } from '@equitywise/core';
 import {
   countIposByStatus,
+  countSebiFilingsSince,
   type FeedHealthRow,
   feedHealth,
   firstGmpObservedAt,
@@ -57,6 +58,7 @@ import {
 } from '@equitywise/shared';
 import { awaitingListing } from '@/lib/ipo-format';
 import { countByStatus, DEFAULT_SORT_DIR, listSummary, sortListItems } from '@/lib/ipo-list';
+import { boardOf, type IpoScope } from '@/lib/ipo-routes';
 import type {
   FactSourceDto,
   GmpChipDto,
@@ -677,43 +679,27 @@ export function nextSettlementDays(
   return { from: today, to };
 }
 
-/** How many of each group the "Current & upcoming" module shows. */
-const CURRENT_LIMITS = { upcoming: 5, listed: 3, total: 14 } as const;
+/** How many rows of the master table the Overview previews. */
+const PREVIEW_ROWS = 8;
 
-/** Open, upcoming, awaiting listing, then listed in the last week — the board right now. */
-export function dashboardCurrent(
-  groups: {
-    readonly open: readonly IpoListItemDto[];
-    readonly upcoming: readonly IpoListItemDto[];
-    readonly closed: readonly IpoListItemDto[];
-    readonly listed: readonly IpoListItemDto[];
-  },
+/**
+ * The master table's first rows as the Overview shows them: this year's
+ * issues (an undated one counts in today's year, as the table counts it) in
+ * the table's own default order, by stage.
+ */
+export function dashboardPreview(
+  rows: readonly IpoListItemDto[],
   today: string,
+  limit = PREVIEW_ROWS,
 ): IpoListItemDto[] {
-  const weekAgo = addDays(today, -7);
-  return [
-    ...groups.open,
-    ...groups.upcoming.slice(0, CURRENT_LIMITS.upcoming),
-    ...groups.closed.filter(awaitingListing),
-    ...groups.listed
-      .filter((i) => i.listingDate !== null && i.listingDate >= weekAgo)
-      .slice(0, CURRENT_LIMITS.listed),
-  ].slice(0, CURRENT_LIMITS.total);
-}
-
-/** Issues with bids: open ones first, then those awaiting listing, each by demand. */
-export function dashboardSubscription(
-  open: readonly IpoListItemDto[],
-  closed: readonly IpoListItemDto[],
-  limit = 8,
-): IpoListItemDto[] {
-  const withBids = (rows: readonly IpoListItemDto[]) =>
-    rows
-      .filter(
-        (r) => r.subscription?.totalTimes !== null && r.subscription?.totalTimes !== undefined,
-      )
-      .sort((a, b) => (b.subscription?.totalTimes ?? 0) - (a.subscription?.totalTimes ?? 0));
-  return [...withBids(open), ...withBids(closed.filter(awaitingListing))].slice(0, limit);
+  const year = today.slice(0, 4);
+  const seen = new Set<string>();
+  const inYear = rows.filter((r) => {
+    if (seen.has(r.slug)) return false;
+    seen.add(r.slug);
+    return (r.openDate ?? r.closeDate ?? today).slice(0, 4) === year;
+  });
+  return sortListItems(inYear, { key: 'stage', dir: 'asc' }).slice(0, limit);
 }
 
 /** Unlisted issues with a GMP quote, highest premium first. Quotes never mix with official figures. */
@@ -878,46 +864,64 @@ export async function getIposPage(
   };
 }
 
-/** Rows the dashboard reads per status; far more than any board has open at once. */
+/** Rows the Overview reads per status; far more than any board has open at once. */
 const DASHBOARD_ROWS = 50;
 /** How many months of listings the GMP track record looks back over. */
 const GMP_TRACK_MONTHS = 12;
+/** The window the "Filed with SEBI" stage counts over. */
+const FILED_DAYS = 90;
 
 export async function getIpoDashboard(
-  board: IpoBoard,
+  scope: IpoScope,
   now: Date = new Date(),
 ): Promise<IpoDashboardDto> {
   await requireSignedIn();
   const db = getDatabase();
   const { ctx, config } = await context(now);
   const year = yearOf(ctx.today);
+  const board = boardOf(scope);
   const base = { today: ctx.today, board };
   const feeds = feedIdsFor(config);
   const window = nextSettlementDays(ctx.today, 5, config.calendar);
   const gmp = gmpSource(config);
-  const [counts, open, upcoming, closed, listed, around, health, stats, filings, track] =
-    await Promise.all([
-      countIposByStatus(db, base),
-      listIpos(db, { ...base, status: 'open', page: 1, pageSize: DASHBOARD_ROWS }),
-      listIpos(db, { ...base, status: 'upcoming', page: 1, pageSize: DASHBOARD_ROWS }),
-      listIpos(db, { ...base, status: 'closed', page: 1, pageSize: DASHBOARD_ROWS }),
-      listIpos(db, { ...base, status: 'listed', page: 1, pageSize: 12 }),
-      listIposAround(db, window.from, window.to),
-      feedHealth(
-        db,
-        feeds.map((f) => f.id),
-      ),
-      ipoYearStats(db, { board, year, today: ctx.today }),
-      board === 'mainboard' && filingsEnabled(config)
-        ? listSebiFilings(db, 5)
-        : Promise.resolve([]),
-      gmp === null
-        ? Promise.resolve(null)
-        : gmpTrackRows(db, addDays(ctx.today, -Math.round(GMP_TRACK_MONTHS * 30.44)), board),
-    ]);
+  // SEBI holds mainboard drafts only; SME drafts go to the exchange.
+  const filingsOn = scope !== 'sme' && filingsEnabled(config);
+  // Grey markets differ by board, so each board's record is read on its own.
+  const trackBoards: readonly IpoBoard[] = board === undefined ? ['mainboard', 'sme'] : [board];
+  const trackSince = addDays(ctx.today, -Math.round(GMP_TRACK_MONTHS * 30.44));
+  const [
+    yearCounts,
+    open,
+    upcoming,
+    closed,
+    listed,
+    around,
+    health,
+    stats,
+    filings,
+    filed,
+    tracks,
+  ] = await Promise.all([
+    countIposByStatus(db, { ...base, year }),
+    listIpos(db, { ...base, status: 'open', page: 1, pageSize: DASHBOARD_ROWS }),
+    listIpos(db, { ...base, status: 'upcoming', page: 1, pageSize: DASHBOARD_ROWS }),
+    listIpos(db, { ...base, status: 'closed', page: 1, pageSize: DASHBOARD_ROWS }),
+    listIpos(db, { ...base, status: 'listed', page: 1, pageSize: 12 }),
+    listIposAround(db, window.from, window.to),
+    feedHealth(
+      db,
+      feeds.map((f) => f.id),
+    ),
+    ipoYearStats(db, { board, year, today: ctx.today }),
+    filingsOn ? listSebiFilings(db, 5) : Promise.resolve([]),
+    filingsOn ? countSebiFilingsSince(db, addDays(ctx.today, -FILED_DAYS)) : Promise.resolve(null),
+    gmp === null
+      ? Promise.resolve([])
+      : Promise.all(trackBoards.map((b) => gmpTrackRows(db, trackSince, b))),
+  ]);
   const items = (rows: readonly IpoListRow[]) => rows.map((r) => toListItem(r, ctx));
-  const openItems = items(open.rows);
-  const upcomingItems = items(upcoming.rows);
+  const openItems = sortListItems(items(open.rows), { key: 'stage', dir: 'asc' });
+  const upcomingItems = sortListItems(items(upcoming.rows), { key: 'stage', dir: 'asc' });
   const closedItems = items(closed.rows);
   const listedItems = items(listed.rows);
 
@@ -950,27 +954,42 @@ export async function getIpoDashboard(
   });
 
   const statuses = toFeedStatuses(feeds, health, now, config);
-  const record =
-    track === null
-      ? null
-      : toTrackRecord(track, GMP_TRACK_MONTHS, null, board, ctx.gmpSince ?? null);
+  const gmpTracks = trackBoards.flatMap((b, i) => {
+    const rows = tracks[i];
+    if (rows === undefined) return [];
+    const record = toTrackRecord(rows, GMP_TRACK_MONTHS, null, b, ctx.gmpSince ?? null);
+    return [
+      {
+        board: b,
+        official: false as const,
+        months: record.months,
+        since: record.since,
+        tolerancePoints: record.tolerancePoints,
+        total: record.total,
+        within: record.within,
+      },
+    ];
+  });
   return {
-    board,
+    board: scope,
     today: ctx.today,
     asOf: statuses.find((f) => f.id.endsWith('-calendar'))?.lastSuccessAt ?? null,
     feeds: statuses,
-    counts,
+    yearCounts,
     awaitingListing: closedItems.filter(awaitingListing).length,
     yearStats: { year, ...stats },
-    current: dashboardCurrent(
-      { open: openItems, upcoming: upcomingItems, closed: closedItems, listed: listedItems },
+    filedRecently: filed,
+    filedDays: FILED_DAYS,
+    open: openItems,
+    upcoming: upcomingItems,
+    preview: dashboardPreview(
+      [...openItems, ...closedItems, ...upcomingItems, ...listedItems],
       ctx.today,
     ),
-    subscription: dashboardSubscription(openItems, closedItems),
     gmp: gmp === null ? [] : dashboardGmp([...openItems, ...upcomingItems, ...closedItems]),
-    listings: listedItems.filter((i) => i.listing !== null).slice(0, 7),
+    listings: listedItems.filter((i) => i.listing !== null).slice(0, 6),
     agenda: buildAgenda(
-      around.filter((r) => r.board === board),
+      board === undefined ? around : around.filter((r) => r.board === board),
       window.from,
       window.to,
       ctx,
@@ -985,17 +1004,7 @@ export async function getIpoDashboard(
     filings: filings.map(toFiling),
     exchangeAllotment: config.exchangeAllotment,
     gmpPolicy: gmpPolicyOf(ctx),
-    gmpTrack:
-      record === null
-        ? null
-        : {
-            official: false,
-            months: record.months,
-            since: record.since,
-            tolerancePoints: record.tolerancePoints,
-            total: record.total,
-            within: record.within,
-          },
+    gmpTracks,
     coverageNote: coverageNote(config),
     disclaimer: IPO_DISCLAIMER,
     gmpNote: GMP_NOTE,
@@ -1013,13 +1022,14 @@ const LIST_PAGE_SIZE = 25;
 const LIST_SCAN_LIMIT = 5_000;
 
 export async function getIpoListPage(
-  board: IpoBoard,
-  query: IpoBoardListQuery,
+  scope: IpoScope,
+  query: Omit<IpoBoardListQuery, 'board'>,
   now: Date = new Date(),
 ): Promise<IpoListPageDto> {
   await requireSignedIn();
   const db = getDatabase();
   const { ctx, config } = await context(now);
+  const board = boardOf(scope);
   const currentYear = yearOf(ctx.today);
   const year = query.year === 'all' ? undefined : (query.year ?? currentYear);
   const filters = { today: ctx.today, board, year, search: query.q };
@@ -1045,7 +1055,7 @@ export async function getIpoListPage(
   const lastPage = Math.max(1, Math.ceil(matching.length / LIST_PAGE_SIZE));
   const page = Math.min(query.page, lastPage);
   return {
-    board,
+    board: scope,
     today: ctx.today,
     filters: { status: query.status ?? null, year: year ?? null, q: query.q ?? '' },
     years: [...new Set([currentYear, ...years])].sort((a, b) => b - a),

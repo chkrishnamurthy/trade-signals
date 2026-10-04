@@ -42,8 +42,9 @@ historical intent; that intraday code no longer exists in the tree.
 > they are not in the primary navigation. Do not expose them to users without a decision.
 
 > **Update (2026-10-02):** `/ipos` — Indian mainboard and SME IPOs — is built for **every
-> signed-in user** (in the "Market record" navigation): `/ipos` is a dashboard of compact
-> modules with a Mainboard/SME switch, `/ipos/mainboard` and `/ipos/sme` list every issue,
+> signed-in user** (in the "Market record" navigation). Since 2026-10-04 it is one section
+> with a shared header (board scope All boards/Mainboard/SME, section tabs): `/ipos` is the
+> Overview hub, `/ipos/all` the master table (`/ipos/mainboard`, `/ipos/sme` redirect there),
 > and `/ipos/[slug]` is one issue in full. Official facts come from NSE's
 > public IPO data and end-of-day file; an **unofficial** grey-market premium (GMP) comes
 > from InvestorGain, always labelled, attributed and kept out of every official field.

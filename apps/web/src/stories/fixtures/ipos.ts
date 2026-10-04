@@ -389,14 +389,16 @@ const GMP_POLICY = {
 const COVERAGE =
   'Covers issues bid on NSE, including NSE Emerge SME. BSE-only SME issues are not yet included.';
 
-/** The mainboard dashboard on Fri 2 Oct 2026. */
+/** The IPO Overview (mainboard issues) on Fri 2 Oct 2026. */
 export const DASHBOARD: IpoDashboardDto = {
   board: 'mainboard',
   today: TODAY,
   asOf: '2026-10-02T13:43:00.000Z',
   feeds: FEEDS_OK,
-  counts: { upcoming: 0, open: 2, closed: 1, listed: 88, withdrawn: 0, postponed: 0 },
+  yearCounts: { upcoming: 0, open: 2, closed: 1, listed: 88, withdrawn: 0, postponed: 0 },
   awaitingListing: 1,
+  filedRecently: 14,
+  filedDays: 90,
   yearStats: {
     year: 2026,
     listed: 88,
@@ -405,8 +407,9 @@ export const DASHBOARD: IpoDashboardDto = {
     withLatestClose: 8,
     latestAboveIssue: 4,
   },
-  current: [VNL, NITYAS, ORIENT, AONE, MONEYVIEW],
-  subscription: [NITYAS, VNL, ORIENT],
+  open: [VNL, NITYAS],
+  upcoming: [],
+  preview: [VNL, NITYAS, ORIENT, AONE, MONEYVIEW],
   gmp: [VNL, ORIENT],
   listings: [AONE, MONEYVIEW],
   agenda: AGENDA,
@@ -449,20 +452,23 @@ export const DASHBOARD: IpoDashboardDto = {
     },
   ],
   gmpPolicy: GMP_POLICY,
-  gmpTrack: {
-    official: false,
-    months: 12,
-    since: '2026-10-02',
-    tolerancePoints: 10,
-    total: 7,
-    within: 5,
-  },
+  gmpTracks: [
+    {
+      board: 'mainboard',
+      official: false,
+      months: 12,
+      since: '2026-10-02',
+      tolerancePoints: 10,
+      total: 7,
+      within: 5,
+    },
+  ],
   coverageNote: COVERAGE,
   disclaimer: DISCLAIMER,
   gmpNote: GMP_NOTE,
 };
 
-/** `/ipos/mainboard`, 2026. */
+/** `/ipos/all?board=mainboard`, 2026. */
 export const LIST_PAGE: IpoListPageDto = {
   board: 'mainboard',
   today: TODAY,

@@ -1,19 +1,8 @@
-import type { Metadata } from 'next';
-import { BoardListRoute } from '@/components/ipos/list/board-list-route';
-
-export const metadata: Metadata = {
-  title: 'Mainboard IPOs — EquityWise',
-  description:
-    'Every Mainboard IPO in one table: dates, price band, minimum investment, size, demand and listing.',
-  // Signed-in only (owner decision D3): never indexed.
-  robots: { index: false, follow: false },
-};
-
-export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
+import { redirectToTable } from '@/components/ipos/list/board-list-route';
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
-export default function MainboardIposRoute({ searchParams }: { searchParams: SearchParams }) {
-  return <BoardListRoute board="mainboard" searchParams={searchParams} />;
+/** The old board list's address: the master table, scoped to the mainboard. */
+export default async function MainboardIposRoute({ searchParams }: { searchParams: SearchParams }) {
+  return redirectToTable('mainboard', await searchParams);
 }

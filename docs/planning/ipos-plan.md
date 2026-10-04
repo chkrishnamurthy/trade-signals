@@ -639,7 +639,38 @@ User routes have no write endpoints.
 
 ## 10. UI
 
-### 10.1 `/ipos` (dashboard) and `/ipos/mainboard`, `/ipos/sme` (board lists)
+### 10.0 The IPO section — one hub (2026-10-04)
+
+**Redesigned 2026-10-04** after the owner approved the hub mockups (canvas:
+https://claude.ai/artifact/KQPqvVLkiSRM4y6sP4hRwN). The navbar's IPOs link and the old
+`/ipos/mainboard` page had become two unrelated front doors, each with its own title, tiles
+and board switch. Now the section is one place:
+
+- **One shared header** on every IPO page (`components/ipos/ipo-section-header.tsx`): the
+  title, a board scope **All boards · Mainboard · SME** and the section tabs. The scope is
+  one `?board=` value (default `all`, kept out of the URL) that every tab carries
+  (`lib/ipo-routes.ts`). Phase 1 tabs: **Overview** (`/ipos`) and **All IPOs**
+  (`/ipos/all`, the master table, unchanged in behaviour). Phase 2 adds Calendar, Listings,
+  Grey market and Pipeline as their own tabs.
+- **The lifecycle as the spine**: Filed with SEBI → Upcoming → Open for bids → Allotment &
+  listing → Listed. The same words and colours label the Overview's stage strip, the
+  master table's tiles and status pills, and the issue page's stage tracker.
+- **Overview reading order**: stage strip (each stage opens its list) · open-for-bids cards
+  (closing day, min. investment, band, size, demand bar, opened/closes/lists, unofficial
+  GMP) beside the next five trading days · Upcoming · Allotment & listing · a preview of the
+  master table (first 8 rows of this year in stage order, status pills linking into it) ·
+  listing performance and the unofficial GMP (with a track record per board, never pooled)
+  · offer documents and SEBI filings. Every block ends in a link to where all of it is.
+- **"All boards"** reads every board (`boardOf('all')` is `undefined` in every query); SME
+  issues carry an "SME" mark wherever boards are mixed. SEBI filings (and the "Filed with
+  SEBI" count, `countSebiFilingsSince`, last 90 days) are hidden on the SME scope.
+- **Redirects**: `/ipos/mainboard` and `/ipos/sme` permanently redirect to
+  `/ipos/all?board=…`, filters kept; old `/ipos?status=…` links open the table.
+- **Issue page**: the section tabs above a breadcrumb back to IPOs, the existing
+  remembered "Back to …" link, and a five-stage tracker above the key figures (vertical on
+  a phone).
+
+### 10.1 `/ipos` (dashboard) and `/ipos/all` (master table) — history
 
 **Redesigned 2026-10-02** after the owner approved mockups modelled on Chittorgarh's IPO
 dashboard (canvas: https://claude.ai/artifact/NGYM1QEwEMK9aG6341oKHH). The first build's

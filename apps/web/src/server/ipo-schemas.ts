@@ -1,6 +1,7 @@
 import { IPO_BOARDS, IPO_EXCHANGES, IPO_STATUSES } from '@equitywise/shared';
 import { z } from 'zod';
 import { IPO_LIST_SORT_KEYS } from '@/lib/ipo-list';
+import { IPO_SCOPES } from '@/lib/ipo-routes';
 
 /**
  * Query validation for `/api/ipos*` and the `/ipos` pages (plan §9). One
@@ -23,11 +24,15 @@ export const ipoListQuerySchema = z.object({
 });
 export type IpoListQuery = z.infer<typeof ipoListQuerySchema>;
 
+/** `?board=` on every IPO page: `all` (the default), `mainboard` or `sme`. */
+const scopeParam = z.preprocess(blankToUndefined, z.enum(IPO_SCOPES).default('all'));
+
 /**
- * `/ipos/mainboard` and `/ipos/sme`: the board is the route, so only status,
- * year (`all` for every year; absent = this year), search and page.
+ * `/ipos/all`, the master table: the board scope, status, year (`all` for
+ * every year; absent = this year), search, order and page.
  */
 export const ipoBoardListQuerySchema = z.object({
+  board: scopeParam,
   status: z.preprocess(blankToUndefined, z.enum(IPO_STATUSES).optional()),
   year: z.preprocess(
     blankToUndefined,
@@ -42,10 +47,8 @@ export const ipoBoardListQuerySchema = z.object({
 });
 export type IpoBoardListQuery = z.infer<typeof ipoBoardListQuerySchema>;
 
-/** `/ipos?board=sme`: the dashboard's board switch; mainboard when absent. */
-export const ipoDashboardQuerySchema = z.object({
-  board: z.preprocess(blankToUndefined, z.enum(IPO_BOARDS).default('mainboard')),
-});
+/** `/ipos?board=sme`: the Overview's board scope; both boards when absent. */
+export const ipoDashboardQuerySchema = z.object({ board: scopeParam });
 
 export const ipoCalendarQuerySchema = z
   .object({ from: dateKey, to: dateKey })

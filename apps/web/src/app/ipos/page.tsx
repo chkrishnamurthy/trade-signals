@@ -1,14 +1,15 @@
-import type { Metadata, Route } from 'next';
+import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { IpoDashboardView } from '@/components/ipos/dashboard/ipo-dashboard-view';
+import { overviewHref, tableHref } from '@/lib/ipo-routes';
 import { MarketDataError } from '@/server/errors';
 import { ipoDashboardQuerySchema, searchParamsObject } from '@/server/ipo-schemas';
 import { getIpoDashboard } from '@/server/ipos';
 
 export const metadata: Metadata = {
-  title: 'IPO dashboard — EquityWise',
+  title: 'IPOs — EquityWise',
   description:
-    'Indian mainboard and SME IPOs today: open issues, subscription, listing performance, allotment and offer documents.',
+    'Indian mainboard and SME IPOs: open issues, what opens next, allotment, listing performance and offer documents.',
   // Signed-in only (owner decision D3): never indexed.
   robots: { index: false, follow: false },
 };
@@ -18,27 +19,23 @@ export const dynamic = 'force-dynamic';
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
-/** List filters that used to live on `/ipos`; such links now open the board's full list. */
-const LIST_PARAMS = ['status', 'q', 'page', 'exchange', 'year'] as const;
+/** List filters that used to live on `/ipos`; such links now open the master table. */
+const LIST_PARAMS = ['status', 'q', 'page', 'year'] as const;
 
 export default async function IposRoute({ searchParams }: { searchParams: SearchParams }) {
   const params = searchParamsObject(await searchParams);
   const parsed = ipoDashboardQuerySchema.safeParse(params);
-  const board = parsed.success ? parsed.data.board : 'mainboard';
+  const scope = parsed.success ? parsed.data.board : 'all';
   if (LIST_PARAMS.some((k) => k in params)) {
-    const kept = new URLSearchParams();
-    for (const k of LIST_PARAMS)
-      if (k !== 'exchange' && params[k] !== undefined) kept.set(k, params[k]);
-    const qs = kept.toString();
-    redirect(`/ipos/${board}${qs === '' ? '' : `?${qs}`}` as Route);
+    redirect(tableHref(scope, Object.fromEntries(LIST_PARAMS.map((k) => [k, params[k]]))));
   }
   try {
-    return <IpoDashboardView data={await getIpoDashboard(board)} />;
+    return <IpoDashboardView data={await getIpoDashboard(scope)} />;
   } catch (error) {
     // A present-but-stale session cookie gets past the edge gate (middleware
     // only checks that one exists); send it to sign in rather than an error.
     if (error instanceof MarketDataError && error.status === 401)
-      redirect(`/login?next=${encodeURIComponent(board === 'sme' ? '/ipos?board=sme' : '/ipos')}`);
+      redirect(`/login?next=${encodeURIComponent(overviewHref(scope))}`);
     throw error;
   }
 }

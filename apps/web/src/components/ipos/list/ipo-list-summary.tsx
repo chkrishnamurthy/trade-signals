@@ -37,11 +37,10 @@ function tilesOf(summary: IpoListSummaryDto, today: string, year: number | null)
     return `Next closes ${when}${upi}`;
   })();
   return [
-    { status: 'open', tone: 'open', label: 'Open for bids', count: open.count, detail: closeLine },
     {
       status: 'upcoming',
       tone: 'info',
-      label: 'Opening soon',
+      label: 'Upcoming',
       count: upcoming.count,
       detail:
         upcoming.next !== null
@@ -50,10 +49,11 @@ function tilesOf(summary: IpoListSummaryDto, today: string, year: number | null)
             ? 'Dates not announced yet'
             : 'None announced',
     },
+    { status: 'open', tone: 'open', label: 'Open for bids', count: open.count, detail: closeLine },
     {
       status: 'closed',
       tone: 'waiting',
-      label: 'Closed',
+      label: 'Allotment & listing',
       count: closed.count,
       detail:
         closed.next !== null
