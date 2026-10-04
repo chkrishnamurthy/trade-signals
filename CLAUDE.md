@@ -60,6 +60,9 @@ historical intent; that intraday code no longer exists in the tree.
 > ownership and event metrics; catalogue in `packages/core/src/screener/catalogue.ts`).
 > **No fundamentals** (P/E, ROE, market cap…) — those need a new source. Signals inside
 > these pages stay admin-only. Plan: `docs/planning/screener-dhan-fyers-plan.md`.
+> The stock page header (2026-10-04) adds a per-user ratio board (`user_ratio_layouts`),
+> computed "What stands out" facts and a 12-month dividend yield from NSE corporate actions
+> (`dividends` table — never applied to prices). Plan: `docs/planning/stock-header-redesign-plan.md`.
 
 Design & architecture docs: `docs/README.md`, `docs/architecture.md` (topology & stack),
 `docs/domain-and-contracts.md` (schema, indicators & invariants), `docs/api-reference.md`,

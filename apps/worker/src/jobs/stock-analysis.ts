@@ -12,15 +12,19 @@ import {
   fnoMetrics,
   ownershipMetrics,
   parseCorporateActionSubject,
+  parseDividendSubject,
   percentileRanks,
   sizeBucket,
+  trailingDividend,
 } from '@equitywise/core';
 import {
   announcementCountsSince,
   type BreadthUpsert,
   currentIndexKeys,
+  type DividendInsert,
   dealCountsSince,
   deliveryPointsSince,
+  dividendPointsSince,
   finishSnapshotBuild,
   getDailyBars,
   getDailyBarsForInstruments,
@@ -33,11 +37,13 @@ import {
   oiPointsSince,
   rawBarsAroundExDate,
   recordCorporateAction,
+  recordDividends,
   recordedCorporateActionKeys,
   resolveInstrumentIds,
   type SnapshotInsert,
   setIndustries,
   setWorkerCheckpoint,
+  shareBasisChangesSince,
   shareholdingPointsSince,
   startSnapshotBuild,
   syncEquityList,
@@ -179,6 +185,28 @@ export async function syncCorporateActions(
     const count = (k: string) => {
       outcomes[k] = (outcomes[k] ?? 0) + 1;
     };
+
+    // Cash dividends: their own table, never a price adjustment.
+    const dividendRows = new Map<string, DividendInsert>();
+    for (const action of actions) {
+      const instrumentId = ids.get(action.symbol);
+      if (instrumentId === undefined) continue;
+      for (const part of parseDividendSubject(action.subject)) {
+        const key = `${instrumentId}|${action.exDate}|${part.kind}`;
+        if (dividendRows.has(key)) continue;
+        if (part.amountPaise === null) count('dividend_unknown_amount');
+        dividendRows.set(key, {
+          instrumentId,
+          exDate: action.exDate,
+          kind: part.kind,
+          amountPaise: part.amountPaise,
+          subject: action.subject.slice(0, 500),
+          source: 'nse',
+        });
+      }
+    }
+    outcomes.dividends_recorded = await recordDividends(context.db, [...dividendRows.values()]);
+
     for (const action of actions) {
       const parsed = parseCorporateActionSubject(action.subject);
       if (parsed === null) continue;
@@ -506,6 +534,15 @@ async function buildRows(
     new Date(`${shiftDate(session, -7)}T00:00:00Z`),
   );
   const signalRows = await latestSignalsOnOrBefore(db, session);
+  // Dividend figures only once the dividend history has been loaded; before
+  // that "no dividend in the window" would read as a false zero.
+  const dividendsReady = (await getWorkerCheckpoint(db, DIVIDENDS_CHECKPOINT))?.done === true;
+  const dividendsById = dividendsReady
+    ? group(await dividendPointsSince(db, shiftDate(session, -366)))
+    : new Map<number, { instrumentId: number; exDate: string; amountPaise: number | null }[]>();
+  const basisById = dividendsReady
+    ? group(await shareBasisChangesSince(db, shiftDate(session, -366)))
+    : new Map<number, { instrumentId: number; exDate: string; ratio: number }[]>();
 
   const rows: SnapshotInsert[] = [];
   const all = new Map<string, MutableBreadth>();
@@ -541,6 +578,14 @@ async function buildRows(
       const ev = events.get(inst.id);
       const dealCount = deals.get(inst.id);
       const signal = signalRows.get(inst.id);
+      const dividend = dividendsReady
+        ? trailingDividend(
+            dividendsById.get(inst.id) ?? [],
+            basisById.get(inst.id) ?? [],
+            session,
+            tech.close,
+          )
+        : null;
 
       rows.push({
         tradingDate: session,
@@ -646,6 +691,8 @@ async function buildRows(
         blockDeals20d: dealCount?.block ?? 0,
         resultsInDays: ev === undefined ? null : daysUntilNext(ev.results, session),
         exDateInDays: ev === undefined ? null : daysUntilNext(ev.exDates, session),
+        dividendTtm: dividend?.ttmPaise ?? null,
+        dividendYield: dividend?.yieldPct ?? null,
         announcements7d: announcements.get(inst.id) ?? 0,
         listedDays: inst.listingDate === null ? null : daysBetween(inst.listingDate, session),
         industry: inst.industry,
@@ -744,6 +791,7 @@ export async function backfillStockAnalysis(
     to: shiftDate(today, 30),
     now,
   });
+  await markDividendsLoaded(context, from);
   if (options.afterBars !== undefined) await options.afterBars();
   const snapshot = await buildScreenerSnapshot(context, log.child('snapshot'), { now });
   if (snapshot.written > 0) {
@@ -754,6 +802,41 @@ export async function backfillStockAnalysis(
       Date.now(),
     );
   }
+}
+
+export const DIVIDENDS_CHECKPOINT = 'dividends-backfill';
+
+/** Is the dividend history loaded (so a missing dividend is a real zero)? */
+export async function dividendsBackfillDone(context: WorkerContext): Promise<boolean> {
+  const cursor = await getWorkerCheckpoint(context.db, DIVIDENDS_CHECKPOINT);
+  return cursor?.done === true;
+}
+
+export async function markDividendsLoaded(context: WorkerContext, from: string): Promise<void> {
+  await setWorkerCheckpoint(context.db, DIVIDENDS_CHECKPOINT, { done: true, from }, Date.now());
+}
+
+/**
+ * One-time dividend history for a deployment whose corporate actions were
+ * loaded before dividends were recorded: re-walks ~13 months of NSE corporate
+ * actions (adjusting actions already recorded are skipped), then rebuilds the
+ * latest snapshot so the dividend columns fill. Resumable; done once.
+ */
+export async function backfillDividends(
+  context: WorkerContext,
+  log: Logger,
+  options: { now?: Date } = {},
+): Promise<void> {
+  const now = options.now ?? new Date();
+  const today = istDateKey(now);
+  const from = shiftDate(today, -400);
+  await syncCorporateActions(context, log.child('corporate-actions'), {
+    from,
+    to: shiftDate(today, 30),
+    now,
+  });
+  await markDividendsLoaded(context, from);
+  await buildScreenerSnapshot(context, log.child('snapshot'), { now });
 }
 
 // ---------------------------------------------------------------------------

@@ -668,13 +668,33 @@ one full list per board. Old `/ipos?status=…` links redirect to the board list
 4. **Disclaimer** at the foot (§11).
 
 **`/ipos/mainboard`, `/ipos/sme` — the board lists** (`components/ipos/list/`,
-`getIpoListPage`): one table of every issue on the board for a year (default this year,
-`?year=2025`, `?year=all`), status pills with counts (links, so filtering works without
-JavaScript), a year picker and search (URL state), 25 rows a page. Columns: company and
-symbol · status chip with its next date · bidding dates and issue size (`xl`) · price band ·
-minimum investment and lot · subscribed · **GMP** (the "Unofficial" tag in the column
-header) · listing-day and latest change. Below `lg` each issue becomes a compact block with
-its figures in a grid. A legend explains the row tints, \* (expected T+3 date) and † (size
+`getIpoListPage`). **Redesigned 2026-10-04 as a master table** (concept A of the review
+mockups). One table of every issue on the board for a year (default this year,
+`?year=2025`, `?year=all`), 25 rows a page:
+
+- **Four summary tiles** above the table: open for bids (the next close and its UPI
+  cut-off), opening soon (the next to open), closed (the next listing, `*` when expected)
+  and listed (how many are above the issue price at the last close). Each tile is a status
+  filter link. Counts only, never a view of an issue (`listSummary` in `lib/ipo-list.ts`).
+- **Status pills** with counts, a year picker and search: all URL state, so filtering
+  works without JavaScript.
+- **Grouped columns**: Issue (company with an initials tile, status chip and next date) ·
+  Schedule (bidding, listing day) · Price (band, minimum investment and lot, size) ·
+  Demand (total, with a log-scale bar ticked at 1×, and retail) · Grey market (the GMP,
+  headed by the "Unofficial" tag) · Listing (day 1, since issue). The company column stays
+  frozen while the rest scrolls sideways on narrower screens.
+- **Sorting by header link** (`?sort=stage|company|close|min|size|demand|gmp|day1|now`,
+  `&dir=asc|desc`). The default, `stage`, puts open issues first, then those waiting to
+  list, then upcoming, then listed (newest first). The service reads every issue under the
+  board, year and search filters (`LIST_SCAN_LIMIT`), maps it, then sorts and pages in memory.
+  Several sort keys are computed in `toListItem`, and the tiles and pill counts need every
+  status anyway. Missing values sort last in both directions. Ties break on the company name.
+- **Columns menu, compact/comfortable rows, CSV**: the column and density choices are kept
+  in this browser (`localStorage`). The CSV holds the visible columns of the rows on screen.
+  Rupee amounts are written from integer paise without a float.
+
+Below `lg` each issue becomes a compact block with its figures in a grid, and a Sort menu
+replaces the headers. A legend explains the row tints, \* (expected T+3 date) and † (size
 partly priced at the upper band).
 
 States: `loading.tsx` skeletons for both, `error.tsx` with retry, and empty states that say

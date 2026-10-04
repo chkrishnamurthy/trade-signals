@@ -234,6 +234,9 @@ export const screenerSnapshots = pgTable(
     blockDeals20d: integer(),
     resultsInDays: integer(),
     exDateInDays: integer(),
+    /** Paise per share on today's share basis; null when any amount is unknown. */
+    dividendTtm: integer(),
+    dividendYield: doublePrecision(),
     announcements7d: integer(),
     listedDays: integer(),
 
@@ -313,3 +316,47 @@ export const savedScreens = pgTable(
     index('saved_screens_owner_idx').on(table.ownerId, table.updatedAt.desc()),
   ],
 );
+
+/**
+ * Cash dividends per share, from NSE's corporate-actions feed.
+ *
+ * Kept apart from `corporate_actions` on purpose: every row there is applied
+ * to the price series on read, and prices are dividend-unadjusted (owner
+ * decision, 2026-10-03). One row per (instrument, ex-date, kind); parts of
+ * the same kind on one ex-date are summed. `amount_paise` is null when the
+ * subject could not be read exactly (fractional paise, "50%"), which makes
+ * any trailing sum over it unknown rather than understated. Append-only.
+ */
+export const dividends = pgTable(
+  'dividends',
+  {
+    instrumentId: integer()
+      .notNull()
+      .references(() => instruments.id),
+    exDate: date().notNull(),
+    /** `interim`, `final`, `special` or `dividend` (unspecified). */
+    kind: text().notNull(),
+    amountPaise: integer(),
+    /** The source subject line, for auditing a surprising figure. */
+    subject: text().notNull(),
+    source: text().notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.instrumentId, table.exDate, table.kind] }),
+    index('dividends_ex_date_idx').on(table.exDate),
+  ],
+);
+
+/**
+ * A user's stock-page ratio board: one ordered list of tile keys, shared by
+ * every stock (docs/planning/stock-header-redesign-plan.md §5.3). Validated
+ * against the catalogue on write and again on read.
+ */
+export const userRatioLayouts = pgTable('user_ratio_layouts', {
+  ownerId: integer()
+    .primaryKey()
+    .references(() => authUsers.id, { onDelete: 'cascade' }),
+  keys: jsonb().notNull(),
+  updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+});

@@ -38,8 +38,10 @@ import { marketCalendarSync } from './jobs/market-calendar-sync.js';
 import { createPaperJobs } from './jobs/paper.js';
 import { refreshProviderCredential } from './jobs/refresh-credential.js';
 import {
+  backfillDividends,
   backfillStockAnalysis,
   buildScreenerSnapshot,
+  dividendsBackfillDone,
   runStockAnalysisEod,
   stockAnalysisBackfillDone,
   sweepShareholding,
@@ -389,6 +391,15 @@ function buildScheduler(context: WorkerContext): Jobs {
         },
       },
       {
+        // One-time dividend history for a deployment loaded before dividends
+        // were recorded. Never scheduled; triggered on start until done.
+        name: 'backfill-dividends',
+        schedule: '0 0 31 2 *',
+        run: async () => {
+          await backfillDividends(context, log.child('backfill-dividends'));
+        },
+      },
+      {
         // Rebuild the latest snapshot by hand (`--once build-screener-snapshot`).
         name: 'build-screener-snapshot',
         schedule: '0 0 31 2 *',
@@ -709,7 +720,13 @@ async function main(): Promise<void> {
   // on start (paced NSE file downloads, roughly half an hour). Not awaited.
   void (async () => {
     try {
-      if (await stockAnalysisBackfillDone(context)) return;
+      if (await stockAnalysisBackfillDone(context)) {
+        // Loaded before dividends were recorded: fill those once.
+        if (await dividendsBackfillDone(context)) return;
+        log.info('dividend history not loaded; loading it once');
+        await jobs.scheduler.trigger('backfill-dividends');
+        return;
+      }
       log.info('stock-analysis history not loaded; loading it once');
       await jobs.scheduler.trigger('backfill-stock-analysis');
     } catch (error) {

@@ -4,8 +4,51 @@
     {
       "name": "web",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "web", "dev"],
+      "runtimeArgs": [
+        "--filter",
+        "web",
+        "dev"
+      ],
       "port": 3000,
+      "autoPort": false
+    },
+    {
+      "name": "web-localdb",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "DATABASE_URL=postgresql://equitywise:equitywise@localhost:5433/nse_signals_test",
+        "DATABASE_URL_DIRECT=postgresql://equitywise:equitywise@localhost:5433/nse_signals_test",
+        "RESEND_API_KEY=",
+        "AUTH_BASE_URL=http://localhost:3000",
+        "AUTH_GOOGLE_ENABLED=false",
+        "pnpm",
+        "--filter",
+        "web",
+        "dev"
+      ],
+      "port": 3000,
+      "autoPort": false
+    },
+    {
+      "name": "web-localdb-alt",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "DATABASE_URL=postgresql://equitywise:equitywise@localhost:5433/nse_signals_test",
+        "DATABASE_URL_DIRECT=postgresql://equitywise:equitywise@localhost:5433/nse_signals_test",
+        "RESEND_API_KEY=",
+        "AUTH_BASE_URL=http://localhost:3100",
+        "AUTH_GOOGLE_ENABLED=false",
+        "NEXT_DIST_DIR=.next-localdb",
+        "pnpm",
+        "--filter",
+        "web",
+        "exec",
+        "next",
+        "dev",
+        "--port",
+        "3100"
+      ],
+      "port": 3100,
       "autoPort": false
     },
     {
@@ -15,13 +58,22 @@
     {
       "name": "tracker",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--dir", "tracker", "dev"],
+      "runtimeArgs": [
+        "--dir",
+        "tracker",
+        "dev"
+      ],
       "port": 4321
     },
     {
       "name": "storybook",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@equitywise/web", "storybook", "--no-open"],
+      "runtimeArgs": [
+        "--filter",
+        "@equitywise/web",
+        "storybook",
+        "--no-open"
+      ],
       "port": 6006
     }
   ]

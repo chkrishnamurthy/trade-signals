@@ -2,7 +2,8 @@
  * Loads the stock-analysis data into a LOCAL database, end to end, from NSE's
  * public end-of-day files only — no Fyers/Dhan call, no credential minted:
  *
- *   reference universe → N days of bhavcopy bars → corporate actions →
+ *   reference universe → N days of bhavcopy bars → corporate actions and
+ *   dividends →
  *   (optional) shareholding sweep → screener snapshot + breadth
  *
  * For development and verification (docs/planning/screener-dhan-fyers-plan.md).
@@ -20,6 +21,7 @@ import type { WorkerContext } from '../apps/worker/src/context.js';
 import {
   backfillBhavcopy,
   buildScreenerSnapshot,
+  markDividendsLoaded,
   sweepShareholding,
   syncCorporateActions,
   syncReferenceUniverse,
@@ -42,7 +44,9 @@ async function main(): Promise<void> {
     }
   })();
   if (!['localhost', '127.0.0.1'].includes(host) && !process.argv.includes('--allow-remote')) {
-    throw new Error(`Refusing to load into ${host || 'an unset DATABASE_URL'}; pass --allow-remote to override.`);
+    throw new Error(
+      `Refusing to load into ${host || 'an unset DATABASE_URL'}; pass --allow-remote to override.`,
+    );
   }
   // A tunnel to production also listens on localhost; its port is 15432.
   if (url.includes(':15432') && !process.argv.includes('--allow-remote')) {
@@ -68,8 +72,14 @@ async function main(): Promise<void> {
       checkpoint: `bhavcopy-local-${fromKey}`,
       now,
     });
-    await syncCorporateActions(context, log.child('corporate-actions'), { from: fromKey, to: today, now });
-    if (shareholding > 0) await sweepShareholding(context, log.child('shareholding'), { perRun: shareholding });
+    await syncCorporateActions(context, log.child('corporate-actions'), {
+      from: fromKey,
+      to: today,
+      now,
+    });
+    if (days >= 366) await markDividendsLoaded(context, fromKey);
+    if (shareholding > 0)
+      await sweepShareholding(context, log.child('shareholding'), { perRun: shareholding });
     await buildScreenerSnapshot(context, log.child('snapshot'), { now });
   } finally {
     await handle.close();

@@ -208,6 +208,8 @@ export const METRIC_KEYS = [
   'blockDeals20d',
   'resultsInDays',
   'exDateInDays',
+  'dividendTtm',
+  'dividendYield',
   'announcements7d',
   'listedDays',
   // Classification
@@ -858,6 +860,21 @@ const DEFINITIONS: Readonly<Record<MetricKey, Def>> = {
     category: 'events',
     unit: 'days',
     description: 'Days until the next ex-date (within 30).',
+  },
+  dividendTtm: {
+    label: 'Dividends (12 months)',
+    category: 'events',
+    unit: 'paise',
+    description:
+      'Cash dividends per share with an ex-date in the last 12 months, on today’s share basis (NSE corporate actions).',
+  },
+  dividendYield: {
+    label: 'Dividend yield (12 months)',
+    category: 'events',
+    unit: 'percent',
+    decimals: 2,
+    description:
+      'Dividends (12 months) ÷ close. Unknown when any dividend in the window could not be read exactly.',
   },
   announcements7d: {
     label: 'Announcements (7 days)',

@@ -232,6 +232,20 @@
       "when": 1791100800000,
       "tag": "0032_stock_analysis",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1791187200000,
+      "tag": "0033_ipo_document_links",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1791190800000,
+      "tag": "0034_stock_header",
+      "breakpoints": true
     }
   ]
 }
