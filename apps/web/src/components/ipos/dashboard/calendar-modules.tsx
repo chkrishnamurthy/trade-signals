@@ -7,6 +7,7 @@ import type {
   AgendaEventKind,
   IpoAllotmentRowDto,
   IpoDashboardDto,
+  IpoDocumentLinkDto,
   SebiFilingDto,
 } from '@/lib/ipo-types';
 import { cn } from '@/lib/utils';
@@ -35,14 +36,19 @@ function DayLabel({ date, today }: { date: string; today: string }) {
   );
 }
 
-const KIND_ORDER: readonly AgendaEventKind[] = [
-  'opens',
-  'closes',
-  'allotment',
-  'refunds',
-  'demat_credit',
-  'listing',
-];
+/**
+ * The milestones an agenda lists. Refunds and demat credit follow allotment by
+ * a day and matter only to applicants, who see them on the issue's own
+ * timeline; listing them here doubled every day's lines.
+ */
+const KIND_ORDER: readonly AgendaEventKind[] = ['opens', 'closes', 'allotment', 'listing'];
+
+/** The days that have a listed milestone, each with only those milestones. */
+export function visibleAgenda(agenda: IpoDashboardDto['agenda']): IpoDashboardDto['agenda'] {
+  return agenda
+    .map((d) => ({ ...d, events: d.events.filter((e) => KIND_ORDER.includes(e.kind)) }))
+    .filter((d) => d.events.length > 0);
+}
 
 /** A day's events, one line per kind: `Listing AceVector*, Orient Cables*`. */
 function groupByKind(events: IpoDashboardDto['agenda'][number]['events']) {
@@ -56,7 +62,7 @@ function groupByKind(events: IpoDashboardDto['agenda'][number]['events']) {
 export function AgendaModule({
   data,
   title = 'Next five trading days',
-  note = 'Openings, closings, allotment, share credit and listing, day by day.',
+  note = 'Openings, closings, allotment and listing, day by day.',
   link,
   className,
 }: {
@@ -68,7 +74,8 @@ export function AgendaModule({
 }) {
   const word = BOARD_SCOPE_WORD[data.board];
   const mixed = data.board === 'all';
-  const expected = data.agenda.some((d) => d.events.some((e) => e.expected));
+  const agenda = visibleAgenda(data.agenda);
+  const expected = agenda.some((d) => d.events.some((e) => e.expected));
   return (
     <ModuleCard
       id="ipo-agenda"
@@ -91,13 +98,13 @@ export function AgendaModule({
         </>
       }
     >
-      {data.agenda.length === 0 ? (
+      {agenda.length === 0 ? (
         <p className="border-border border-t px-4 py-6 text-center text-muted-foreground text-sm">
           No {word === '' ? '' : `${word} `}IPO milestone on these days.
         </p>
       ) : (
         <ol className="flex flex-col border-border border-t">
-          {data.agenda.map((day) => (
+          {agenda.map((day) => (
             <li
               key={day.date}
               className="grid gap-1.5 border-border border-b px-4 py-2.5 last:border-0 sm:grid-cols-[5.5rem_minmax(0,1fr)] sm:gap-3"
@@ -252,7 +259,11 @@ const DOC_KIND: Readonly<Record<string, string>> = {
 };
 
 /** Offer documents of the issues still ahead, always the exchange's own copy. */
-export function DocumentsModule({ data }: { data: Pick<IpoDashboardDto, 'documents'> }) {
+export function DocumentsModule({
+  data,
+}: {
+  data: { readonly documents: readonly IpoDocumentLinkDto[] };
+}) {
   return (
     <ModuleCard
       id="ipo-documents"
@@ -315,7 +326,7 @@ export function FilingsModule({
   data,
   link,
 }: {
-  data: Pick<IpoDashboardDto, 'filings'>;
+  data: { readonly filings: readonly SebiFilingDto[] };
   link?: { readonly href: Route; readonly label: string } | undefined;
 }) {
   return (

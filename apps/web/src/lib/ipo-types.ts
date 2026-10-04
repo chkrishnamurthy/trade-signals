@@ -9,7 +9,7 @@ import type {
   IpoSubscriptionCategory,
   SubscriptionScope,
 } from '@equitywise/shared';
-import type { IpoListSort, IpoListSummaryDto } from './ipo-list';
+import type { IpoListSort } from './ipo-list';
 import type { IpoScope } from './ipo-routes';
 
 /**
@@ -264,8 +264,6 @@ export interface IpoDashboardDto {
   readonly open: readonly IpoListItemDto[];
   /** Upcoming issues, the next to open first; undated ones last. */
   readonly upcoming: readonly IpoListItemDto[];
-  /** The master table's first rows: this year, in stage order. */
-  readonly preview: readonly IpoListItemDto[];
   /** Unlisted issues with a GMP quote, highest premium first. */
   readonly gmp: readonly IpoListItemDto[];
   /** Recent listings with prices, newest first. */
@@ -273,9 +271,6 @@ export interface IpoDashboardDto {
   /** The next five settlement days. */
   readonly agenda: readonly IpoAgendaDayDto[];
   readonly allotment: readonly IpoAllotmentRowDto[];
-  readonly documents: readonly IpoDocumentLinkDto[];
-  /** DRHPs filed with SEBI (mainboard only; SME drafts are filed with the exchange). */
-  readonly filings: readonly SebiFilingDto[];
   readonly exchangeAllotment: readonly { readonly label: string; readonly url: string }[];
   readonly gmpPolicy: GmpPolicyDto;
   /** One per board in scope: SME and mainboard grey markets are never pooled. */
@@ -299,8 +294,6 @@ export interface IpoListPageDto {
   readonly years: readonly number[];
   /** By status, under the board, year and search filters. */
   readonly counts: Readonly<Record<IpoStatus, number>>;
-  /** The tiles above the list, under the same filters as `counts`. */
-  readonly summary: IpoListSummaryDto;
   readonly sort: IpoListSort;
   readonly rows: readonly IpoListItemDto[];
   readonly total: number;

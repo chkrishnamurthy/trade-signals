@@ -23,7 +23,6 @@ import { IpoGmpNote } from '../ipo-gmp-note';
 import { RememberIpoReturn } from '../ipo-return';
 import { IpoSectionHeader } from '../ipo-section-header';
 import { IpoBoardTable } from './ipo-board-table';
-import { IpoListSummary } from './ipo-list-summary';
 import { ListControls } from './list-controls';
 
 interface ListState {
@@ -121,6 +120,7 @@ export function IpoListView({ data }: { data: IpoListPageDto }) {
           section="all"
           scope={data.board}
           scopeHrefs={scopeHrefs}
+          asOf={data.feeds.find((f) => f.id.endsWith('-calendar'))?.lastSuccessAt ?? null}
           counts={{ all: all }}
           description={
             <>
@@ -132,15 +132,7 @@ export function IpoListView({ data }: { data: IpoListPageDto }) {
         />
 
         <PageContent className="pt-5">
-          <IpoFeeds feeds={data.feeds} />
-
-          <IpoListSummary
-            summary={data.summary}
-            today={data.today}
-            year={data.filters.year}
-            active={data.filters.status}
-            hrefFor={(status) => listHref(data.board, state, currentYear, { status })}
-          />
+          <IpoFeeds feeds={data.feeds} showAsOf={false} />
 
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <nav aria-label="Status" className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">

@@ -45,14 +45,14 @@ function when(row: IpoListItemDto): string {
     : `${dates} · ${bandText(row.priceBand)}`;
 }
 
-/** Announced issues not yet open, the next to open first. */
+/** Announced issues not yet open (the "Upcoming" stage), the next to open first. */
 export function UpcomingModule({ data }: { data: IpoDashboardDto }) {
   const rows = data.upcoming.slice(0, SHOWN);
   const mixed = data.board === 'all';
   return (
     <ModuleCard
       id="ipo-upcoming"
-      title="Opening soon"
+      title="Upcoming"
       note="Announced issues, the next to open first. A band is often published only days before."
       link={
         data.upcoming.length > 0

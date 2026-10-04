@@ -657,35 +657,42 @@ and board switch. Now the section is one place:
   master table's tiles and status pills, and the issue page's stage tracker.
 - **Overview reading order**: stage strip (each stage opens its list) · open-for-bids cards
   (closing day, min. investment, band, size, demand bar, opened/closes/lists, unofficial
-  GMP) beside the next five trading days · Upcoming · Allotment & listing · a preview of the
-  master table (first 8 rows of this year in stage order, status pills linking into it) ·
-  listing performance and the unofficial GMP (with a track record per board, never pooled)
-  · offer documents and SEBI filings. Every block ends in a link to where all of it is.
+  GMP), Upcoming and Allotment & listing beside the next five trading days (opens, closes,
+  allotment, listing — refunds and demat credit stay on the issue's own timeline) · the
+  last 5 listings and the top 5 unofficial GMP quotes · "Everything in IPOs". Every block
+  ends in a link to its tab. (Review, 2026-10-04: the master-table preview, offer documents
+  and SEBI filings were dropped from the Overview — they repeated the cards or now live in
+  All IPOs and Pipeline.)
 - **"All boards"** reads every board (`boardOf('all')` is `undefined` in every query); SME
   issues carry an "SME" mark wherever boards are mixed. SEBI filings (and the "Filed with
   SEBI" count, `countSebiFilingsSince`, last 90 days) are hidden on the SME scope.
+- **All IPOs** lost its four summary tiles in the review: they repeated the status pills'
+  counts and links, and the Overview's stage strip carries the "next" detail.
+- **Phones**: the header's description is hidden below `sm` (the active tab says where you
+  are), and the active tab is scrolled into view when the tab row overflows.
 - **Redirects**: `/ipos/mainboard` and `/ipos/sme` permanently redirect to
   `/ipos/all?board=…`, filters kept; old `/ipos?status=…` links open the table.
 - **Calendar** (`/ipos/calendar`, `getIpoCalendarPage`): three weeks of weekdays from the
   week before the current one (on a weekend, the week about to start), `?from=` to move two
   weeks at a time. From `md`, a timeline: each issue's bidding window as a bar (open green,
   upcoming blue, closed grey), allotment as a diamond and listing as a dot, hollow while
-  expected (T+3), exchange holidays hatched, a line at the next trading day. Below it (the
-  phone's only view) every milestone day by day, and the registrar links for allotments in
+  expected (T+3), exchange holidays hatched, a line at the next trading day. On a phone
+  (below `md`, no timeline) every milestone day by day instead, and the registrar links for allotments in
   the window of issues not yet listed. Pure helpers: `mondayOf`, `calendarWindow`,
   `calendarDays`, `calendarRows`.
 - **Listings** (`/ipos/listings`, `getIpoListingsPage`): year pills (`?year=`, `all`),
   four outcome tiles (listed · opened above issue price n/priced · median listing-day gain ·
   above issue now n/with a close, with the median since issue), a by-month table and every
-  listing newest first, 50 a page. `listingStats`/`listingMonths` in `lib/ipo-list.ts`;
+  listing newest first, 25 a page. `listingStats`/`listingMonths` in `lib/ipo-list.ts`;
   unpriced listings are left out of every denominator.
 - **Grey market** (`/ipos/gmp`, `getIpoGmpPage`): amber throughout. Latest quotes for
   unlisted issues (stage, upper band, GMP, when reported, stale), then one track record per
-  board in scope (last quote vs listing-day gain, ±tolerance), never pooled, never coloured
-  as gains. With the source off the page says so and shows nothing else.
+  board in scope (last quote vs listing-day gain, ±tolerance; a board with no comparison yet
+  is one sentence, not an empty table), never pooled, never coloured as gains. With the source off the page says so and shows nothing else.
 - **Pipeline** (`/ipos/pipeline`, `getIpoPipelinePage`): SEBI filings in the last 90 days
-  (count), announced issues without dates, offer documents of issues ahead, and the 100
-  newest filings. The SME scope explains that SME drafts go to the exchange.
+  (count, in a note), offer documents of issues ahead, announced issues without dates (only
+  when there are any), and the 30 newest filings. The SME scope explains that SME drafts go
+  to the exchange.
 - **Overview → sections**: the stage strip's Filed stage opens Pipeline and Listed opens
   Listings; the agenda, listings, GMP and filings modules link to their sections; the page
   ends with "Everything in IPOs", one card per section with a live figure.

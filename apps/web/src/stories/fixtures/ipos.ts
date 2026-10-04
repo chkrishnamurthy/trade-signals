@@ -1,4 +1,3 @@
-import { listSummary } from '@/lib/ipo-list';
 import type {
   GmpChipDto,
   IpoAgendaDayDto,
@@ -409,7 +408,6 @@ export const DASHBOARD: IpoDashboardDto = {
   },
   open: [VNL, NITYAS],
   upcoming: [],
-  preview: [VNL, NITYAS, ORIENT, AONE, MONEYVIEW],
   gmp: [VNL, ORIENT],
   listings: [AONE, MONEYVIEW],
   agenda: AGENDA,
@@ -425,25 +423,6 @@ export const DASHBOARD: IpoDashboardDto = {
       registrarUrl: 'https://in.mpms.mufg.com/Initial_Offer/public-issues.html',
     },
   ],
-  documents: [
-    {
-      slug: VNL.slug,
-      companyName: VNL.companyName,
-      kind: 'rhp',
-      url: 'https://nsearchives.nseindia.com/content/ipo/RHP_VNL.zip',
-      host: 'nsearchives.nseindia.com',
-      sectionsQuoted: 5,
-    },
-    {
-      slug: NITYAS.slug,
-      companyName: NITYAS.companyName,
-      kind: 'rhp',
-      url: 'https://nsearchives.nseindia.com/content/ipo/RHP_NITYAS.zip',
-      host: 'nsearchives.nseindia.com',
-      sectionsQuoted: 2,
-    },
-  ],
-  filings: FILINGS,
   exchangeAllotment: [
     { label: 'BSE application status', url: 'https://www.bseindia.com/investors/appli_check.aspx' },
     {
@@ -475,7 +454,6 @@ export const LIST_PAGE: IpoListPageDto = {
   filters: { status: null, year: 2026, q: '' },
   years: [2026, 2025, 2024],
   counts: { upcoming: 0, open: 2, closed: 1, listed: 2, withdrawn: 0, postponed: 0 },
-  summary: listSummary([VNL, NITYAS, ORIENT, AONE, MONEYVIEW]),
   sort: { key: 'stage', dir: 'asc' },
   rows: [VNL, NITYAS, ORIENT, AONE, MONEYVIEW],
   total: 5,

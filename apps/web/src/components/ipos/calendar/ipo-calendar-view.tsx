@@ -316,23 +316,21 @@ export function IpoCalendarView({ data }: { data: IpoCalendarPageDto }) {
         </div>
       </Card>
 
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <AgendaModule
-          data={data}
-          title="Day by day"
-          note={`Every milestone from ${shortDate(data.from)} to ${shortDate(data.to)}.`}
-        />
-        <div className="flex flex-col gap-4">
-          <AllotmentModule data={data} />
-          <p className="text-2xs text-muted-foreground">
-            The same events appear on the{' '}
-            <Link href={'/calendar' as Route} className="text-primary hover:underline">
-              Market Calendar
-            </Link>{' '}
-            beside results and corporate actions. {data.coverageNote}
-          </p>
-        </div>
-      </div>
+      {/* The timeline's own phone view: the same milestones, day by day. */}
+      <AgendaModule
+        data={data}
+        title="Day by day"
+        note={`Every milestone from ${shortDate(data.from)} to ${shortDate(data.to)}.`}
+        className="md:hidden"
+      />
+      <AllotmentModule data={data} />
+      <p className="text-2xs text-muted-foreground">
+        The same events appear on the{' '}
+        <Link href={'/calendar' as Route} className="text-primary hover:underline">
+          Market Calendar
+        </Link>{' '}
+        beside results and corporate actions. {data.coverageNote}
+      </p>
     </IpoSectionPage>
   );
 }

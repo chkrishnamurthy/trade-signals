@@ -11,6 +11,7 @@ import {
 import { istDayTime } from '@/lib/ipo-format';
 import { IPO_SECTIONS, type IpoScope, type IpoSectionId, ipoHref } from '@/lib/ipo-routes';
 import { cn } from '@/lib/utils';
+import { ActiveTabIntoView } from './active-tab-into-view';
 import { ScopeSwitch } from './scope-switch';
 
 /**
@@ -47,6 +48,7 @@ export function IpoSectionHeader({
 }) {
   const tabs = (
     <nav
+      id="ipo-section-tabs"
       aria-label="IPO sections"
       className="-mx-4 flex gap-1 overflow-x-auto border-border border-b px-4 sm:mx-0 sm:px-0"
     >
@@ -85,7 +87,10 @@ export function IpoSectionHeader({
           <PageHeading>
             {trail !== undefined && <PageBreadcrumb trail={trail} />}
             <PageTitle>IPOs</PageTitle>
-            {description !== undefined && <PageDescription>{description}</PageDescription>}
+            {description !== undefined && (
+              // On a phone the tab says where you are; the sentence would push the content down.
+              <PageDescription className="hidden sm:block">{description}</PageDescription>
+            )}
           </PageHeading>
         )}
         {scopeHrefs !== undefined && (
@@ -102,6 +107,7 @@ export function IpoSectionHeader({
         )}
       </div>
       {children === undefined && tabs}
+      <ActiveTabIntoView navId="ipo-section-tabs" />
     </header>
   );
 }

@@ -1,4 +1,4 @@
-import { shortDate } from '@/lib/ipo-format';
+import { longDate } from '@/lib/ipo-format';
 import type { IpoDocumentDto, SebiFilingDto } from '@/lib/ipo-types';
 import { ExternalLink, FactRow, ModuleCard } from '../module-card';
 
@@ -70,11 +70,12 @@ export function IpoDocuments({
           key={f.sebiId}
           label={
             <ExternalLink href={f.pageUrl} className="text-sm">
-              {f.documentLabel ?? 'Offer document'}
+              {f.documentLabel ?? 'Filing with SEBI'}
             </ExternalLink>
           }
         >
-          <span className="text-muted-foreground text-xs">SEBI · {shortDate(f.filedDate)}</span>
+          {/* Filings span years (a DRHP, then addenda): the year tells them apart. */}
+          <span className="text-muted-foreground text-xs">SEBI · {longDate(f.filedDate)}</span>
         </FactRow>
       ))}
     </ModuleCard>

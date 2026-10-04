@@ -34,11 +34,9 @@ export const NothingCurrent: Story = {
       awaitingListing: 0,
       open: [],
       upcoming: [],
-      preview: [],
       gmp: [],
       agenda: [],
       allotment: [],
-      documents: [],
     },
   },
 };
@@ -48,9 +46,9 @@ export const AllBoards: Story = {
   args: { data: { ...DASHBOARD, board: 'all' } },
 };
 
-/** The SME board: no SEBI module (SME drafts are filed with the exchange). */
+/** The SME board: no SEBI count (SME drafts are filed with the exchange). */
 export const Sme: Story = {
-  args: { data: { ...DASHBOARD, board: 'sme', filings: [], filedRecently: null } },
+  args: { data: { ...DASHBOARD, board: 'sme', filedRecently: null } },
 };
 
 /** The GMP source switched off in YAML: no GMP module, no GMP note. */

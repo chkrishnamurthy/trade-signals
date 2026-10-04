@@ -11,7 +11,6 @@ import {
   demandBarPercent,
   listingMonths,
   listingStats,
-  listSummary,
   median,
   sortListItems,
 } from './ipo-list';
@@ -184,45 +183,7 @@ describe('sortListItems', () => {
   });
 });
 
-describe('listSummary', () => {
-  it('names the next close, opening and listing, and how listings stand', () => {
-    expect(listSummary(ALL)).toEqual({
-      open: {
-        count: 3,
-        nextCloseDate: '2026-10-05',
-        closingOnNext: 2,
-        upiCutoffAt: '2026-10-05T11:30:00.000Z',
-      },
-      upcoming: {
-        count: 2,
-        next: { slug: 'upcoming', companyName: 'UPCOMING', openDate: '2026-10-07' },
-      },
-      closed: {
-        count: 2,
-        next: {
-          slug: 'waiting',
-          companyName: 'WAITING',
-          listingDate: '2026-10-05',
-          expected: true,
-        },
-      },
-      listed: { count: 2, withLatestClose: 2, aboveIssue: 1 },
-    });
-  });
-
-  it('has nothing next when nothing is in a stage', () => {
-    const summary = listSummary([UNDATED, UNCONFIRMED]);
-    expect(summary.open).toEqual({
-      count: 0,
-      nextCloseDate: null,
-      closingOnNext: 0,
-      upiCutoffAt: null,
-    });
-    expect(summary.upcoming).toEqual({ count: 1, next: null });
-    expect(summary.closed).toEqual({ count: 1, next: null });
-    expect(summary.listed).toEqual({ count: 0, withLatestClose: 0, aboveIssue: 0 });
-  });
-
+describe('countByStatus', () => {
   it('counts rows per status', () => {
     expect(countByStatus(ALL)).toEqual({
       open: 3,

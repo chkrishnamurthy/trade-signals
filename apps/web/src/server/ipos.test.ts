@@ -51,7 +51,6 @@ import {
   calendarRows,
   calendarWindow,
   dashboardGmp,
-  dashboardPreview,
   feedIdsFor,
   getIpoCalendarPage,
   getIpoDashboard,
@@ -517,36 +516,6 @@ describe('dashboard building blocks', () => {
     expect(nextSettlementDays('2026-10-05', 5, config.calendar).to).toBe('2026-10-09');
   });
 
-  it("previews the master table: this year's issues in stage order", () => {
-    const open = toListItem(issue(), ctx);
-    const upcoming = toListItem(
-      issue({ slug: 'up', openDate: '2026-10-07', closeDate: '2026-10-09' }),
-      ctx,
-    );
-    const undated = toListItem(issue({ slug: 'undated', openDate: null, closeDate: null }), ctx);
-    const closed = toListItem(
-      issue({ slug: 'closed', openDate: '2026-09-25', closeDate: '2026-09-29' }),
-      ctx,
-    );
-    const recent = toListItem(issue({ slug: 'recent', listingDate: '2026-10-01' }), ctx);
-    // Bid in 2025: outside the table's default year, so outside its preview.
-    const lastYear = toListItem(
-      issue({
-        slug: 'last-year',
-        openDate: '2025-12-01',
-        closeDate: '2025-12-03',
-        listingDate: '2025-12-08',
-      }),
-      ctx,
-    );
-    expect(
-      dashboardPreview([recent, lastYear, upcoming, closed, open, open, undated], ctx.today).map(
-        (r) => r.slug,
-      ),
-    ).toEqual(['vishal-nirmiti-ipo-2026', 'closed', 'up', 'undated', 'recent']);
-    expect(dashboardPreview([open, upcoming, closed], ctx.today, 2)).toHaveLength(2);
-  });
-
   it('keeps GMP to unlisted issues with a quote, highest premium first, once each', () => {
     const vnl = toListItem(issue(), ctx);
     const higher = toListItem(
@@ -679,26 +648,13 @@ describe('services and routes', () => {
       today: '2026-10-02',
     });
     expect(main.open.map((r) => r.slug)).toEqual(['vishal-nirmiti-ipo-2026']);
-    expect(main.preview.map((r) => r.slug)).toEqual(['vishal-nirmiti-ipo-2026']);
     expect(main.gmp).toHaveLength(1);
-    expect(main.documents).toEqual([
-      {
-        slug: 'vishal-nirmiti-ipo-2026',
-        companyName: 'Vishal Nirmiti Limited',
-        kind: 'rhp',
-        url: 'https://nsearchives.nseindia.com/content/ipo/RHP_VNL.zip',
-        host: 'nsearchives.nseindia.com',
-        sectionsQuoted: 5,
-      },
-    ]);
-    expect(main.filings).toHaveLength(1);
     expect(main.filedRecently).toBe(14);
     expect(mock.filedCount).toHaveBeenCalledWith(expect.anything(), '2026-07-04');
     expect(main.gmpTracks).toEqual([expect.objectContaining({ board: 'mainboard', total: 0 })]);
     for (const call of mock.list.mock.calls) expect(call[1]).toMatchObject({ board: 'mainboard' });
 
     const sme = await getIpoDashboard('sme', now);
-    expect(sme.filings).toEqual([]);
     expect(sme.filedRecently).toBeNull();
 
     // Both boards: no board filter, and a GMP record per board, never pooled.
@@ -708,7 +664,9 @@ describe('services and routes', () => {
     for (const call of mock.list.mock.calls) expect(call[1].board).toBeUndefined();
     expect(all.gmpTracks.map((t) => t.board)).toEqual(['mainboard', 'sme']);
     expect(mock.track).toHaveBeenLastCalledWith(expect.anything(), expect.any(String), 'sme');
-    expect(all.filings).toHaveLength(1);
+    // The Overview no longer reads offer documents or the filings list: Pipeline does.
+    expect(mock.documents).not.toHaveBeenCalled();
+    expect(mock.filings).not.toHaveBeenCalled();
   });
 
   it("lists the table for this year by default, every year on 'all', both boards by default", async () => {
@@ -767,14 +725,8 @@ describe('services and routes', () => {
     // Highest demand first: page 2 holds the two lowest, then the issue with none.
     expect(page2.rows.map((r) => r.slug)).toEqual(['open-0-ipo-2026', 'later-ipo-2026']);
     expect(page2.counts).toMatchObject({ open: 26, upcoming: 1 });
-    expect(page2.summary.open).toMatchObject({ count: 26, nextCloseDate: '2026-10-05' });
-    expect(page2.summary.upcoming.next).toEqual({
-      slug: 'later-ipo-2026',
-      companyName: 'Later Limited',
-      openDate: '2026-10-07',
-    });
 
-    // A status filter narrows the rows, never the tiles or the pill counts.
+    // A status filter narrows the rows, never the pill counts.
     const filtered = await getIpoListPage('mainboard', { page: 1, status: 'upcoming' }, now);
     expect(filtered.rows.map((r) => r.slug)).toEqual(['later-ipo-2026']);
     expect(filtered.total).toBe(1);
@@ -819,7 +771,26 @@ describe('services and routes', () => {
         ? { rows: [issue({ slug: 'undated', openDate: null, closeDate: null })], total: 1 }
         : { rows: [], total: 0 },
     );
+    mock.documents.mockResolvedValue([
+      {
+        ipoId: 1,
+        kind: 'rhp',
+        title: 'Red Herring Prospectus',
+        url: 'https://nsearchives.nseindia.com/content/ipo/RHP_VNL.zip',
+        sectionsQuoted: 5,
+      },
+    ]);
     const pipe = await getIpoPipelinePage('all', now);
+    expect(pipe.documents).toEqual([
+      {
+        slug: 'undated',
+        companyName: 'Vishal Nirmiti Limited',
+        kind: 'rhp',
+        url: 'https://nsearchives.nseindia.com/content/ipo/RHP_VNL.zip',
+        host: 'nsearchives.nseindia.com',
+        sectionsQuoted: 5,
+      },
+    ]);
     expect(pipe.filingsOn).toBe(true);
     expect(pipe.filings).toHaveLength(1);
     expect(pipe.filedRecently).toBe(14);

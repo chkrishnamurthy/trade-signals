@@ -62,7 +62,6 @@ import {
   DEFAULT_SORT_DIR,
   listingMonths,
   listingStats,
-  listSummary,
   sortListItems,
 } from '@/lib/ipo-list';
 import { boardOf, type IpoScope } from '@/lib/ipo-routes';
@@ -691,29 +690,6 @@ export function nextSettlementDays(
   return { from: today, to };
 }
 
-/** How many rows of the master table the Overview previews. */
-const PREVIEW_ROWS = 8;
-
-/**
- * The master table's first rows as the Overview shows them: this year's
- * issues (an undated one counts in today's year, as the table counts it) in
- * the table's own default order, by stage.
- */
-export function dashboardPreview(
-  rows: readonly IpoListItemDto[],
-  today: string,
-  limit = PREVIEW_ROWS,
-): IpoListItemDto[] {
-  const year = today.slice(0, 4);
-  const seen = new Set<string>();
-  const inYear = rows.filter((r) => {
-    if (seen.has(r.slug)) return false;
-    seen.add(r.slug);
-    return (r.openDate ?? r.closeDate ?? today).slice(0, 4) === year;
-  });
-  return sortListItems(inYear, { key: 'stage', dir: 'asc' }).slice(0, limit);
-}
-
 /** Unlisted issues with a GMP quote, highest premium first. Quotes never mix with official figures. */
 export function dashboardGmp(rows: readonly IpoListItemDto[], limit = 8): IpoListItemDto[] {
   const seen = new Set<string>();
@@ -1048,43 +1024,31 @@ export async function getIpoDashboard(
   // Grey markets differ by board, so each board's record is read on its own.
   const trackBoards: readonly IpoBoard[] = board === undefined ? ['mainboard', 'sme'] : [board];
   const trackSince = addDays(ctx.today, -Math.round(GMP_TRACK_MONTHS * 30.44));
-  const [
-    yearCounts,
-    open,
-    upcoming,
-    closed,
-    listed,
-    around,
-    health,
-    stats,
-    filings,
-    filed,
-    tracks,
-  ] = await Promise.all([
-    countIposByStatus(db, { ...base, year }),
-    listIpos(db, { ...base, status: 'open', page: 1, pageSize: DASHBOARD_ROWS }),
-    listIpos(db, { ...base, status: 'upcoming', page: 1, pageSize: DASHBOARD_ROWS }),
-    listIpos(db, { ...base, status: 'closed', page: 1, pageSize: DASHBOARD_ROWS }),
-    listIpos(db, { ...base, status: 'listed', page: 1, pageSize: 12 }),
-    listIposAround(db, window.from, window.to),
-    feedHealth(
-      db,
-      feeds.map((f) => f.id),
-    ),
-    ipoYearStats(db, { board, year, today: ctx.today }),
-    filingsOn ? listSebiFilings(db, 5) : Promise.resolve([]),
-    filingsOn ? countSebiFilingsSince(db, addDays(ctx.today, -FILED_DAYS)) : Promise.resolve(null),
-    gmp === null
-      ? Promise.resolve([])
-      : Promise.all(trackBoards.map((b) => gmpTrackRows(db, trackSince, b))),
-  ]);
+  const [yearCounts, open, upcoming, closed, listed, around, health, stats, filed, tracks] =
+    await Promise.all([
+      countIposByStatus(db, { ...base, year }),
+      listIpos(db, { ...base, status: 'open', page: 1, pageSize: DASHBOARD_ROWS }),
+      listIpos(db, { ...base, status: 'upcoming', page: 1, pageSize: DASHBOARD_ROWS }),
+      listIpos(db, { ...base, status: 'closed', page: 1, pageSize: DASHBOARD_ROWS }),
+      listIpos(db, { ...base, status: 'listed', page: 1, pageSize: 12 }),
+      listIposAround(db, window.from, window.to),
+      feedHealth(
+        db,
+        feeds.map((f) => f.id),
+      ),
+      ipoYearStats(db, { board, year, today: ctx.today }),
+      filingsOn
+        ? countSebiFilingsSince(db, addDays(ctx.today, -FILED_DAYS))
+        : Promise.resolve(null),
+      gmp === null
+        ? Promise.resolve([])
+        : Promise.all(trackBoards.map((b) => gmpTrackRows(db, trackSince, b))),
+    ]);
   const items = (rows: readonly IpoListRow[]) => rows.map((r) => toListItem(r, ctx));
   const openItems = sortListItems(items(open.rows), { key: 'stage', dir: 'asc' });
   const upcomingItems = sortListItems(items(upcoming.rows), { key: 'stage', dir: 'asc' });
   const closedItems = items(closed.rows);
   const listedItems = items(listed.rows);
-
-  const documents = await offerDocuments(db, [...open.rows, ...upcoming.rows]);
 
   const statuses = toFeedStatuses(feeds, health, now, config);
   const gmpTracks = trackBoards.flatMap((b, i) => {
@@ -1115,12 +1079,8 @@ export async function getIpoDashboard(
     filedDays: FILED_DAYS,
     open: openItems,
     upcoming: upcomingItems,
-    preview: dashboardPreview(
-      [...openItems, ...closedItems, ...upcomingItems, ...listedItems],
-      ctx.today,
-    ),
-    gmp: gmp === null ? [] : dashboardGmp([...openItems, ...upcomingItems, ...closedItems]),
-    listings: listedItems.filter((i) => i.listing !== null).slice(0, 6),
+    gmp: gmp === null ? [] : dashboardGmp([...openItems, ...upcomingItems, ...closedItems], 5),
+    listings: listedItems.filter((i) => i.listing !== null).slice(0, 5),
     agenda: buildAgenda(
       board === undefined ? around : around.filter((r) => r.board === board),
       window.from,
@@ -1133,8 +1093,6 @@ export async function getIpoDashboard(
         return item !== undefined && awaitingListing(item) ? (toAllotmentRow(r, config) ?? []) : [];
       })
       .slice(0, 8),
-    documents: documents.slice(0, 4),
-    filings: filings.map(toFiling),
     exchangeAllotment: config.exchangeAllotment,
     gmpPolicy: gmpPolicyOf(ctx),
     gmpTracks,
@@ -1193,7 +1151,6 @@ export async function getIpoListPage(
     filters: { status: query.status ?? null, year: year ?? null, q: query.q ?? '' },
     years: [...new Set([currentYear, ...years])].sort((a, b) => b - a),
     counts: countByStatus(items),
-    summary: listSummary(items),
     sort,
     rows: matching.slice((page - 1) * LIST_PAGE_SIZE, page * LIST_PAGE_SIZE),
     total: matching.length,
@@ -1257,7 +1214,7 @@ export async function getIpoCalendarPage(
   };
 }
 
-const LISTINGS_PAGE_SIZE = 50;
+const LISTINGS_PAGE_SIZE = 25;
 
 export async function getIpoListingsPage(
   scope: IpoScope,
@@ -1348,7 +1305,7 @@ export async function getIpoGmpPage(
 }
 
 /** How many SEBI filings the pipeline lists. */
-const PIPELINE_FILINGS = 100;
+const PIPELINE_FILINGS = 30;
 
 export async function getIpoPipelinePage(
   scope: IpoScope,
