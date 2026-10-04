@@ -1,7 +1,8 @@
 import { FileTextIcon } from 'lucide-react';
 import type { Route } from 'next';
 import Link from 'next/link';
-import { AGENDA_LABEL, BOARD_LABEL, BOARD_WORD, shortDate, shortName } from '@/lib/ipo-format';
+import { AGENDA_LABEL, shortDate, shortName } from '@/lib/ipo-format';
+import { BOARD_SCOPE_LABEL, BOARD_SCOPE_WORD, issueHref, tableHref } from '@/lib/ipo-routes';
 import type {
   AgendaEventKind,
   IpoAllotmentRowDto,
@@ -9,6 +10,7 @@ import type {
   SebiFilingDto,
 } from '@/lib/ipo-types';
 import { cn } from '@/lib/utils';
+import { SmeMark } from '../ipo-cells';
 import { ExternalLink, IssueLink, ModuleCard, ModuleTable } from '../module-card';
 
 const KIND_TEXT: Readonly<Record<AgendaEventKind, string>> = {
@@ -19,8 +21,6 @@ const KIND_TEXT: Readonly<Record<AgendaEventKind, string>> = {
   demat_credit: 'text-muted-foreground',
   listing: 'text-bullish-strong',
 };
-
-const issueHref = (slug: string) => `/ipos/${slug}` as Route;
 
 /** `Mon` over `5 Oct`; `Today` for today. */
 function DayLabel({ date, today }: { date: string; today: string }) {
@@ -53,14 +53,29 @@ function groupByKind(events: IpoDashboardDto['agenda'][number]['events']) {
 }
 
 /** The next five trading days as an agenda — it reads the same at phone width. */
-export function AgendaModule({ data }: { data: IpoDashboardDto }) {
-  const board = BOARD_WORD[data.board];
+export function AgendaModule({
+  data,
+  title = 'Next five trading days',
+  note = 'Openings, closings, allotment, share credit and listing, day by day.',
+  link,
+  className,
+}: {
+  data: Pick<IpoDashboardDto, 'agenda' | 'today' | 'board'>;
+  title?: string;
+  note?: string;
+  link?: { readonly href: Route; readonly label: string } | undefined;
+  className?: string | undefined;
+}) {
+  const word = BOARD_SCOPE_WORD[data.board];
+  const mixed = data.board === 'all';
   const expected = data.agenda.some((d) => d.events.some((e) => e.expected));
   return (
     <ModuleCard
       id="ipo-agenda"
-      title="Next five days"
-      note="Openings, closings, allotment, share credit and listing over the next five trading days."
+      title={title}
+      note={note}
+      link={link}
+      className={className}
       footer={
         <>
           {expected && (
@@ -68,15 +83,17 @@ export function AgendaModule({ data }: { data: IpoDashboardDto }) {
               * Expected, from SEBI&apos;s T+3 timetable, until the exchange confirms the date.
             </span>
           )}
-          <span className="block">
-            {BOARD_LABEL[data.board]} issues only — switch the board above for the other.
-          </span>
+          {!mixed && (
+            <span className="block">
+              {BOARD_SCOPE_LABEL[data.board]} issues only — choose All boards above for both.
+            </span>
+          )}
         </>
       }
     >
       {data.agenda.length === 0 ? (
         <p className="border-border border-t px-4 py-6 text-center text-muted-foreground text-sm">
-          No {board} IPO milestone in the next five trading days.
+          No {word === '' ? '' : `${word} `}IPO milestone on these days.
         </p>
       ) : (
         <ol className="flex flex-col border-border border-t">
@@ -102,6 +119,9 @@ export function AgendaModule({ data }: { data: IpoDashboardDto }) {
                           {shortName(event.companyName)}
                         </Link>
                         {event.expected && <span className="text-muted-foreground">*</span>}
+                        {mixed && event.board === 'sme' && (
+                          <SmeMark className="ml-1 align-middle" />
+                        )}
                         {i < group.events.length - 1 && (
                           <span className="text-muted-foreground">, </span>
                         )}
@@ -144,13 +164,19 @@ const listsText = (row: IpoAllotmentRowDto) =>
  * Where an applicant checks allotment: the registrar's own page, or the
  * exchange's. EquityWise never looks an application up or fills those forms in.
  */
-export function AllotmentModule({ data }: { data: IpoDashboardDto }) {
+export function AllotmentModule({
+  data,
+}: {
+  data: Pick<IpoDashboardDto, 'allotment' | 'today' | 'board' | 'exchangeAllotment'>;
+}) {
   const expected = data.allotment.some((r) => r.allotmentExpected || r.listingExpected);
+  const word = BOARD_SCOPE_WORD[data.board];
   return (
     <ModuleCard
       id="ipo-allotment"
-      title="Allotment status"
-      note="Check an application on the registrar's own site, or on the exchange's."
+      title="Allotment & listing"
+      note="Closed issues on their way to listing. Check an application on the registrar's own site, or on the exchange's."
+      link={{ href: tableHref(data.board, { status: 'closed' }), label: 'All closed issues' }}
       footer={
         <>
           <span className="flex flex-wrap gap-x-3 gap-y-1">
@@ -170,7 +196,7 @@ export function AllotmentModule({ data }: { data: IpoDashboardDto }) {
         caption="Allotment status"
         rows={data.allotment}
         rowKey={(r) => r.slug}
-        empty="No closed issue on this board is waiting for allotment or listing."
+        empty={`No closed ${word === '' ? '' : `${word} `}issue is waiting for allotment or listing.`}
         columns={[
           {
             id: 'company',
@@ -226,7 +252,7 @@ const DOC_KIND: Readonly<Record<string, string>> = {
 };
 
 /** Offer documents of the issues still ahead, always the exchange's own copy. */
-export function DocumentsModule({ data }: { data: IpoDashboardDto }) {
+export function DocumentsModule({ data }: { data: Pick<IpoDashboardDto, 'documents'> }) {
   return (
     <ModuleCard
       id="ipo-documents"
@@ -285,11 +311,18 @@ function FilingName({ filing }: { filing: SebiFilingDto }) {
 }
 
 /** DRHPs filed with SEBI — regulator data, never an announced issue. */
-export function FilingsModule({ data }: { data: IpoDashboardDto }) {
+export function FilingsModule({
+  data,
+  link,
+}: {
+  data: Pick<IpoDashboardDto, 'filings'>;
+  link?: { readonly href: Route; readonly label: string } | undefined;
+}) {
   return (
     <ModuleCard
       id="ipo-filings"
       title="Filed with SEBI"
+      link={link}
       note="Draft offer documents, newest first. A filing comes months before an issue opens, and many never do."
       footer="From sebi.gov.in. SME issues file their drafts with the exchange instead."
     >

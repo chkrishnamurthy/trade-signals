@@ -3,7 +3,7 @@ import { LIST_PAGE } from '@/stories/fixtures/ipos';
 import { IpoListView } from './ipo-list-view';
 
 /**
- * One board's full list (`/ipos/mainboard`). A table from `lg`, compact
+ * The master table (`/ipos/all`). A table from `lg`, compact
  * blocks below. Check at Mobile (375), Tablet and Desktop (1440), both themes.
  */
 const meta = {
@@ -11,7 +11,7 @@ const meta = {
   component: IpoListView,
   parameters: {
     layout: 'fullscreen',
-    nextjs: { appDirectory: true, navigation: { pathname: '/ipos/mainboard' } },
+    nextjs: { appDirectory: true, navigation: { pathname: '/ipos/all' } },
   },
   args: { data: LIST_PAGE },
 } satisfies Meta<typeof IpoListView>;

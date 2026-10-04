@@ -9,7 +9,10 @@ import {
   countByStatus,
   DEMAND_BAR_ONE_TIMES,
   demandBarPercent,
+  listingMonths,
+  listingStats,
   listSummary,
+  median,
   sortListItems,
 } from './ipo-list';
 import type { IpoListItemDto, ListingSummaryDto } from './ipo-types';
@@ -272,5 +275,47 @@ describe('board table helpers', () => {
       'Company,Symbol,Price band low (₹),Price band high (₹),Subscribed (times),Subscription as of\r\n' +
         '"Vishal Nirmiti, Ltd",VNL,208.00,220.00,0.57,2026-10-01T11:30:00.000Z\r\n',
     );
+  });
+});
+
+describe('listing outcomes', () => {
+  const listed = (slug: string, listingDate: string, gain: number | null, since: number | null) =>
+    item({ slug, status: 'listed', listingDate, listing: listing(gain, since) });
+
+  it('takes the middle value, averaging the middle two', () => {
+    expect(median([])).toBeNull();
+    expect(median([3, 1, 2])).toBe(2);
+    expect(median([4, 1, 3, 2])).toBe(2.5);
+  });
+
+  it('counts only priced listings in the denominators', () => {
+    const stats = listingStats([
+      listed('a', '2026-10-01', 12, 5),
+      listed('b', '2026-09-20', -4, -10),
+      listed('c', '2026-09-10', 30, null),
+      item({ slug: 'unpriced', status: 'listed', listingDate: '2026-09-05' }),
+    ]);
+    expect(stats).toEqual({
+      listed: 4,
+      withListingPrice: 3,
+      openedAbove: 2,
+      withLatestClose: 2,
+      latestAbove: 1,
+      medianListingGain: 12,
+      medianSinceIssue: -2.5,
+    });
+  });
+
+  it('groups listings by month, newest month first', () => {
+    const months = listingMonths([
+      listed('a', '2026-09-30', 10, null),
+      listed('b', '2026-10-01', -2, null),
+      listed('c', '2026-09-02', 6, null),
+      item({ slug: 'no-date', status: 'listed', listingDate: null }),
+    ]);
+    expect(months).toEqual([
+      { month: '2026-10', listed: 1, withListingPrice: 1, openedAbove: 0, medianListingGain: -2 },
+      { month: '2026-09', listed: 2, withListingPrice: 2, openedAbove: 2, medianListingGain: 8 },
+    ]);
   });
 });

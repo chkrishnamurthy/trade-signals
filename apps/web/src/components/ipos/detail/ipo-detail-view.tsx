@@ -1,20 +1,21 @@
-import type { Route } from 'next';
 import type * as React from 'react';
 import { AppShell } from '@/components/layout/app-shell';
 import {
+  PageBreadcrumb,
   PageContainer,
   PageContent,
   PageDescription,
-  PageHeader,
   PageHeading,
   PageTitle,
 } from '@/components/layout/page';
 import { BOARD_LABEL, istDayTime, nextMilestone, stateLabel } from '@/lib/ipo-format';
+import { overviewHref, tableHref } from '@/lib/ipo-routes';
 import type { IpoDetailDto } from '@/lib/ipo-types';
 import { cn } from '@/lib/utils';
 import { StateChip } from '../ipo-chip';
 import { IpoGmpNote } from '../ipo-gmp-note';
 import { IpoBackLink } from '../ipo-return';
+import { IpoSectionHeader } from '../ipo-section-header';
 import { GmpPanel } from './gmp-panel';
 import { IpoDocuments } from './ipo-documents';
 import { IpoKeyFacts } from './ipo-key-facts';
@@ -24,6 +25,7 @@ import { IpoListing, IpoNotListedOnNse } from './ipo-listing';
 import { IpoAllotmentLinks, IpoParticipants } from './ipo-participants';
 import { IpoRhp } from './ipo-rhp';
 import { IpoSources } from './ipo-sources';
+import { IpoStageStepper } from './ipo-stage-stepper';
 import { IpoSubscription } from './ipo-subscription';
 import { IpoTimeline } from './ipo-timeline';
 
@@ -78,15 +80,18 @@ export function IpoDetailView({ ipo, today }: { ipo: IpoDetailDto; today: string
   const state = stateLabel(ipo, today);
   const exchange = ipo.designatedExchange ?? ipo.exchanges[0] ?? 'Exchange';
   const back = {
-    fallbackHref: `/ipos/${ipo.board}` as Route,
-    fallbackLabel: `${BOARD_LABEL[ipo.board]} IPOs`,
+    fallbackHref: tableHref('all'),
+    fallbackLabel: 'All IPOs',
   };
   return (
     <AppShell>
       <PageContainer>
-        <PageHeader>
+        <IpoSectionHeader section={null} scope="all">
           <PageHeading className="gap-2">
-            <IpoBackLink {...back} className="mb-1" />
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+              <PageBreadcrumb trail={[{ href: overviewHref('all'), label: 'IPOs' }]} />
+              <IpoBackLink {...back} />
+            </div>
             <div className="flex flex-wrap items-center gap-1.5">
               <StateChip tone={state.tone} dot>
                 {state.label}
@@ -117,9 +122,10 @@ export function IpoDetailView({ ipo, today }: { ipo: IpoDetailDto; today: string
               )}
             </PageDescription>
           </PageHeading>
-        </PageHeader>
+        </IpoSectionHeader>
 
-        <PageContent>
+        <PageContent className="pt-5">
+          <IpoStageStepper ipo={ipo} />
           <IpoKeyFigures ipo={ipo} />
           <SectionNav hasListing={ipo.listing !== null} />
 

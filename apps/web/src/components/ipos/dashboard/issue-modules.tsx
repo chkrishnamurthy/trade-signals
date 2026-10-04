@@ -1,203 +1,24 @@
-import type { Route } from 'next';
 import { PercentChange } from '@/components/market/numeric';
 import { signedPercent } from '@/lib/format';
-import {
-  BOARD_LABEL,
-  BOARD_WORD,
-  dateRange,
-  gmpText,
-  istDayTime,
-  shortDate,
-  stateLabel,
-  statusParts,
-  times,
-  trackSpan,
-} from '@/lib/ipo-format';
+import { BOARD_WORD, gmpText, istDayTime, shortDate, trackSpan } from '@/lib/ipo-format';
+import { issueHref, sectionHref } from '@/lib/ipo-routes';
 import type { IpoDashboardDto, IpoListItemDto } from '@/lib/ipo-types';
 import { cn } from '@/lib/utils';
-import { StateChip, ToneLegend, UnofficialTag } from '../ipo-chip';
+import { SmeMark } from '../ipo-cells';
+import { UnofficialTag } from '../ipo-chip';
 import { sharePrice } from '../ipo-figures';
 import { IssueLink, ModuleCard, ModuleTable } from '../module-card';
 
 const slug = (row: IpoListItemDto) => row.slug;
-const issueHref = (row: IpoListItemDto) => `/ipos/${row.slug}`;
-const boardHref = (board: IpoDashboardDto['board'], query = '') =>
-  `/ipos/${board}${query}` as Route;
+const rowHref = (row: IpoListItemDto) => issueHref(row.slug);
 
-/** True when any row shows a date computed from the T+3 rule. */
-const anyExpected = (rows: readonly IpoListItemDto[], today: string) =>
-  rows.some((r) => stateLabel(r, today).label.endsWith('*'));
-
-/** Open, upcoming, awaiting listing and just listed — the board right now. */
-export function CurrentModule({ data }: { data: IpoDashboardDto }) {
-  const board = BOARD_LABEL[data.board];
+/** A company link, marked SME when the Overview mixes both boards. */
+function Company({ row, mixed }: { row: IpoListItemDto; mixed: boolean }) {
   return (
-    <ModuleCard
-      id="ipo-current"
-      title="Current & upcoming"
-      note={`${board} issues open, upcoming, waiting to list, and listed this week.`}
-      aside={
-        <ToneLegend
-          className="hidden sm:flex"
-          items={[
-            { tone: 'open', label: 'Open' },
-            { tone: 'waiting', label: 'Yet to list' },
-            { tone: 'info', label: 'Upcoming' },
-          ]}
-        />
-      }
-      footer={
-        <>
-          {data.counts.open} open · {data.awaitingListing} yet to list · {data.counts.upcoming}{' '}
-          upcoming
-          {anyExpected(data.current, data.today) && (
-            <span className="block">* Expected, from SEBI&apos;s T+3 timetable.</span>
-          )}
-        </>
-      }
-      link={{ href: boardHref(data.board), label: `All ${BOARD_WORD[data.board]} IPOs` }}
-    >
-      <ModuleTable
-        caption={`Current and upcoming ${BOARD_WORD[data.board]} IPOs`}
-        rows={data.current}
-        rowKey={slug}
-        rowTone={(r) => statusParts(r, data.today).tone}
-        empty={`No ${BOARD_WORD[data.board]} issue is open, upcoming or waiting to list.`}
-        columns={[
-          {
-            id: 'company',
-            header: 'Company',
-            cell: (r) => <IssueLink slug={r.slug} name={r.companyName} />,
-          },
-          {
-            id: 'dates',
-            header: 'Bidding',
-            width: 'w-28',
-            cell: (r) => (
-              <span className="figure text-muted-foreground text-xs">
-                {dateRange(r.openDate, r.closeDate)}
-              </span>
-            ),
-          },
-          {
-            id: 'status',
-            header: 'Status',
-            width: 'w-40',
-            align: 'end',
-            cell: (r) => {
-              const s = stateLabel(r, data.today);
-              return <StateChip tone={s.tone}>{s.label}</StateChip>;
-            },
-          },
-        ]}
-        mobile={(r) => {
-          const s = stateLabel(r, data.today);
-          return {
-            title: r.companyName,
-            sub: dateRange(r.openDate, r.closeDate),
-            value: <StateChip tone={s.tone}>{s.label}</StateChip>,
-            href: issueHref(r),
-          };
-        }}
-      />
-    </ModuleCard>
-  );
-}
-
-/** When a subscription figure was read: a time while bidding, "At close" after. */
-function asOfLabel(row: IpoListItemDto): string {
-  const s = row.subscription;
-  if (s === null) return '—';
-  const istDay = new Date(new Date(s.asOf).getTime() + 330 * 60_000).toISOString().slice(0, 10);
-  const scope = row.exchanges.length > 1 && s.scope !== 'consolidated' ? ' · NSE only' : '';
-  if (row.status !== 'open' && row.closeDate !== null && istDay >= row.closeDate)
-    return `At close${scope}`;
-  return `${istDayTime(s.asOf)}${scope}`;
-}
-
-/** Times subscribed, quieter below 1× (fewer bids than shares so far). */
-function Times({ value, strong = false }: { value: number | null; strong?: boolean }) {
-  return (
-    <span
-      className={cn(
-        'figure',
-        value === null || value < 1 ? 'text-muted-foreground' : strong && 'font-medium',
-      )}
-    >
-      {times(value)}
+    <span className="flex min-w-0 items-center gap-1.5">
+      <IssueLink slug={row.slug} name={row.companyName} />
+      {mixed && row.board === 'sme' && <SmeMark />}
     </span>
-  );
-}
-
-/**
- * Demand so far — not a forecast of anything. SME shows the total alone: NSE
- * publishes no SME issue's shares reserved per category, so a category ratio
- * would be invented.
- */
-export function SubscriptionModule({ data }: { data: IpoDashboardDto }) {
-  const sme = data.board === 'sme';
-  return (
-    <ModuleCard
-      id="ipo-subscription"
-      title="Subscription"
-      note={
-        sme
-          ? "Times subscribed: every bid ÷ the issue size NSE states. NSE does not publish an SME issue's shares per investor category, so only the total is shown. Above 1× means more bids than shares."
-          : 'Times subscribed: shares bid ÷ shares offered, NSE and BSE bids together where both publish. Above 1× means more bids than shares.'
-      }
-      footer="Open issues update about every two hours from 10:35 am to 5:35 pm, then once after close."
-      link={{ href: boardHref(data.board, '?status=open'), label: 'Open issues' }}
-    >
-      <ModuleTable
-        caption="Subscription so far"
-        rows={data.subscription}
-        rowKey={slug}
-        empty="No open or recently closed issue has published bids yet."
-        columns={[
-          {
-            id: 'company',
-            header: 'Company',
-            cell: (r) => <IssueLink slug={r.slug} name={r.companyName} />,
-          },
-          {
-            id: 'asof',
-            header: 'As of (IST)',
-            width: 'w-32',
-            cell: (r) => <span className="text-muted-foreground text-xs">{asOfLabel(r)}</span>,
-          },
-          ...(sme
-            ? []
-            : [
-                {
-                  id: 'retail',
-                  header: 'Retail',
-                  width: 'w-16',
-                  align: 'end' as const,
-                  cell: (r: IpoListItemDto) => (
-                    <Times value={r.subscription?.retailTimes ?? null} />
-                  ),
-                },
-              ]),
-          {
-            id: 'total',
-            header: 'Total',
-            width: 'w-20',
-            align: 'end',
-            cell: (r) => <Times value={r.subscription?.totalTimes ?? null} strong />,
-          },
-        ]}
-        mobile={(r) => ({
-          title: r.companyName,
-          sub: asOfLabel(r),
-          value: <Times value={r.subscription?.totalTimes ?? null} strong />,
-          valueSub:
-            r.subscription?.retailTimes == null
-              ? undefined
-              : `retail ${times(r.subscription.retailTimes)}`,
-          href: issueHref(r),
-        })}
-      />
-    </ModuleCard>
   );
 }
 
@@ -215,7 +36,7 @@ export function GmpModule({ data }: { data: IpoDashboardDto }) {
     .map((r) => r.gmp?.observedAt ?? '')
     .sort()
     .at(-1);
-  const track = data.gmpTrack;
+  const mixed = data.board === 'all';
   return (
     <ModuleCard
       id="ipo-gmp"
@@ -223,18 +44,22 @@ export function GmpModule({ data }: { data: IpoDashboardDto }) {
       note="The premium over the upper price band, as one website reports it. Not verified, not a forecast."
       aside={<UnofficialTag />}
       unofficial
+      link={{ href: sectionHref('gmp', data.board), label: 'Grey market' }}
       footer={
         <>
           <span className="block">
             Source: {data.gmpPolicy.sourceName ?? '—'}
             {latest !== undefined && latest !== '' && ` · latest report ${istDayTime(latest)} IST`}
           </span>
-          {track !== null && track.total > 0 && (
-            <span className="block">
-              {trackSpan(track)}: the final quote was within ±{track.tolerancePoints} points of the
-              listing-day gain for {track.within} of {track.total} listings.
-            </span>
-          )}
+          {data.gmpTracks
+            .filter((t) => t.total > 0)
+            .map((t) => (
+              <span key={t.board} className="block">
+                {trackSpan(t)}
+                {mixed ? `, ${BOARD_WORD[t.board]} listings` : ''}: the final quote was within ±
+                {t.tolerancePoints} points of the listing-day gain for {t.within} of {t.total}.
+              </span>
+            ))}
         </>
       }
     >
@@ -242,12 +67,12 @@ export function GmpModule({ data }: { data: IpoDashboardDto }) {
         caption="Grey-market premium, unofficial"
         rows={data.gmp}
         rowKey={slug}
-        empty="The source reports no grey-market quote for an unlisted issue on this board."
+        empty="The source reports no grey-market quote for an unlisted issue in view."
         columns={[
           {
             id: 'company',
             header: 'Company',
-            cell: (r) => <IssueLink slug={r.slug} name={r.companyName} />,
+            cell: (r) => <Company row={r} mixed={mixed} />,
           },
           {
             id: 'band',
@@ -290,7 +115,7 @@ export function GmpModule({ data }: { data: IpoDashboardDto }) {
           sub: `Upper band ${sharePrice(r.priceBand?.highPaise ?? null)}${r.gmp?.stale ? ' · stale quote' : ''}`,
           value: <span className="figure font-medium">{gmpAmount(r)}</span>,
           valueSub: signedPercent(r.gmp?.percentOfUpperBand ?? null),
-          href: issueHref(r),
+          href: rowHref(r),
         })}
       />
     </ModuleCard>
@@ -300,6 +125,7 @@ export function GmpModule({ data }: { data: IpoDashboardDto }) {
 /** Recent listings against the issue price, from the exchange's end-of-day file. */
 export function ListingsModule({ data }: { data: IpoDashboardDto }) {
   const s = data.yearStats;
+  const mixed = data.board === 'all';
   return (
     <ModuleCard
       id="ipo-listings"
@@ -310,7 +136,7 @@ export function ListingsModule({ data }: { data: IpoDashboardDto }) {
           ? `No ${s.year} listing has exchange prices yet.`
           : `${s.year}: ${s.openedAboveIssue} of ${s.withListingPrice} listings with prices opened above the issue price.`
       }
-      link={{ href: boardHref(data.board, '?status=listed'), label: 'All listings' }}
+      link={{ href: sectionHref('listings', data.board), label: 'Listings' }}
     >
       <ModuleTable
         caption="Listing performance"
@@ -321,7 +147,7 @@ export function ListingsModule({ data }: { data: IpoDashboardDto }) {
           {
             id: 'company',
             header: 'Company',
-            cell: (r) => <IssueLink slug={r.slug} name={r.companyName} />,
+            cell: (r) => <Company row={r} mixed={mixed} />,
           },
           {
             id: 'issue',
@@ -358,7 +184,7 @@ export function ListingsModule({ data }: { data: IpoDashboardDto }) {
               now <PercentChange value={r.listing?.sinceIssuePercent ?? null} size="sm" />
             </span>
           ),
-          href: issueHref(r),
+          href: rowHref(r),
         })}
       />
     </ModuleCard>

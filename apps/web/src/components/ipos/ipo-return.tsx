@@ -12,15 +12,15 @@ import { cn } from '@/lib/utils';
 /**
  * Where an IPO page's back button goes.
  *
- * The dashboard and the board lists record their own address (filters, year
+ * The Overview and the master table record their own address (filters, year
  * and page included) as the user reads them; an issue page reads it back so
  * "Back" returns to the exact list the user left, not a reset one. Kept in
  * `sessionStorage` so it is per-tab and gone with the tab.
  */
 const KEY = 'equitywise:ipo-return';
 
-/** Only the dashboard and the two board lists are places to return to. */
-const RETURNABLE = /^\/ipos(\/(mainboard|sme))?(\?|$)/;
+/** Only the IPO section's own pages are places to return to, never an issue page. */
+const RETURNABLE = /^\/ipos(\/(all|calendar|listings|gmp|pipeline))?(\?|$)/;
 
 interface Stored {
   readonly href: string;
@@ -44,7 +44,7 @@ function read(): Stored | null {
   }
 }
 
-/** Rendered by the dashboard and the board lists: remembers this page as the way back. */
+/** Rendered by the Overview and the master table: remembers this page as the way back. */
 export function RememberIpoReturn({ label }: { label: string }) {
   const pathname = usePathname();
   const search = useSearchParams().toString();
@@ -63,8 +63,8 @@ export function RememberIpoReturn({ label }: { label: string }) {
 }
 
 /**
- * Back from an issue to the list the user came from, or to the issue's board
- * list when they arrived some other way (a shared link, a new tab). When that
+ * Back from an issue to the page the user came from, or to the master table
+ * when they arrived some other way (a shared link, a new tab). When that
  * list is the browser's previous entry it goes back through history, so the
  * list comes back scrolled where the user left it.
  */

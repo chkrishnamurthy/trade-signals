@@ -3,7 +3,7 @@ import { DASHBOARD, FEEDS_OK } from '@/stories/fixtures/ipos';
 import { IpoDashboardView } from './ipo-dashboard-view';
 
 /**
- * The IPO dashboard (`/ipos`) with the real mainboard issues of 2 Oct 2026.
+ * The IPO Overview (`/ipos`) with the real mainboard issues of 2 Oct 2026.
  * Check every story at Mobile (375) and Desktop (1440), in both themes.
  */
 const meta = {
@@ -30,10 +30,11 @@ export const NothingCurrent: Story = {
   args: {
     data: {
       ...DASHBOARD,
-      counts: { upcoming: 0, open: 0, closed: 0, listed: 88, withdrawn: 0, postponed: 0 },
+      yearCounts: { upcoming: 0, open: 0, closed: 0, listed: 88, withdrawn: 0, postponed: 0 },
       awaitingListing: 0,
-      current: [],
-      subscription: [],
+      open: [],
+      upcoming: [],
+      preview: [],
       gmp: [],
       agenda: [],
       allotment: [],
@@ -42,9 +43,14 @@ export const NothingCurrent: Story = {
   },
 };
 
+/** Both boards: SME issues carry a mark wherever they appear. */
+export const AllBoards: Story = {
+  args: { data: { ...DASHBOARD, board: 'all' } },
+};
+
 /** The SME board: no SEBI module (SME drafts are filed with the exchange). */
 export const Sme: Story = {
-  args: { data: { ...DASHBOARD, board: 'sme', filings: [] } },
+  args: { data: { ...DASHBOARD, board: 'sme', filings: [], filedRecently: null } },
 };
 
 /** The GMP source switched off in YAML: no GMP module, no GMP note. */
@@ -53,7 +59,7 @@ export const GmpSourceOff: Story = {
     data: {
       ...DASHBOARD,
       gmp: [],
-      gmpTrack: null,
+      gmpTracks: [],
       gmpPolicy: { enabled: false, sourceName: null, sourceUrl: null, trackedSince: null },
     },
   },

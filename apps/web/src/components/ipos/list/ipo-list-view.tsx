@@ -1,43 +1,30 @@
-import type { IpoBoard, IpoStatus } from '@equitywise/shared';
+import type { IpoStatus } from '@equitywise/shared';
 import type { Route } from 'next';
 import Link from 'next/link';
 import type * as React from 'react';
 import { Suspense } from 'react';
 import { EmptyState } from '@/components/data-display/states';
 import { AppShell } from '@/components/layout/app-shell';
-import {
-  PageActions,
-  PageBreadcrumb,
-  PageContainer,
-  PageContent,
-  PageDescription,
-  PageHeader,
-  PageHeading,
-  PageTitle,
-} from '@/components/layout/page';
+import { PageContainer, PageContent } from '@/components/layout/page';
 import { Card } from '@/components/ui/card';
-import { BOARD_LABEL, BOARD_WORD, shortDate } from '@/lib/ipo-format';
+import { shortDate } from '@/lib/ipo-format';
 import {
   DEFAULT_SORT_DIR,
   IPO_LIST_SORT_KEYS,
   type IpoListSort,
   type IpoListSortKey,
 } from '@/lib/ipo-list';
+import { BOARD_SCOPE_WORD, IPO_SCOPES, type IpoScope, tableHref } from '@/lib/ipo-routes';
 import type { IpoListPageDto } from '@/lib/ipo-types';
 import { cn } from '@/lib/utils';
-import { BoardTabs } from '../board-tabs';
 import { StateChip } from '../ipo-chip';
 import { IpoFeeds } from '../ipo-feeds';
 import { IpoGmpNote } from '../ipo-gmp-note';
 import { RememberIpoReturn } from '../ipo-return';
+import { IpoSectionHeader } from '../ipo-section-header';
 import { IpoBoardTable } from './ipo-board-table';
 import { IpoListSummary } from './ipo-list-summary';
 import { ListControls } from './list-controls';
-
-const BOARD_HREFS = { mainboard: '/ipos/mainboard', sme: '/ipos/sme' } as const satisfies Record<
-  IpoBoard,
-  Route
->;
 
 interface ListState {
   readonly status: IpoStatus | null;
@@ -53,27 +40,25 @@ interface ListState {
  * first direction stay out of the URL.
  */
 function listHref(
-  board: IpoBoard,
+  scope: IpoScope,
   current: ListState,
   currentYear: number,
   change: Partial<ListState>,
 ): Route {
   const next = { ...current, page: 1, ...change };
-  const params = new URLSearchParams();
-  if (next.status !== null) params.set('status', next.status);
-  if (next.year === null) params.set('year', 'all');
-  else if (next.year !== currentYear) params.set('year', String(next.year));
-  if (next.q !== '') params.set('q', next.q);
-  if (next.sort.key !== 'stage') params.set('sort', next.sort.key);
-  if (next.sort.dir !== DEFAULT_SORT_DIR[next.sort.key]) params.set('dir', next.sort.dir);
-  if (next.page > 1) params.set('page', String(next.page));
-  const qs = params.toString();
-  return `${BOARD_HREFS[board]}${qs === '' ? '' : `?${qs}`}` as Route;
+  return tableHref(scope, {
+    status: next.status,
+    year: next.year === null ? 'all' : next.year !== currentYear ? String(next.year) : null,
+    q: next.q === '' ? null : next.q,
+    sort: next.sort.key === 'stage' ? null : next.sort.key,
+    dir: next.sort.dir === DEFAULT_SORT_DIR[next.sort.key] ? null : next.sort.dir,
+    page: next.page > 1 ? String(next.page) : null,
+  });
 }
 
 /** Per sort key, the address of that order: `flip` turns the active key's direction. */
 function sortHrefs(
-  board: IpoBoard,
+  board: IpoScope,
   state: ListState,
   currentYear: number,
   flip: boolean,
@@ -89,24 +74,28 @@ function sortHrefs(
 
 const STATUS_PILLS: readonly { readonly id: IpoStatus | null; readonly label: string }[] = [
   { id: null, label: 'All' },
-  { id: 'open', label: 'Open' },
   { id: 'upcoming', label: 'Upcoming' },
-  { id: 'closed', label: 'Closed' },
+  { id: 'open', label: 'Open' },
+  { id: 'closed', label: 'Allotment & listing' },
   { id: 'listed', label: 'Listed' },
   { id: 'withdrawn', label: 'Withdrawn' },
   { id: 'postponed', label: 'Postponed' },
 ];
 
 /**
- * One board's issues in one table (`/ipos/mainboard`, `/ipos/sme`): status,
+ * The master table (`/ipos/all`): every issue in scope in one table — status,
  * dates, price, the minimum application, size, demand, the unofficial GMP and
- * how listings went. Filters live in the URL; nothing here acts on an issue.
+ * how listings went — under the IPO section's header, as its "All IPOs" tab.
+ * Filters live in the URL; nothing here acts on an issue.
  */
 export function IpoListView({ data }: { data: IpoListPageDto }) {
-  const board = BOARD_LABEL[data.board];
+  const word = BOARD_SCOPE_WORD[data.board];
   const currentYear = Number(data.today.slice(0, 4));
   const state: ListState = { ...data.filters, page: data.page, sort: data.sort };
   const all = Object.values(data.counts).reduce((a, b) => a + b, 0);
+  const scopeHrefs = Object.fromEntries(
+    IPO_SCOPES.map((s) => [s, listHref(s, state, currentYear, {})]),
+  ) as Record<IpoScope, Route>;
   const pageCount = Math.max(1, Math.ceil(data.total / data.pageSize));
   const from = data.total === 0 ? 0 : (data.page - 1) * data.pageSize + 1;
   const to = Math.min(data.total, data.page * data.pageSize);
@@ -124,28 +113,25 @@ export function IpoListView({ data }: { data: IpoListPageDto }) {
     <AppShell>
       <Suspense fallback={null}>
         <RememberIpoReturn
-          label={`${board} IPOs${data.filters.year === null ? '' : ` ${data.filters.year}`}`}
+          label={`All IPOs${data.filters.year === null ? '' : ` ${data.filters.year}`}`}
         />
       </Suspense>
       <PageContainer>
-        <PageHeader className="gap-y-3">
-          <PageHeading>
-            <PageBreadcrumb trail={[{ href: '/ipos', label: 'IPO dashboard' }]} />
-            <PageTitle>
-              {board} IPOs{data.filters.year === null ? '' : ` ${data.filters.year}`}
-            </PageTitle>
-            <PageDescription>
-              Every {BOARD_WORD[data.board]} issue
+        <IpoSectionHeader
+          section="all"
+          scope={data.board}
+          scopeHrefs={scopeHrefs}
+          counts={{ all: all }}
+          description={
+            <>
+              Every {word === '' ? '' : `${word} `}issue
               {data.filters.year === null ? '' : ` of ${data.filters.year}`} in one table: schedule,
               price, demand and how it listed. Open issues first.
-            </PageDescription>
-          </PageHeading>
-          <PageActions className="w-full sm:w-auto">
-            <BoardTabs active={data.board} hrefs={BOARD_HREFS} />
-          </PageActions>
-        </PageHeader>
+            </>
+          }
+        />
 
-        <PageContent>
+        <PageContent className="pt-5">
           <IpoFeeds feeds={data.feeds} />
 
           <IpoListSummary
@@ -217,6 +203,7 @@ export function IpoListView({ data }: { data: IpoListPageDto }) {
                 sortHrefs={sortHrefs(data.board, state, currentYear, true)}
                 defaultSortHrefs={sortHrefs(data.board, state, currentYear, false)}
                 rangeLabel={`${from}–${to} of ${data.total}`}
+                showBoard={data.board === 'all'}
                 csvName={`${data.board}-ipos-${data.filters.year ?? 'all-years'}${
                   data.filters.status === null ? '' : `-${data.filters.status}`
                 }${data.page > 1 ? `-page-${data.page}` : ''}.csv`}

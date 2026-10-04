@@ -1431,6 +1431,15 @@ export async function listSebiFilings(db: Database, limit: number): Promise<Sebi
     .limit(limit);
 }
 
+/** SEBI filings dated on or after `since` (an IST date key): the pipeline's size. */
+export async function countSebiFilingsSince(db: Database, since: string): Promise<number> {
+  const [row] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(ipoSebiFilings)
+    .where(sql`${ipoSebiFilings.filedDate} >= ${since}`);
+  return row?.n ?? 0;
+}
+
 /** An issue's SEBI filings, oldest first (the DRHP, then its addenda). */
 export async function sebiFilingsForIssue(db: Database, ipoId: number): Promise<SebiFilingRow[]> {
   return db

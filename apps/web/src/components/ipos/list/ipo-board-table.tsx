@@ -28,18 +28,23 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { quantity, signedPercent } from '@/lib/format';
-import { gmpText, type IpoTone, statusParts, times } from '@/lib/ipo-format';
-import {
-  DEMAND_BAR_ONE_TIMES,
-  demandBarPercent,
-  type IpoListSort,
-  type IpoListSortKey,
-  SORT_LABEL,
-} from '@/lib/ipo-list';
+import { type IpoTone, statusParts, times } from '@/lib/ipo-format';
+import { type IpoListSort, type IpoListSortKey, SORT_LABEL } from '@/lib/ipo-list';
+import { issueHref } from '@/lib/ipo-routes';
 import type { IpoListItemDto } from '@/lib/ipo-types';
 import { cn } from '@/lib/utils';
 import { GmpChip } from '../gmp-chip';
+import {
+  CompanyCell,
+  Demand,
+  dash,
+  GmpCell,
+  IssuerMark,
+  MinInvestment,
+  Retail,
+  SmeMark,
+  Status,
+} from '../ipo-cells';
 import { StateChip, TONE_ROW, UnofficialTag } from '../ipo-chip';
 import { IssueSizeText, PriceBandText, sharePrice } from '../ipo-figures';
 import {
@@ -49,15 +54,10 @@ import {
   type ColumnGroupId,
   type ColumnId,
   GROUP_LABEL,
-  initials,
   ipoListCsv,
   listingDay,
   MENU_LABEL,
 } from './ipo-list-columns';
-
-const href = (slug: string) => `/ipos/${slug}` as Route;
-
-const dash = <span className="text-subtle-foreground">—</span>;
 
 type Density = 'comfortable' | 'compact';
 
@@ -92,124 +92,20 @@ function writeStored(key: string, value: string): void {
   }
 }
 
-function Status({ row, today }: { row: IpoListItemDto; today: string }) {
-  const s = statusParts(row, today);
-  return (
-    <span className="flex flex-col items-start gap-0.5">
-      <StateChip tone={s.tone} dot>
-        {s.chip}
-      </StateChip>
-      {s.note !== null && <span className="text-2xs text-muted-foreground">{s.note}</span>}
-    </span>
-  );
-}
-
-function IssuerMark({ name }: { name: string }) {
-  return (
-    <span
-      aria-hidden
-      className="grid size-8 shrink-0 place-items-center rounded-md bg-muted font-semibold text-2xs text-muted-foreground"
-    >
-      {initials(name)}
-    </span>
-  );
-}
-
-function MinInvestment({ row }: { row: IpoListItemDto }) {
-  if (row.minInvestmentPaise === null) return dash;
-  return (
-    <span className="inline-flex flex-col items-end">
-      <span className="figure">{sharePrice(row.minInvestmentPaise)}</span>
-      {row.lotSize !== null && (
-        <span className="text-2xs text-muted-foreground">
-          {row.minApplicationLots > 1
-            ? `${row.minApplicationLots} lots of ${quantity(row.lotSize)}`
-            : `${quantity(row.lotSize)} shares a lot`}
-        </span>
-      )}
-    </span>
-  );
-}
-
-/**
- * Demand as a figure over a bar. The bar is logarithmic (0.1× to 100×) with a
- * tick at 1×, so "fully subscribed" reads at a glance without flattening 2×
- * beside 50×. The figure carries the meaning; the bar is decoration.
- */
-function Demand({ row }: { row: IpoListItemDto }) {
-  const value = row.subscription?.totalTimes ?? null;
-  if (value === null) return dash;
-  const under = value < 1;
-  return (
-    <span className="inline-flex flex-col items-end gap-1">
-      <span className={cn('figure', under ? 'text-muted-foreground' : 'font-semibold')}>
-        {times(value)}
-      </span>
-      <span aria-hidden className="relative block h-1.5 w-20 rounded-full bg-muted">
-        <span
-          className={cn(
-            'absolute inset-y-0 left-0 rounded-full',
-            under ? 'bg-muted-foreground/50' : 'bg-bullish',
-          )}
-          style={{ width: `${demandBarPercent(value)}%` }}
-        />
-        <span
-          className="-inset-y-0.5 absolute w-px bg-foreground/45"
-          style={{ left: `${DEMAND_BAR_ONE_TIMES}%` }}
-        />
-      </span>
-    </span>
-  );
-}
-
-function Retail({ row }: { row: IpoListItemDto }) {
-  const value = row.subscription?.retailTimes ?? null;
-  return value === null ? (
-    dash
-  ) : (
-    <span className="figure text-muted-foreground">{times(value)}</span>
-  );
-}
-
-/** The amount, then its share of the band; the column header carries "Unofficial". */
-function GmpCell({ row }: { row: IpoListItemDto }) {
-  if (row.gmp === null || row.gmp.latestPaise === null) return dash;
-  return (
-    <span
-      className={cn('inline-flex flex-col items-end', row.gmp.stale && 'text-subtle-foreground')}
-      title={`Reported by ${row.gmp.sourceName}${row.gmp.stale ? ' — more than a day and a half ago' : ''}`}
-    >
-      <span className="figure">
-        {gmpText({ latestPaise: row.gmp.latestPaise, percentOfUpperBand: null })}
-      </span>
-      <span className="figure text-2xs text-muted-foreground">
-        {signedPercent(row.gmp.percentOfUpperBand)}
-        {row.gmp.stale ? ' · stale' : ''}
-      </span>
-    </span>
-  );
-}
-
-function Cell({ column, row, today }: { column: ColumnId; row: IpoListItemDto; today: string }) {
+function Cell({
+  column,
+  row,
+  today,
+  showBoard,
+}: {
+  column: ColumnId;
+  row: IpoListItemDto;
+  today: string;
+  showBoard: boolean;
+}) {
   switch (column) {
     case 'company':
-      return (
-        <span className="flex min-w-0 items-center gap-2.5">
-          <IssuerMark name={row.companyName} />
-          <span className="flex min-w-0 flex-col">
-            <Link
-              href={href(row.slug)}
-              title={row.companyName}
-              className="max-w-52 truncate font-medium underline-offset-4 hover:underline"
-            >
-              {row.companyName}
-            </Link>
-            <span className="figure truncate text-2xs text-muted-foreground">
-              {row.nseSymbol ?? row.exchanges.join(' · ')}
-            </span>
-          </span>
-        </span>
-      );
+      return <CompanyCell row={row} showBoard={showBoard} className="max-w-52" />;
     case 'status':
       return <Status row={row} today={today} />;
     case 'bidding':
@@ -376,6 +272,7 @@ export function IpoBoardTable({
   defaultSortHrefs,
   rangeLabel,
   csvName,
+  showBoard = false,
 }: {
   rows: readonly IpoListItemDto[];
   today: string;
@@ -387,6 +284,8 @@ export function IpoBoardTable({
   defaultSortHrefs: Readonly<Record<IpoListSortKey, string>>;
   rangeLabel: string;
   csvName: string;
+  /** Both boards in one table: SME issues carry a mark. */
+  showBoard?: boolean | undefined;
 }) {
   const router = useRouter();
   const [hidden, setHidden] = useState<ReadonlySet<ColumnId>>(new Set());
@@ -570,12 +469,12 @@ export function IpoBoardTable({
                         groupStarts.has(c.id) && 'border-border border-l',
                       )}
                     >
-                      <Cell column={c.id} row={row} today={today} />
+                      <Cell column={c.id} row={row} today={today} showBoard={showBoard} />
                     </TableCell>
                   ))}
                   <TableCell className="pr-3 pl-0">
                     <Link
-                      href={href(row.slug)}
+                      href={issueHref(row.slug)}
                       aria-label={`Open ${row.companyName}`}
                       className="grid size-8 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
                     >
@@ -605,13 +504,14 @@ export function IpoBoardTable({
                   <IssuerMark name={row.companyName} />
                   <div className="min-w-0">
                     <Link
-                      href={href(row.slug)}
+                      href={issueHref(row.slug)}
                       className="font-medium text-sm after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-ring"
                     >
                       {row.companyName}
                     </Link>
-                    <p className="text-muted-foreground text-xs">
+                    <p className="flex flex-wrap items-center gap-1.5 text-muted-foreground text-xs">
                       {[row.nseSymbol, biddingText(row)].filter((x) => x !== null).join(' · ')}
+                      {showBoard && row.board === 'sme' && <SmeMark />}
                     </p>
                   </div>
                 </div>
