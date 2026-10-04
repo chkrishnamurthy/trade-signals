@@ -47,14 +47,22 @@ import { GET as getListRoute } from '../app/api/ipos/route';
 import { getIpoWebConfig } from './ipo-config';
 import {
   buildAgenda,
+  calendarDays,
+  calendarRows,
+  calendarWindow,
   dashboardGmp,
   dashboardPreview,
   feedIdsFor,
+  getIpoCalendarPage,
   getIpoDashboard,
   getIpoDetail,
+  getIpoGmpPage,
+  getIpoListingsPage,
   getIpoListPage,
+  getIpoPipelinePage,
   getIposPage,
   type MapContext,
+  mondayOf,
   nextSettlementDays,
   subscriptionViews,
   toAllotmentRow,
@@ -591,6 +599,56 @@ describe('dashboard building blocks', () => {
   });
 });
 
+describe('calendar', () => {
+  it('starts the week before the current one, three weeks to a Friday', () => {
+    expect(mondayOf('2026-10-04')).toBe('2026-09-28'); // a Sunday
+    expect(mondayOf('2026-10-05')).toBe('2026-10-05');
+    expect(calendarWindow('2026-10-02')).toEqual({ from: '2026-09-21', to: '2026-10-09' });
+    // On a weekend the current week is the one about to start.
+    expect(calendarWindow('2026-10-04')).toEqual({ from: '2026-09-28', to: '2026-10-16' });
+    expect(calendarWindow('2026-10-02', '2026-10-15')).toEqual({
+      from: '2026-10-12',
+      to: '2026-10-30',
+    });
+  });
+
+  it('lists weekdays only, marking exchange holidays', async () => {
+    const config = await getIpoWebConfig(now.getTime());
+    const days = calendarDays('2026-09-28', '2026-10-09', config.calendar);
+    expect(days).toHaveLength(10);
+    // Gandhi Jayanti.
+    expect(days.find((d) => d.date === '2026-10-02')).toEqual({
+      date: '2026-10-02',
+      trading: false,
+    });
+    expect(days.every((d) => d.date !== '2026-10-03')).toBe(true);
+  });
+
+  it('keeps issues bidding, allotting or listing in the window, with expected days marked', () => {
+    const open = issue();
+    const before = issue({
+      slug: 'long-gone',
+      openDate: '2026-08-01',
+      closeDate: '2026-08-05',
+      listingDate: '2026-08-10',
+    });
+    const listingInside = issue({
+      slug: 'lists-inside',
+      openDate: '2026-09-22',
+      closeDate: '2026-09-24',
+      listingDate: '2026-09-29',
+    });
+    const rows = calendarRows([open, before, listingInside], '2026-09-28', '2026-10-16', ctx);
+    expect(rows.map((r) => r.slug)).toEqual(['lists-inside', 'vishal-nirmiti-ipo-2026']);
+    const vnl = rows[1];
+    expect(vnl).toMatchObject({ status: 'open', openDate: '2026-09-30', closeDate: '2026-10-05' });
+    // T+1 and T+3 from Mon 5 Oct.
+    expect(vnl?.allotment).toEqual({ date: '2026-10-06', expected: true });
+    expect(vnl?.listing).toEqual({ date: '2026-10-08', expected: true });
+    expect(rows[0]?.listing).toEqual({ date: '2026-09-29', expected: false });
+  });
+});
+
 describe('services and routes', () => {
   it('builds the Overview for a board scope, with filings never on SME', async () => {
     mock.list.mockImplementation(async (_db: unknown, f: { status?: string; board?: string }) =>
@@ -727,6 +785,57 @@ describe('services and routes', () => {
     const past = await getIpoListPage('mainboard', { page: 9, sort: 'company', dir: 'desc' }, now);
     expect(past.page).toBe(2);
     expect(past.rows.map((r) => r.companyName)).toEqual(['Open 00 Limited', 'Later Limited']);
+  });
+
+  it('builds the calendar, listings, grey-market and pipeline pages for a scope', async () => {
+    mock.around.mockResolvedValue([issue(), issue({ id: 2, slug: 'sme-one', board: 'sme' })]);
+    const cal = await getIpoCalendarPage('mainboard', undefined, now);
+    expect(cal).toMatchObject({ board: 'mainboard', from: '2026-09-21', to: '2026-10-09' });
+    expect(cal.prevFrom).toBe('2026-09-07');
+    expect(cal.nextFrom).toBe('2026-10-05');
+    expect(cal.rows.map((r) => r.slug)).toEqual(['vishal-nirmiti-ipo-2026']);
+    const both = await getIpoCalendarPage('all', '2026-10-01', now);
+    expect(both.from).toBe('2026-09-28');
+    expect(both.rows).toHaveLength(2);
+
+    mock.list.mockResolvedValue({
+      rows: [issue({ slug: 'listed-one', listingDate: '2026-09-20' })],
+      total: 1,
+    });
+    const listings = await getIpoListingsPage('all', { page: 1 }, now);
+    expect(mock.list).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({ status: 'listed', year: 2026, board: undefined }),
+    );
+    expect(listings.rows.map((r) => r.slug)).toEqual(['listed-one']);
+    expect(listings.months.map((m) => m.month)).toEqual(['2026-09']);
+
+    const gmp = await getIpoGmpPage('all', now);
+    expect(gmp.gmpPolicy.enabled).toBe(true);
+    expect(gmp.tracks.map((t) => t.board)).toEqual(['mainboard', 'sme']);
+
+    mock.list.mockImplementation(async (_db: unknown, f: { status?: string }) =>
+      f.status === 'upcoming'
+        ? { rows: [issue({ slug: 'undated', openDate: null, closeDate: null })], total: 1 }
+        : { rows: [], total: 0 },
+    );
+    const pipe = await getIpoPipelinePage('all', now);
+    expect(pipe.filingsOn).toBe(true);
+    expect(pipe.filings).toHaveLength(1);
+    expect(pipe.filedRecently).toBe(14);
+    expect(pipe.undated.map((r) => r.slug)).toEqual(['undated']);
+    const smePipe = await getIpoPipelinePage('sme', now);
+    expect(smePipe).toMatchObject({ filingsOn: false, filings: [], filedRecently: null });
+  });
+
+  it('refuses the section pages when signed out', async () => {
+    mock.user.mockResolvedValue(null);
+    await expect(getIpoCalendarPage('all', undefined, now)).rejects.toMatchObject({ status: 401 });
+    await expect(getIpoListingsPage('all', { page: 1 }, now)).rejects.toMatchObject({
+      status: 401,
+    });
+    await expect(getIpoGmpPage('all', now)).rejects.toMatchObject({ status: 401 });
+    await expect(getIpoPipelinePage('all', now)).rejects.toMatchObject({ status: 401 });
   });
 
   it('refuses the dashboard and the list when signed out', async () => {

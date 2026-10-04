@@ -31,9 +31,9 @@ export const boardOf = (scope: IpoScope): IpoBoard | undefined =>
   scope === 'all' ? undefined : scope;
 
 /** Path segments under `/ipos` that are sections, never an issue's slug. */
-export const IPO_SECTION_SEGMENTS = ['all'] as const;
+export const IPO_SECTION_SEGMENTS = ['all', 'calendar', 'listings', 'gmp', 'pipeline'] as const;
 
-export type IpoSectionId = 'overview' | 'all';
+export type IpoSectionId = 'overview' | 'all' | 'calendar' | 'listings' | 'gmp' | 'pipeline';
 
 export interface IpoSection {
   readonly id: IpoSectionId;
@@ -41,11 +41,26 @@ export interface IpoSection {
   readonly path: string;
 }
 
-/** The section tabs, in order. Phase 2 adds Calendar, Listings, Grey market and Pipeline. */
+/**
+ * The section tabs, in order: the front page, the master table, then each
+ * view of the section — when (calendar), how they listed, the unofficial grey
+ * market, and what is on its way (pipeline).
+ */
 export const IPO_SECTIONS: readonly IpoSection[] = [
   { id: 'overview', label: 'Overview', path: '/ipos' },
   { id: 'all', label: 'All IPOs', path: '/ipos/all' },
+  { id: 'calendar', label: 'Calendar', path: '/ipos/calendar' },
+  { id: 'listings', label: 'Listings', path: '/ipos/listings' },
+  { id: 'gmp', label: 'Grey market', path: '/ipos/gmp' },
+  { id: 'pipeline', label: 'Pipeline', path: '/ipos/pipeline' },
 ];
+
+/** Where each section lives, with the board scope. */
+export const sectionHref = (
+  id: IpoSectionId,
+  scope: IpoScope,
+  params: Readonly<Record<string, string | null | undefined>> = {},
+) => ipoHref(IPO_SECTIONS.find((s) => s.id === id)?.path ?? '/ipos', scope, params);
 
 /** `path` with `params`, adding `board` unless the scope is the default. */
 export function ipoHref(

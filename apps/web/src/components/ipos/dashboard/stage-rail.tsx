@@ -2,7 +2,7 @@ import { ArrowRightIcon } from 'lucide-react';
 import type { Route } from 'next';
 import Link from 'next/link';
 import { dayLabel, type IpoTone, istDayTime, shortDate, shortName } from '@/lib/ipo-format';
-import { tableHref } from '@/lib/ipo-routes';
+import { sectionHref, tableHref } from '@/lib/ipo-routes';
 import type { IpoDashboardDto } from '@/lib/ipo-types';
 import { cn } from '@/lib/utils';
 import { StateChip } from '../ipo-chip';
@@ -49,8 +49,8 @@ export function StageRail({ data }: { data: IpoDashboardDto }) {
           : data.filedRecently === null
             ? 'SEBI filings are not being collected'
             : `draft prospectuses, last ${data.filedDays} days`,
-      href: data.filings.length > 0 ? ('#ipo-filings' as Route) : null,
-      go: 'Recent filings',
+      href: sectionHref('pipeline', scope),
+      go: 'Pipeline',
     },
     {
       id: 'upcoming',
@@ -104,7 +104,7 @@ export function StageRail({ data }: { data: IpoDashboardDto }) {
         y.withLatestClose === 0
           ? 'no closing prices yet'
           : `${y.latestAboveIssue} of ${y.withLatestClose} above issue price now`,
-      href: tableHref(scope, { status: 'listed' }),
+      href: sectionHref('listings', scope),
       go: 'Listings',
     },
   ];

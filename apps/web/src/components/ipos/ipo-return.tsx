@@ -19,8 +19,8 @@ import { cn } from '@/lib/utils';
  */
 const KEY = 'equitywise:ipo-return';
 
-/** Only the Overview and the master table are places to return to. */
-const RETURNABLE = /^\/ipos(\/all)?(\?|$)/;
+/** Only the IPO section's own pages are places to return to, never an issue page. */
+const RETURNABLE = /^\/ipos(\/(all|calendar|listings|gmp|pipeline))?(\?|$)/;
 
 interface Stored {
   readonly href: string;

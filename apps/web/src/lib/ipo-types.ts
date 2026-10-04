@@ -313,6 +313,116 @@ export interface IpoListPageDto {
   readonly gmpNote: string;
 }
 
+/** One issue on the IPO calendar's timeline: its bidding window and the days after. */
+export interface IpoCalendarRowDto {
+  readonly slug: string;
+  readonly companyName: string;
+  readonly board: IpoBoard;
+  readonly status: IpoStatus;
+  readonly openDate: string | null;
+  readonly closeDate: string | null;
+  /** Computed from the T+3 rule (`expected`) until a source states it. */
+  readonly allotment: { readonly date: string; readonly expected: boolean } | null;
+  readonly listing: { readonly date: string; readonly expected: boolean } | null;
+  readonly priceBand: PriceBandDto | null;
+}
+
+/** `/ipos/calendar`: three weeks of IPO milestones on trading days. */
+export interface IpoCalendarPageDto {
+  readonly board: IpoScope;
+  readonly today: string;
+  readonly asOf: string | null;
+  readonly feeds: readonly IpoFeedStatusDto[];
+  /** The Monday the window starts on, and the Friday it ends on. */
+  readonly from: string;
+  readonly to: string;
+  readonly prevFrom: string;
+  readonly nextFrom: string;
+  /** Every weekday in the window; `trading` is false on an exchange holiday. */
+  readonly days: readonly { readonly date: string; readonly trading: boolean }[];
+  readonly rows: readonly IpoCalendarRowDto[];
+  readonly agenda: readonly IpoAgendaDayDto[];
+  /** Closed issues with allotment inside the window, and where to check it. */
+  readonly allotment: readonly IpoAllotmentRowDto[];
+  readonly exchangeAllotment: readonly { readonly label: string; readonly url: string }[];
+  readonly coverageNote: string;
+  readonly disclaimer: string;
+}
+
+/** One month of listings: how many, and how they opened against the issue price. */
+export interface IpoListingsMonthDto {
+  /** `YYYY-MM`. */
+  readonly month: string;
+  readonly listed: number;
+  readonly withListingPrice: number;
+  readonly openedAbove: number;
+  /** The middle listing-day gain, %; null when no listing has a price. */
+  readonly medianListingGain: number | null;
+}
+
+export interface IpoListingsStatsDto {
+  readonly listed: number;
+  readonly withListingPrice: number;
+  readonly openedAbove: number;
+  readonly withLatestClose: number;
+  readonly latestAbove: number;
+  readonly medianListingGain: number | null;
+  readonly medianSinceIssue: number | null;
+}
+
+/** `/ipos/listings`: how issues listed against their issue price. */
+export interface IpoListingsPageDto {
+  readonly board: IpoScope;
+  readonly today: string;
+  readonly feeds: readonly IpoFeedStatusDto[];
+  /** Null = every year. */
+  readonly year: number | null;
+  readonly years: readonly number[];
+  readonly stats: IpoListingsStatsDto;
+  /** Newest month first. */
+  readonly months: readonly IpoListingsMonthDto[];
+  /** Listed issues, newest listing first, one page of them. */
+  readonly rows: readonly IpoListItemDto[];
+  readonly total: number;
+  readonly page: number;
+  readonly pageSize: number;
+  readonly coverageNote: string;
+  readonly disclaimer: string;
+}
+
+/** `/ipos/gmp`: the unofficial grey-market premium, fenced off from every official figure. */
+export interface IpoGmpPageDto {
+  readonly board: IpoScope;
+  readonly today: string;
+  readonly feeds: readonly IpoFeedStatusDto[];
+  readonly gmpPolicy: GmpPolicyDto;
+  /** Unlisted issues with a quote, highest premium first. */
+  readonly quotes: readonly IpoListItemDto[];
+  /** One per board in scope: SME and mainboard grey markets are never pooled. */
+  readonly tracks: readonly GmpTrackRecordDto[];
+  readonly gmpNote: string;
+  readonly disclaimer: string;
+}
+
+/** `/ipos/pipeline`: companies that may come to market, and the documents ahead. */
+export interface IpoPipelinePageDto {
+  readonly board: IpoScope;
+  readonly today: string;
+  readonly feeds: readonly IpoFeedStatusDto[];
+  /** False on the SME scope (drafts go to the exchange) or when the source is off. */
+  readonly filingsOn: boolean;
+  readonly filedRecently: number | null;
+  readonly filedDays: number;
+  /** SEBI filings, newest first. */
+  readonly filings: readonly SebiFilingDto[];
+  /** Announced issues with no bidding dates yet. */
+  readonly undated: readonly IpoListItemDto[];
+  /** Offer documents of open and upcoming issues. */
+  readonly documents: readonly IpoDocumentLinkDto[];
+  readonly coverageNote: string;
+  readonly disclaimer: string;
+}
+
 export interface IpoCalendarDto {
   readonly from: string;
   readonly to: string;

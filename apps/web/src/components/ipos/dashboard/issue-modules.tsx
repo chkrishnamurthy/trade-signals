@@ -1,7 +1,7 @@
 import { PercentChange } from '@/components/market/numeric';
 import { signedPercent } from '@/lib/format';
 import { BOARD_WORD, gmpText, istDayTime, shortDate, trackSpan } from '@/lib/ipo-format';
-import { issueHref, tableHref } from '@/lib/ipo-routes';
+import { issueHref, sectionHref } from '@/lib/ipo-routes';
 import type { IpoDashboardDto, IpoListItemDto } from '@/lib/ipo-types';
 import { cn } from '@/lib/utils';
 import { SmeMark } from '../ipo-cells';
@@ -44,6 +44,7 @@ export function GmpModule({ data }: { data: IpoDashboardDto }) {
       note="The premium over the upper price band, as one website reports it. Not verified, not a forecast."
       aside={<UnofficialTag />}
       unofficial
+      link={{ href: sectionHref('gmp', data.board), label: 'Grey market' }}
       footer={
         <>
           <span className="block">
@@ -135,7 +136,7 @@ export function ListingsModule({ data }: { data: IpoDashboardDto }) {
           ? `No ${s.year} listing has exchange prices yet.`
           : `${s.year}: ${s.openedAboveIssue} of ${s.withListingPrice} listings with prices opened above the issue price.`
       }
-      link={{ href: tableHref(data.board, { status: 'listed' }), label: 'All listings' }}
+      link={{ href: sectionHref('listings', data.board), label: 'Listings' }}
     >
       <ModuleTable
         caption="Listing performance"

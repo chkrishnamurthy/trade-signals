@@ -45,7 +45,8 @@ historical intent; that intraday code no longer exists in the tree.
 > signed-in user** (in the "Market record" navigation). Since 2026-10-04 it is one section
 > with a shared header (board scope All boards/Mainboard/SME, section tabs): `/ipos` is the
 > Overview hub, `/ipos/all` the master table (`/ipos/mainboard`, `/ipos/sme` redirect there),
-> and `/ipos/[slug]` is one issue in full. Official facts come from NSE's
+> `/ipos/calendar`, `/ipos/listings`, `/ipos/gmp` (unofficial) and `/ipos/pipeline` are its
+> sections, and `/ipos/[slug]` is one issue in full. Official facts come from NSE's
 > public IPO data and end-of-day file; an **unofficial** grey-market premium (GMP) comes
 > from InvestorGain, always labelled, attributed and kept out of every official field.
 > RHP sections are quoted from the document with their pages (figures stay the

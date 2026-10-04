@@ -57,7 +57,14 @@ import {
   type SubscriptionScope,
 } from '@equitywise/shared';
 import { awaitingListing } from '@/lib/ipo-format';
-import { countByStatus, DEFAULT_SORT_DIR, listSummary, sortListItems } from '@/lib/ipo-list';
+import {
+  countByStatus,
+  DEFAULT_SORT_DIR,
+  listingMonths,
+  listingStats,
+  listSummary,
+  sortListItems,
+} from '@/lib/ipo-list';
 import { boardOf, type IpoScope } from '@/lib/ipo-routes';
 import type {
   FactSourceDto,
@@ -71,12 +78,17 @@ import type {
   IpoAgendaDayDto,
   IpoAllotmentRowDto,
   IpoCalendarDto,
+  IpoCalendarPageDto,
+  IpoCalendarRowDto,
   IpoDashboardDto,
   IpoDetailDto,
   IpoDocumentLinkDto,
   IpoFeedStatusDto,
+  IpoGmpPageDto,
   IpoListItemDto,
+  IpoListingsPageDto,
   IpoListPageDto,
+  IpoPipelinePageDto,
   IposPageDto,
   ListingSummaryDto,
   RhpExtractDto,
@@ -89,7 +101,7 @@ import { getAdminUser, getSessionUser } from './auth/require-user';
 import { getDatabase } from './db';
 import { MarketDataError } from './errors';
 import { getIpoWebConfig, gmpSource, type IpoWebConfig, sourceName } from './ipo-config';
-import type { IpoBoardListQuery, IpoListQuery } from './ipo-schemas';
+import type { IpoBoardListQuery, IpoListingsQuery, IpoListQuery } from './ipo-schemas';
 
 /**
  * Read services for `/ipos` (docs/planning/ipos-plan.md §9–10).
@@ -755,6 +767,153 @@ function filingsEnabled(config: IpoWebConfig): boolean {
 /** The year from an IST date key. */
 const yearOf = (dateKey: string) => Number(dateKey.slice(0, 4));
 
+/**
+ * Offer documents of issues still ahead: the RHP (a fixed-price issue's
+ * Prospectus), else the DRHP — linked where the exchange hosts them.
+ */
+async function offerDocuments(
+  db: ReturnType<typeof getDatabase>,
+  ahead: readonly IpoListRow[],
+): Promise<IpoDocumentLinkDto[]> {
+  const docs = await listIssueDocuments(
+    db,
+    ahead.map((r) => r.id),
+    ['rhp', 'prospectus', 'drhp'],
+  );
+  return ahead.flatMap((r) => {
+    const own = docs.filter((d) => d.ipoId === r.id);
+    const doc =
+      own.find((d) => d.kind === 'rhp') ??
+      own.find((d) => d.kind === 'prospectus') ??
+      own.find((d) => d.kind === 'drhp');
+    return doc === undefined
+      ? []
+      : [
+          {
+            slug: r.slug,
+            companyName: readableCompanyName(r.companyName),
+            kind: doc.kind as IpoDocumentKind,
+            url: doc.url,
+            host: hostOf(doc.url),
+            sectionsQuoted: doc.sectionsQuoted,
+          },
+        ];
+  });
+}
+
+/** The feed statuses and the calendar feed's last success, as every IPO page shows them. */
+async function feedState(
+  db: ReturnType<typeof getDatabase>,
+  config: IpoWebConfig,
+  now: Date,
+): Promise<{ feeds: IpoFeedStatusDto[]; asOf: string | null }> {
+  const ids = feedIdsFor(config);
+  const health = await feedHealth(
+    db,
+    ids.map((f) => f.id),
+  );
+  const feeds = toFeedStatuses(ids, health, now, config);
+  return { feeds, asOf: feeds.find((f) => f.id.endsWith('-calendar'))?.lastSuccessAt ?? null };
+}
+
+// ---------------------------------------------------------------------------
+// Calendar (pure, exported for tests)
+// ---------------------------------------------------------------------------
+
+/** The Monday of the week holding `dateKey`. */
+export function mondayOf(dateKey: string): string {
+  const weekday = new Date(`${dateKey}T00:00:00Z`).getUTCDay();
+  return addDays(dateKey, weekday === 0 ? -6 : 1 - weekday);
+}
+
+/**
+ * The calendar's window: three weeks, Monday to Friday, starting the week
+ * before the current one (so the issues that just closed are still in view),
+ * or the week holding `from` when one is asked for. On a weekend the current
+ * week is the one about to start.
+ */
+export function calendarWindow(today: string, from?: string): { from: string; to: string } {
+  const weekday = new Date(`${today}T00:00:00Z`).getUTCDay();
+  const current = weekday === 0 || weekday === 6 ? addDays(mondayOf(today), 7) : mondayOf(today);
+  const start = from === undefined ? addDays(current, -7) : mondayOf(from);
+  return { from: start, to: addDays(start, 18) };
+}
+
+/** Weekdays in [from, to], each marked whether the exchange trades that day. */
+export function calendarDays(
+  from: string,
+  to: string,
+  calendar: CalendarConfig,
+): { date: string; trading: boolean }[] {
+  const out: { date: string; trading: boolean }[] = [];
+  for (let d = from; d <= to; d = addDays(d, 1)) {
+    const weekday = new Date(`${d}T00:00:00Z`).getUTCDay();
+    if (weekday === 0 || weekday === 6) continue;
+    out.push({ date: d, trading: isSettlementDay(d, calendar) });
+  }
+  return out;
+}
+
+/**
+ * The issues with a milestone in [from, to] — bidding that overlaps the
+ * window, or an allotment or listing inside it — each with its bidding window
+ * and its allotment and listing days, official or expected (T+3).
+ */
+export function calendarRows(
+  issues: readonly IpoIssueRow[],
+  from: string,
+  to: string,
+  ctx: Pick<MapContext, 'today' | 'calendar'>,
+): IpoCalendarRowDto[] {
+  const inWindow = (d: string | null) => d !== null && d >= from && d <= to;
+  return issues
+    .flatMap((issue) => {
+      const events = ipoTimeline(
+        {
+          ...datesOf(issue),
+          allotmentDate: issue.allotmentDate,
+          refundDate: issue.refundDate,
+          dematCreditDate: issue.dematCreditDate,
+        },
+        ctx.today,
+        ctx.calendar,
+      );
+      const at = (kind: string) => {
+        const e = events.find((x) => x.kind === kind);
+        return e === undefined ? null : { date: e.date, expected: e.expected };
+      };
+      const allotment = at('allotment');
+      const listing = at('listing');
+      const bidding =
+        issue.openDate !== null &&
+        issue.openDate <= to &&
+        (issue.closeDate ?? issue.openDate) >= from;
+      if (!bidding && !inWindow(allotment?.date ?? null) && !inWindow(listing?.date ?? null))
+        return [];
+      return [
+        {
+          slug: issue.slug,
+          companyName: readableCompanyName(issue.companyName),
+          board: issue.board as IpoBoard,
+          status: ipoStatus(datesOf(issue), ctx.today),
+          openDate: issue.openDate,
+          closeDate: issue.closeDate,
+          allotment,
+          listing,
+          priceBand:
+            issue.priceBandLowPaise !== null && issue.priceBandHighPaise !== null
+              ? { lowPaise: issue.priceBandLowPaise, highPaise: issue.priceBandHighPaise }
+              : null,
+        },
+      ];
+    })
+    .sort(
+      (a, b) =>
+        (a.openDate ?? '9999').localeCompare(b.openDate ?? '9999') ||
+        a.companyName.localeCompare(b.companyName, 'en-IN'),
+    );
+}
+
 // ---------------------------------------------------------------------------
 // Services
 // ---------------------------------------------------------------------------
@@ -925,33 +1084,7 @@ export async function getIpoDashboard(
   const closedItems = items(closed.rows);
   const listedItems = items(listed.rows);
 
-  // Offer documents of the issues still ahead: the RHP (a fixed-price issue's
-  // Prospectus), else the DRHP.
-  const ahead = [...open.rows, ...upcoming.rows];
-  const docs = await listIssueDocuments(
-    db,
-    ahead.map((r) => r.id),
-    ['rhp', 'prospectus', 'drhp'],
-  );
-  const documents: IpoDocumentLinkDto[] = ahead.flatMap((r) => {
-    const own = docs.filter((d) => d.ipoId === r.id);
-    const doc =
-      own.find((d) => d.kind === 'rhp') ??
-      own.find((d) => d.kind === 'prospectus') ??
-      own.find((d) => d.kind === 'drhp');
-    return doc === undefined
-      ? []
-      : [
-          {
-            slug: r.slug,
-            companyName: readableCompanyName(r.companyName),
-            kind: doc.kind as IpoDocumentKind,
-            url: doc.url,
-            host: hostOf(doc.url),
-            sectionsQuoted: doc.sectionsQuoted,
-          },
-        ];
-  });
+  const documents = await offerDocuments(db, [...open.rows, ...upcoming.rows]);
 
   const statuses = toFeedStatuses(feeds, health, now, config);
   const gmpTracks = trackBoards.flatMap((b, i) => {
@@ -1071,6 +1204,181 @@ export async function getIpoListPage(
     coverageNote: coverageNote(config),
     disclaimer: IPO_DISCLAIMER,
     gmpNote: GMP_NOTE,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Section pages: calendar, listings, grey market, pipeline
+// ---------------------------------------------------------------------------
+
+export async function getIpoCalendarPage(
+  scope: IpoScope,
+  from: string | undefined,
+  now: Date = new Date(),
+): Promise<IpoCalendarPageDto> {
+  await requireSignedIn();
+  const db = getDatabase();
+  const { ctx, config } = await context(now);
+  const window = calendarWindow(ctx.today, from);
+  const board = boardOf(scope);
+  const [around, state] = await Promise.all([
+    listIposAround(db, window.from, window.to),
+    feedState(db, config, now),
+  ]);
+  const issues = board === undefined ? around : around.filter((r) => r.board === board);
+  const rows = calendarRows(issues, window.from, window.to, ctx);
+  const allotment = issues
+    .flatMap((r) => toAllotmentRow(r, config) ?? [])
+    // In the window, and not yet listed: an allotment that matters to someone now.
+    .filter(
+      (a) =>
+        a.allotmentDate !== null &&
+        a.allotmentDate >= window.from &&
+        a.allotmentDate <= window.to &&
+        (a.listingDate === null || a.listingDate >= ctx.today),
+    )
+    .sort((a, b) => (a.allotmentDate ?? '').localeCompare(b.allotmentDate ?? ''));
+  return {
+    board: scope,
+    today: ctx.today,
+    asOf: state.asOf,
+    feeds: state.feeds,
+    from: window.from,
+    to: window.to,
+    prevFrom: addDays(window.from, -14),
+    nextFrom: addDays(window.from, 14),
+    days: calendarDays(window.from, window.to, config.calendar),
+    rows,
+    agenda: buildAgenda(issues, window.from, window.to, ctx),
+    allotment,
+    exchangeAllotment: config.exchangeAllotment,
+    coverageNote: coverageNote(config),
+    disclaimer: IPO_DISCLAIMER,
+  };
+}
+
+const LISTINGS_PAGE_SIZE = 50;
+
+export async function getIpoListingsPage(
+  scope: IpoScope,
+  query: Omit<IpoListingsQuery, 'board'>,
+  now: Date = new Date(),
+): Promise<IpoListingsPageDto> {
+  await requireSignedIn();
+  const db = getDatabase();
+  const { ctx, config } = await context(now);
+  const board = boardOf(scope);
+  const currentYear = yearOf(ctx.today);
+  const year = query.year === 'all' ? undefined : (query.year ?? currentYear);
+  const [scan, years, state] = await Promise.all([
+    listIpos(db, {
+      today: ctx.today,
+      board,
+      year,
+      status: 'listed',
+      page: 1,
+      pageSize: LIST_SCAN_LIMIT,
+    }),
+    listIpoYears(db, board),
+    feedState(db, config, now),
+  ]);
+  const items = sortListItems(
+    scan.rows.map((r) => toListItem(r, ctx)),
+    { key: 'stage', dir: 'asc' },
+  );
+  const lastPage = Math.max(1, Math.ceil(items.length / LISTINGS_PAGE_SIZE));
+  const page = Math.min(query.page, lastPage);
+  return {
+    board: scope,
+    today: ctx.today,
+    feeds: state.feeds,
+    year: year ?? null,
+    years: [...new Set([currentYear, ...years])].sort((a, b) => b - a),
+    stats: listingStats(items),
+    months: listingMonths(items),
+    rows: items.slice((page - 1) * LISTINGS_PAGE_SIZE, page * LISTINGS_PAGE_SIZE),
+    total: items.length,
+    page,
+    pageSize: LISTINGS_PAGE_SIZE,
+    coverageNote: coverageNote(config),
+    disclaimer: IPO_DISCLAIMER,
+  };
+}
+
+export async function getIpoGmpPage(
+  scope: IpoScope,
+  now: Date = new Date(),
+): Promise<IpoGmpPageDto> {
+  await requireSignedIn();
+  const db = getDatabase();
+  const { ctx, config } = await context(now);
+  const board = boardOf(scope);
+  const base = { today: ctx.today, board };
+  const gmp = gmpSource(config);
+  const trackBoards: readonly IpoBoard[] = board === undefined ? ['mainboard', 'sme'] : [board];
+  const trackSince = addDays(ctx.today, -Math.round(GMP_TRACK_MONTHS * 30.44));
+  const [open, upcoming, closed, tracks, state] = await Promise.all([
+    listIpos(db, { ...base, status: 'open', page: 1, pageSize: DASHBOARD_ROWS }),
+    listIpos(db, { ...base, status: 'upcoming', page: 1, pageSize: DASHBOARD_ROWS }),
+    listIpos(db, { ...base, status: 'closed', page: 1, pageSize: DASHBOARD_ROWS }),
+    gmp === null
+      ? Promise.resolve([])
+      : Promise.all(trackBoards.map((b) => gmpTrackRows(db, trackSince, b))),
+    feedState(db, config, now),
+  ]);
+  const items = (rows: readonly IpoListRow[]) => rows.map((r) => toListItem(r, ctx));
+  return {
+    board: scope,
+    today: ctx.today,
+    feeds: state.feeds,
+    gmpPolicy: gmpPolicyOf(ctx),
+    quotes:
+      gmp === null
+        ? []
+        : dashboardGmp([...items(open.rows), ...items(upcoming.rows), ...items(closed.rows)], 100),
+    tracks: trackBoards.flatMap((b, i) => {
+      const rows = tracks[i];
+      return rows === undefined
+        ? []
+        : [toTrackRecord(rows, GMP_TRACK_MONTHS, null, b, ctx.gmpSince ?? null)];
+    }),
+    gmpNote: GMP_NOTE,
+    disclaimer: IPO_DISCLAIMER,
+  };
+}
+
+/** How many SEBI filings the pipeline lists. */
+const PIPELINE_FILINGS = 100;
+
+export async function getIpoPipelinePage(
+  scope: IpoScope,
+  now: Date = new Date(),
+): Promise<IpoPipelinePageDto> {
+  await requireSignedIn();
+  const db = getDatabase();
+  const { ctx, config } = await context(now);
+  const board = boardOf(scope);
+  const base = { today: ctx.today, board };
+  const filingsOn = scope !== 'sme' && filingsEnabled(config);
+  const [open, upcoming, filings, filed, state] = await Promise.all([
+    listIpos(db, { ...base, status: 'open', page: 1, pageSize: DASHBOARD_ROWS }),
+    listIpos(db, { ...base, status: 'upcoming', page: 1, pageSize: DASHBOARD_ROWS }),
+    filingsOn ? listSebiFilings(db, PIPELINE_FILINGS) : Promise.resolve([]),
+    filingsOn ? countSebiFilingsSince(db, addDays(ctx.today, -FILED_DAYS)) : Promise.resolve(null),
+    feedState(db, config, now),
+  ]);
+  return {
+    board: scope,
+    today: ctx.today,
+    feeds: state.feeds,
+    filingsOn,
+    filedRecently: filed,
+    filedDays: FILED_DAYS,
+    filings: filings.map(toFiling),
+    undated: upcoming.rows.map((r) => toListItem(r, ctx)).filter((r) => r.openDate === null),
+    documents: await offerDocuments(db, [...open.rows, ...upcoming.rows]),
+    coverageNote: coverageNote(config),
+    disclaimer: IPO_DISCLAIMER,
   };
 }
 

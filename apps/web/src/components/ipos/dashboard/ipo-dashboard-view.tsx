@@ -1,7 +1,13 @@
 import { Suspense } from 'react';
 import { AppShell } from '@/components/layout/app-shell';
 import { PageContainer, PageContent } from '@/components/layout/page';
-import { BOARD_SCOPE_LABEL, IPO_SCOPES, type IpoScope, overviewHref } from '@/lib/ipo-routes';
+import {
+  BOARD_SCOPE_LABEL,
+  IPO_SCOPES,
+  type IpoScope,
+  overviewHref,
+  sectionHref,
+} from '@/lib/ipo-routes';
 import type { IpoDashboardDto } from '@/lib/ipo-types';
 import { IpoFeeds } from '../ipo-feeds';
 import { IpoGmpNote } from '../ipo-gmp-note';
@@ -10,6 +16,7 @@ import { IpoSectionHeader } from '../ipo-section-header';
 import { AgendaModule, AllotmentModule, DocumentsModule, FilingsModule } from './calendar-modules';
 import { GmpModule, ListingsModule } from './issue-modules';
 import { OpenCards } from './open-cards';
+import { SectionDirectory } from './section-directory';
 import { StageRail } from './stage-rail';
 import { TablePreview } from './table-preview';
 import { UpcomingModule } from './upcoming-module';
@@ -59,7 +66,11 @@ export function IpoDashboardView({ data }: { data: IpoDashboardDto }) {
               <UpcomingModule data={data} />
               <AllotmentModule data={data} />
             </div>
-            <AgendaModule data={data} className="lg:mt-[2.375rem]" />
+            <AgendaModule
+              data={data}
+              link={{ href: sectionHref('calendar', data.board), label: 'Calendar' }}
+              className="lg:mt-[2.375rem]"
+            />
           </div>
 
           <TablePreview data={data} />
@@ -72,9 +83,16 @@ export function IpoDashboardView({ data }: { data: IpoDashboardDto }) {
           {(data.gmpPolicy.enabled || showFilings) && (
             <div className="grid items-stretch gap-4 lg:grid-cols-2">
               {data.gmpPolicy.enabled && <DocumentsModule data={data} />}
-              {showFilings && <FilingsModule data={data} />}
+              {showFilings && (
+                <FilingsModule
+                  data={data}
+                  link={{ href: sectionHref('pipeline', data.board), label: 'Pipeline' }}
+                />
+              )}
             </div>
           )}
+
+          <SectionDirectory data={data} />
 
           <p className="text-2xs text-muted-foreground">{data.coverageNote}</p>
           <IpoGmpNote gmpNote={data.gmpNote} show={data.gmpPolicy.enabled} />

@@ -55,9 +55,15 @@ function groupByKind(events: IpoDashboardDto['agenda'][number]['events']) {
 /** The next five trading days as an agenda — it reads the same at phone width. */
 export function AgendaModule({
   data,
+  title = 'Next five trading days',
+  note = 'Openings, closings, allotment, share credit and listing, day by day.',
+  link,
   className,
 }: {
-  data: IpoDashboardDto;
+  data: Pick<IpoDashboardDto, 'agenda' | 'today' | 'board'>;
+  title?: string;
+  note?: string;
+  link?: { readonly href: Route; readonly label: string } | undefined;
   className?: string | undefined;
 }) {
   const word = BOARD_SCOPE_WORD[data.board];
@@ -66,8 +72,9 @@ export function AgendaModule({
   return (
     <ModuleCard
       id="ipo-agenda"
-      title="Next five trading days"
-      note="Openings, closings, allotment, share credit and listing, day by day."
+      title={title}
+      note={note}
+      link={link}
       className={className}
       footer={
         <>
@@ -86,7 +93,7 @@ export function AgendaModule({
     >
       {data.agenda.length === 0 ? (
         <p className="border-border border-t px-4 py-6 text-center text-muted-foreground text-sm">
-          No {word === '' ? '' : `${word} `}IPO milestone in the next five trading days.
+          No {word === '' ? '' : `${word} `}IPO milestone on these days.
         </p>
       ) : (
         <ol className="flex flex-col border-border border-t">
@@ -157,7 +164,11 @@ const listsText = (row: IpoAllotmentRowDto) =>
  * Where an applicant checks allotment: the registrar's own page, or the
  * exchange's. EquityWise never looks an application up or fills those forms in.
  */
-export function AllotmentModule({ data }: { data: IpoDashboardDto }) {
+export function AllotmentModule({
+  data,
+}: {
+  data: Pick<IpoDashboardDto, 'allotment' | 'today' | 'board' | 'exchangeAllotment'>;
+}) {
   const expected = data.allotment.some((r) => r.allotmentExpected || r.listingExpected);
   const word = BOARD_SCOPE_WORD[data.board];
   return (
@@ -241,7 +252,7 @@ const DOC_KIND: Readonly<Record<string, string>> = {
 };
 
 /** Offer documents of the issues still ahead, always the exchange's own copy. */
-export function DocumentsModule({ data }: { data: IpoDashboardDto }) {
+export function DocumentsModule({ data }: { data: Pick<IpoDashboardDto, 'documents'> }) {
   return (
     <ModuleCard
       id="ipo-documents"
@@ -300,11 +311,18 @@ function FilingName({ filing }: { filing: SebiFilingDto }) {
 }
 
 /** DRHPs filed with SEBI — regulator data, never an announced issue. */
-export function FilingsModule({ data }: { data: IpoDashboardDto }) {
+export function FilingsModule({
+  data,
+  link,
+}: {
+  data: Pick<IpoDashboardDto, 'filings'>;
+  link?: { readonly href: Route; readonly label: string } | undefined;
+}) {
   return (
     <ModuleCard
       id="ipo-filings"
       title="Filed with SEBI"
+      link={link}
       note="Draft offer documents, newest first. A filing comes months before an issue opens, and many never do."
       footer="From sebi.gov.in. SME issues file their drafts with the exchange instead."
     >

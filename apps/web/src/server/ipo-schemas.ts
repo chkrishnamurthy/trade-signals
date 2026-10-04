@@ -50,6 +50,23 @@ export type IpoBoardListQuery = z.infer<typeof ipoBoardListQuerySchema>;
 /** `/ipos?board=sme`: the Overview's board scope; both boards when absent. */
 export const ipoDashboardQuerySchema = z.object({ board: scopeParam });
 
+/** `/ipos/calendar`: the board scope and the window's first day (snapped to its Monday). */
+export const ipoCalendarPageQuerySchema = z.object({
+  board: scopeParam,
+  from: z.preprocess(blankToUndefined, dateKey.optional()),
+});
+
+/** `/ipos/listings`: the board scope, year (`all` for every year; absent = this year) and page. */
+export const ipoListingsQuerySchema = z.object({
+  board: scopeParam,
+  year: z.preprocess(
+    blankToUndefined,
+    z.union([z.literal('all'), z.coerce.number().int().min(2000).max(2100)]).optional(),
+  ),
+  page: z.preprocess(blankToUndefined, z.coerce.number().int().min(1).max(500).default(1)),
+});
+export type IpoListingsQuery = z.infer<typeof ipoListingsQuerySchema>;
+
 export const ipoCalendarQuerySchema = z
   .object({ from: dateKey, to: dateKey })
   .refine((v) => v.from <= v.to, 'The range must start on or before its end.')

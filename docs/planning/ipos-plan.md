@@ -649,9 +649,9 @@ and board switch. Now the section is one place:
 - **One shared header** on every IPO page (`components/ipos/ipo-section-header.tsx`): the
   title, a board scope **All boards · Mainboard · SME** and the section tabs. The scope is
   one `?board=` value (default `all`, kept out of the URL) that every tab carries
-  (`lib/ipo-routes.ts`). Phase 1 tabs: **Overview** (`/ipos`) and **All IPOs**
-  (`/ipos/all`, the master table, unchanged in behaviour). Phase 2 adds Calendar, Listings,
-  Grey market and Pipeline as their own tabs.
+  (`lib/ipo-routes.ts`). Tabs: **Overview** (`/ipos`) · **All IPOs** (`/ipos/all`, the
+  master table, unchanged in behaviour) · **Calendar** · **Listings** · **Grey market** ·
+  **Pipeline** (below).
 - **The lifecycle as the spine**: Filed with SEBI → Upcoming → Open for bids → Allotment &
   listing → Listed. The same words and colours label the Overview's stage strip, the
   master table's tiles and status pills, and the issue page's stage tracker.
@@ -666,6 +666,29 @@ and board switch. Now the section is one place:
   SEBI" count, `countSebiFilingsSince`, last 90 days) are hidden on the SME scope.
 - **Redirects**: `/ipos/mainboard` and `/ipos/sme` permanently redirect to
   `/ipos/all?board=…`, filters kept; old `/ipos?status=…` links open the table.
+- **Calendar** (`/ipos/calendar`, `getIpoCalendarPage`): three weeks of weekdays from the
+  week before the current one (on a weekend, the week about to start), `?from=` to move two
+  weeks at a time. From `md`, a timeline: each issue's bidding window as a bar (open green,
+  upcoming blue, closed grey), allotment as a diamond and listing as a dot, hollow while
+  expected (T+3), exchange holidays hatched, a line at the next trading day. Below it (the
+  phone's only view) every milestone day by day, and the registrar links for allotments in
+  the window of issues not yet listed. Pure helpers: `mondayOf`, `calendarWindow`,
+  `calendarDays`, `calendarRows`.
+- **Listings** (`/ipos/listings`, `getIpoListingsPage`): year pills (`?year=`, `all`),
+  four outcome tiles (listed · opened above issue price n/priced · median listing-day gain ·
+  above issue now n/with a close, with the median since issue), a by-month table and every
+  listing newest first, 50 a page. `listingStats`/`listingMonths` in `lib/ipo-list.ts`;
+  unpriced listings are left out of every denominator.
+- **Grey market** (`/ipos/gmp`, `getIpoGmpPage`): amber throughout. Latest quotes for
+  unlisted issues (stage, upper band, GMP, when reported, stale), then one track record per
+  board in scope (last quote vs listing-day gain, ±tolerance), never pooled, never coloured
+  as gains. With the source off the page says so and shows nothing else.
+- **Pipeline** (`/ipos/pipeline`, `getIpoPipelinePage`): SEBI filings in the last 90 days
+  (count), announced issues without dates, offer documents of issues ahead, and the 100
+  newest filings. The SME scope explains that SME drafts go to the exchange.
+- **Overview → sections**: the stage strip's Filed stage opens Pipeline and Listed opens
+  Listings; the agenda, listings, GMP and filings modules link to their sections; the page
+  ends with "Everything in IPOs", one card per section with a live figure.
 - **Issue page**: the section tabs above a breadcrumb back to IPOs, the existing
   remembered "Back to …" link, and a five-stage tracker above the key figures (vertical on
   a phone).

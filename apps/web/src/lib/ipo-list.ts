@@ -1,5 +1,5 @@
 import type { IpoStatus } from '@equitywise/shared';
-import type { IpoListItemDto } from './ipo-types';
+import type { IpoListItemDto, IpoListingsMonthDto, IpoListingsStatsDto } from './ipo-types';
 
 /**
  * The board list's sort keys, as they appear in the URL (`?sort=demand`).
@@ -280,3 +280,57 @@ export function demandBarPercent(times: number): number {
 
 /** Where the 1× tick sits on the demand bar. */
 export const DEMAND_BAR_ONE_TIMES = 100 / 3;
+
+/** The middle value (the mean of the middle two for an even count); null for none. */
+export function median(values: readonly number[]): number | null {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  const hi = sorted[mid] as number;
+  return sorted.length % 2 === 1 ? hi : ((sorted[mid - 1] as number) + hi) / 2;
+}
+
+const listingGain = (r: IpoListItemDto) => r.listing?.listingGainPercent ?? null;
+const sinceIssue = (r: IpoListItemDto) => r.listing?.sinceIssuePercent ?? null;
+const present = (v: number | null): v is number => v !== null;
+
+/**
+ * How listings went against their issue price: counts with their
+ * denominators (only listings the exchange has priced count) and the middle
+ * gain — outcomes recorded, never a forecast.
+ */
+export function listingStats(rows: readonly IpoListItemDto[]): IpoListingsStatsDto {
+  const gains = rows.map(listingGain).filter(present);
+  const now = rows.map(sinceIssue).filter(present);
+  return {
+    listed: rows.length,
+    withListingPrice: gains.length,
+    openedAbove: gains.filter((g) => g > 0).length,
+    withLatestClose: now.length,
+    latestAbove: now.filter((g) => g > 0).length,
+    medianListingGain: median(gains),
+    medianSinceIssue: median(now),
+  };
+}
+
+/** Listings grouped by the month they listed in, newest month first. */
+export function listingMonths(rows: readonly IpoListItemDto[]): IpoListingsMonthDto[] {
+  const byMonth = new Map<string, IpoListItemDto[]>();
+  for (const r of rows) {
+    if (r.listingDate === null) continue;
+    const month = r.listingDate.slice(0, 7);
+    byMonth.set(month, [...(byMonth.get(month) ?? []), r]);
+  }
+  return [...byMonth.entries()]
+    .sort(([a], [b]) => b.localeCompare(a))
+    .map(([month, list]) => {
+      const gains = list.map(listingGain).filter(present);
+      return {
+        month,
+        listed: list.length,
+        withListingPrice: gains.length,
+        openedAbove: gains.filter((g) => g > 0).length,
+        medianListingGain: median(gains),
+      };
+    });
+}
