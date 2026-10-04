@@ -12,6 +12,7 @@ import { type IpoSectionId, sectionHref } from '@/lib/ipo-routes';
 import type { IpoDashboardDto } from '@/lib/ipo-types';
 import { cn } from '@/lib/utils';
 import { UnofficialTag } from '../ipo-chip';
+import { visibleAgenda } from './calendar-modules';
 
 interface Entry {
   readonly id: Exclude<IpoSectionId, 'overview'>;
@@ -29,7 +30,7 @@ interface Entry {
  */
 export function SectionDirectory({ data }: { data: IpoDashboardDto }) {
   const total = Object.values(data.yearCounts).reduce((a, b) => a + b, 0);
-  const events = data.agenda.reduce((n, d) => n + d.events.length, 0);
+  const events = visibleAgenda(data.agenda).reduce((n, d) => n + d.events.length, 0);
   const entries: Entry[] = [
     {
       id: 'all',

@@ -13,12 +13,11 @@ import { IpoFeeds } from '../ipo-feeds';
 import { IpoGmpNote } from '../ipo-gmp-note';
 import { RememberIpoReturn } from '../ipo-return';
 import { IpoSectionHeader } from '../ipo-section-header';
-import { AgendaModule, AllotmentModule, DocumentsModule, FilingsModule } from './calendar-modules';
+import { AgendaModule, AllotmentModule } from './calendar-modules';
 import { GmpModule, ListingsModule } from './issue-modules';
 import { OpenCards } from './open-cards';
 import { SectionDirectory } from './section-directory';
 import { StageRail } from './stage-rail';
-import { TablePreview } from './table-preview';
 import { UpcomingModule } from './upcoming-module';
 
 const SCOPE_HREFS = Object.fromEntries(IPO_SCOPES.map((s) => [s, overviewHref(s)])) as Record<
@@ -29,15 +28,14 @@ const SCOPE_HREFS = Object.fromEntries(IPO_SCOPES.map((s) => [s, overviewHref(s)
 /**
  * The IPO Overview (`/ipos`), the section's front page (plan §10.0). It reads
  * top to bottom in the order a reader needs it: where every issue stands
- * (each stage opens its list), what is open now, the days ahead, what opens
- * next and what is waiting to list, the master table's first rows, then how
- * listings went, the unofficial grey market and the documents. Every block
- * ends in a link to the place that holds all of it. Facts with their sources;
+ * (each stage opens its list), what is open now beside the days ahead, what
+ * opens next and what is waiting to list, then the latest listings and the
+ * unofficial grey market, and finally the section's other places. Every block
+ * ends in a link to the tab that holds all of it. Facts with their sources;
  * no element applies for, bids on or rates anything.
  */
 export function IpoDashboardView({ data }: { data: IpoDashboardDto }) {
   const total = Object.values(data.yearCounts).reduce((a, b) => a + b, 0);
-  const showFilings = data.board !== 'sme' && data.filings.length > 0;
   return (
     <AppShell>
       <Suspense fallback={null}>
@@ -73,22 +71,10 @@ export function IpoDashboardView({ data }: { data: IpoDashboardDto }) {
             />
           </div>
 
-          <TablePreview data={data} />
-
-          <div className="grid items-stretch gap-4 lg:grid-cols-2">
-            <ListingsModule data={data} />
-            {data.gmpPolicy.enabled ? <GmpModule data={data} /> : <DocumentsModule data={data} />}
-          </div>
-
-          {(data.gmpPolicy.enabled || showFilings) && (
+          {(data.listings.length > 0 || data.gmpPolicy.enabled) && (
             <div className="grid items-stretch gap-4 lg:grid-cols-2">
-              {data.gmpPolicy.enabled && <DocumentsModule data={data} />}
-              {showFilings && (
-                <FilingsModule
-                  data={data}
-                  link={{ href: sectionHref('pipeline', data.board), label: 'Pipeline' }}
-                />
-              )}
+              <ListingsModule data={data} />
+              {data.gmpPolicy.enabled && <GmpModule data={data} />}
             </div>
           )}
 

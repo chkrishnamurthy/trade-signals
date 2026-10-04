@@ -78,7 +78,7 @@ function TrackRecord({ track, mixed }: { track: GmpTrackRecordDto; mixed: boolea
           },
           {
             id: 'outcome',
-            header: 'Difference',
+            header: 'Gain vs quote',
             width: 'w-32',
             align: 'end',
             cell: (r) => (
@@ -119,6 +119,9 @@ function TrackRecord({ track, mixed }: { track: GmpTrackRecordDto; mixed: boolea
  */
 export function IpoGmpView({ data }: { data: IpoGmpPageDto }) {
   const mixed = data.board === 'all';
+  // A board with no comparison yet is a sentence, not an empty table.
+  const withRecord = data.tracks.filter((t) => t.total > 0);
+  const withoutRecord = data.tracks.filter((t) => t.total === 0);
   const latest = data.quotes
     .map((r) => r.gmp?.observedAt ?? '')
     .sort()
@@ -241,11 +244,23 @@ export function IpoGmpView({ data }: { data: IpoGmpPageDto }) {
             />
           </Card>
 
-          <div className={cn('grid items-start gap-4', data.tracks.length > 1 && 'lg:grid-cols-2')}>
-            {data.tracks.map((t) => (
+          <div className={cn('grid items-start gap-4', withRecord.length > 1 && 'lg:grid-cols-2')}>
+            {withRecord.map((t) => (
               <TrackRecord key={t.board ?? 'all'} track={t} mixed={mixed} />
             ))}
           </div>
+          {withoutRecord.length > 0 && (
+            <p className="text-muted-foreground text-xs">
+              No{' '}
+              {withoutRecord
+                .map((t) => (t.board === null ? '' : BOARD_LABEL[t.board]))
+                .join(' or ')}{' '}
+              listing has a recorded quote to compare yet
+              {data.gmpPolicy.trackedSince === null
+                ? '.'
+                : ` (quotes recorded since ${shortDate(data.gmpPolicy.trackedSince)}).`}
+            </p>
+          )}
         </>
       )}
       <IpoGmpNote gmpNote={data.gmpNote} show />

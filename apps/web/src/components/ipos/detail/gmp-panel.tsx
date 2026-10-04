@@ -139,7 +139,8 @@ export function GmpPanel({
               </span>
             </FactRow>
           )}
-          {points.length > 1 && (
+          {/* A line needs two different quotes; a flat one reads as an empty chart. */}
+          {points.length > 1 && new Set(points).size > 1 && (
             <FactRow label="Since first reported">
               <Sparkline
                 values={points}
