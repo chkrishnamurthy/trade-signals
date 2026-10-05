@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
-import { redirect } from 'next/navigation';
 import { IntradayDashboard } from '@/components/intraday/intraday-dashboard';
-import { getAdminUser } from '@/server/auth/require-user';
+import { requireAdminPage } from '@/server/auth/admin-page';
 export const metadata: Metadata = {
   title: 'Intraday Strategies — EquityWise',
   description:
@@ -11,7 +10,6 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic';
 /** Admin-only while the strategy is under evaluation; a signed-in user is sent to the app. */
 export default async function IntradayRoute() {
-  const admin = await getAdminUser();
-  if (admin === null) redirect('/watchlists');
+  await requireAdminPage();
   return <IntradayDashboard />;
 }

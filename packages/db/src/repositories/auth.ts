@@ -2,13 +2,13 @@ import { and, eq, isNull, lt, sql } from 'drizzle-orm';
 import type { Database } from '../client.js';
 import {
   authAttempts,
-  authAudit,
   authCredentials,
   authSessions,
   authTokens,
   authUsers,
   userProfiles,
 } from '../schema/auth.js';
+import { categoryForEvent, logEvent } from './event-log.js';
 
 /**
  * Authentication data access. Every auth read/write funnels through here, so a
@@ -422,11 +422,12 @@ export interface AuditEntry {
 
 /** Append a security event. `detail` must never carry a password, token, email, or seed. */
 export async function writeAudit(db: Database, entry: AuditEntry): Promise<void> {
-  await db.insert(authAudit).values({
+  await logEvent(db, {
+    category: categoryForEvent(entry.event),
+    actorType: 'user',
     event: entry.event,
     userId: entry.userId ?? null,
     ipAddress: entry.ipAddress ?? null,
-    userAgent: null,
     detail: entry.detail ?? null,
   });
 }

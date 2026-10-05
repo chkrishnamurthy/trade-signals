@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { DEFAULT_COLUMN_IDS } from '@/lib/watchlist-columns';
 import { WATCHLIST_LISTS, WATCHLIST_ROWS } from '@/stories/fixtures/watchlist';
@@ -43,6 +44,37 @@ type Story = StoryObj<typeof meta>;
 /** A gainer (with signal), a loser, an unchanged name, and a just-added, unquoted row. */
 export const Ready: Story = {
   args: { rows: WATCHLIST_ROWS, status: 'ready' },
+};
+
+/**
+ * No sort and no filter, so the rows are in the user's own order: each row has a
+ * grip to drag by (or focus it and use the arrow keys), and the row menu gains
+ * Move up / down / to top / to bottom. Expand a row to edit its note.
+ */
+export const Reorderable: Story = {
+  args: { rows: WATCHLIST_ROWS, status: 'ready', sort: [], canReorder: true },
+  render: (args) => {
+    // Behaves like the page: the order and the notes live in state.
+    const [rows, setRows] = useState(args.rows);
+    return (
+      <WatchlistTable
+        {...args}
+        rows={rows}
+        onReorder={(ids) =>
+          setRows((current) =>
+            [...current].sort((a, b) => ids.indexOf(a.instrumentId) - ids.indexOf(b.instrumentId)),
+          )
+        }
+        onSaveNote={async (row, note) => {
+          const next = note.trim() === '' ? null : note.trim();
+          setRows((current) =>
+            current.map((r) => (r.instrumentId === row.instrumentId ? { ...r, note: next } : r)),
+          );
+          return { ok: true };
+        }}
+      />
+    );
+  },
 };
 
 /**

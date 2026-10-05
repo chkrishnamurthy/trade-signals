@@ -8,7 +8,16 @@ import {
   ChevronsUpDownIcon,
   SettingsIcon,
 } from 'lucide-react';
-import { Fragment, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Fragment,
+  type HTMLAttributes,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -124,6 +133,12 @@ export interface DataTableProps<Row> {
   onSortChange?: ((columnId: string, additive: boolean) => void) | undefined;
   /** Trailing per-row cell, pinned to the right. For a row's action menu. */
   rowActions?: ((row: Row) => ReactNode) | undefined;
+  /**
+   * Extra attributes for a row's `<tr>` — drag-and-drop handlers, a drop-target
+   * class. Its `className` is merged with the table's own, its handlers are not
+   * wrapped. Keep it cheap: it runs for every visible row on every render.
+   */
+  getRowProps?: ((row: Row) => HTMLAttributes<HTMLTableRowElement>) | undefined;
   stickyHeader?: boolean | undefined;
   /** Omit for no pagination — the common case for a 50-row index. */
   pageSize?: number | undefined;
@@ -172,6 +187,7 @@ export function DataTable<Row>({
   sort: controlledSort,
   onSortChange,
   rowActions,
+  getRowProps,
   stickyHeader = false,
   pageSize,
   onRowClick,
@@ -430,11 +446,16 @@ export function DataTable<Row>({
               const toggleExpand =
                 onToggleExpand === undefined ? undefined : () => onToggleExpand(row);
               const rowClick = toggleExpand ?? onRowClick;
+              const extraRowProps = getRowProps?.(row);
               return (
                 <Fragment key={id}>
                   <TableRow
+                    {...extraRowProps}
                     data-state={isSelected ? 'selected' : undefined}
-                    className={rowClick !== undefined ? 'cursor-pointer' : undefined}
+                    className={cn(
+                      rowClick !== undefined && 'cursor-pointer',
+                      extraRowProps?.className,
+                    )}
                     onClick={rowClick === undefined ? undefined : () => rowClick(row)}
                   >
                     {renderExpanded !== undefined && (

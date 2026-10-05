@@ -7,6 +7,7 @@
  * execute byte-identical code.
  */
 
+export * from './alerts/index.js';
 export * from './announcement-interpretation.js';
 export * from './flows.js';
 export * from './indicators/index.js';

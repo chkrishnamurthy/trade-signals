@@ -3,9 +3,9 @@ name: Pending features backlog
 status: reference
 horizon: none
 created: 2026-08-24
-updated: 2026-09-06
+updated: 2026-10-05
 area: [docs]
-summary: The backlog as of 2026-08-24 — built, half-built and declared-but-absent, ordered by cost-to-value. Predates the September work.
+summary: The backlog as of 2026-08-24, with a code-verified status ledger added 2026-10-05. Sections below the ledger are the original text; where they disagree with the ledger, the ledger wins.
 owner: krishna
 ---
 
@@ -23,6 +23,53 @@ Items are ordered by **cost-to-value**, not by ambition. Tier 1 is largely wirin
 work over code that already exists and is already tested; Tier 4 is genuinely new
 surface. Every item names the files involved and the hard rules from
 [CLAUDE.md](../CLAUDE.md) that constrain it.
+
+---
+
+## Status ledger — audited against the code, 2026-10-05
+
+Every row was checked in the repository, not taken from the older text below. **Done** =
+present in the code. **Open** = confirmed absent. **Other tab** = assigned to a separate
+session on 2026-10-05 and in progress. Nothing here is committed yet.
+
+### Done since this backlog was written
+
+| Item | Evidence |
+| --- | --- |
+| 1.1 Serve daily signals from the database | `apps/web/src/server/signals.ts` is gone; no `evaluateSignals`/`scanSwing` in `apps/web`; watchlists use `latestSignalsForInstruments`, the stock page `getSignalsForDate` |
+| 1.2 Screener | `/screener`, nightly `screener_snapshots`, presets, saved screens |
+| 1.3 Watchlists | Complete, plus member reorder and notes (built; browser polish in another tab) |
+| 1.4 Alerts v1 | Closing-price and RSI crossings on closed sessions: evaluator, tables, worker job, API, `/alerts`. **Unverified against Postgres** (migration check in another tab) |
+| 2.1 Corporate action ingestion | Worker job `corporate-actions-sync` (08:40 weekdays) + `dividends` table |
+| 2.3 Trading calendar | `config/nse-calendar.yaml` + `calendar-refresh` + `market-calendar-sync`; /calendar page; `isTradingDay()` and friends in `packages/core/src/paper/calendar.ts` |
+| Breadth page, stock page, watchlist-scoped filings, IPO section, Google sign-in, indices strip (phases 0–3), market calendar, profile page, paper-trading phases 1–7 (admin-only) | Present in the tree |
+| Run tracking, event log, metadata sync, trading-day helper, indices drawer, lint in CI (2026-10-05) | Built, uncommitted, **SQL not run against Postgres**: `ingestion_runs` writers + indicator gate (EW-105); `event_log` migration 0038 with `job_failed`, credential events and `/admin/logs` (EW-071); `sync-instrument-metadata` (EW-107); `isTradingDay` and friends (EW-108); strip drawer (EW-133 phase 4); `pnpm lint:app` in CI. Regime line (EW-129) already existed as "Today's technical read". `CLAUDE.md`/`AGENTS.md` now point at the real docs (EW-110) |
+| Security hardening (2026-10-05) | Route guards + audit test, admin-only Fyers connect, CSRF layer, search/sign-up/2FA-confirm limits, worker credential-mint switch |
+
+### Open — confirmed absent in the code
+
+| Item | Issue | What is missing |
+| --- | --- | --- |
+| Past Signals page | EW-128 | No page; and signals are admin-only, see the decision list in the product review |
+| Horizon-segmented navigation | EW-131 | Not started |
+| Indices strip phase 5 | EW-133 | No per-user selection (the strip's cache is process-wide). The phase 4 drawer exists |
+| Fundamentals data source | EW-109 | No source; needs a decision (XBRL vs vendor) |
+| NIFTY 50 constituent view | — | Not built |
+| Options chain (flow phase 4) | EW-082 | No `option_chain_daily`; optional by its own plan |
+| Intraday ORB-VC phases 4–6 / paper beta | EW-088 | Pages, paper controls and `MARKET_DATA_ROUTE_STREAM=dhan` exist in code; plan still lists them open. Re-verify against the plan's acceptance list, then close or split |
+| Design-system governance | EW-058 | Storybook and 49 stories exist; plan still says 0/8. Lint enforcement not done |
+| Mobile responsiveness phase 4 | EW-066 | CI builds Storybook, but there are no viewport/visual tests and no Playwright in the repo |
+| Telegram archive backtests | EW-060 | Blocked on the channel and a sample file |
+| Dhan production cut-over | EW-075 | Cannot be verified from the repo (it is a VPS `.env` setting). `.env.example` still shows `fyers`. Confirm on the server |
+| IPO plan phases 11–12 | — | VPS-IP curl check of the NSE endpoints, `--once backfill-ipos`, a week of feed-health watching, BSE source still `enabled: false` |
+| Company-research plan | — | Status "ready-for-decisions": waiting on the owner |
+
+### In another tab (2026-10-05)
+
+Upgrade Next.js to 15.5.24+ and the lockfile; verify migrations 0035 + 0036 on a scratch DB;
+data-freshness / unavailable banner; centralise admin gating; watchlist reorder/notes browser
+polish and a hint when reorder is disabled. Market-data scaling Phase 2 (EW-033) is also
+there.
 
 ---
 
@@ -111,25 +158,18 @@ and a performance summary.
   through the API, migrating any `localStorage` key on first load. The star
   toggles on the dashboard and in the stock drawer went with it.
 
-**Still open from this area:** members cannot be dragged into a custom order from
-the table itself (the API and repository support it; only the UI affordance is
-missing), and `watchlist_items.note` is stored and displayed but has no editor.
+**Update 2026-10-05:** member reorder (drag grip, arrow keys, row-menu moves) and a
+note editor are built, uncommitted and not yet checked in a browser. Notes had no
+write path before; `PATCH /api/watchlists/:id/items` adds it. Reorder is available
+only with no sort or filter active.
 
 ### 1.4 Alerts
 
-**What exists.** `alerts` and `alert_events` tables, fully designed —
-typed `condition` JSON, denormalised `threshold` for cheap proximity queries,
-`oneShot` to stop a crossed threshold re-firing every tick, `lastEvaluatedAt`,
-and an audit trail carrying the observed value that fired it.
-
-**What is missing.** Everything above the schema: the Zod predicate schema the
-comment promises, the evaluator, the worker job, and the UI.
-
-**Done when.** A pure evaluator in `packages/core` (rule 1 — it takes an
-indicator snapshot plus the condition and returns a verdict), a worker job that
-runs it on the intraday cycle, and an `/alerts` page. Note the vocabulary
-constraint: an alert says a condition was met, never that anything should be done
-about it.
+**Status 2026-10-05: v1 built, uncommitted** (see `issues/alerts.md`). The original tables
+were dropped in migration 0011; v1 uses new per-user `alerts` / `alert_events` (migration
+0036), a pure evaluator in `packages/core/src/alerts`, the worker job `evaluate-alerts`
+and an `/alerts` page. It evaluates closed daily data only. Still to do: verify against
+Postgres and in a browser; intraday alerts once the worker quote cache lands.
 
 ### 1.5 Ingestion run tracking
 
@@ -205,11 +245,11 @@ should be visible, and a dead link is worse than a disabled one."
 
 | Nav entry | Status | Note |
 | --- | --- | --- |
-| **Screener** | Backend done | See [1.2](#12-screener) — the cheapest remaining page |
+| **Screener** | **Built** | `/screener` — see the status ledger |
 | **Watchlists** | **Built** | See [1.3](#13-watchlists-on-the-database-done) |
-| **Alerts** | Schema done | See [1.4](#14-alerts) |
+| **Alerts** | **Built (v1, unverified against Postgres)** | `/alerts` — see [1.4](#14-alerts) |
 | **NIFTY 50** | Nothing built | Constituent-level index view. Largely a re-slice of data `/stocks` already loads |
-| **IPOs** | **Built, not merged** (2026-10-02, branch `feat/ipos`, uncommitted) | `/ipos` and `/ipos/[slug]` for every signed-in user — NSE official data + bhavcopy listing prices, RHP extracts quoted with their pages, SEBI DRHP filings, and an unofficial, labelled GMP from InvestorGain. The BSE source is built but off until the owner approves its browser User-Agent. Pre-merge: DB tests on Docker, real-app QA, VPS check. See [ipos-plan.md](ipos-plan.md) |
+| **IPOs** | **Built and merged to `main`** (2026-10-04); VPS check and backfill still open | `/ipos` and `/ipos/[slug]` for every signed-in user — NSE official data + bhavcopy listing prices, RHP extracts quoted with their pages, SEBI DRHP filings, and an unofficial, labelled GMP from InvestorGain. The BSE source is built but off until the owner approves its browser User-Agent. Pre-merge: DB tests on Docker, real-app QA, VPS check. See [ipos-plan.md](ipos-plan.md) |
 
 The owner decided on 2026-10-02 to build the IPO section in full (decisions D1–D5 in
 [ipos-plan.md](ipos-plan.md)), with its own ingestion pipeline in the worker.
@@ -269,6 +309,10 @@ than having no reference.
 ---
 
 ## Suggested order
+
+> **Superseded 2026-10-05.** The ordering below predates the work in the status ledger. The
+> current ranked list is in the product review tracker
+> ([product-review-2026-10.md](product-review-2026-10.md)).
 
 1. **1.1 daily signals from the database** — removes the largest provider cost,
    settles the rule 8 tension, and makes the daily path match the intraday one.

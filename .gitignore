@@ -27,3 +27,4 @@ apps/.web-preview/
 # User-uploaded files (avatars), served from disk
 /uploads/
 uploads/
+.pnpm-store/

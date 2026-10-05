@@ -2,12 +2,13 @@
 id: EW-110
 title: The authoritative design docs do not exist
 type: chore
-stage: ideas
+stage: done
 priority: low
 area: [docs]
 created: 2026-08-24
-updated: 2026-09-06
-stage_since: 2026-09-06
+updated: 2026-10-05
+stage_since: 2026-10-05
+done_at: 2026-10-05
 tier: "4.1"
 source: docs/planning/pending-features.md
 ---
@@ -29,3 +30,5 @@ cites their absence directly as the reason it chose `localStorage`.
 or CLAUDE.md's reference to them is replaced with the parts that are actually
 load-bearing. Leaving a dangling reference to an authoritative document is worse
 than having no reference.
+
+**Closed 2026-10-05.** Chose the cheaper fix: `CLAUDE.md` and `AGENTS.md` now point at the docs that exist (`docs/architecture/`, `docs/operations/`, `docs/reference/`, `docs/planning/`) and say plainly that no single schema or API reference exists yet. Writing those two references is a separate, optional job.

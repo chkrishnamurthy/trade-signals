@@ -146,7 +146,8 @@ export function createDhanProvider(options: DhanProviderOptions): MarketDataProv
   const { accessToken } = options;
   const readToken = typeof accessToken === 'function' ? accessToken : (): string => accessToken;
   const now = options.now ?? ((): Date => new Date());
-  const sleep = options.sleep ?? ((ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms)));
+  const sleep =
+    options.sleep ?? ((ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms)));
 
   const missing: string[] = [];
   if (options.clientId === '') missing.push('DHAN_CLIENT_ID');

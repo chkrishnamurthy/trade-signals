@@ -1,6 +1,5 @@
 import { ArrowLeftIcon } from 'lucide-react';
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
 import { IpoAdminHealth } from '@/components/ipos/ipo-admin-health';
 import { AppShell } from '@/components/layout/app-shell';
 import {
@@ -13,7 +12,7 @@ import {
   PageTitle,
 } from '@/components/layout/page';
 import { Button } from '@/components/ui/button';
-import { getAdminUser } from '@/server/auth/require-user';
+import { requireAdminPage } from '@/server/auth/admin-page';
 import { getIpoAdminHealth } from '@/server/ipos';
 
 export const dynamic = 'force-dynamic';
@@ -24,8 +23,7 @@ export const metadata = {
 
 /** The IPO pipeline's operator view (plan Phase 9). Admin only; read-only. */
 export default async function AdminIposPage() {
-  const admin = await getAdminUser();
-  if (admin === null) redirect('/watchlists');
+  await requireAdminPage();
   const health = await getIpoAdminHealth();
   return (
     <AppShell>

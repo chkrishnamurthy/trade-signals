@@ -7,7 +7,7 @@ priority: high
 area: [web]
 plan: market-indices-strip-plan
 created: 2026-09-18
-updated: 2026-09-18
+updated: 2026-10-05
 stage_since: 2026-09-18
 source: docs/planning/market-indices-strip-plan.md
 refs:
@@ -32,7 +32,7 @@ Five phases in the plan; ship 0–2 as one PR:
 - [x] Phase 1 — `server/index-strip.ts` + `GET /api/market/indices` (stale-serving)
 - [x] Phase 2 — `IndexCard` (small), `IndexStrip`, rendered from `PageHeader`
 - [x] Phase 3 — `GET /api/market/indices/live` SSE + tick flash
-- [ ] Phase 4 — index drawer (chart, OHLC, `DayRange`, 52-week, constituent breadth)
+- [x] Phase 4 — index drawer (chart, OHLC, day range) — built 2026-10-05; 52-week and constituent breadth left out (not in the snapshot)
 - [ ] Phase 5 — per-user index selection
 
 Phases 0–3 built 2026-09-18 — as-built: `docs/reference/market-indices-strip.md`.

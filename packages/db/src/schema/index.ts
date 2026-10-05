@@ -13,10 +13,10 @@
  *   - Every signal writes its factor breakdown (rule 8)
  */
 
+export { alertEvents, alerts } from './alerts.js';
 export * from './announcement-research.js';
 export {
   authAttempts,
-  authAudit,
   authChallenges,
   authCredentials,
   authIdentities,
@@ -24,6 +24,7 @@ export {
   authSessions,
   authTokens,
   authUsers,
+  eventLog,
   userProfiles,
 } from './auth.js';
 export { dailyCandles } from './candles.js';
@@ -76,6 +77,7 @@ export {
   paperStrategyAssignments,
   workerCheckpoints,
 } from './paper.js';
+export { latestQuotes } from './quotes.js';
 export {
   dividends,
   indexMemberships,

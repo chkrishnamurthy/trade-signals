@@ -1,7 +1,7 @@
 'use client';
 
 import { BarChart3Icon, ListPlusIcon, MoreHorizontalIcon, Trash2Icon } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { DefinitionGrid, DefinitionRow } from '@/components/data-display/metric-card';
 import { LiveIndicator } from '@/components/market/market-status';
 import { Price, PriceChange } from '@/components/market/numeric';
@@ -16,6 +16,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Textarea } from '@/components/ui/textarea';
 import { Text } from '@/components/ui/typography';
 import { MarketChart } from '@/components/watchlists/chart';
 import { RETURN_WINDOWS } from '@/lib/return-windows';
@@ -46,6 +47,7 @@ export function WatchlistRowDetail({
   otherLists,
   onAddToList,
   onRemove,
+  onSaveNote,
 }: {
   row: WatchlistRowDto;
   isLive: boolean;
@@ -54,6 +56,9 @@ export function WatchlistRowDetail({
   otherLists: readonly WatchlistSummaryDto[];
   onAddToList: (watchlistId: number, symbol: string) => void;
   onRemove: (row: WatchlistRowDto) => void;
+  onSaveNote?:
+    | ((row: WatchlistRowDto, note: string) => Promise<{ ok: true } | { ok: false; error: string }>)
+    | undefined;
 }) {
   return (
     <div className="border-t border-border bg-muted/30 px-4 py-4 sm:px-6">
@@ -94,6 +99,8 @@ export function WatchlistRowDetail({
           </Button>
         </div>
       </div>
+
+      {onSaveNote !== undefined && <NoteEditor row={row} onSave={onSaveNote} />}
 
       {/* Compact analysis — same values as the table columns, reorganised. */}
       <div className="mt-4 grid grid-cols-1 gap-x-6 gap-y-4 lg:grid-cols-3">
@@ -192,5 +199,91 @@ function SummarySection({ title, children }: { title: string; children: ReactNod
       </Text>
       {children}
     </section>
+  );
+}
+
+const NOTE_MAX = 500;
+
+/**
+ * The user's own note on this stock — why it is on the list, a level to watch.
+ * Private to the account and stored per watchlist member. Saved explicitly rather
+ * than on every keystroke: a half-typed sentence is not worth a write.
+ */
+function NoteEditor({
+  row,
+  onSave,
+}: {
+  row: WatchlistRowDto;
+  onSave: (
+    row: WatchlistRowDto,
+    note: string,
+  ) => Promise<{ ok: true } | { ok: false; error: string }>;
+}) {
+  const saved = row.note ?? '';
+  const [draft, setDraft] = useState(saved);
+  const [state, setState] = useState<'idle' | 'saving' | 'saved' | { error: string }>('idle');
+
+  // Follow the stored note when it changes underneath us (a reload, another tab).
+  useEffect(() => {
+    setDraft(saved);
+  }, [saved]);
+
+  const dirty = draft.trim() !== saved.trim();
+  const save = async () => {
+    setState('saving');
+    const result = await onSave(row, draft);
+    setState(result.ok ? 'saved' : { error: result.error });
+  };
+
+  return (
+    <div className="mt-4 rounded-lg border border-border bg-surface p-3 shadow-subtle">
+      <Text as="h5" variant="overline" className="mb-1.5 block">
+        Your note
+      </Text>
+      <Textarea
+        id={`note-${row.instrumentId}`}
+        aria-label={`Note on ${row.symbol}`}
+        value={draft}
+        maxLength={NOTE_MAX}
+        placeholder="Why you are watching this, or a level to look at. Only you can see it."
+        onChange={(event) => {
+          setDraft(event.target.value);
+          if (state !== 'idle') setState('idle');
+        }}
+      />
+      <div className="mt-2 flex flex-wrap items-center gap-3">
+        <Button size="sm" disabled={!dirty || state === 'saving'} onClick={() => void save()}>
+          {state === 'saving' ? 'Saving…' : 'Save note'}
+        </Button>
+        {saved !== '' && (
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={state === 'saving'}
+            onClick={() => {
+              setDraft('');
+              void onSave(row, '').then((result) =>
+                setState(result.ok ? 'saved' : { error: result.error }),
+              );
+            }}
+          >
+            Clear
+          </Button>
+        )}
+        <Text variant="caption" className="ml-auto text-muted-foreground">
+          {draft.length}/{NOTE_MAX}
+        </Text>
+        {state === 'saved' && (
+          <Text variant="caption" className="text-muted-foreground" role="status">
+            Saved
+          </Text>
+        )}
+        {typeof state === 'object' && (
+          <Text variant="caption" className="text-destructive" role="alert">
+            {state.error}
+          </Text>
+        )}
+      </div>
+    </div>
   );
 }

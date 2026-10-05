@@ -66,9 +66,13 @@ historical intent; that intraday code no longer exists in the tree.
 > computed "What stands out" facts and a 12-month dividend yield from NSE corporate actions
 > (`dividends` table — never applied to prices). Plan: `docs/planning/stock-header-redesign-plan.md`.
 
-Design & architecture docs: `docs/README.md`, `docs/architecture.md` (topology & stack),
-`docs/domain-and-contracts.md` (schema, indicators & invariants), `docs/api-reference.md`,
-`docs/operations-runbook.md`, and `docs/planning/storybook-plan.md`.
+Design & architecture docs: `docs/README.md` (index), `docs/architecture/`
+(`backtesting-architecture.md`, `auth-system-design.md`, `seo-architecture.md`),
+`docs/operations/deployment.md` (hosting, pipeline, credentials, backups, runbook),
+`docs/reference/` (as-built references, e.g. the market calendar and indices strip), and
+`docs/planning/` (plans; `pending-features.md` carries the code-verified status ledger).
+There is no single schema/API reference yet: the schema lives in `packages/db/src/schema`,
+the routes in `apps/web/src/app/api`.
 Android app (Expo / React Native, planned, not yet in the tree): `docs/mobile/README.md`.
 
 ## Stack

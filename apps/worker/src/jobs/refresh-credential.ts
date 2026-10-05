@@ -1,10 +1,11 @@
-import { getProviderCredential, saveProviderCredential } from '@equitywise/db';
+import { getProviderCredential, logEvent, saveProviderCredential } from '@equitywise/db';
 import type { WorkerContext } from '../context.js';
 import type {
   CredentialStrategy,
   WorkerCredential,
   WorkerCredentialStore,
 } from '../credentials.js';
+import { redactMessage } from '../job-failures.js';
 import { errorFields, type Logger } from '../log.js';
 
 /**
@@ -25,6 +26,20 @@ import { errorFields, type Logger } from '../log.js';
  * subsequent request would fail upstream with an authorisation error that
  * gives no hint the real cause was a refresh that quietly did not happen.
  */
+
+/**
+ * True when this process must not log in to a provider.
+ *
+ * Fyers allows one session per account, and a login anywhere invalidates the
+ * live token — so a developer running the worker against the production
+ * database (over the SSH tunnel) would take market data down for everyone.
+ * `pnpm dev` sets `WORKER_MINT_CREDENTIALS=false`; production starts with
+ * `pnpm start` and is unaffected. Set it to `true` to mint on purpose.
+ * A worker that cannot mint still adopts whatever token is stored.
+ */
+export function mintingDisabled(env: NodeJS.ProcessEnv): boolean {
+  return env.WORKER_MINT_CREDENTIALS?.trim().toLowerCase() === 'false';
+}
 
 /** Backs a strategy's `ensure` with the shared table, one row per provider. */
 export function databaseCredentialStore(
@@ -64,6 +79,8 @@ export interface RefreshResult {
 
 export interface RefreshOptions {
   readonly now?: Date;
+  /** Environment to read the minting switch and secrets from. Defaults to `process.env`. */
+  readonly env?: NodeJS.ProcessEnv;
   /** Refresh one provider only — the self-heal path, after ITS token was rejected. */
   readonly providerId?: string;
   /**
@@ -90,6 +107,7 @@ export async function refreshProviderCredential(
   options: RefreshOptions = {},
 ): Promise<RefreshResult[]> {
   const now = options.now ?? new Date();
+  const env = options.env ?? process.env;
   const results: RefreshResult[] = [];
   let firstFailure: unknown = null;
 
@@ -97,7 +115,16 @@ export async function refreshProviderCredential(
     if (options.providerId !== undefined && strategy.providerId !== options.providerId) continue;
     if (options.rolloverOnly === true && !strategy.nightlyRollover) continue;
     try {
-      results.push(await refreshOne(context, strategy, log.child(strategy.providerId), now));
+      results.push(
+        await refreshOne(
+          context,
+          strategy,
+          log.child(strategy.providerId),
+          now,
+          env,
+          options.providerId !== undefined,
+        ),
+      );
     } catch (error) {
       firstFailure ??= error;
     }
@@ -112,10 +139,13 @@ async function refreshOne(
   strategy: CredentialStrategy,
   log: Logger,
   now: Date,
+  env: NodeJS.ProcessEnv,
+  /** True on the self-heal path: the provider just rejected the token we held. */
+  selfHeal: boolean,
 ): Promise<RefreshResult> {
   const { providerId } = strategy;
   const store = databaseCredentialStore(context, providerId);
-  const minter = strategy.minter(process.env);
+  const minter = mintingDisabled(env) ? null : strategy.minter(env);
 
   if (minter === null) {
     // A worker with no minting secrets is a valid configuration — the operator
@@ -139,6 +169,12 @@ async function refreshOne(
     return { providerId, refreshed: false, skipped: true };
   }
 
+  if (selfHeal) {
+    await recordCredentialEvent(context, log, providerId, 'credential_invalidated', {
+      note: 'the provider rejected the token in use; refreshing',
+    });
+  }
+
   try {
     const { credential, refreshed, via } = await minter.ensure(store, now);
 
@@ -152,12 +188,52 @@ async function refreshOne(
       via,
       expiresAt: credential.expiresAt.toISOString(),
     });
+    if (refreshed) {
+      await recordCredentialEvent(
+        context,
+        log,
+        providerId,
+        via === 'renewed' ? 'credential_refreshed' : 'credential_minted',
+        { via, expiresAt: credential.expiresAt.toISOString() },
+      );
+    }
     return { providerId, refreshed, skipped: false, via };
   } catch (error) {
     log.error('credential refresh failed; a manual login is required', {
       remedy: strategy.mintRemedy,
       ...errorFields(error),
     });
+    await recordCredentialEvent(context, log, providerId, 'credential_refresh_failed', {
+      error: redactMessage(error instanceof Error ? error.message : String(error)),
+    });
     throw error;
+  }
+}
+
+/**
+ * Stores a credential lifecycle event (docs/planning/logging-plan.md, phase 3).
+ * Never carries a token, a fragment of one, or a secret — only the provider, the
+ * event and non-sensitive facts such as the expiry. Best-effort by design.
+ */
+async function recordCredentialEvent(
+  context: WorkerContext,
+  log: Logger,
+  providerId: string,
+  event:
+    | 'credential_minted'
+    | 'credential_refreshed'
+    | 'credential_invalidated'
+    | 'credential_refresh_failed',
+  detail: Record<string, unknown>,
+): Promise<void> {
+  try {
+    await logEvent(context.db, {
+      category: 'provider',
+      event,
+      actorType: 'worker',
+      detail: { provider: providerId, ...detail },
+    });
+  } catch (error) {
+    log.warn('could not store a credential event', { event, ...errorFields(error) });
   }
 }

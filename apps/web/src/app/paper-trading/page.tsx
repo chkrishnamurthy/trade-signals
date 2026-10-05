@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
-import { redirect } from 'next/navigation';
 import { PaperDashboard } from '@/components/paper/paper-dashboard';
-import { getAdminUser } from '@/server/auth/require-user';
+import { requireAdminPage } from '@/server/auth/admin-page';
 export const metadata: Metadata = {
   title: 'Paper Trading — EquityWise',
   description:
@@ -11,7 +10,6 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic';
 /** Admin-only while the simulation is under evaluation; a signed-in user is sent to the app. */
 export default async function PaperTradingRoute() {
-  const admin = await getAdminUser();
-  if (admin === null) redirect('/watchlists');
+  await requireAdminPage();
   return <PaperDashboard />;
 }

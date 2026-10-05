@@ -74,3 +74,49 @@ export function calendarExpiresSoon(
   return through - today < warnDays * 86_400_000;
 }
 export { istParts };
+
+/**
+ * Is the exchange scheduled to trade on `dateKey` (`YYYY-MM-DD`, IST)?
+ *
+ * Answers from the versioned config only. It cannot know about an unscheduled
+ * closure, and it says nothing about a date past `verifiedThrough` beyond what the
+ * weekday rule implies — pair it with `calendarExpiresSoon`. Offline paths
+ * (coverage reports, replays) use this instead of treating a holiday as a session
+ * with missing data.
+ */
+export function isTradingDay(dateKey: string, calendar: CalendarConfig): boolean {
+  const kind = sessionFor(dateKey, calendar).kind;
+  return kind === 'NORMAL' || kind === 'SPECIAL' || kind === 'MUHURAT';
+}
+
+/** `dateKey` shifted by whole days, as `YYYY-MM-DD`. */
+function shiftDay(dateKey: string, days: number): string {
+  const { year, month, day } = ymd(dateKey);
+  const shifted = fromIstParts({ year, month, day: day + days, hour: 12 });
+  const p = istParts(shifted);
+  return `${String(p.year).padStart(4, '0')}-${String(p.month).padStart(2, '0')}-${String(p.day).padStart(2, '0')}`;
+}
+
+/** Scheduled trading days from `from` to `to` inclusive, oldest first. Capped at ~3 years. */
+export function tradingDaysBetween(
+  from: string,
+  to: string,
+  calendar: CalendarConfig,
+): readonly string[] {
+  const days: string[] = [];
+  for (let cursor = from, guard = 0; cursor <= to && guard < 1100; guard += 1) {
+    if (isTradingDay(cursor, calendar)) days.push(cursor);
+    cursor = shiftDay(cursor, 1);
+  }
+  return days;
+}
+
+/** The latest scheduled trading day strictly before `dateKey`, or null within a year. */
+export function previousTradingDay(dateKey: string, calendar: CalendarConfig): string | null {
+  let cursor = dateKey;
+  for (let i = 0; i < 366; i += 1) {
+    cursor = shiftDay(cursor, -1);
+    if (isTradingDay(cursor, calendar)) return cursor;
+  }
+  return null;
+}

@@ -1,7 +1,6 @@
 import { listUsers } from '@equitywise/db';
 import { ArrowLeftIcon } from 'lucide-react';
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
 import { AdminUsers } from '@/components/auth/admin-users';
 import { AppShell } from '@/components/layout/app-shell';
 import {
@@ -13,7 +12,7 @@ import {
   PageTitle,
 } from '@/components/layout/page';
 import { Button } from '@/components/ui/button';
-import { getAdminUser } from '@/server/auth/require-user';
+import { requireAdminPage } from '@/server/auth/admin-page';
 import { getDatabase } from '@/server/db';
 
 export const dynamic = 'force-dynamic';
@@ -23,8 +22,7 @@ export const metadata = {
 };
 
 export default async function AdminPage() {
-  const admin = await getAdminUser();
-  if (admin === null) redirect('/watchlists');
+  const admin = await requireAdminPage();
 
   const users = await listUsers(getDatabase());
   const rows = users.map((u) => ({
@@ -60,6 +58,9 @@ export default async function AdminPage() {
             </Button>
             <Button asChild variant="outline" size="sm">
               <Link href="/admin/ipos">IPO data health</Link>
+            </Button>
+            <Button asChild variant="outline" size="sm">
+              <Link href="/admin/logs">Event log</Link>
             </Button>
             <Button asChild variant="outline" size="sm">
               <Link href="/watchlists">

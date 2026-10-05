@@ -1,6 +1,7 @@
 import { feedHealth, withRetry } from '@equitywise/db';
 import { config as loadEnv } from 'dotenv';
 import { createContext, type WorkerContext } from './context.js';
+import { createJobFailureRecorder } from './job-failures.js';
 import { authMaintenance } from './jobs/auth-maintenance.js';
 import {
   calendarRefresh,
@@ -10,6 +11,7 @@ import {
 } from './jobs/calendar-refresh.js';
 import { computeIndicators } from './jobs/compute-indicators.js';
 import { crossCheckProviders } from './jobs/cross-check-bars.js';
+import { evaluateAlerts } from './jobs/evaluate-alerts.js';
 import { extractIpoRhp } from './jobs/extract-ipo-rhp.js';
 import { createFeedJob, type FeedJob } from './jobs/feed.js';
 import { ingestDailyCandles } from './jobs/ingest-daily.js';
@@ -36,6 +38,7 @@ import {
 import { createIntradayJobs } from './jobs/intraday-orb.js';
 import { marketCalendarSync } from './jobs/market-calendar-sync.js';
 import { createPaperJobs } from './jobs/paper.js';
+import { refreshLatestQuotes } from './jobs/quote-cache.js';
 import { refreshProviderCredential } from './jobs/refresh-credential.js';
 import {
   backfillDividends,
@@ -48,6 +51,7 @@ import {
   syncCorporateActions,
   syncReferenceUniverse,
 } from './jobs/stock-analysis.js';
+import { syncInstrumentMetadata } from './jobs/sync-instrument-metadata.js';
 import { createLogger, errorFields } from './log.js';
 import { createScheduler, type Scheduler } from './scheduler.js';
 import { loadIpoSourcesConfig } from './sources/ipo/config.js';
@@ -106,6 +110,10 @@ const SCHEDULES = {
   credentialRollover: '35 1 * * *',
   ingestDaily: '15 16 * * 1-5',
   computeIndicators: '45 16 * * 1-5',
+  /** Real tick and lot sizes over the placeholders new rows are created with. */
+  instrumentMetadata: '20 8 * * 1-5',
+  /** After the indicator pass: user alert rules on the session that just closed. */
+  evaluateAlerts: '15 17 * * 1-5',
   /** A second attempt, in case the first ran while the credential was stale. */
   ingestRetry: '30 18 * * 1-5',
   /** Reap expired auth rows nightly (daily — auth is not market-hours bound). */
@@ -173,6 +181,8 @@ const SCHEDULES = {
   ingestSebiFilings: '45 9,19 * * 1-6',
   /** Refresh the versioned user-facing event calendar after the session calendar. */
   marketCalendarSync: '35 6 * * *',
+  /** Worker-backed cache for polled watchlist quote reads. */
+  latestQuotes: '*/30 9-15 * * 1-6',
 } as const;
 
 interface Jobs {
@@ -241,6 +251,13 @@ function buildScheduler(context: WorkerContext): Jobs {
         name: 'intraday-quotes',
         schedule: '*/5 * 9-15 * * 1-6',
         run: gated('intraday-quotes', intraday.quoteCycle),
+      },
+      {
+        name: 'refresh-latest-quotes',
+        schedule: SCHEDULES.latestQuotes,
+        run: gated('refresh-latest-quotes', () =>
+          refreshLatestQuotes(context, log.child('refresh-latest-quotes')),
+        ),
       },
       {
         name: 'intraday-scan',
@@ -316,6 +333,20 @@ function buildScheduler(context: WorkerContext): Jobs {
         },
       },
       {
+        name: 'sync-instrument-metadata',
+        schedule: SCHEDULES.instrumentMetadata,
+        run: async () => {
+          await syncInstrumentMetadata(context, log.child('sync-instrument-metadata'));
+        },
+      },
+      {
+        name: 'evaluate-alerts',
+        schedule: SCHEDULES.evaluateAlerts,
+        run: async () => {
+          await evaluateAlerts(context, log.child('evaluate-alerts'));
+        },
+      },
+      {
         name: 'auth-maintenance',
         schedule: SCHEDULES.authMaintenance,
         run: async () => {
@@ -365,6 +396,7 @@ function buildScheduler(context: WorkerContext): Jobs {
             // Watchlists read daily_indicators; refresh them on tonight's bars.
             afterBars: async () => {
               await computeIndicators(context, log.child('stock-analysis-indicators'));
+              await evaluateAlerts(context, log.child('stock-analysis-alerts'));
             },
           });
         },
@@ -548,6 +580,8 @@ function buildScheduler(context: WorkerContext): Jobs {
       },
     ],
     log,
+    // A failed run is stored durably (throttled), not just printed to stdout.
+    { onFailure: createJobFailureRecorder(context.db, log) },
   );
   return { scheduler, feed, paper };
 }
@@ -632,6 +666,8 @@ async function main(): Promise<void> {
           'credential-rollover',
           'ingest-daily',
           'compute-indicators',
+          'evaluate-alerts',
+          'sync-instrument-metadata',
           'ingest-retry',
           'cross-check-bars',
           'ingest-announcements',
@@ -659,6 +695,7 @@ async function main(): Promise<void> {
           'paper-squareoff',
           'paper-snapshot',
           'paper-reconcile',
+          'refresh-latest-quotes',
         ],
       });
       process.exitCode = 1;
@@ -745,6 +782,7 @@ async function main(): Promise<void> {
       if (now >= session.openAt - 10 * 60_000 && now < session.closeAt + 5 * 60_000)
         await jobs.feed.start();
       if (now >= session.openAt) {
+        await refreshLatestQuotes(context, log.child('refresh-latest-quotes'));
         await jobs.paper.entries(now);
         await jobs.paper.monitor(now);
         await jobs.paper.squareOff(now);

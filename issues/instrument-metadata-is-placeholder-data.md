@@ -2,12 +2,12 @@
 id: EW-107
 title: Instrument metadata is placeholder data
 type: bug
-stage: ideas
+stage: review
 priority: medium
 area: [db, provider]
 created: 2026-08-24
-updated: 2026-09-06
-stage_since: 2026-09-06
+updated: 2026-10-05
+stage_since: 2026-10-05
 tier: "2.2"
 source: docs/planning/pending-features.md
 ---
@@ -24,3 +24,5 @@ levels onto prices that cannot trade.
 
 **Done when.** A worker job calls `syncInstruments` from the provider's
 instrument master, and `ensureInstruments` stops inventing values.
+
+**2026-10-05.** Worker job sync-instrument-metadata (08:20 weekdays) overwrites placeholder lot/tick sizes from the provider listing; it changes nothing else. Unit-tested; the SQL is not run against Postgres.

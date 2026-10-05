@@ -1,9 +1,9 @@
 ---
 name: Screener and stock page on Dhan + Fyers + our data
-status: built-on-branch
+status: done
 horizon: now
 created: 2026-10-03
-updated: 2026-10-03
+updated: 2026-10-05
 area: [web, worker, db, core, providers, design]
 blocked_by: [owner-review, deploy]
 confidence: 4

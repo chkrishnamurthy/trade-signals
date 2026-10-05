@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { isCrossSiteMutation, trustedOriginsFrom } from '@/lib/csrf';
 import { SESSION_COOKIE_NAME } from '@/server/auth/cookie-config';
 
 /**
@@ -39,6 +40,25 @@ function isPublic(pathname: string): boolean {
 
 export function middleware(request: NextRequest): NextResponse {
   const { pathname } = request.nextUrl;
+
+  // Second CSRF layer for every API mutation, whether or not the route checks
+  // the origin itself (most watchlist/screener/paper routes did not).
+  if (
+    pathname.startsWith('/api/') &&
+    isCrossSiteMutation({
+      method: request.method,
+      origin: request.headers.get('origin'),
+      referer: request.headers.get('referer'),
+      host: request.headers.get('x-forwarded-host') ?? request.headers.get('host'),
+      trustedOrigins: trustedOriginsFrom(process.env),
+    })
+  ) {
+    return NextResponse.json(
+      { error: 'Cross-site request refused.', code: 'CSRF_REJECTED' },
+      { status: 403, headers: { 'Cache-Control': 'no-store' } },
+    );
+  }
+
   if (isPublic(pathname)) return NextResponse.next();
 
   const signedIn = request.cookies.get(SESSION_COOKIE_NAME) !== undefined;

@@ -1,5 +1,6 @@
 import type { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { requireSignedIn } from '@/server/auth/guards';
 import { resolveImport } from '@/server/search';
 import { handle, ok, parseBody } from '@/server/watchlist-routes';
 
@@ -31,6 +32,9 @@ const bodySchema = z.object({
 
 export async function POST(request: Request): Promise<NextResponse> {
   return handle(async () => {
+    const denied = await requireSignedIn();
+    if (denied !== null) return denied;
+
     const body = await parseBody(request, bodySchema);
     if (!body.ok) return body.response;
     return ok({ results: await resolveImport(body.data.rows) });

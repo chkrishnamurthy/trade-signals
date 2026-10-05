@@ -3,7 +3,7 @@ name: Logging
 status: approved
 horizon: next
 created: 2026-09-14
-updated: 2026-09-14
+updated: 2026-10-05
 board: EW-071
 area: [db, worker]
 confidence: 2
@@ -13,7 +13,7 @@ owner: krishna
 
 # Logging plan — durable event log
 
-**Status:** plan, not yet built (2026-09-14). No code changes until this is approved.
+**Status (2026-10-05):** phases 1–4 are built and unit-tested, uncommitted, and the migration/SQL has not been run against Postgres. Phase 5 is not built. Retention follows the recommendation (keep forever); every failed login is still logged.
 
 ## Goal
 

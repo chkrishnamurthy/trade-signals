@@ -67,9 +67,8 @@ import {
 import { NextResponse } from 'next/server';
 import { parse } from 'yaml';
 import { z } from 'zod';
-import { unauthenticated } from './auth/http';
+import { requireAdminUser } from './auth/guards';
 import { clientIp, isSameOrigin } from './auth/request';
-import { getAdminUser, getSessionUser } from './auth/require-user';
 import { getDatabase } from './db';
 import { getMarketStatus } from './market-status';
 import { describeDataSources } from './provider';
@@ -145,10 +144,9 @@ function fail(message: string, status: number, code: string, remedy?: string): N
  */
 async function authenticated(run: (userId: number) => Promise<unknown>): Promise<NextResponse> {
   try {
-    if ((await getSessionUser()) === null) return unauthenticated();
-    const user = await getAdminUser();
-    if (user === null) return fail('Admin access required.', 403, 'FORBIDDEN');
-    return NextResponse.json(await run(user.id), { headers: NO_STORE });
+    const access = await requireAdminUser();
+    if (access.denied !== null) return access.denied;
+    return NextResponse.json(await run(access.user.id), { headers: NO_STORE });
   } catch (error) {
     if (error instanceof z.ZodError)
       return fail(error.issues[0]?.message ?? 'Invalid request.', 400, 'INVALID_INPUT');
@@ -570,9 +568,9 @@ export async function readPaperTrades(request: Request): Promise<NextResponse> {
   if (!query.success)
     return fail(query.error.issues[0]?.message ?? 'Invalid query.', 400, 'INVALID_INPUT');
   if (query.data.format === 'csv') {
-    const user = await getSessionUser();
-    if (!user) return unauthenticated();
-    const page = await paperTrades(user.id, { ...query.data, page: 1, pageSize: 100 });
+    const access = await requireAdminUser();
+    if (access.denied !== null) return access.denied;
+    const page = await paperTrades(access.user.id, { ...query.data, page: 1, pageSize: 100 });
     return new NextResponse(tradesCsv(page.trades), {
       headers: {
         ...NO_STORE,

@@ -2,12 +2,13 @@
 id: EW-108
 title: Trading calendar
 type: feature
-stage: ideas
+stage: done
 priority: medium
 area: [core, db]
 created: 2026-08-24
-updated: 2026-09-06
-stage_since: 2026-09-06
+updated: 2026-10-05
+stage_since: 2026-10-05
+done_at: 2026-10-05
 tier: "2.3"
 source: docs/planning/pending-features.md
 ---
@@ -23,3 +24,5 @@ an exchange holiday as a session with missing data.
 an `isTradingDay()` in `packages/shared` that every offline path consults.
 
 ---
+
+**2026-10-05.** `isTradingDay`, `tradingDaysBetween` and `previousTradingDay` live in packages/core/src/paper/calendar.ts over config/nse-calendar.yaml. The offline paths the issue named (backtests, replay) no longer exist.

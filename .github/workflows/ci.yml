@@ -10,8 +10,8 @@ name: CI
 #              TimescaleDB service (the same stack the VPS runs). This is what
 #              exercises the DB-enforced invariants; TEST_DATABASE_URL is set, so
 #              those suites are REQUIRED here and cannot silently skip.
-# NOT run here (would be red for reasons unrelated to a given PR):
-#   - `pnpm lint`  — the repo has pre-existing Biome errors to clear first.
+# Lint runs on `apps` and `packages` (`pnpm lint:app`). The root `pnpm lint` also covers
+# `tracker/`, a separate dev tool with its own older Biome errors; those are not a gate.
 # The Storybook interaction/a11y test run is not wired yet (see
 # docs/design-system/contributing.md — blocked upstream).
 
@@ -48,6 +48,9 @@ jobs:
       # app can typecheck them. Same selector `pnpm --filter web build` uses.
       - name: Build workspace dependencies
         run: pnpm --filter "@equitywise/web^..." build
+
+      - name: Lint (apps, packages)
+        run: pnpm lint:app
 
       - name: Typecheck (web)
         run: pnpm --filter @equitywise/web typecheck

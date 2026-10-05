@@ -1,3 +1,27 @@
+export type {
+  AlertEventRow,
+  AlertFiring,
+  AlertRow,
+  AlertSession,
+  CreateAlertResult,
+  EnabledAlert,
+} from './alerts.js';
+export {
+  acknowledgeAlertEvents,
+  countUnacknowledgedAlertEvents,
+  createAlert,
+  deleteAlert,
+  getLatestIndicatorDate,
+  getLatestTwoSessions,
+  listAlertEvents,
+  listAlerts,
+  listEnabledAlertsForWorker,
+  MAX_ALERTS_PER_USER,
+  markAlertEventEmailed,
+  markAlertsEvaluated,
+  recordAlertFiring,
+  setAlertEnabled,
+} from './alerts.js';
 export * from './announcement-research.js';
 export type {
   AdminUserRow,
@@ -128,6 +152,21 @@ export {
   upsertShareholding,
 } from './disclosures.js';
 export type {
+  ActorType,
+  EventCategory,
+  EventFilter,
+  EventInput,
+  EventRow,
+} from './event-log.js';
+export {
+  ACTOR_TYPES,
+  categoryForEvent,
+  EVENT_CATEGORIES,
+  listEventNames,
+  listEvents,
+  logEvent,
+} from './event-log.js';
+export type {
   DealAggregateRow,
   DeliveryHistoryRow,
   DeliverySnapshotRow,
@@ -175,7 +214,21 @@ export {
   screen,
   upsertDailyIndicators,
 } from './indicators.js';
-export type { CorporateActionRow, InstrumentRow, InstrumentUpsert } from './instruments.js';
+export type { IngestionJob, IngestionRunRow, IngestionStatus } from './ingestion-runs.js';
+export {
+  finishIngestionRun,
+  getLatestDailyCandleTime,
+  hasAnyIngestionRun,
+  hasSuccessfulIngestionRun,
+  listIngestionRuns,
+  startIngestionRun,
+} from './ingestion-runs.js';
+export type {
+  CorporateActionRow,
+  InstrumentMetadata,
+  InstrumentRow,
+  InstrumentUpsert,
+} from './instruments.js';
 export {
   ensureInstruments,
   getInstrumentBySymbol,
@@ -184,6 +237,7 @@ export {
   listInstrumentsById,
   resolveInstrumentIds,
   syncInstruments,
+  updateInstrumentMetadata,
 } from './instruments.js';
 export * from './intraday.js';
 export type {
@@ -289,6 +343,8 @@ export {
   updateProfile,
   updateUserEmail,
 } from './profile.js';
+export type { LatestQuoteInput, LatestQuoteRow } from './quotes.js';
+export { latestQuotesForInstruments, QUOTE_CACHE_FEED, upsertLatestQuotes } from './quotes.js';
 export * from './screener.js';
 export type {
   InstrumentSignal,
@@ -329,4 +385,5 @@ export {
   saveWatchlistLayout,
   saveWatchlistView,
   setDefaultWatchlist,
+  setWatchlistItemNote,
 } from './watchlists.js';

@@ -41,7 +41,16 @@ export interface Scheduler {
   drain(timeoutMs?: number): Promise<void>;
 }
 
-export function createScheduler(definitions: readonly JobDefinition[], log: Logger): Scheduler {
+export interface SchedulerOptions {
+  /** Called after a run throws, with the job name, the error and how long it ran. Must not throw. */
+  readonly onFailure?: (job: string, error: unknown, durationMs: number) => Promise<void>;
+}
+
+export function createScheduler(
+  definitions: readonly JobDefinition[],
+  log: Logger,
+  options: SchedulerOptions = {},
+): Scheduler {
   const running = new Set<string>();
   const byName = new Map<string, JobDefinition>();
   const jobs: Cron[] = [];
@@ -64,6 +73,11 @@ export function createScheduler(definitions: readonly JobDefinition[], log: Logg
         durationMs: Date.now() - startedAt,
         ...errorFields(error),
       });
+      try {
+        await options.onFailure?.(definition.name, error, Date.now() - startedAt);
+      } catch {
+        // The recorder is best-effort by contract; a bug in it must not skip the cleanup below.
+      }
     } finally {
       running.delete(definition.name);
     }

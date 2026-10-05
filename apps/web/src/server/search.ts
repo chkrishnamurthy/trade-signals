@@ -1,6 +1,6 @@
 import 'server-only';
 import type { Instrument, InstrumentKind } from '@equitywise/market-data';
-import { getIndex, listIndexKeys } from './indices';
+import { getHeadlineIndices, getIndex, listIndexKeys } from './indices';
 import { getProvider } from './provider';
 
 /**
@@ -150,6 +150,14 @@ export async function resolveSymbol(symbol: string): Promise<ResolvedSymbol | nu
     }
     const match = index.constituents.find((c) => c.symbol.toUpperCase() === target);
     if (match !== undefined) return { ...match, kind: 'equity' };
+  }
+
+  // The indices strip's own indices (BANK NIFTY, INDIA VIX …) are configured but are
+  // not `indices:` blocks, and the provider listing may not carry them; the strip
+  // drawer's chart asks for them by symbol, so they must resolve.
+  const headline = (await getHeadlineIndices()).find((h) => h.symbol.toUpperCase() === target);
+  if (headline !== undefined) {
+    return { symbol: headline.symbol, name: headline.name, sector: 'Index', kind: 'index' };
   }
 
   try {

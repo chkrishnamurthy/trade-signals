@@ -2,12 +2,13 @@
 id: EW-106
 title: Corporate action ingestion
 type: chore
-stage: ideas
+stage: done
 priority: medium
 area: [worker, db]
 created: 2026-08-24
-updated: 2026-09-06
-stage_since: 2026-09-06
+updated: 2026-10-05
+stage_since: 2026-10-05
+done_at: 2026-10-05
 tier: "2.1"
 source: docs/planning/pending-features.md
 ---
@@ -27,3 +28,5 @@ question — but its answer has not been turned into an ingestion job either way
 `verify:adjustment` shows the provider already back-adjusts — that finding is
 recorded in this repo and the table is documented as reserved for the intraday
 series, which is not back-adjusted.
+
+**Closed 2026-10-05 after a code audit.** The worker job `corporate-actions-sync` (weekdays 08:40) writes `corporate_actions` and a `dividends` table; the read-side adjustment was already complete.

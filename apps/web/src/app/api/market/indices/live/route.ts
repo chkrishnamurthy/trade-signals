@@ -1,3 +1,4 @@
+import { requireSignedIn } from '@/server/auth/guards';
 import { getIndexStripRefs } from '@/server/index-strip';
 import { type LiveBatch, liveQuoteHub } from '@/server/live-quotes';
 
@@ -10,7 +11,8 @@ import { type LiveBatch, liveQuoteHub } from '@/server/live-quotes';
  * user with the strip and a watchlist open costs the upstream the union of
  * both sets, once.
  *
- * Auth is the middleware's; there is no per-user data here. The subscription
+ * Signed-in only (checked here, not just by the middleware, which only sees
+ * that a cookie exists); there is no per-user data here. The subscription
  * is released the moment the browser closes the connection.
  */
 export const runtime = 'nodejs';
@@ -20,6 +22,9 @@ export const dynamic = 'force-dynamic';
 const PING_MS = 15_000;
 
 export async function GET(request: Request): Promise<Response> {
+  const denied = await requireSignedIn();
+  if (denied !== null) return denied;
+
   const refs = await getIndexStripRefs();
 
   const encoder = new TextEncoder();

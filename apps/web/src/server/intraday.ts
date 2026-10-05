@@ -15,8 +15,7 @@ import {
 import { NextResponse } from 'next/server';
 import { parse } from 'yaml';
 import { z } from 'zod';
-import { unauthenticated } from './auth/http';
-import { getSessionUser } from './auth/require-user';
+import { requireAdminUser } from './auth/guards';
 import { getDatabase } from './db';
 import { getMarketStatus } from './market-status';
 import { describeDataSources } from './provider';
@@ -37,13 +36,8 @@ const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD.');
 /** Admin-only while the strategy is under evaluation: 401 when not signed in, 403 otherwise. */
 async function authenticated(run: () => Promise<unknown>): Promise<NextResponse> {
   try {
-    const user = await getSessionUser();
-    if (!user) return unauthenticated();
-    if (user.role !== 'admin')
-      return NextResponse.json(
-        { error: 'Admin access required.', code: 'FORBIDDEN' },
-        { status: 403, headers: { 'Cache-Control': 'no-store' } },
-      );
+    const access = await requireAdminUser();
+    if (access.denied !== null) return access.denied;
     return NextResponse.json(await run(), { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     const invalid = error instanceof z.ZodError;

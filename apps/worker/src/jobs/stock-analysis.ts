@@ -56,6 +56,7 @@ import {
 } from '@equitywise/db';
 import { istDateKey } from '@equitywise/shared';
 import type { WorkerContext } from '../context.js';
+import { withIngestionRun } from '../ingestion-tracking.js';
 import { errorFields, type Logger } from '../log.js';
 import { createIndiaDisclosureSource, parseNseBhavdata } from '../sources/india-disclosures.js';
 import { createNseMarketSource, INDEX_FILES, type NseMarketSource } from '../sources/nse-market.js';
@@ -748,10 +749,27 @@ export async function runStockAnalysisEod(
   const now = options.now ?? new Date();
   const session = istDateKey(now);
   const source = createNseMarketSource({ maxRequestsPerRun: 10 });
-  const bars = await withFeedHealth(context, STOCK_FEEDS.bars, now, async () => {
-    const result = await ingestBhavcopySession(context, session, source);
-    return { fetched: result?.bars ?? 0, written: result?.written ?? 0 };
-  });
+  // The run is opened before the fetch, so a failed download leaves a `failed` row
+  // rather than nothing. A holiday or an unpublished file records an `ok` run with
+  // no rows, which the indicator gate never matches to a candle date.
+  const bars = await withIngestionRun(
+    context.db,
+    log,
+    { job: 'bhavcopy_candles', tradingDate: session },
+    async () => {
+      const fed = await withFeedHealth(context, STOCK_FEEDS.bars, now, async () => {
+        const result = await ingestBhavcopySession(context, session, source);
+        return { fetched: result?.bars ?? 0, written: result?.written ?? 0 };
+      });
+      return {
+        ...fed,
+        requested: fed.fetched,
+        succeeded: fed.fetched,
+        rowsWritten: fed.written,
+        failed: [] as string[],
+      };
+    },
+  );
   if (bars.fetched === 0) {
     log.info('no bhavcopy for today (holiday, weekend or not yet published)', { session });
     return;

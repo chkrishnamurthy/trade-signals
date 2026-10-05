@@ -6,6 +6,14 @@ import { PublicHeader } from '@/components/layout/public-header';
 import { JsonLd } from '@/components/seo/json-ld';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  GRIEVANCE_ACKNOWLEDGE_WITHIN,
+  GRIEVANCE_EMAIL,
+  GRIEVANCE_OFFICER,
+  GRIEVANCE_RESOLVE_WITHIN,
+  SEBI_SCORES_URL,
+  SUPPORT_EMAIL,
+} from '@/lib/legal';
 import { generateBreadcrumbSchema, SITE_URL } from '@/lib/seo/schema';
 import { getSessionUser } from '@/server/auth/require-user';
 
@@ -80,7 +88,7 @@ export default async function ContactPage() {
                 </p>
               </div>
               <div className="mt-6 pt-4 border-t border-border/50 text-xs font-medium text-foreground">
-                support@equitywise.io
+                {SUPPORT_EMAIL}
               </div>
             </div>
 
@@ -113,10 +121,66 @@ export default async function ContactPage() {
                 </p>
               </div>
               <div className="mt-6 pt-4 border-t border-border/50 text-xs font-medium text-foreground">
-                compliance@equitywise.io
+                {GRIEVANCE_EMAIL}
               </div>
             </div>
           </div>
+
+          <section
+            aria-labelledby="grievance-heading"
+            className="mt-12 rounded-xl border border-border/80 bg-surface/40 p-6 sm:p-8"
+          >
+            <h2 id="grievance-heading" className="text-lg font-semibold text-foreground">
+              Grievance Officer
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+              If something is wrong with your account, your data, or how we handled a request, write
+              to our Grievance Officer. Include the email address on your account and what happened,
+              so we can find it.
+            </p>
+
+            <dl className="mt-5 grid gap-x-8 gap-y-3 text-sm sm:grid-cols-[10rem_1fr]">
+              <dt className="text-muted-foreground">Designation</dt>
+              <dd className="font-medium text-foreground">{GRIEVANCE_OFFICER.designation}</dd>
+              {GRIEVANCE_OFFICER.name !== null && (
+                <>
+                  <dt className="text-muted-foreground">Name</dt>
+                  <dd className="font-medium text-foreground">{GRIEVANCE_OFFICER.name}</dd>
+                </>
+              )}
+              <dt className="text-muted-foreground">Email</dt>
+              <dd className="font-medium text-foreground">{GRIEVANCE_EMAIL}</dd>
+              {GRIEVANCE_OFFICER.postalAddress !== null && (
+                <>
+                  <dt className="text-muted-foreground">Postal address</dt>
+                  <dd className="font-medium text-foreground">{GRIEVANCE_OFFICER.postalAddress}</dd>
+                </>
+              )}
+              <dt className="text-muted-foreground">What to expect</dt>
+              <dd className="text-foreground">
+                We acknowledge a grievance within {GRIEVANCE_ACKNOWLEDGE_WITHIN} and aim to resolve
+                it within {GRIEVANCE_RESOLVE_WITHIN}. If it will take longer, we tell you why.
+              </dd>
+            </dl>
+
+            <div className="mt-6 border-t border-border/50 pt-4 text-xs leading-relaxed text-muted-foreground">
+              <p>
+                EquityWise is not registered with SEBI as an investment adviser, research analyst or
+                broker, so a complaint about this service cannot be filed on SEBI's SCORES portal.
+                SCORES takes complaints about listed companies and SEBI-registered intermediaries
+                such as your broker, and is the place to go for those:{' '}
+                <a
+                  href={SEBI_SCORES_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-foreground underline underline-offset-2 hover:text-primary"
+                >
+                  scores.sebi.gov.in
+                </a>
+                .
+              </p>
+            </div>
+          </section>
 
           <div className="mt-12 rounded-xl border border-border/80 bg-surface/20 p-8 text-center">
             <h2 className="text-lg font-semibold text-foreground">Start tracking your names</h2>

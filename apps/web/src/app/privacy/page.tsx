@@ -61,7 +61,7 @@ export default async function PrivacyPage() {
             <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
               Privacy Policy
             </h1>
-            <p className="mt-2 text-xs text-muted-foreground">Last updated: September 2026</p>
+            <p className="mt-2 text-xs text-muted-foreground">Last updated: October 2026</p>
           </div>
         </header>
 
@@ -72,9 +72,14 @@ export default async function PrivacyPage() {
             </h2>
             <p>
               EquityWise is built on strict data minimization principles. We collect and store only
-              the data strictly necessary to provide your analytical account services: your verified
-              email address, a cryptographic hash of your password (via Argon2id), authenticated
-              session tokens, and your customized watchlist preferences.
+              the data strictly necessary to provide your analytical account services: your email
+              address, a cryptographic hash of your password (via Argon2id), authenticated session
+              tokens, and your customized watchlist preferences, including any private notes you
+              attach to a stock and the alert rules you set. If you sign in with Google we receive
+              your Google account identifier, name, email address and profile picture. Each session
+              and security event also records the IP address and browser details it came from, so
+              that we can detect and investigate misuse. If you add a profile photo or details, we
+              store those too.
             </p>
           </section>
 
@@ -97,8 +102,8 @@ export default async function PrivacyPage() {
             <ul className="list-disc pl-5 space-y-1">
               <li>
                 <strong>Transactional Email Delivery:</strong> Handled through secure API delivery
-                (e.g. Resend) solely to dispatch authentication verification links and password
-                resets.
+                (e.g. Resend) solely to send account emails: verification links, password resets and
+                the alert emails you choose to receive.
               </li>
               <li>
                 <strong>Market Data Feeds:</strong> Handled via secure server-to-server market data

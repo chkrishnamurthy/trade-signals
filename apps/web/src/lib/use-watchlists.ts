@@ -517,6 +517,81 @@ export function useWatchlists() {
     [reload, toast],
   );
 
+  /**
+   * Rewrites the on-screen list's member order. `instrumentIds` must be EVERY member in
+   * the new order — the server numbers positions from the array, so a partial list
+   * would collide with the members left out.
+   */
+  const reorderMembers = useCallback(
+    async (instrumentIds: readonly number[]) => {
+      const id = activeIdRef.current;
+      if (id === null) {
+        return { ok: false as const, error: { error: 'No watchlist selected.', code: 'NO_LIST' } };
+      }
+      // Optimistic, for the same reason as `reorderLists`: a row that snaps back
+      // while the request flies reads as a failed drag.
+      setDetail((current) =>
+        current.status === 'ready'
+          ? {
+              ...current,
+              data: {
+                ...current.data,
+                rows: [...current.data.rows].sort(
+                  (a, b) =>
+                    instrumentIds.indexOf(a.instrumentId) - instrumentIds.indexOf(b.instrumentId),
+                ),
+              },
+            }
+          : current,
+      );
+      const result = await request(API_ROUTES.watchlistItems(id), {
+        method: 'PUT',
+        body: JSON.stringify({ instrumentIds }),
+      });
+      if (!result.ok) {
+        await reload();
+        toast({
+          variant: 'destructive',
+          title: 'Could not save the new order',
+          description: result.error.error,
+        });
+      }
+      return result;
+    },
+    [reload, toast],
+  );
+
+  /** Saves (or, with an empty string, clears) the note on one member of the on-screen list. */
+  const saveNote = useCallback(async (instrumentId: number, note: string) => {
+    const id = activeIdRef.current;
+    if (id === null) {
+      return { ok: false as const, error: { error: 'No watchlist selected.', code: 'NO_LIST' } };
+    }
+    const trimmed = note.trim();
+    const result = await request(API_ROUTES.watchlistItems(id), {
+      method: 'PATCH',
+      body: JSON.stringify({ instrumentId, note: trimmed === '' ? null : trimmed }),
+    });
+    if (result.ok) {
+      setDetail((current) =>
+        current.status === 'ready'
+          ? {
+              ...current,
+              data: {
+                ...current.data,
+                rows: current.data.rows.map((row) =>
+                  row.instrumentId === instrumentId
+                    ? { ...row, note: trimmed === '' ? null : trimmed }
+                    : row,
+                ),
+              },
+            }
+          : current,
+      );
+    }
+    return result;
+  }, []);
+
   /** Adds to a list that is not the one on screen — the "add to another" action. */
   const addSymbolsTo = useCallback(
     async (watchlistId: number, symbols: readonly string[]) => {
@@ -629,6 +704,8 @@ export function useWatchlists() {
     addSymbols,
     addSymbolsTo,
     removeSymbols,
+    reorderMembers,
+    saveNote,
     setLayout,
     saveView,
     deleteView,
@@ -651,6 +728,7 @@ function emptyDetail(): WatchlistDetailDto {
     savedViews: [],
     market: { isOpen: false, phase: 'unknown' },
     fetchedAt: new Date().toISOString(),
+    quoteSnapshotAt: null,
     missingQuotes: [],
     quotesStale: false,
     refreshAfterSeconds: 300,

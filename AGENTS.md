@@ -34,10 +34,13 @@ The previously removed intraday/backtest engine remains historical; this feature
 `vwap-strategy.ts`, `signal-lifecycle.ts`, and the dedicated signal repositories.
 Implementation and rollout checks: `docs/planning/signals-implementation.md`.
 
-Design & architecture docs: `docs/README.md`, `docs/architecture.md` (topology & stack),
-`docs/architecture/seo-architecture.md` (SEO & Googlebot indexing engine),
-`docs/domain-and-contracts.md` (schema, indicators & invariants), `docs/api-reference.md`,
-`docs/operations-runbook.md`, and `docs/planning/storybook-plan.md`.
+Design & architecture docs: `docs/README.md` (index), `docs/architecture/`
+(`backtesting-architecture.md`, `auth-system-design.md`, `seo-architecture.md`),
+`docs/operations/deployment.md` (hosting, pipeline, credentials, backups, runbook),
+`docs/reference/` (as-built references, e.g. the market calendar and indices strip), and
+`docs/planning/` (plans; `pending-features.md` carries the code-verified status ledger).
+There is no single schema/API reference yet: the schema lives in `packages/db/src/schema`,
+the routes in `apps/web/src/app/api`.
 
 ## Stack
 

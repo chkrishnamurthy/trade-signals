@@ -28,11 +28,14 @@ import { cn } from '@/lib/utils';
 export function IndexCell({
   index,
   stale = false,
+  onSelect,
   className,
 }: {
   index: IndexSnapshotDto;
   /** The snapshot is a last-good copy served through a provider fault. */
   stale?: boolean | undefined;
+  /** When given, the cell is a button that opens the index's detail. */
+  onSelect?: ((index: IndexSnapshotDto) => void) | undefined;
   className?: string | undefined;
 }) {
   const isVix = index.display === 'volatility';
@@ -50,12 +53,22 @@ export function IndexCell({
     ? `${detail}\nImplied 30-day volatility of NIFTY options. Rising VIX means the market is pricing more risk.`
     : detail;
 
+  const Root = onSelect === undefined ? 'div' : 'button';
   return (
-    <div
+    <Root
       data-slot="index-cell"
       title={hint}
+      {...(onSelect === undefined
+        ? {}
+        : {
+            type: 'button' as const,
+            onClick: () => onSelect(index),
+            'aria-label': `${index.name}: open details`,
+          })}
       className={cn(
         'flex shrink-0 items-baseline gap-2 whitespace-nowrap border-border border-r px-3 first:pl-0 last:border-r-0 last:pr-0 2xl:px-4',
+        onSelect !== undefined &&
+          'cursor-pointer rounded-sm outline-none transition-colors hover:bg-accent/60 focus-visible:outline-2 focus-visible:outline-ring',
         stale && 'opacity-70',
         className,
       )}
@@ -82,7 +95,7 @@ export function IndexCell({
         weight="medium"
         className="2xl:hidden"
       />
-    </div>
+    </Root>
   );
 }
 

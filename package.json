@@ -18,6 +18,7 @@
     "test:db:down": "docker compose -f docker-compose.test.yml down -v",
     "test:integration": "bash scripts/test-integration.sh",
     "lint": "biome check .",
+    "lint:app": "biome check apps packages",
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",
     "typecheck": "pnpm -r typecheck",

@@ -6,6 +6,7 @@ import { fail, json } from '@/server/auth/http';
 import { hashPassword } from '@/server/auth/password';
 import { validatePassword } from '@/server/auth/password-policy';
 import { clientIp, isSameOrigin } from '@/server/auth/request';
+import { limitByIp } from '@/server/auth/request-limit';
 import { signUpSchema } from '@/server/auth/schemas';
 import { startSession } from '@/server/auth/session';
 import { generateSessionToken, hashToken } from '@/server/auth/session-token';
@@ -34,6 +35,10 @@ export async function POST(request: Request): Promise<NextResponse> {
   if (!signupEnabled()) {
     return fail('Sign-up is currently closed.', 403, { code: 'SIGNUP_DISABLED' });
   }
+  // Each sign-up sends an email, so an unmetered endpoint is a way to spend the
+  // mail budget and to flood strangers' inboxes.
+  const limited = limitByIp(request, 'sign-up', { max: 10, windowMs: 60 * 60_000 });
+  if (limited !== null) return limited;
   if (!isSameOrigin(request)) {
     return fail('Request blocked.', 403, { code: 'BAD_ORIGIN' });
   }

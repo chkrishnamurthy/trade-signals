@@ -1,7 +1,17 @@
 'use client';
 
-import { ChevronsUpDownIcon, ListPlusIcon, MoreHorizontalIcon, Trash2Icon } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import {
+  ArrowDownToLineIcon,
+  ArrowUpToLineIcon,
+  ChevronDownIcon,
+  ChevronsUpDownIcon,
+  ChevronUpIcon,
+  GripVerticalIcon,
+  ListPlusIcon,
+  MoreHorizontalIcon,
+  Trash2Icon,
+} from 'lucide-react';
+import { type KeyboardEvent, useEffect, useMemo, useState } from 'react';
 import { DataTable, type DataTableColumn } from '@/components/data-display/data-table';
 import { Button } from '@/components/ui/button';
 import {
@@ -16,6 +26,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { resolveColumns } from '@/lib/watchlist-columns';
+import { dropMember, type MoveTarget, moveMember } from '@/lib/watchlist-order';
 import type { SortRuleDto, WatchlistRowDto, WatchlistSummaryDto } from '@/lib/watchlist-types';
 import { cellFor } from './watchlist-cells';
 import { WatchlistRowDetail } from './watchlist-row-detail';
@@ -52,6 +63,9 @@ export function WatchlistTable({
   onOpenDetail,
   onAddToList,
   onRetry,
+  canReorder = false,
+  onReorder,
+  onSaveNote,
 }: {
   rows: readonly WatchlistRowDto[];
   columnIds: readonly string[];
@@ -70,7 +84,27 @@ export function WatchlistTable({
   onOpenDetail: (row: WatchlistRowDto) => void;
   onAddToList: (watchlistId: number, symbol: string) => void;
   onRetry?: (() => void) | undefined;
+  /**
+   * Whether the rows are on screen in the user's own order. False while a sort or
+   * a filter is active: a drag would then reorder a list the user cannot see whole.
+   */
+  canReorder?: boolean | undefined;
+  /** Receives EVERY member's instrument id in the new order. */
+  onReorder?: ((instrumentIds: readonly number[]) => void) | undefined;
+  onSaveNote?:
+    | ((row: WatchlistRowDto, note: string) => Promise<{ ok: true } | { ok: false; error: string }>)
+    | undefined;
 }) {
+  const reorderable = canReorder && onReorder !== undefined && rows.length > 1;
+  const orderedIds = useMemo(() => rows.map((row) => row.instrumentId), [rows]);
+  const [dragId, setDragId] = useState<number | null>(null);
+  const [overId, setOverId] = useState<number | null>(null);
+
+  const move = (row: WatchlistRowDto, target: MoveTarget) => {
+    const next = moveMember(orderedIds, row.instrumentId, target);
+    if (next !== orderedIds) onReorder?.(next);
+  };
+
   const columns = useMemo<DataTableColumn<WatchlistRowDto>[]>(
     () =>
       resolveColumns(columnIds).map((column) => ({
@@ -131,8 +165,35 @@ export function WatchlistTable({
           otherLists={otherLists}
           onAddToList={onAddToList}
           onRemove={onRemove}
+          onSaveNote={onSaveNote}
         />
       )}
+      getRowProps={
+        reorderable
+          ? (row) => ({
+              onDragOver: (event) => {
+                if (dragId === null) return;
+                event.preventDefault();
+                if (overId !== row.instrumentId) setOverId(row.instrumentId);
+              },
+              onDrop: (event) => {
+                event.preventDefault();
+                if (dragId !== null) {
+                  const next = dropMember(orderedIds, dragId, row.instrumentId);
+                  if (next !== orderedIds) onReorder?.(next);
+                }
+                setDragId(null);
+                setOverId(null);
+              },
+              className:
+                dragId === row.instrumentId
+                  ? 'opacity-50'
+                  : overId === row.instrumentId && dragId !== null
+                    ? 'bg-accent shadow-[inset_0_2px_0_var(--color-primary)]'
+                    : undefined,
+            })
+          : undefined
+      }
       emptyTitle={hasFilters ? 'No stock matches these filters' : 'Nothing on this watchlist yet'}
       emptyDescription={
         hasFilters
@@ -142,13 +203,29 @@ export function WatchlistTable({
       emptyAction={emptyAction}
       caption="Watchlist constituents with their latest quote and daily indicators"
       rowActions={(row) => (
-        <RowMenu
-          row={row}
-          otherLists={otherLists}
-          onRemove={onRemove}
-          onToggleExpand={toggleExpand}
-          onAddToList={onAddToList}
-        />
+        <div className="flex items-center gap-0.5">
+          {reorderable && (
+            <DragHandle
+              row={row}
+              onDragStart={() => setDragId(row.instrumentId)}
+              onDragEnd={() => {
+                setDragId(null);
+                setOverId(null);
+              }}
+              onMove={move}
+            />
+          )}
+          <RowMenu
+            row={row}
+            otherLists={otherLists}
+            onRemove={onRemove}
+            onToggleExpand={toggleExpand}
+            onAddToList={onAddToList}
+            reorderable={reorderable}
+            canReorder={canReorder}
+            onMove={move}
+          />
+        </div>
       )}
     />
   );
@@ -160,12 +237,19 @@ function RowMenu({
   onRemove,
   onToggleExpand,
   onAddToList,
+  reorderable,
+  canReorder,
+  onMove,
 }: {
   row: WatchlistRowDto;
   otherLists: readonly WatchlistSummaryDto[];
   onRemove: (row: WatchlistRowDto) => void;
   onToggleExpand: (row: WatchlistRowDto) => void;
   onAddToList: (watchlistId: number, symbol: string) => void;
+  reorderable: boolean;
+  /** True when the table is in the user's own order, even if there is only one row. */
+  canReorder: boolean;
+  onMove: (row: WatchlistRowDto, target: MoveTarget) => void;
 }) {
   return (
     <DropdownMenu>
@@ -188,6 +272,28 @@ function RowMenu({
           <ChevronsUpDownIcon />
           View details
         </DropdownMenuItem>
+
+        {canReorder && reorderable && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => onMove(row, 'up')}>
+              <ChevronUpIcon />
+              Move up
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => onMove(row, 'down')}>
+              <ChevronDownIcon />
+              Move down
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => onMove(row, 'top')}>
+              <ArrowUpToLineIcon />
+              Move to top
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => onMove(row, 'bottom')}>
+              <ArrowDownToLineIcon />
+              Move to bottom
+            </DropdownMenuItem>
+          </>
+        )}
 
         {otherLists.length > 0 && (
           <>
@@ -215,5 +321,62 @@ function RowMenu({
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+/**
+ * The grip that starts a drag. Only the grip is draggable, so selecting text in
+ * the row or clicking it to expand never starts one. It is also a keyboard
+ * control: focus it and press the arrow keys (Home / End for the ends) — drag
+ * alone would leave keyboard and touch users with no way to reorder, so the row
+ * menu carries the same moves.
+ */
+function DragHandle({
+  row,
+  onDragStart,
+  onDragEnd,
+  onMove,
+}: {
+  row: WatchlistRowDto;
+  onDragStart: () => void;
+  onDragEnd: () => void;
+  onMove: (row: WatchlistRowDto, target: MoveTarget) => void;
+}) {
+  const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    const target: MoveTarget | null =
+      event.key === 'ArrowUp'
+        ? 'up'
+        : event.key === 'ArrowDown'
+          ? 'down'
+          : event.key === 'Home'
+            ? 'top'
+            : event.key === 'End'
+              ? 'bottom'
+              : null;
+    if (target === null) return;
+    event.preventDefault();
+    onMove(row, target);
+  };
+
+  return (
+    <button
+      type="button"
+      draggable
+      aria-label={`Reorder ${row.symbol}. Drag, or use the arrow keys.`}
+      title="Drag to reorder"
+      onKeyDown={onKeyDown}
+      onDragStart={(event) => {
+        event.dataTransfer.effectAllowed = 'move';
+        // Drag the whole row's picture, not just the grip.
+        const tableRow = event.currentTarget.closest('tr');
+        if (tableRow !== null) event.dataTransfer.setDragImage(tableRow, 16, 16);
+        event.dataTransfer.setData('text/plain', row.symbol);
+        onDragStart();
+      }}
+      onDragEnd={onDragEnd}
+      className="flex size-7 cursor-grab items-center justify-center rounded-sm text-subtle-foreground transition-colors outline-none hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring active:cursor-grabbing"
+    >
+      <GripVerticalIcon className="size-4" aria-hidden />
+    </button>
   );
 }

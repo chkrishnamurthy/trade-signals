@@ -1,6 +1,5 @@
 import { ArrowLeftIcon } from 'lucide-react';
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
 import { AppShell } from '@/components/layout/app-shell';
 import {
   PageActions,
@@ -13,7 +12,7 @@ import {
 } from '@/components/layout/page';
 import { PaperHealthView } from '@/components/paper/paper-health';
 import { Button } from '@/components/ui/button';
-import { getAdminUser } from '@/server/auth/require-user';
+import { requireAdminPage } from '@/server/auth/admin-page';
 import { paperHealthReport } from '@/server/paper';
 
 export const dynamic = 'force-dynamic';
@@ -24,8 +23,7 @@ export const metadata = {
 
 /** The operator's view (plan §17): feed, cycles, portfolios, alerts — counts only, never a user's trades. */
 export default async function AdminPaperPage() {
-  const admin = await getAdminUser();
-  if (admin === null) redirect('/watchlists');
+  await requireAdminPage();
   const health = await paperHealthReport(Date.now());
   return (
     <AppShell>

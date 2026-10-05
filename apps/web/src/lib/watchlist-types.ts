@@ -196,6 +196,8 @@ export interface WatchlistDetailDto {
   readonly savedViews: readonly SavedViewDto[];
   readonly market: { readonly isOpen: boolean; readonly phase: string };
   readonly fetchedAt: string;
+  /** Worker cache fetch time for the newest quote snapshot in this response. */
+  readonly quoteSnapshotAt: string | null;
   /** Members the provider returned no quote for. Shown, never dropped. */
   readonly missingQuotes: readonly string[];
   /**

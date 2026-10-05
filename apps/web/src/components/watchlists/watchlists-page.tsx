@@ -16,7 +16,7 @@ import {
   PageHeading,
   PageTitle,
 } from '@/components/layout/page';
-import { LiveIndicator } from '@/components/market/market-status';
+import { DataFreshness, LiveIndicator } from '@/components/market/market-status';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardToolbar } from '@/components/ui/card';
@@ -82,6 +82,8 @@ export function WatchlistsPage() {
     addSymbols,
     addSymbolsTo,
     removeSymbols,
+    reorderMembers,
+    saveNote,
     setLayout,
     saveView,
     deleteView,
@@ -208,6 +210,7 @@ export function WatchlistsPage() {
 
   const hasFilters = chips.length > 0;
   const hasList = activeId !== null && data !== null && data.watchlist.id !== 0;
+  const canReorderRows = layout.sort.length === 0 && !hasFilters;
   // Covers both the very first load (no watchlist chosen yet) and switching
   // between watchlists (a new `activeId` restarts `detail` at 'loading') —
   // the two moments this page has no data to show yet but isn't empty either.
@@ -248,6 +251,19 @@ export function WatchlistsPage() {
                         ? 'Connecting…'
                         : 'Market closed'
                 }
+                className="mr-1"
+              />
+              <DataFreshness
+                state={
+                  data.quotesStale
+                    ? 'stale'
+                    : data.quoteSnapshotAt === null
+                      ? 'error'
+                      : liveState === 'streaming'
+                        ? 'live'
+                        : 'cached'
+                }
+                at={data.quoteSnapshotAt}
                 className="mr-1"
               />
               {/* Refreshing THIS list's prices is page functionality, so it sits
@@ -320,9 +336,18 @@ export function WatchlistsPage() {
 
               {data.quotesStale && (
                 <Alert variant="warning">
-                  <AlertTitle>Prices are not live</AlertTitle>
+                  <AlertTitle>Prices are stale</AlertTitle>
                   <AlertDescription>
-                    The market-data provider did not answer, so the price columns are empty.
+                    {data.quoteSnapshotAt === null
+                      ? 'The worker has not cached quotes for this list yet.'
+                      : `Showing the last cached worker snapshot from ${new Date(
+                          data.quoteSnapshotAt,
+                        ).toLocaleTimeString('en-IN', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit',
+                          timeZone: 'Asia/Kolkata',
+                        })}.`}{' '}
                     Indicator columns still show the last session the worker computed.
                   </AlertDescription>
                 </Alert>
@@ -398,6 +423,14 @@ export function WatchlistsPage() {
                   </div>
                 )}
 
+                {!canReorderRows && allRows.length > 1 && (
+                  <div className="border-b border-border bg-muted/35 px-4 py-2">
+                    <Text variant="caption" className="text-muted-foreground">
+                      Manual order is available after clearing active sorts and filters.
+                    </Text>
+                  </div>
+                )}
+
                 <CardContent flush>
                   <WatchlistTable
                     rows={rows}
@@ -436,6 +469,12 @@ export function WatchlistsPage() {
                     onRemove={setPendingRemove}
                     onOpenDetail={setSelected}
                     onAddToList={(watchlistId, symbol) => void addSymbolsTo(watchlistId, [symbol])}
+                    canReorder={canReorderRows}
+                    onReorder={(ids) => void reorderMembers(ids)}
+                    onSaveNote={async (row, note) => {
+                      const result = await saveNote(row.instrumentId, note);
+                      return result.ok ? { ok: true } : { ok: false, error: result.error.error };
+                    }}
                   />
                 </CardContent>
               </Card>

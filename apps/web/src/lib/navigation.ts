@@ -1,6 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 import {
   ActivityIcon,
+  BellIcon,
   CalendarDaysIcon,
   CalendarRangeIcon,
   FlaskConicalIcon,
@@ -70,6 +71,13 @@ export const NAVIGATION: readonly NavGroup[] = [
         label: 'My watchlists',
         icon: ListIcon,
         description: 'The names you have chosen to follow',
+      },
+      {
+        status: 'ready',
+        href: '/alerts',
+        label: 'Alerts',
+        icon: BellIcon,
+        description: 'Be told when a stock crosses a price or RSI level at the close',
       },
     ],
   },

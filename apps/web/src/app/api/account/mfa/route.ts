@@ -2,6 +2,7 @@ import type { NextResponse } from 'next/server';
 import { fail, json } from '@/server/auth/http';
 import { beginMfaEnrollment, confirmMfaEnrollment, MfaError, turnOffMfa } from '@/server/auth/mfa';
 import { isSameOrigin } from '@/server/auth/request';
+import { limitByIp } from '@/server/auth/request-limit';
 import { getSessionAuthContext } from '@/server/auth/require-user';
 import { mfaCodeSchema } from '@/server/auth/schemas';
 
@@ -28,6 +29,9 @@ export async function POST(request: Request): Promise<NextResponse> {
 
 export async function PUT(request: Request): Promise<NextResponse> {
   if (!isSameOrigin(request)) return fail('Request blocked.', 403, { code: 'BAD_ORIGIN' });
+  // Six digits is guessable without a cap; enrolment confirmation had none.
+  const limited = limitByIp(request, 'mfa-confirm', { max: 10, windowMs: 10 * 60_000 });
+  if (limited !== null) return limited;
   const context = await getSessionAuthContext();
   if (!context) return fail('Not signed in.', 401, { code: 'UNAUTHENTICATED' });
   const parsed = mfaCodeSchema.safeParse(await request.json().catch(() => null));

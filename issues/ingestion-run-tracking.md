@@ -2,12 +2,12 @@
 id: EW-105
 title: Ingestion run tracking
 type: chore
-stage: next
+stage: review
 priority: high
 area: [worker, db]
 created: 2026-08-24
-updated: 2026-09-06
-stage_since: 2026-09-06
+updated: 2026-10-05
+stage_since: 2026-10-05
 tier: "1.5"
 source: docs/planning/pending-features.md
 ---
@@ -24,3 +24,5 @@ and close a run row; `compute-indicators` refuses to compute across a session
 with no `ok` run; `pnpm data:coverage` reports gaps from it.
 
 ---
+
+**2026-10-05.** Built and unit-tested (writers in ingest-daily and the bhavcopy pass; indicators run + gate; coverage report). Not run against Postgres. The gate warns by default; INDICATORS_REQUIRE_INGEST_RUN=true blocks.

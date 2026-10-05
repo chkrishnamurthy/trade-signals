@@ -335,7 +335,11 @@ suite('IPO persistence on real PostgreSQL', () => {
             title: 'Prospectus',
             url: `https://nsearchives.nseindia.com/x/P${id}.zip`,
           },
-          { kind: 'price_band_ad', title: 'Ad', url: `https://nsearchives.nseindia.com/x/A${id}.zip` },
+          {
+            kind: 'price_band_ad',
+            title: 'Ad',
+            url: `https://nsearchives.nseindia.com/x/A${id}.zip`,
+          },
         ],
         new Date('2026-10-03T05:00:00Z'),
       );

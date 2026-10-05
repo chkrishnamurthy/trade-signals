@@ -1,9 +1,9 @@
 ---
 name: Paper trading
-status: in-progress
+status: done
 horizon: now
 created: 2026-09-17
-updated: 2026-09-18
+updated: 2026-10-05
 board: EW-090
 phases_total: 7
 phases_done: 7

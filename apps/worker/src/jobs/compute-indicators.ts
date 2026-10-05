@@ -10,6 +10,7 @@ import {
 } from '@equitywise/core';
 import {
   getDailyBars,
+  getLatestDailyCandleTime,
   type IndicatorUpsert,
   listActiveInstruments,
   registerStrategy,
@@ -18,6 +19,7 @@ import {
 } from '@equitywise/db';
 import { istDateKey } from '@equitywise/shared';
 import type { WorkerContext } from '../context.js';
+import { checkSessionIngested, withIngestionRun } from '../ingestion-tracking.js';
 import { errorFields, type Logger } from '../log.js';
 import { loadUniverse } from '../universe.js';
 
@@ -55,8 +57,36 @@ export async function computeIndicators(
   log: Logger,
   options: { now?: Date } = {},
 ): Promise<IndicatorPassResult> {
-  const { db } = context;
   const now = options.now ?? new Date();
+  const pass = await withIngestionRun(
+    context.db,
+    log,
+    { job: 'indicators', tradingDate: istDateKey(now) },
+    async () => {
+      const result = await runIndicatorPass(context, log, now);
+      return {
+        ...result,
+        succeeded: result.computed,
+        rowsWritten: result.computed,
+        failed: [] as string[],
+      };
+    },
+  );
+  const { succeeded: _s, rowsWritten: _r, failed: _f, ...result } = pass;
+  return result;
+}
+
+async function runIndicatorPass(
+  context: WorkerContext,
+  log: Logger,
+  now: Date,
+): Promise<IndicatorPassResult> {
+  const { db } = context;
+
+  // Indicators computed across a session that was never loaded look plausible and
+  // are wrong, so ask the ingestion bookkeeping first. Before anything is written.
+  const newest = await getLatestDailyCandleTime(db);
+  if (newest !== null) await checkSessionIngested(db, log, istDateKey(newest));
 
   const strategyVersionId = await registerStrategy(
     db,
