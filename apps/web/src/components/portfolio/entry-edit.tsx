@@ -35,6 +35,7 @@ export function EditEntryDialog({
   const [shares, setShares] = React.useState('');
   const [total, setTotal] = React.useState('');
   const [date, setDate] = React.useState('');
+  const [acquiredOnText, setAcquiredOnText] = React.useState('');
   const [error, setError] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
 
@@ -43,6 +44,7 @@ export function EditEntryDialog({
     setShares(String(entry.shares));
     setTotal(paiseToPlain(entry.amountPaise));
     setDate(entry.tradeDate);
+    setAcquiredOnText(entry.acquiredOn ?? '');
     setError(null);
   }, [entry]);
 
@@ -55,7 +57,16 @@ export function EditEntryDialog({
     if (totalPaise === null) return setError('Enter the total in rupees, for example 12450.50.');
     setBusy(true);
     setError(null);
-    const body: EditEntryBody = { tradeDate: date, shares: n, totalPaise };
+    if (entry.kind === 'opening' && acquiredOnText !== '' && acquiredOnText > date)
+      return setError('The purchase date cannot be after the date the numbers are true on.');
+    const body: EditEntryBody = {
+      tradeDate: date,
+      shares: n,
+      totalPaise,
+      ...(entry.kind === 'opening'
+        ? { acquiredOn: acquiredOnText === '' ? null : acquiredOnText }
+        : {}),
+    };
     const result = await request(`/api/portfolio/entries/${entry.id}`, 'PATCH', body);
     setBusy(false);
     if (!result.ok) return setError(result.message);
@@ -119,6 +130,21 @@ export function EditEntryDialog({
               onChange={(e) => setTotal(e.target.value)}
             />
           </div>
+          {entry?.kind === 'opening' && (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="pf-edit-acquired-on">Acquired on (optional)</Label>
+              <Input
+                id="pf-edit-acquired-on"
+                type="date"
+                max={date === '' ? today : date}
+                value={acquiredOnText}
+                onChange={(e) => setAcquiredOnText(e.target.value)}
+              />
+              <span className="text-xs text-muted-foreground">
+                Used for how long you have held them. Leave empty if you do not know.
+              </span>
+            </div>
+          )}
           {error !== null && (
             <p
               role="alert"
@@ -185,6 +211,7 @@ export function EntryRows({
               <div className="text-xs text-muted-foreground tabular-nums">
                 {longDate(entry.tradeDate)} · {entry.shares} shares ·{' '}
                 {formatPaise(entry.amountPaise)}
+                {entry.acquiredOn === null ? '' : ` · acquired ${longDate(entry.acquiredOn)}`}
                 {entry.source === 'file' ? ' · from a file' : ''}
               </div>
             </div>

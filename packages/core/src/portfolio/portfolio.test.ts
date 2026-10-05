@@ -166,7 +166,7 @@ const e = (
 ): PortfolioEntry => ({ id, instrumentId, kind, tradeDate: date, shares, amountPaise });
 
 describe('derivePortfolio', () => {
-  it('adds shares and cost, and removes cost in proportion', () => {
+  it('removes shares from the oldest purchase first (FIFO)', () => {
     const r = derivePortfolio(
       [
         e(1, 'add', '2025-01-01', 10, 10_000),
@@ -176,8 +176,24 @@ describe('derivePortfolio', () => {
       [],
     );
     expect(r.problems).toEqual([]);
-    expect(r.holdings).toEqual([
-      { instrumentId: 1, shares: 15, costPaise: 18_000, adjustments: [] },
+    // 5 shares leave the ₹100.00 lot (cost 5,000): 15 shares remain at 5,000 + 14,000.
+    expect(r.holdings[0]).toMatchObject({ instrumentId: 1, shares: 15, costPaise: 19_000 });
+    expect(r.holdings[0]?.lots.map((l) => [l.entryId, l.shares, l.costPaise])).toEqual([
+      [1, 5, 5_000],
+      [2, 10, 14_000],
+    ]);
+    expect(r.realisations).toEqual([
+      expect.objectContaining({
+        entryId: 3,
+        lotEntryId: 1,
+        shares: 5,
+        costPaise: 5_000,
+        proceedsPaise: 9_000,
+        gainPaise: 4_000,
+        daysHeld: 59,
+        term: 'short',
+        intraday: false,
+      }),
     ]);
   });
   it('closes a holding when everything is removed and leaves no cost behind', () => {

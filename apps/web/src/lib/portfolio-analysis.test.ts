@@ -25,6 +25,7 @@ const holding = (
   dayChangeRatio: null,
   weight,
   adjustments: [],
+  historyGapBefore: null,
 });
 
 const dto = (holdings: PortfolioHoldingDto[]): PortfolioDto => ({

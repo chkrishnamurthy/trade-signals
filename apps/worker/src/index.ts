@@ -41,6 +41,7 @@ import { createPaperJobs } from './jobs/paper.js';
 import { refreshLatestQuotes } from './jobs/quote-cache.js';
 import { refreshProviderCredential } from './jobs/refresh-credential.js';
 import {
+  backfillCorporateHistory,
   backfillDividends,
   backfillStockAnalysis,
   buildScreenerSnapshot,
@@ -435,6 +436,15 @@ function buildScheduler(context: WorkerContext): Jobs {
         },
       },
       {
+        // On demand only (`--once backfill-corporate-history`): ten years of
+        // splits, bonuses and dividends for portfolio history. Never scheduled.
+        name: 'backfill-corporate-history',
+        schedule: '0 0 31 2 *',
+        run: async () => {
+          await backfillCorporateHistory(context, log.child('backfill-corporate-history'));
+        },
+      },
+      {
         // Rebuild the latest snapshot by hand (`--once build-screener-snapshot`).
         name: 'build-screener-snapshot',
         schedule: '0 0 31 2 *',
@@ -689,6 +699,7 @@ async function main(): Promise<void> {
           'extract-ipo-rhp',
           'ingest-sebi-filings',
           'backfill-ipos',
+          'backfill-corporate-history',
           'backfill-ipo-rhp',
           'calendar-refresh',
           'calendar-check',

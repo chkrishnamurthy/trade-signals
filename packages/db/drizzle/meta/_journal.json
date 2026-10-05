@@ -288,6 +288,13 @@
       "when": 1791709200000,
       "tag": "0041_portfolio_usage",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1791795600000,
+      "tag": "0042_holding_acquired_on",
+      "breakpoints": true
     }
   ]
 }

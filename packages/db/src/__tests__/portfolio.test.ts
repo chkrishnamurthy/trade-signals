@@ -5,8 +5,11 @@ import { resolveTestDatabaseUrl } from '../../../../test/db';
 import { createDatabase, type DatabaseHandle } from '../client.js';
 import { ensureInstruments } from '../repositories/instruments.js';
 import {
+  corporateHistoryFrom,
+  dailyClosesBetween,
   deleteAllHoldingEntries,
   deleteHoldingEntry,
+  dividendsBetween,
   holdingReference,
   latestDailyCloses,
   listHoldingEntries,
@@ -214,6 +217,74 @@ suite('portfolio entries', () => {
     expect(closes.get(a)).toMatchObject({ closePaise: 111, previousClosePaise: 105 });
     expect(closes.has(b)).toBe(false);
     expect((await latestDailyCloses(handle.db, [])).size).toBe(0);
+  });
+
+  it('stores an optional purchase date, and refuses one after the entry date', async () => {
+    const ok = await writeHoldingEntries(handle.db, owner, {
+      rows: [add(a, { kind: 'opening', tradeDate: '2026-10-05', tradeId: `ACQ-${tag}` })],
+    });
+    expect(ok.ok).toBe(true);
+    const [row] = (await listHoldingEntries(handle.db, owner)).filter(
+      (e) => e.tradeDate === '2026-10-05' && e.instrumentId === a,
+    );
+    expect(row?.acquiredOn).toBeNull();
+    const dated = await writeHoldingEntries(handle.db, owner, {
+      rows: [{ ...add(a, { kind: 'opening', tradeDate: '2026-10-05' }), acquiredOn: '2019-04-01' }],
+    });
+    expect(dated.ok).toBe(true);
+    expect(
+      (await listHoldingEntries(handle.db, owner)).some((e) => e.acquiredOn === '2019-04-01'),
+    ).toBe(true);
+    await expect(
+      writeHoldingEntries(handle.db, owner, {
+        rows: [
+          { ...add(a, { kind: 'opening', tradeDate: '2026-10-05' }), acquiredOn: '2026-10-06' },
+        ],
+      }),
+    ).rejects.toThrow();
+    const [entry] = (await listHoldingEntries(handle.db, owner)).filter(
+      (e) => e.acquiredOn === '2019-04-01',
+    );
+    expect(
+      await updateHoldingEntry(handle.db, owner, entry!.id, {
+        tradeDate: '2026-10-05',
+        shares: 10,
+        amountPaise: 1,
+        acquiredOn: null,
+      }),
+    ).toEqual({ ok: true, value: true });
+    expect(
+      (await listHoldingEntries(handle.db, owner)).find((e) => e.id === entry!.id)?.acquiredOn,
+    ).toBeNull();
+  });
+
+  it('reads raw closes by IST session date, one per day, oldest first', async () => {
+    // 03:45 UTC is 09:15 IST on the same calendar day.
+    await handle.db.execute(sql`insert into daily_candles(instrument_id, ts, open, high, low, close, volume, provider_id) values
+      (${b}, '2025-03-03T03:45:00Z', 200, 200, 200, 200, 1, 'test'),
+      (${b}, '2025-03-04T03:45:00Z', 210, 210, 210, 210, 1, 'test'),
+      (${b}, '2025-03-10T03:45:00Z', 230, 230, 230, 230, 1, 'test')`);
+    const closes = await dailyClosesBetween(handle.db, [b], '2025-03-03', '2025-03-05');
+    expect(closes.get(b)).toEqual([
+      { date: '2025-03-03', closePaise: 200 },
+      { date: '2025-03-04', closePaise: 210 },
+    ]);
+    expect((await dailyClosesBetween(handle.db, [], '2025-01-01', '2025-12-31')).size).toBe(0);
+  });
+
+  it('lists dividends in a range, with unknown amounts kept as null', async () => {
+    await handle.db.execute(sql`insert into dividends(instrument_id, ex_date, kind, amount_paise, subject, source) values
+      (${b}, '2025-03-05', 'interim', null, 'Interim Dividend', 'test')`);
+    const rows = await dividendsBetween(handle.db, [b], '2025-01-01', '2025-12-31');
+    expect(rows).toEqual([
+      { instrumentId: b, exDate: '2025-03-05', kind: 'interim', amountPaise: null },
+    ]);
+  });
+
+  it('says how far back corporate actions are on record', async () => {
+    const from = await corporateHistoryFrom(handle.db);
+    expect(from).not.toBeNull();
+    expect(from! <= '2026-06-01').toBe(true);
   });
 
   it('deletes everything an owner entered, and only theirs', async () => {

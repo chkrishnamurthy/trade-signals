@@ -9,6 +9,7 @@ import {
   summarisePortfolio,
 } from '@equitywise/core';
 import {
+  corporateHistoryFrom,
   deleteAllHoldingEntries,
   deleteHoldingEntry,
   getInstrumentBySymbol,
@@ -103,6 +104,7 @@ function toEntry(row: HoldingEntryRow): PortfolioEntry {
     instrumentId: row.instrumentId,
     kind: row.kind,
     tradeDate: row.tradeDate,
+    acquiredOn: row.acquiredOn,
     shares: row.shares,
     amountPaise: row.amountPaise,
   };
@@ -139,9 +141,10 @@ async function buildPortfolio(ownerId: number): Promise<Built> {
   const db = getDatabase();
   const ledger = await listHoldingEntries(db, ownerId);
   const ids = [...new Set(ledger.map((entry) => entry.instrumentId))];
-  const [changes, cached] = await Promise.all([
+  const [changes, cached, historyFrom] = await Promise.all([
     shareChangesFor(ids),
     latestQuotesForInstruments(db, ids).catch(() => new Map()),
+    corporateHistoryFrom(db).catch(() => null),
   ]);
   // Anything the live-quote cache has not reached yet falls back to its last stored close.
   const missing = ids.filter((id) => !cached.has(id));
@@ -212,6 +215,11 @@ async function buildPortfolio(ownerId: number): Promise<Built> {
           dayChangeRatio: h.dayChangeRatio,
           weight: h.weight,
           adjustments: [...h.adjustments],
+          // A purchase older than the split/bonus record could be missing an adjustment.
+          historyGapBefore:
+            historyFrom !== null && h.lots.some((lot) => lot.acquiredOn < historyFrom)
+              ? historyFrom
+              : null,
         };
       }),
     entries: ledger.slice(0, 500).map(toEntryDto),
@@ -261,6 +269,7 @@ function toEntryDto(entry: HoldingEntryRow): PortfolioEntryDto {
     name: entry.name,
     kind: entry.kind,
     tradeDate: entry.tradeDate,
+    acquiredOn: entry.acquiredOn,
     shares: entry.shares,
     amountPaise: entry.amountPaise,
     source: entry.source,
@@ -332,7 +341,28 @@ export const addEntrySchema = z.object({
   /** Integer paise a share. */
   pricePaise: z.number().int().min(1, 'Enter the price a share.').max(100_000_000_00),
   chargesPaise: z.number().int().min(0).max(100_000_000_00).default(0),
+  /** Shares I own now: when they were really bought, if known. Holding period only. */
+  acquiredOn: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Enter the purchase date as YYYY-MM-DD.')
+    .nullish(),
 });
+
+/** A purchase date, if given, must be a real day, not after the entry's date. */
+function checkAcquiredOn(
+  acquiredOn: string | null | undefined,
+  tradeDate: string,
+): MutationOutcome | null {
+  if (acquiredOn === null || acquiredOn === undefined) return null;
+  if (!realDate(acquiredOn)) return fail(400, 'INVALID_DATE', 'That purchase date does not exist.');
+  if (acquiredOn > tradeDate)
+    return fail(
+      400,
+      'ACQUIRED_AFTER_ENTRY',
+      'The purchase date cannot be after the date the numbers are true on.',
+    );
+  return null;
+}
 
 export type MutationOutcome =
   | { ok: true }
@@ -358,6 +388,9 @@ export async function addPortfolioEntry(
   if (!realDate(input.tradeDate)) return fail(400, 'INVALID_DATE', 'That date does not exist.');
   if (input.tradeDate > todayInIndia())
     return fail(400, 'FUTURE_DATE', 'The date cannot be in the future.');
+  const acquired = input.kind === 'opening' ? (input.acquiredOn ?? null) : null;
+  const badAcquired = checkAcquiredOn(acquired, input.tradeDate);
+  if (badAcquired !== null) return badAcquired;
   const db = getDatabase();
   const instrument = await getInstrumentBySymbol(db, input.symbol, 'NSE');
   if (instrument === null) {
@@ -388,6 +421,7 @@ export async function addPortfolioEntry(
         shares: input.shares,
         amountPaise,
         source: 'manual',
+        acquiredOn: acquired,
       },
     ],
     validate: (ledger) => firstProblem(ledger, changes),
@@ -415,6 +449,11 @@ export const editEntrySchema = z.object({
     .min(1, 'Enter at least 1 share.')
     .max(1_000_000_000),
   totalPaise: z.number().int().min(0).max(1_000_000_000_000_00),
+  /** Only stored on an opening entry; null clears it, omitted leaves it. */
+  acquiredOn: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Enter the purchase date as YYYY-MM-DD.')
+    .nullish(),
 });
 
 export async function editPortfolioEntry(
@@ -427,12 +466,21 @@ export async function editPortfolioEntry(
     return fail(400, 'FUTURE_DATE', 'The date cannot be in the future.');
   const db = getDatabase();
   const existing = await listHoldingEntries(db, ownerId);
+  const target = existing.find((entry) => entry.id === id);
+  const acquiredOn = target?.kind === 'opening' ? input.acquiredOn : undefined;
+  const badAcquired = checkAcquiredOn(acquiredOn, input.tradeDate);
+  if (badAcquired !== null) return badAcquired;
   const changes = await shareChangesFor(existing.map((entry) => entry.instrumentId));
   const result = await updateHoldingEntry(
     db,
     ownerId,
     id,
-    { tradeDate: input.tradeDate, shares: input.shares, amountPaise: input.totalPaise },
+    {
+      tradeDate: input.tradeDate,
+      shares: input.shares,
+      amountPaise: input.totalPaise,
+      ...(acquiredOn === undefined ? {} : { acquiredOn }),
+    },
     (ledger) => firstProblem(ledger, changes),
   );
   if (!result.ok)

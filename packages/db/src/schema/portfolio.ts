@@ -45,6 +45,12 @@ export const holdingEntries = pgTable(
       .references(() => instruments.id, { onDelete: 'cascade' }),
     kind: text().notNull(),
     tradeDate: date().notNull(),
+    /**
+     * When the shares were really bought, if the user knows it and it differs from
+     * `trade_date` (an opening balance entered today for shares bought years ago).
+     * Used for holding period only; returns count from `trade_date`.
+     */
+    acquiredOn: date(),
     shares: integer().notNull(),
     amountPaise: bigint({ mode: 'number' }).notNull(),
     source: text().notNull(),
@@ -62,6 +68,10 @@ export const holdingEntries = pgTable(
     check('holding_entries_source_check', sql`${table.source} in ('manual', 'file')`),
     check('holding_entries_shares_positive', sql`${table.shares} > 0`),
     check('holding_entries_amount_nonnegative', sql`${table.amountPaise} >= 0`),
+    check(
+      'holding_entries_acquired_before_trade',
+      sql`${table.acquiredOn} is null or ${table.acquiredOn} <= ${table.tradeDate}`,
+    ),
   ],
 );
 

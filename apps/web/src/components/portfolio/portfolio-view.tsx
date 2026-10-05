@@ -323,6 +323,13 @@ export function standOut(holdings: readonly PortfolioHoldingDto[]): string[] {
       `${below.length} of ${priced.length} ${priced.length === 1 ? 'holding is' : 'holdings are'} below your average cost${worst?.gainRatio == null ? '' : `; ${worst.name} is ${pctText(worst.gainRatio)} below`}.`,
     );
   }
+  const gaps = holdings.filter((h) => h.historyGapBefore !== null);
+  const [firstGap] = gaps;
+  if (firstGap?.historyGapBefore != null) {
+    out.push(
+      `${gaps.length === 1 ? `${firstGap.name} has a purchase` : `${gaps.length} holdings have purchases`} from before ${longDate(firstGap.historyGapBefore)}, when splits and bonuses are not on record; check the share count against your broker.`,
+    );
+  }
   for (const h of holdings) {
     for (const a of h.adjustments) {
       out.push(
@@ -529,6 +536,7 @@ function AddEntryDialog({
   const [price, setPrice] = React.useState('');
   const [date, setDate] = React.useState(today);
   const [charges, setCharges] = React.useState('');
+  const [acquiredOnText, setAcquiredOnText] = React.useState('');
   const [error, setError] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [more, setMore] = React.useState(false);
@@ -558,6 +566,7 @@ function AddEntryDialog({
     setShares('');
     setPrice('');
     setCharges('');
+    setAcquiredOnText('');
     setDate(today);
     setError(null);
   };
@@ -577,6 +586,8 @@ function AddEntryDialog({
     const chargesPaise = charges.trim() === '' ? 0 : parseRupeesInput(charges);
     if (chargesPaise === null || chargesPaise < 0)
       return setError('Enter charges in rupees, or leave it empty.');
+    if (kind === 'opening' && acquiredOnText !== '' && acquiredOnText > date)
+      return setError('The purchase date cannot be after the date the numbers are true on.');
     setBusy(true);
     setError(null);
     const result = await request('/api/portfolio/entries', 'POST', {
@@ -586,6 +597,7 @@ function AddEntryDialog({
       shares: n,
       pricePaise,
       chargesPaise,
+      acquiredOn: kind === 'opening' && acquiredOnText !== '' ? acquiredOnText : null,
     } satisfies AddEntryBody);
     setBusy(false);
     if (!result.ok) return setError(result.message);
@@ -734,6 +746,22 @@ function AddEntryDialog({
                   onChange={(e) => setCharges(e.target.value)}
                   placeholder="38.20"
                 />
+              </div>
+            )}
+            {kind === 'opening' && (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="pf-acquired-on">Acquired on (optional)</Label>
+                <Input
+                  id="pf-acquired-on"
+                  type="date"
+                  max={date === '' ? today : date}
+                  value={acquiredOnText}
+                  onChange={(e) => setAcquiredOnText(e.target.value)}
+                  aria-describedby="pf-acquired-on-hint"
+                />
+                <span id="pf-acquired-on-hint" className="text-xs text-muted-foreground">
+                  Used for how long you have held them. Returns count from the date above.
+                </span>
               </div>
             )}
           </div>

@@ -32,6 +32,7 @@ export interface HoldingEntryRow {
   readonly name: string;
   readonly kind: HoldingEntryKind;
   readonly tradeDate: string;
+  readonly acquiredOn: string | null;
   readonly shares: number;
   readonly amountPaise: number;
   readonly source: 'manual' | 'file';
@@ -47,6 +48,7 @@ export interface NewHoldingEntry {
   readonly amountPaise: number;
   readonly source: 'manual' | 'file';
   readonly tradeId?: string | null;
+  readonly acquiredOn?: string | null;
 }
 
 export async function listHoldingEntries(
@@ -61,6 +63,7 @@ export async function listHoldingEntries(
       name: instruments.name,
       kind: holdingEntries.kind,
       tradeDate: holdingEntries.tradeDate,
+      acquiredOn: holdingEntries.acquiredOn,
       shares: holdingEntries.shares,
       amountPaise: holdingEntries.amountPaise,
       source: holdingEntries.source,
@@ -117,6 +120,7 @@ export async function writeHoldingEntries(
               amountPaise: r.amountPaise,
               source: r.source,
               tradeId: r.tradeId ?? null,
+              acquiredOn: r.acquiredOn ?? null,
             })),
           )
           .onConflictDoNothing()
@@ -167,6 +171,7 @@ async function listHoldingEntriesTx(tx: Tx, ownerId: number): Promise<HoldingEnt
       name: instruments.name,
       kind: holdingEntries.kind,
       tradeDate: holdingEntries.tradeDate,
+      acquiredOn: holdingEntries.acquiredOn,
       shares: holdingEntries.shares,
       amountPaise: holdingEntries.amountPaise,
       source: holdingEntries.source,
@@ -311,7 +316,12 @@ export async function updateHoldingEntry(
   db: Database,
   ownerId: number,
   id: number,
-  patch: { readonly tradeDate: string; readonly shares: number; readonly amountPaise: number },
+  patch: {
+    readonly tradeDate: string;
+    readonly shares: number;
+    readonly amountPaise: number;
+    readonly acquiredOn?: string | null;
+  },
   validate?: (ledger: readonly HoldingEntryRow[]) => string | null,
 ): Promise<WriteResult<boolean>> {
   return db
@@ -319,7 +329,12 @@ export async function updateHoldingEntry(
       await tx.execute(sql`select pg_advisory_xact_lock(${ownerId}::int, 105)`);
       const updated = await tx
         .update(holdingEntries)
-        .set({ tradeDate: patch.tradeDate, shares: patch.shares, amountPaise: patch.amountPaise })
+        .set({
+          tradeDate: patch.tradeDate,
+          shares: patch.shares,
+          amountPaise: patch.amountPaise,
+          ...(patch.acquiredOn === undefined ? {} : { acquiredOn: patch.acquiredOn }),
+        })
         .where(and(eq(holdingEntries.ownerId, ownerId), eq(holdingEntries.id, id)))
         .returning({ id: holdingEntries.id });
       if (updated.length === 0) return { ok: true as const, value: false };
@@ -573,4 +588,97 @@ export async function upcomingHoldingEvents(
         ? 1
         : a.instrumentId - b.instrumentId,
   );
+}
+
+export interface DailyClose {
+  /** Session date, IST. */
+  readonly date: string;
+  readonly closePaise: number;
+}
+
+/**
+ * Raw daily closes (as traded, never adjusted) for some instruments between two
+ * IST dates, oldest first. One query for every held stock; returns and value
+ * over time apply splits themselves, by date.
+ */
+export async function dailyClosesBetween(
+  db: Database,
+  instrumentIds: readonly number[],
+  from: string,
+  to: string,
+): Promise<Map<number, DailyClose[]>> {
+  const out = new Map<number, DailyClose[]>();
+  if (instrumentIds.length === 0) return out;
+  const result = await db.execute<{ instrument_id: number; day: string; close: number }>(sql`
+    select distinct on (instrument_id, day) instrument_id, day, close from (
+      select instrument_id,
+             to_char(ts at time zone 'Asia/Kolkata', 'YYYY-MM-DD') as day,
+             close, ts
+      from daily_candles
+      where instrument_id in (${sql.join(
+        instrumentIds.map((id) => sql`${id}`),
+        sql`, `,
+      )})
+        and ts >= (${from}::date - interval '1 day')
+        and ts < (${to}::date + interval '1 day')
+    ) t
+    where day between ${from} and ${to}
+    order by instrument_id, day, ts desc`);
+  for (const row of result.rows) {
+    const list = out.get(row.instrument_id) ?? [];
+    list.push({ date: row.day, closePaise: Number(row.close) });
+    out.set(row.instrument_id, list);
+  }
+  return out;
+}
+
+export interface DividendRecord {
+  readonly instrumentId: number;
+  readonly exDate: string;
+  readonly kind: string;
+  /** Per share, paise; null when the source did not state it. */
+  readonly amountPaise: number | null;
+}
+
+/** Cash dividends with an ex-date in a range, for some instruments. */
+export async function dividendsBetween(
+  db: Database,
+  instrumentIds: readonly number[],
+  from: string,
+  to: string,
+): Promise<DividendRecord[]> {
+  if (instrumentIds.length === 0) return [];
+  return db
+    .select({
+      instrumentId: dividends.instrumentId,
+      exDate: dividends.exDate,
+      kind: dividends.kind,
+      amountPaise: dividends.amountPaise,
+    })
+    .from(dividends)
+    .where(
+      and(
+        inArray(dividends.instrumentId, [...instrumentIds]),
+        gte(dividends.exDate, from),
+        lte(dividends.exDate, to),
+      ),
+    )
+    .orderBy(asc(dividends.exDate));
+}
+
+/** The worker checkpoint that records how far back corporate actions were loaded. */
+export const CORPORATE_HISTORY_CHECKPOINT = 'corporate-actions-history';
+
+/**
+ * The earliest date from which splits, bonuses and dividends are on record: the
+ * long history load if it has run, else the oldest recorded action. Null when
+ * nothing is recorded.
+ */
+export async function corporateHistoryFrom(db: Database): Promise<string | null> {
+  const result = await db.execute<{ from_date: string | null }>(sql`
+    select coalesce(
+      (select cursor->>'from' from worker_checkpoints where job = ${CORPORATE_HISTORY_CHECKPOINT} and (cursor->>'done')::boolean),
+      (select to_char(min(ex_date), 'YYYY-MM-DD') from corporate_actions)
+    ) as from_date`);
+  return result.rows[0]?.from_date ?? null;
 }

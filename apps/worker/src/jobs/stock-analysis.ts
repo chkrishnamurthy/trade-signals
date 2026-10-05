@@ -20,6 +20,7 @@ import {
 import {
   announcementCountsSince,
   type BreadthUpsert,
+  CORPORATE_HISTORY_CHECKPOINT,
   currentIndexKeys,
   type DividendInsert,
   dealCountsSince,
@@ -855,6 +856,42 @@ export async function backfillDividends(
   });
   await markDividendsLoaded(context, from);
   await buildScreenerSnapshot(context, log.child('snapshot'), { now });
+}
+
+/** How many years of corporate actions the long history load walks back. */
+export const CORPORATE_HISTORY_YEARS = 10;
+
+/**
+ * On demand (`--once backfill-corporate-history`): splits, bonuses,
+ * consolidations and dividends going back `CORPORATE_HISTORY_YEARS`, so a
+ * portfolio entry from years ago gets the right share count and dividend
+ * history. Price candles are not touched: adjustments are rows applied on read
+ * (CLAUDE.md rule 5). Actions already recorded are skipped, so it is safe to
+ * re-run. Records where it reached in the `corporate-actions-history`
+ * checkpoint, which the portfolio reads to say how far back data goes.
+ */
+export async function backfillCorporateHistory(
+  context: WorkerContext,
+  log: Logger,
+  options: { now?: Date; years?: number; source?: NseMarketSource } = {},
+): Promise<void> {
+  const now = options.now ?? new Date();
+  const today = istDateKey(now);
+  const from = shiftDate(today, -Math.round(365 * (options.years ?? CORPORATE_HISTORY_YEARS)));
+  await syncCorporateActions(context, log.child('corporate-actions'), {
+    from,
+    to: shiftDate(today, 30),
+    now,
+    // One request per quarter: ten years is ~41 requests, above the nightly budget.
+    source: options.source ?? createNseMarketSource({ maxRequestsPerRun: 60 }),
+  });
+  await setWorkerCheckpoint(
+    context.db,
+    CORPORATE_HISTORY_CHECKPOINT,
+    { done: true, from },
+    Date.now(),
+  );
+  log.info('corporate history loaded', { from });
 }
 
 // ---------------------------------------------------------------------------

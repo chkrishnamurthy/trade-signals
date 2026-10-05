@@ -147,6 +147,13 @@ export function HoldingDetailView({ detail }: { detail: HoldingDetailDto }) {
                 {h.dayChangeRatio === null ? '—' : <PercentChange value={h.dayChangeRatio * 100} />}
               </Fact>
             </dl>
+            {h.historyGapBefore !== null && (
+              <p className="mt-3 text-xs text-muted-foreground">
+                Splits and bonuses before {longDate(h.historyGapBefore)} are not on record. If this
+                stock had one before then, the share count here may be off: edit the entry to match
+                your broker.
+              </p>
+            )}
             {h.adjustments.map((a) => (
               <p key={`${a.kind}${a.exDate}`} className="mt-3 text-xs text-muted-foreground">
                 Share count adjusted for a {a.kind} with ex-date {longDate(a.exDate)}, from the

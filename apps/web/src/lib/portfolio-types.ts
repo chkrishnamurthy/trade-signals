@@ -26,6 +26,11 @@ export interface PortfolioHoldingDto {
   weight: number | null;
   /** Splits and bonuses applied on read, so the share count can be explained. */
   adjustments: { kind: string; exDate: string; ratio: number }[];
+  /**
+   * Set when a purchase predates the corporate-action history on record: a split
+   * or bonus before that date would not be reflected in the share count.
+   */
+  historyGapBefore: string | null;
 }
 
 export interface PortfolioEntryDto {
@@ -34,6 +39,8 @@ export interface PortfolioEntryDto {
   name: string;
   kind: 'opening' | 'add' | 'remove';
   tradeDate: string;
+  /** The real purchase date of an opening balance, when the user gave one. */
+  acquiredOn: string | null;
   shares: number;
   amountPaise: number;
   source: 'manual' | 'file';
@@ -98,6 +105,7 @@ export interface AddEntryBody {
   shares: number;
   pricePaise: number;
   chargesPaise: number;
+  acquiredOn?: string | null;
 }
 
 export interface HoldingDetailDto {
@@ -116,6 +124,7 @@ export interface EditEntryBody {
   shares: number;
   /** Total money for the entry in integer paise (cost with charges, or proceeds). */
   totalPaise: number;
+  acquiredOn?: string | null;
 }
 
 export interface UpcomingEventDto {
