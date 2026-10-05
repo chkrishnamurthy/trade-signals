@@ -1,506 +1,496 @@
----
-name: My holdings
-status: draft
-horizon: next
-created: 2026-10-05
-updated: 2026-10-05
-area: [web, db, core, worker, docs]
-phases_total: 7
-phases_done: 0
-phase_names: [Decision + rule change, Pure calculation, Table + repository, API, Page, Quotes + corporate actions, Privacy + verification]
-summary: A page where a signed-in user types the stocks they own and sees value and gain or loss. Version 1 is small and certain; everything beyond it (ledger, XIRR, tax statement, allocation, risk, import) is specified here but built only when users show they need it.
-owner: krishna
-blocked_by: [owner decision A/B/C in §1]
----
+# My holdings: plan, research and mockups
 
-# My holdings — the big plan
+> Planning only. No application code is changed by this document. Written 5 Oct 2026. Companion artifact page has the live mockups.
 
-**Status: draft. Nothing is built.** One decision (§1) gates everything. Sections 2–4 are the
-research and reasoning; §5–§9 are the specification; §10–§12 are rollout, measurement and
-risk. Research was done on 2026-10-05; sources are listed in §14, and anything I could not
-confirm from a source is marked **[verify]**.
+**Status:** draft, awaiting owner decisions (see Part 5). Supersedes the earlier four-tier plan.
 
----
+## 0. Rules check first
 
-## 0. In one page
+A holdings page touches three of our own rules. None of them is a blocker if the page is built as “you type it or upload it”, but one rule in CLAUDE.md has to be changed by you before any code is written.
 
-**What it is.** A page where you type what you own — stock, shares, average cost — and the app
-shows what it is worth today and your unrealised gain or loss, from prices it already has.
-Typed by hand. Never fetched from a broker. Nothing on it looks like an order.
 
-**Why build it.** A watchlist says "what I follow". Holdings says "what I own", which is what
-people open a finance app to check. Every serious Indian tracker has it.
+### Where the feature collides with what we already decided
 
-**How it grows.** Four tiers, each unlocked by evidence, not by enthusiasm:
+| Source | What it says | Collision with a holdings page | Severity |
+|---|---|---|---|
+| `CLAUDE.md` → Do not | “Do not build order execution of any kind — no place/modify/cancel order, order book, positions, funds, holdings, or broker portfolio. Not even read-only.” | Direct. A page called “My holdings” is the word the rule bans. The rule was written to stop a broker-connected portfolio. It does not say anything about shares the user types in, but its wording covers both. | **Blocking** until you edit the rule |
+| `CLAUDE.md` → BUY / SELL bullet | BUY/SELL may only label a signal’s direction. “Never ‘position’, never ‘quantity’, never ‘ORDER’.” | A ledger needs a number of shares and a direction of change. Using “Buy”, “Sell”, “Quantity” or “Position” in the ledger breaks the rule. We use “Added shares”, “Removed shares”, “Number of shares”, “Holding”. | **Wording only**, solved by a word list |
+| `CLAUDE.md` → Hard rule 3 (integer paise) | All prices are integer paise. | Compatible. Every price, cost, charge and dividend is stored as integer paise. Ratios such as XIRR are not money and may be decimals. Average cost is never stored: it is total cost ÷ shares, computed on read. | None |
+| `CLAUDE.md` → Hard rule 5 (never mutate price history) | No UPDATE on `candles`. Corporate actions are rows applied on read. | Compatible. The user’s own entries are user data, not price history, and may be edited. Splits and bonuses are applied on read from `corporate_actions`, never written into the user’s rows. | None |
+| `CLAUDE.md` → Deployed publicly, per-user accounts | Each user owns their own data. | Holdings are the most sensitive data the app would hold. They need owner-scoped repositories, no admin view and a delete-all. | Design requirement |
+| Product review §3.3 | A holdings view “conflicts with CLAUDE.md”, and the rule is “too strict for user-typed” entries. | We agreed the rule is too strict for typed or uploaded data and right for anything fetched from a broker. | Resolved by the compliant version below |
+| Product review §4.7 (SEBI) | Paid signals can look like investment advice and need research-analyst registration. | The Investment Advisers Regulations define advice to include “advice on investment portfolio”. A page that says “reduce ITC” or “you are over-exposed, rebalance” is portfolio advice. A page that says “ITC is 18.7% of your value” is a description. | **Compliance line**: describe, never recommend |
+| Product review §4.8 (data licence) | Fyers and Dhan API terms are not a licence to redistribute data. | Showing a signed-in user’s own shares valued at the last price is the same use as the watchlist. Benchmark index levels (Nifty 50, Nifty 500) may need NSE Indices terms checked before they appear on a public product. | Check terms for index data |
+| Product review §4.9 (NSE data policy) | Logged-in only, `noindex`. | Same as today. The holdings page is signed-in only and never indexed. | None |
+| Product review “Later” list | Portfolio import via broker OAuth (Zerodha Kite Connect). | Stays **out**. That is the one thing the old rule was written to stop. | Stay banned |
+| India’s DPDP Act and Rules (2025) | Notice that lists the data and the purpose; security; rights to see and erase. | Core duties apply from 13 May 2027, but holdings is a clear case for writing the notice now. | Plan for it |
 
-| Tier | Name | What it adds | Built when |
-| --- | --- | --- | --- |
-| **1** | **Core** | Add, edit, remove; value; gain or loss; day change; share of total; split warning; CSV download | After the owner decision |
-| **2** | **Insight** | Allocation by sector and size, concentration facts, events for held stocks, "set my own alert" shortcut | When ≥ 50 people hold stocks here, or asked for |
-| **3** | **Ledger** | Record each addition and removal with a date → true XIRR, realised gains, dividends received, value over time | When Tier 1 users ask "what is my real return" |
-| **4** | **Advanced** | Capital-gains statement for your CA, benchmark comparison, risk numbers, file import, multiple books | Each one separately, on its own trigger (§11) |
 
-**What it will never do.** Connect to a broker. Say buy, sell, rebalance, harvest losses or "you
-are over-exposed". Give a score or a verdict. These are not omissions; they are the line
-between a tracker and investment advice (§9).
+### The compliant version we recommend
 
-**Size.** Tier 1 about 4 working days. Tiers 2–4 together about 6 to 8 weeks if all were
-wanted, which they will not be.
+- **Entry:** typed by hand, or uploaded as a CSV/XLSX file the user chooses. Nothing is fetched from a broker.
+- **No broker link of any kind:** no login, no Kite Connect, no Account Aggregator consent flow in this scope.
+- **No order surface:** no buy, sell, order, basket, rebalance or “execute” affordance, and no price alert phrased as a trade.
+- **No advice:** every sentence describes the user’s own numbers. No “you should”, no rating, no target, no score without its parts.
+- **Private by construction:** owner-scoped queries, never logged, not visible to admins, deleted with the account.
 
----
 
-## 1. The decision this plan needs
+### Exact CLAUDE.md changes, for you to approve
 
-`CLAUDE.md` forbids this today: *"no place/modify/cancel order, order book, positions, funds,
-holdings, or broker portfolio. Not even read-only."* That rule keeps the product from becoming
-a broker. A list the user types is not a broker feature, but it is inside the wording, so the
-owner decides.
+> **Your decision.** None of this is applied. I have not edited `CLAUDE.md`. If you approve, these are the edits I would make before the first line of holdings code.
 
-| Option | Meaning | Recommendation |
-| --- | --- | --- |
-| **A — keep the rule** | No holdings page | Choose if the product should stay a research tool |
-| **B — allow typed holdings** (this plan) | Narrow the rule: broker-fetched holdings and any order feature stay banned; holdings the user types are allowed | **Recommended** |
-| **C — columns on the watchlist** | Optional shares and average cost per watchlist row | Cheaper, but mixes "watching" with "owning" and cannot grow into Tiers 3–4 |
+**Edit 1 — narrow the ban, keep the intent**
 
-**Rule text to adopt if B** (`CLAUDE.md`, `AGENTS.md`):
-> Holdings the user types themselves are allowed (shares, cost, dates). Holdings fetched from a
-> broker, demat account or any third party remain banned, as does every order feature. Holdings
-> pages use the words *shares you own, average cost, value, gain or loss, added, removed*. They
-> never use *position, quantity, order, entry price, buy, sell*.
-
-Assumed defaults, change any: separate page named **My holdings** (never "portfolio": paper
-trading already uses that word and the rule bans "broker portfolio") · gain and loss included ·
-CSV import later · ships to everyone after the privacy text is updated.
-
----
-
-## 2. Who needs what — the research
-
-### 2.1 The four kinds of user
-
-| User | Typical shape | What they actually want | Tier that serves them |
-| --- | --- | --- | --- |
-| **Steady investor** | 5–30 stocks, adds a few times a year | "What is it worth? Am I up?" Seen weekly | 1, then 2 |
-| **Active investor** | 20–80 stocks, trades often | Day change, contributors, events, real return | 1, 2, 3 |
-| **Year-end filer** | Any size | A capital-gains statement their CA can use | 3, 4 |
-| **Family manager** | Several accounts | One view across people | 4 (books) |
-
-The steady investor is most people. Version 1 is built for them; the others are what the later
-tiers are for, and only if they show up.
-
-### 2.2 What the market already offers
-
-From the vendors' own pages (§14) unless marked.
-
-| Capability | Zerodha Console | Groww | INDmoney | Tickertape |
-| --- | --- | --- | --- | --- |
-| Value, gain/loss, day change | ✓ | ✓ | ✓ | ✓ |
-| **XIRR** | ✓ vs Nifty 50 and Midcap 150; shows "–" when most money is under a year old | ✓ | ✓ | ✓ [search snippet] |
-| Benchmark vs Nifty 50 | ✓ | ✓ | ✓ | – |
-| Value over time vs invested | – | ✓ | ✓ | – |
-| Sector allocation | – | ✓ | ✓ | – |
-| Market-cap split | – | ✓ (ETFs excluded) | ✓ | – |
-| Dividends received | ✓ quarterly bars | – | ✓ | – |
-| Top contributors / gainers | ✓ | – | ✓ | – |
-| **Events timeline** (results, actions, filings) | ✓ | – | – | – |
-| Red flags / scores | ✓ (third-party data) | – | "expert analysis" | ✓ portfolio score |
-| Tax P&L statements | ✓ | – | – | – |
-| Family / multiple accounts | ✓ family view | – | ✓ | – |
-| Broker import | their own | their own | many brokers | 16+ brokers, **one at a time** [snippet] |
-
-**What users complain about** [search snippets, treat as directional, not measured]: corporate
-actions not applied correctly; manual entry and Excel being painful; one broker at a time;
-tools that want a login and your data shared with third parties.
-
-### 2.3 Where we can be genuinely different
-1. **Honest arithmetic.** Splits and bonuses flagged instead of silently wrong. "As of" labels
-   everywhere. Totals that say how many holdings they cover. (The complaint list above is
-   mostly about this.)
-2. **No broker link.** Nothing to authorise, nothing to leak. A selling point for the privacy-minded,
-   and the reason the rule can be narrowed rather than dropped.
-3. **Every number explained.** The product's existing stance: no figure without its inputs.
-   A gain shows shares × (price − cost), on tap.
-4. **Facts from data we already collect:** sector from NSE index files, size bucket from index
-   membership, dividends and corporate actions from NSE feeds, events from our calendar.
-
-### 2.4 What we will not copy
-Scores, "red flags" and "expert views" (need fundamentals we do not have, and they edge toward
-advice), broker connections (rule, plus fragile), and anything that tells the user what to do.
-
----
-
-## 3. Principles
-
-1. **Describe, never recommend.** Every sentence is a fact about the user's own numbers.
-2. **The user's figures, labelled as theirs.** "Figures you entered."
-3. **Integer paise, integer shares.** Rupees convert once, in the form (hard rule 3).
-4. **No number without its source and time.** "Last price as of 15:30 IST."
-5. **A missing number is a dash, never a zero.** Totals say what they cover.
-6. **Progressive disclosure.** A tab appears only when the data can fill it honestly.
-7. **Private by construction.** Owner-scoped, deleted with the account, never logged, no admin view.
-8. **Pure maths in `packages/core`.** Hand-computed fixtures; the same code serves page, export
-   and any future job (hard rule 1).
-9. **Rules that change live in versioned config**, with a source and a verified-through date,
-   exactly as `config/nse-calendar.yaml` already does.
-
----
-
-## 4. Tier 1 — Core (the thing to build first)
-
-### 4.1 What the user sees
-- Sidebar entry **My holdings** under *My watchlists*.
-- Four tiles: **Current value · Invested · Unrealised gain or loss (₹, %) · Today's change**.
-- A table: Stock · Shares · Average cost · Last price · Value · Gain or loss (₹, %) · Share of
-  total · Today's change. Sorted by value; each row opens the stock page.
-- **Add holding** (sheet): search a stock, shares, average cost, optional cost date. Edit and
-  remove on each row.
-- **Download CSV** of the user's own holdings.
-- Phone: cards (stock, value, gain or loss), details on tap.
-- States: *Last price as of 15:30 IST* · *Prices delayed* · a dash for no price · *Totals cover 7
-  of 8 holdings*.
-- Standing line: *"Figures are the ones you entered. Gain or loss is before brokerage, taxes and
-  charges. Not advice."*
-
-### 4.2 Data
-`holdings` (migration `0040_holdings`): `id`, `owner_id` (cascade), `instrument_id` (cascade),
-`shares` int > 0 (≤ 1,000,000,000), `avg_cost_paise` int > 0, `cost_as_of` date, timestamps.
-Unique `(owner_id, instrument_id)`. At most 200 per user, enforced under an advisory lock.
-Owner-scoped repository (same pattern as watchlists and alerts).
-
-### 4.3 The calculation (pure, `packages/core/src/holdings/summary.ts`)
 ```
-invested      = shares × avg_cost
-value         = shares × last_price          (last price = live quote, else last close, else none)
-gain          = value − invested             gain% = gain ÷ invested
-day change    = shares × (last_price − previous_close)
-weight        = value ÷ Σ value              (priced holdings only)
+REPLACE, in "Do not":
+- **Do not build order execution of any kind** — no place/modify/cancel order, order
+  book, positions, funds, holdings, or broker portfolio. Not even read-only
+
+WITH:
+- **Do not build order execution of any kind** — no place/modify/cancel order, order
+  book, funds, or broker portfolio. Nothing is ever fetched from a broker account.
+  Holdings the user types in or uploads themselves ARE allowed (see "My holdings").
 ```
-Totals sum only priced holdings and report `covered / total`.
 
-### 4.4 Prices
-Same `latest_quotes` cache the watchlists read. **Change required:** the worker's list of
-symbols to refresh is built from watchlist items only (`listAllWatchedInstruments`); it must
-become the union of watchlist items and holdings, or a stock someone holds but does not watch
-has no price.
+**Edit 2 — a word list**
 
-### 4.5 The corporate-action trap
-A user types 100 shares; the company splits 1:2; the price halves; the share count does not, so
-value and gain come out half what they should. **v1:** if a split, bonus or consolidation has an
-`ex_date` after `cost_as_of`, the row shows *"This company had a split on 14 Oct. Check your
-shares and average cost."* **v1.1:** a one-click "apply this split". Dividends never trigger it.
+```
+ADD, after the BUY/SELL bullet:
+- **Holdings vocabulary.** On the holdings page use "Added shares" / "Removed shares"
+  (tax view: "Acquired" / "Disposed"), "Number of shares", "Holding", "Average cost".
+  Never "Buy", "Sell", "Position", "Quantity", "Order", "Execute", "Rebalance",
+  "Recommended", "Underweight", "Overweight". A sentence about a holding states a fact
+  about the user's own numbers; it never tells them what to do.
+```
 
-### 4.6 Done when (Tier 1)
-Correct against a hand-worked example · another user's rows unreachable (database test) ·
-deleting the account deletes the rows (database test) · split warning appears · a test greps the
-page text for banned words · light/dark and phone/desktop checked in a browser · lint, types, full
-suite and the route-auth test pass.
+**Edit 3 — a data-handling rule**
 
----
+```
+ADD, under "Hard rules":
+9. **Holdings are private.** Every query is scoped by user_id in the repository layer.
+   Holdings, quantities and cost are never written to logs, the event log, analytics,
+   error reports or URLs. No admin screen shows them. Account deletion cascades.
+   Uploaded files are parsed and discarded; only the reviewed rows are stored.
+```
 
-## 5. Tier 2 — Insight (cheap, uses data we already collect)
+**Edit 4 — scope line (at ship time, not now)**
 
-| Feature | What the user sees | Data | Notes |
-| --- | --- | --- | --- |
-| **Allocation by sector** | Bar or donut: IT 31%, Banks 24%, … | `industry` from NSE index files; null shown as "Unclassified", never guessed | Industry comes from index-membership files, so some stocks are unclassified. Say so |
-| **Allocation by size** | Large / Mid / Small / Other | Membership in Nifty 100, Midcap 150, Smallcap 250 | A proxy, because we have no market-cap data; labelled "by index membership". ETFs excluded, as Groww does |
-| **Concentration facts** | "Largest holding is 31% of the total. Top five are 74%." | Weights | Facts only. No "too concentrated" |
-| **Your own limit** | User sets "tell me if any holding passes 25%" | Alerts engine | The user's rule, not ours. Reuses alerts v1 |
-| **Events for held stocks** | Results dates, board meetings, ex-dividend, split/bonus, filings for the next 30 days | Existing calendar and announcements, filtered to holdings | Extend the watchlist-membership query to include holdings. Console's timeline is the model |
-| **Alert shortcut** | On a row: "Alert me when it closes below ₹…" prefilled | Alerts v1 | The user picks the level; we never suggest one |
-| **Technical context** | Chips from existing screener data: "Below 200-day average", "4% from 52-week high" | `screener_snapshots` | Facts, no direction badge on this page |
-| **Contributors** | Top gainers and decliners by ₹ contribution | Gain per holding | Console and INDmoney have it |
+```
+UPDATE, "Current scope" paragraph — when the page ships:
+"/holdings — a hand-typed or file-imported record of the user's own shares, valued at
+the last close. Never connected to a broker. Not advice."
+```
 
----
+Also needed from you, outside CLAUDE.md: a lawyer’s read of the privacy notice and the wording list, because the SEBI line between “describing” and “advising” is a legal judgement, not a coding one.
 
-## 6. Tier 3 — Ledger (the step that unlocks real returns)
 
-**Why it exists.** One average cost and one date cannot give an honest return, realised gains or
-dividends. Those need *dated* events. Tier 3 lets a user record them.
+## 1. Research: what the best portfolio pages do
 
-### 6.1 Two modes, per user
-- **Simple** (Tier 1): shares and average cost. Always available.
-- **Ledger**: a dated list of additions and removals. Holdings become derived from it.
+Twelve products studied on 5 Oct 2026 from their own help pages, product pages, forum threads, review sites and search snippets. Evidence quality is tagged on every card because it is uneven.
 
-Moving to Ledger mode **keeps the existing row** as an *opening balance* dated `cost_as_of`, so
-nothing is lost and nothing is retyped.
+> **What I could and could not reach.** App-store review pages and Reddit would not load through my tools. “What users love” and “what confuses them” therefore come from vendor docs, review sites, forum threads and snippets. Treat it as directional, not a survey. Cards tagged **snippet** rest on search-result summaries only and need a live check before we copy anything.
 
-### 6.2 Data
-`holding_transactions`: `id`, `owner_id`, `instrument_id`, `kind` (`added` | `removed`),
-`trade_date`, `shares` int > 0, `price_paise` int > 0, `charges_paise` int ≥ 0 (optional),
-`source` (`typed` | `csv`), `created_at`. Index `(owner_id, instrument_id, trade_date)`.
+#### Zerodha Console (evidence: docs + forums)
 
-**Vocabulary (hard rule from `CLAUDE.md`):** BUY and SELL may label a signal's direction and
-nothing else. The ledger says **Added shares / Removed shares** (or *Acquired / Disposed* in the
-tax view). The Add form is a *record*, not an order ticket: no "buy more" button, no price
-suggestion, no confirm step that resembles one.
+**Loved**
+- Analytics tab: yearly return (XIRR) against Nifty 50 and Midcap 150, dividends, top contributors, a timeline and red flags.
+- Free, trusted, comes from the broker’s own books.
 
-### 6.3 What it unlocks
-| Feature | Definition | Caveats |
-| --- | --- | --- |
-| **XIRR** | The annual rate `r` where Σ cashflow_i ÷ (1 + r)^((d_i − d_0) ÷ 365) = 0, with additions as outflows, removals as inflows, and today's value as the final inflow | Needs ≥ 2 dated flows. Shown as "–" when most of the money is under a year old (Console does the same). Short holds make XIRR extreme: show absolute return alongside. Solve with a bracketed method (not Newton alone) and show "n/a" when no unique rate exists |
-| **Realised gain or loss** | Per removal: proceeds − cost of the shares removed, matched **first-in-first-out** | FIFO is the usual basis for demat shares **[verify with a CA]** |
-| **Holding period** | Long term if held **more than 12 months**; otherwise short term | Listed equity rule, FY 2025-26 (§7) |
-| **Dividends received** | `dividends.amount_paise` × shares held on the ex-date | An estimate: record-date and ex-date can differ; tax withheld is not modelled |
-| **Value over time** | Real invested vs value, from the ledger | Needs daily closes per holding (adjusted for corporate actions, already stored) |
-| **Charges** | Optional per row | Included in cost basis when entered |
+**Confusing**
+- XIRR shows “–” when most money is under a year, with no explanation on the number itself.
+- The page itself warns XIRR “is less suited for short-term investments”. Users build their own XIRR sheets and report Console and Kite P&L not matching.
 
-Without a ledger, a "value over time" chart can only be *today's holdings traced back* — shown
-only if clearly labelled as hypothetical, and preferably not at all.
+**Borrow**
+- Show “not enough history” in words, not a dash.
+- Contributors list, benchmark pair and a dividends line.
+- Tradebook CSV as the first import: symbol, isin, trade_date, exchange, segment, trade_type, quantity, price, trade_id, order_id, order_execution_time. The ISIN is sometimes missing.
 
----
 
-## 7. Tier 4 — Advanced options (each needs its own trigger, §11)
+#### Groww (evidence: docs)
 
-### 7.1 Capital-gains statement (for the user's CA)
-**Not a tax filing and never described as one.** Output: realised gains split into short and long
-term for a chosen financial year, grandfathered cost applied, totals against the exemption,
-loss carry-forward shown, downloadable. Built on the ledger.
+**Loved**
+- Value over time against money invested; sector and market-cap split; XIRR; Nifty 50 comparison.
+- “Stocks Track” reads other brokers through the RBI Account Aggregator: consent-based, no credentials, daily sync.
 
-Rules (versioned in `config/tax-rules.yaml`, each with a source URL and a `verifiedThrough` date
-that warns when stale, like `nse-calendar.yaml`). Values below are as stated in the sources for
-FY 2025-26:
-- Listed equity held **more than 12 months** is long term; otherwise short term.
-- Short-term rate **20%**; long-term **12.5%** on gains above **₹1.25 lakh** a year; 4% cess;
-  surcharge capped at 15% on these gains.
-- **Grandfathering** for shares acquired before 1 Feb 2018: cost = the higher of actual cost and
-  the lower of (highest price on 31 Jan 2018, sale price). Needs a one-time table of 31 Jan 2018
-  prices, which the NSE bhavcopy archive can supply **[verify availability]**.
-- **Losses:** short-term loss sets off short- and long-term gains; long-term loss only
-  long-term gains; unused losses carry forward up to **8 years only if the return is filed on
-  time**.
-- **Intraday equity** is generally not a capital gain (it is treated as business income) —
-  excluded and flagged **[verify with a CA]**.
+**Confusing**
+- Allocation excludes ETFs, so totals look wrong. Sync is per broker, with a segregation toggle people miss.
 
-**Decision:** classify and total; do **not** compute tax payable in the first version. Applying
-rates is arithmetic, but a wrong rate or missed rule becomes our error on someone's tax return.
+**Borrow**
+- Value-vs-invested chart as the main picture.
+- Say plainly what is excluded from each chart.
 
-### 7.2 Benchmark comparison
-Compare against **Nifty 50** (index bars are already ingested). Two honest forms:
-1. *Same money, same dates:* "had each addition gone into the Nifty 50 on the same day, it would
-   be worth ₹X". Needs the ledger.
-2. *Same period:* simple return of the Nifty over the holding period.
 
-**Limit:** we only have the **price index**, not the total-return index, so the benchmark
-excludes dividends. Label it exactly that way; Console also offers Midcap 150.
+#### INDmoney (evidence: docs)
 
-### 7.3 Risk numbers (descriptive, historical)
-Portfolio volatility and maximum drawdown from the ledger-based value series; per-holding
-volatility already exists in the screener; beta against the Nifty 50 from daily bars; a
-correlation table for ≤ 30 holdings. **No risk score, no "high/medium/low".** Always show the
-window ("last 252 sessions") and "historical, not a forecast".
+**Loved**
+- Tracks holdings from any broker, family consolidation, top gainers, dividends, sector and cap split.
 
-### 7.4 File import
-Generic **CSV/XLSX mapper**: the user maps columns (symbol or ISIN, shares, average cost), sees a
-preview with matches and rejects, picks *merge* or *replace*, then confirms. Matching by ISIN
-first, then symbol. Broker presets (Zerodha Console holdings .xlsx, Groww, Upstox) are added
-**only from real sample files the owner supplies**; column names vary and I could not confirm
-Console's from public pages. NSDL/CDSL consolidated statements (password-protected PDFs) are a
-later, heavier option. **Never** a broker login or API token.
+**Confusing**
+- A mix of stocks, funds, US stocks and loans on one screen makes totals hard to trust.
 
-### 7.5 Multiple books (family)
-A *book* is a named set of holdings ("Self", "Spouse"). One user, several books, with a combined
-view. Word "book", not "portfolio". Only the user's own typing; no shared access in this tier.
+**Borrow**
+- Dividend list. Skip family view and cross-asset totals.
 
-### 7.6 Other options — decide per request
-Tax-lot choice (specific-lot selling) · SIP-style recurring additions · ETFs and REIT/InvIT
-units (already NSE-traded, mostly work) · mutual funds (needs AMFI NAV data: a separate source) ·
-bonds/gold/FDs (out of scope) · goals and targets (advice-like, skip) · shareable snapshot image
-(privacy risk, skip).
 
-### 7.7 Explicitly never
-Rebalancing suggestions · tax-loss-harvesting prompts · "sell this" / "add that" · portfolio score
-or grade · red flags · target allocation · "you are underperforming, consider…". See §9.
+#### Tickertape (evidence: review sites)
 
----
+**Loved**
+- Diversification and overlap insights, returns tracking, 12+ brokers.
 
-## 8. The user-facing analytics catalogue
+**Confusing**
+- Basic things behind a paywall, delayed data, one-broker sync limits. A combined XIRR across linked demat accounts is reported as missing.
 
-Every metric: inputs, source, freshness, caveat. This is the contract the pure functions are
-tested against.
+**Borrow**
+- A small “how diversified” summary. Keep it free and show the working.
 
-| Metric | Formula | Inputs | Source | Fresh as of | Caveat shown |
-| --- | --- | --- | --- | --- | --- |
-| Value | Σ shares × last | shares, price | holdings + `latest_quotes` / last close | quote time | "as of" |
-| Invested | Σ shares × cost | holdings | holdings | user-typed | "figures you entered" |
-| Gain / loss | value − invested | | | | before charges and tax |
-| Day change | Σ shares × (last − prev close) | prices | quotes | quote time | market closed → last session |
-| Weight | value ÷ total | | | | priced holdings only |
-| Sector share | Σ value by industry | industry | NSE index files via `instruments` | daily | unclassified shown |
-| Size bucket | Σ value by index membership | membership | `index_members` | daily | proxy for market cap |
-| XIRR | solve XNPV = 0 | dated flows | ledger | on read | "–" if mostly < 1 year |
-| Realised gain | proceeds − FIFO cost | ledger | ledger | on read | FIFO assumption |
-| Dividends | amount × shares on ex-date | ledger, dividends | NSE feed | daily | estimate |
-| Benchmark | same flows into Nifty 50 | ledger, index bars | daily bars | daily | price index, no dividends |
-| Volatility / drawdown | std dev / peak-to-trough of daily value | ledger, bars | daily bars | daily | historical, window shown |
 
-**Testing:** hand-computed fixtures for every row; XIRR checked against a spreadsheet's result;
-properties (weights sum to 100%; value − invested = gain; removing nothing leaves FIFO cost
-unchanged); a split-adjustment fixture; a missing-price fixture.
+#### Kuvera (evidence: snippet)
 
----
+**Loved**
+- Allocation, XIRR, peer comparison, import from brokers or CDSL/NSDL statements.
 
-## 9. Compliance map
+**Confusing**
+- Not verified.
 
-| Concern | What the rules say | What we do |
-| --- | --- | --- |
-| **SEBI — investment advice** | Regulation 2(1)(l) defines advice as *"advice relating to investing in, purchasing, selling or otherwise dealing in securities… and advice on investment portfolio… and shall include financial planning"*, with a carve-out for material widely available to the public [§14]. The definition is broad | Describe the user's own numbers; never recommend. Banned: rebalance, harvest, score, target, "consider". A lawyer should review the Tier 2+ wording **[verify]** before launch |
-| **SEBI — model portfolios** | SEBI has proposed model-portfolio rules **[verify current status]** | We publish none |
-| **`CLAUDE.md` vocabulary** | BUY/SELL only label a signal's direction; never *position, quantity, order, entry price* | Wording list in §1; a test greps the page text |
-| **DPDP Act and Rules 2025** | Notified 14 Nov 2025; **core duties (notice, security, rights) apply from 13 May 2027**; notice must itemise the data and purpose; consent specific and unbundled; erase when the purpose ends [§14] | Build to it now: itemised privacy text, deletion with the account, export, no re-use of holdings for any other purpose |
-| **Tax** | Rates and rules change each Budget | Versioned config with source and stale-warning; "not tax advice"; classification without computing payable tax |
-| **Provider data terms** | Showing provider prices on a new page | Same prices and terms as the watchlist; no new redistribution; covered by the open data-terms question in the product review |
+**Borrow**
+- Consolidated statement (CAS) import as a later tier, after checking real files.
 
----
 
-## 10. Architecture
+#### Value Research (evidence: snippet)
 
-| Layer | Tier 1 | Later tiers |
-| --- | --- | --- |
-| **Core (pure)** | `holdings/summary.ts` | `holdings/xirr.ts`, `fifo.ts`, `capital-gains.ts`, `allocation.ts`, `backcast.ts`, `risk.ts` |
-| **DB** | `holdings` | `holding_transactions`; `holding_books`; `usage_counters` (§12) |
-| **Repository** | `holdings.ts` (owner-scoped) | `holding-transactions.ts` |
-| **Server** | `server/holdings.ts` | split per tab; calculations on read (≤ 200 holdings) |
-| **API** | `/api/holdings`, `/api/holdings/[id]`, `/api/holdings/export` | `/api/holdings/transactions`, `/api/holdings/import`, `/api/holdings/statement` |
-| **UI** | `/holdings` overview | tabs *Allocation · Performance · Gains · Events · Import/Export*, shown only when data supports them |
-| **Worker** | union of watched + held symbols | nightly precompute only if reads get slow |
-| **Config** | — | `config/tax-rules.yaml` |
+**Loved**
+- Free portfolio manager; mutual-fund statement import; historical dividends loaded from the purchase date; alerts for dividends, bonus, merger, demerger.
 
-Performance: ≤ 200 holdings, one batch of quotes, bounded daily-bar queries for Tier 3+. No new
-service, no queue, no Redis.
+**Confusing**
+- Not verified.
 
-### 10.1 Migration path v1 → v2
-Existing `holdings` rows become opening-balance transactions dated `cost_as_of`. No data is
-re-entered. `holdings` stays as the "current state" view so Tier 1 code keeps working.
+**Borrow**
+- Auto-load dividends from the buy date. Corporate-action alerts, worded as notices.
 
-### 10.2 Information architecture
-`My holdings` → **Overview** (always) · **Allocation** (Tier 2) · **Events** (Tier 2) ·
-**Performance** (Tier 3) · **Gains** (Tier 4) · **Import / Export**. Empty-state first run offers
-two doors: *Add a holding* or *Import a file* (the latter once Tier 4 import exists).
 
----
+#### Sharesight (evidence: vendor docs)
 
-## 11. Build triggers — "only if users really need it"
+**Loved**
+- Separate Performance, Diversity, Contribution, Tax and Future Income reports. Clear method pages.
 
-Every optional feature is gated by a signal we can read, with a threshold, so the decision is
-made by usage and not by guesswork. Thresholds are starting points for the owner to change.
+**Confusing**
+- Money-weighted return uses the Modified Dietz method. Returns under a year are holding-period returns, not annualised. Their docs admit large cash-flow changes can distort the figure.
 
-| Feature | Build when… | Signal |
-| --- | --- | --- |
-| Tier 2 bundle | ≥ 50 people have ≥ 1 holding, or the owner asks | holders count |
-| Allocation | Tier 2 + ≥ 30% of holders have ≥ 5 holdings | holdings per holder |
-| Ledger + XIRR | ≥ 10 people use the in-page "I want my real return" link, or ≥ 40% of holders return weekly for 4 weeks | feedback clicks, retention |
-| Capital-gains statement | ≥ 10 requests, or any in Feb–Jul (filing season) | feedback, season |
-| File import | ≥ 30% of new holders stop before adding a 3rd holding, or ≥ 10 requests | onboarding drop-off |
-| Benchmark | Ledger exists + ≥ 10 requests | feedback |
-| Risk numbers | ≥ 15 requests; never by default | feedback |
-| Books (family) | ≥ 10 requests | feedback |
+**Borrow**
+- Never annualise under 12 months. Say which method is used on the page. One report per question.
 
-A single quiet link on the page — **"Tell us what is missing"** — carries the request; the count
-of clicks per option is the demand signal. Nothing else in the page changes.
 
----
+#### Snowball Analytics (evidence: vendor pages)
 
-## 12. Product analytics (how we know it works)
+**Loved**
+- Dividend calendar and forward income; beta, Sharpe, Sortino; clean charts.
 
-### 12.1 Goal and success measures
-Goal: *people open the page and find it correct.* Measures, weekly:
+**Confusing**
+- US-first. Free tier caps at 10 holdings.
 
-| Measure | Definition | Target to call v1 a success |
-| --- | --- | --- |
-| **Activation** | Of people who open My holdings, share who add ≥ 1 holding in the same session | ≥ 40% |
-| **Depth** | Share of holders with ≥ 3 holdings | ≥ 50% |
-| **Retention** | Holders who open the page in 3 of the next 4 weeks | ≥ 30% |
-| **Trust** | Split warnings shown and then resolved (shares edited) within 7 days | ≥ 60% resolved |
-| **Correctness** | Reports of a wrong number | 0 unresolved |
-| **Speed** | Page load p95 | < 2 s |
-| **Reliability** | Share of page views with prices for all holdings | ≥ 95% on trading days |
+**Borrow**
+- Dividend calendar. **Do not copy one-click rebalancing:** it is an order-shaped affordance and advice.
 
-### 12.2 How it is measured (privacy first)
-- **Aggregate counters only**, in one small table `usage_counters (day, event, count)`. Events
-  such as `holdings_page_open`, `holding_added`, `export_downloaded`, `split_warning_shown`,
-  `feature_request_clicked:<option>`. **No user id, no symbol, no amount, ever.**
-- Counters are written by the server, best-effort, and never block a request.
-- A read-only admin page shows the week's numbers (no editing, per the no-admin-CRUD rule).
-- Cookieless web analytics (for example Plausible) is an acceptable alternative for page views.
-- The privacy text names these counters. Under DPDP this is the "itemised data and purpose".
 
-### 12.3 What is explicitly not collected
-Which stocks a person holds, how many shares, what they paid, or their gain. These stay in the
-user's own rows and nowhere else.
+#### Portfolio Visualizer (evidence: snippet)
 
-### 12.4 Review rhythm
-Four weeks after launch: read §12.1 and §11 together and decide which Tier 2–4 items to start.
-Write the decision into this file.
+**Loved**
+- Precise definitions: maximum drawdown, volatility, beta, correlation, Sharpe, Sortino, Calmar, risk contribution.
 
----
+**Confusing**
+- Dense for beginners; many inputs.
 
-## 13. Phases, estimates, risks
+**Borrow**
+- The definitions, as one-line plain-language tooltips. Show only three risk numbers by default.
 
-### 13.1 Phases
-| # | Phase | Output | Size |
-| --- | --- | --- | --- |
-| 0 | Decision + rule change | Owner picks A/B/C; `CLAUDE.md`/`AGENTS.md` updated | 30 min |
-| 1 | Pure calculation | `core/holdings/summary.ts` + tests | 0.5 d |
-| 2 | Table + repository | Schema, migration `0040`, owner-scoped queries, static + database tests | 0.5 d |
-| 3 | API | Routes, validation, limit, route-auth coverage, tests | 0.5 d |
-| 4 | Page | `/holdings`, sheet, phone cards, nav entry, stories (light/dark/phone) | 1–1.5 d |
-| 5 | Prices + corporate actions | Worker symbol union; day-close fallback; split warning | 0.5 d |
-| 6 | Privacy + verification | Privacy text, CSV download, usage counters, full DB suite, browser check at both widths and themes | 0.5–1 d |
-| **Tier 1 total** | | | **≈ 4 d** |
-| 7 | Tier 2 — Insight | allocation, concentration, events, alert shortcut, contributors | ≈ 3 d |
-| 8 | Tier 3 — Ledger | table, FIFO, XIRR, realised, dividends, value over time | ≈ 8–10 d |
-| 9 | Tier 4a — Import | mapper, preview, presets from real files | ≈ 4 d |
-| 10 | Tier 4b — Statement | tax config, statement, export | ≈ 5 d |
-| 11 | Tier 4c — Benchmark + risk | benchmark, volatility, drawdown, beta | ≈ 5 d |
-| 12 | Tier 4d — Books | named books, combined view | ≈ 3 d |
 
-Sizes are my estimates, not measured. Each phase ships on its own; phases 1–3 change nothing a
-user can see.
+#### Morningstar X-Ray (evidence: snippet)
 
-### 13.2 Risks
+**Loved**
+- Diversification by region, sector and style; overlap between holdings.
+
+**Confusing**
+- Style boxes and jargon.
+
+**Borrow**
+- One chart for “where the money sits”. Skip style boxes.
+
+
+#### Delta (evidence: review sites)
+
+**Loved**
+- Praised for clear, attractive graphs and a calm layout.
+
+**Confusing**
+- Crypto-first, so Indian equity concepts (ex-dividend, STCG) are absent.
+
+**Borrow**
+- Graph polish and a quiet, uncluttered overview.
+
+
+#### Yahoo Finance (evidence: help pages)
+
+**Loved**
+- Quick to start, free, familiar.
+
+**Confusing**
+- Returns are price-only: no automatic dividends or corporate actions, no date-range performance, benchmarking behind a paywall.
+
+**Borrow**
+- A warning of what is not included in a number.
+
+
+### What the field teaches us
+
+- **The cold-start problem decides everything.** Every winner either reads the broker for you or accepts a file. A page that only offers a blank form will be abandoned. We cannot read brokers, so file import is a launch requirement, not a nice-to-have.
+- **Trust is lost on the number that looks wrong**: XIRR on a young portfolio, P&L that disagrees with the broker, allocation that silently excludes something. Each number should say what it includes and what it leaves out.
+- **Method must be visible**: time-weighted or money-weighted, price-only or with dividends. Sharesight is trusted partly because it says so.
+- **Advice-shaped features are the risk**: rebalancing buttons, “sell the worst performer”, target weights. Describe only.
+
+
+### Metrics in plain words
+
+| Measure | In plain words | How it is worked out | Watch out for |
+|---|---|---|---|
+| Total P&L (unrealised) | What your current shares are worth now, minus what you paid for them. | `Σ shares × last price − Σ cost` | Leaves out dividends and shares already sold. |
+| Day P&L | How much your holdings gained or lost since yesterday’s close. | `Σ shares × (last − previous close)` | On a day you added shares, only count shares held at the previous close. |
+| Absolute return | Gain divided by money put in. Ignores time. | `(value + sold + dividends − invested) ÷ invested` | Good for short spans. Misleading to compare a 6-month and a 6-year figure. |
+| XIRR | The single steady yearly rate that explains all your dated deposits and withdrawals. | Solve `Σ cash flow ÷ (1+r)^(days÷365) = 0` for r, with a bracketed solver. | One day’s gain annualises to nonsense. Several answers can exist. Show “not enough history” under 12 months. |
+| Time-weighted return | How the holdings themselves performed, ignoring when you added money. | Chain daily returns after removing flows. | Used for the benchmark chart and risk. Differs from XIRR on purpose. |
+| Nifty 50 / Nifty 500 comparison | What the same money would have done in the index on the same dates. | Replay every flow into the index, then run the same XIRR. | Price-index only unless we license total-return data (dividends missing makes the index look worse). |
+| Sector allocation | How much of your value sits in each line of business. | `Σ value by instrument industry ÷ total` | Needs a clean sector mapping per stock. |
+| Market-cap split | Large, mid, small companies by size. | SEBI/AMFI list: top 100 large, 101–250 mid, rest small, refreshed each Jan/Jul. Proxy: index membership. | The AMFI page would not load for me, so its format is unverified. Index membership is only an approximation. |
+| Concentration | How much depends on your biggest few names. | Top 1, 3, 5 weights; effective number of holdings `1 ÷ Σ weight²`. | A summary of fact. Never a “too concentrated” verdict. |
+| Drawdown | The biggest fall from a high point to the next low. | `value ÷ running peak − 1`, flows removed. | Needs a time-weighted series, not raw value. |
+| Volatility | How much your value bounces around in a year. | `stdev(daily returns) × √252` | Needs at least ~6 months to mean much. |
+| Beta | How strongly you move with Nifty 50. | `cov(you, index) ÷ var(index)` | Only says what happened, not what will. |
+| Correlation | Whether two stocks tend to move on the same days. | Pearson on daily returns, −1 to 1. | Print the number in the cell. |
+| Dividend income | Cash paid to you by companies you held on the ex-date. | `shares held on ex-date × dividend per share` | Use the date you held them, not today’s count. |
+| Realised vs unrealised | Realised: you sold and locked it in. Unrealised: still on paper. | Oldest-first matching of sales to purchases. | Realised is what taxes look at. |
+
+
+### Indian tax views (FY 2025-26 rates, to be checked each year)
+
+| Topic | Rule as I read it | Confidence |
+|---|---|---|
+| Holding period | Listed shares are long term when held **more than 12 months**; otherwise short term. | High |
+| Rates | Short-term gain 20%. Long-term gain 12.5% on the part above ₹1.25 lakh in the year. Plus 4% cess. Surcharge applies to these gains but is capped at 15%. | High (mProfit summary of the Budget 2024 change; verify against the Income Tax Act) |
+| Set-off | A short-term loss can offset short- and long-term gains. A long-term loss offsets only long-term gains. Carry forward up to 8 years, only if the return is filed on time. | High |
+| Grandfathering (s.112A) | For shares bought before 1 Feb 2018, cost is the larger of the actual cost and the lower of the 31 Jan 2018 market value and the sale price. | High; FMV per share must come from a published list |
+| Bonus shares | Cost is zero. Holding period runs from the day the bonus shares are allotted. | High |
+| Demerger | Original cost is shared between the old and new company in the ratio of net book value (s.49(2C)); companies publish the percentage. | Medium: needs the company’s notice each time |
+| IPO shares | Cost is the allotment price; holding period runs from the allotment credit date. | High |
+| Dividends | Taxed at the person’s slab rate. 10% TDS only above ₹10,000 from one company in the year. | High |
+| Intraday | Generally business income, not capital gains. | To verify with a CA. We exclude it and say so. |
+| Which shares are sold first | Oldest first (FIFO) for demat holdings. | To verify with a CA |
+
+> **Not tax advice.** The tax page labels every figure “indicative”, shows its rate assumptions in plain sight and offers an export for the user’s accountant.
+
+
+### Sources (accessed 5 Oct 2026)
+
+- Zerodha Console help (Analytics, XIRR, Holdings report, tradebook format) and Zerodha Z-Connect forum threads on XIRR and P&L mismatches.
+- Groww help pages (Stocks Track, portfolio analysis) and RBI Account Aggregator framework notes.
+- INDmoney, Tickertape, Kuvera and Value Research product and help pages; Tickertape reviews on aggregator review sites. Kuvera and Value Research are snippet-level.
+- Sharesight support pages on performance calculation (Modified Dietz) and report types.
+- Snowball Analytics product pages and pricing; Portfolio Visualizer metric definitions (snippet-level); Morningstar X-Ray description (snippet-level); Delta app pages; Yahoo Finance help on portfolios.
+- mProfit, Zerodha Varsity and the Income Tax Department material on STCG/LTCG, set-off, section 112A and section 49(2C).
+- SEBI (Investment Advisers) Regulations 2013, reg. 2(1)(l); DPDP Rules 2025 (notified 14 Nov 2025).
+- SEBI/AMFI half-yearly market-cap categorisation (page did not load; format unverified). NSE Indices total-return data (terms not yet checked).
+
+
+## 2. The plan
+
+Who it is for, what to build first, where the data comes from, what we already have, and what could make it fail.
+
+
+### Who it is for
+
+|  | The beginner | The active investor |
+|---|---|---|
+| Their question | “Am I doing okay? Is my money safe in a few names?” | “What did I earn after tax? Which stock drove it? Am I beating Nifty?” |
+| What they need | One page, big numbers, plain words, no jargon. | Dated entries, lots, XIRR, tax export, import from a broker file. |
+| What loses them | Blank screens, “XIRR”, red and green only, 20 columns. | A number that disagrees with the broker, no import, nothing to export. |
+| How the page serves both | Overview and plain-words tooltips first. | Everything else one tap deeper, never hidden. |
+
+
+### Phases, MVP first
+
+| Phase | What ships | Effort | Needs |
+|---|---|---|---|
+| 0 · Decide | CLAUDE.md edits approved, privacy notice drafted, 3–5 real broker sample files collected, index-data terms checked. | **S** | You |
+| 1 · **MVP** | Add and edit shares by hand; **file import (generic CSV/XLSX plus Zerodha tradebook)** with a review step; overview (value, total gain, day change); holdings table; split/bonus prompt; lite drill-down; CSV export; empty state; privacy text; delete-all. | **L** | Phase 0, migration `0040` |
+| 2 · Insight | Sector and size split, concentration, treemap, contributors, upcoming dividends and corporate actions on your holdings. | **M** | Sector and cap mapping |
+| 3 · Ledger and returns | Dated entries as lots, yearly return (XIRR), “not enough history” states, realised vs unrealised, dividends received, value over time. | **L** | Corporate-action engine |
+| 4 · Benchmark and tax | Same-money Nifty 50/500 comparison, FY tax view with grandfathering, accountant export. | **M–L** | Index series, FMV 31 Jan 2018 list |
+| 5 · Risk | Volatility, beta, deepest fall, correlation, with plain-words tooltips. | **M** | ≥ 6 months of history |
+| 6 · Later | Statement (CAS) and contract-note import, alerts on holdings, tax-lot reports. Account Aggregator **only** if regulation and cost allow; it is the old broker-link question in a new form. | **L each** | Separate decision |
+
+> **Recommended MVP = Phase 1 only.** The research says the page lives or dies on how fast a user gets their real shares in. So the MVP is thin on analytics and heavy on import and trust. Phase 2 follows as soon as people use it.
+
+
+### Data
+
+
+### How shares get in
+
+- **Typed:** stock, number of shares, price, date, optional charges. An “I owned these before I started tracking” switch accepts an average cost and an optional date.
+- **File upload (MVP):** generic CSV/XLSX with column mapping, plus a Zerodha tradebook template. Rows are checked and shown with Ready / Check / Skipped status. Nothing is saved until the user presses Import. The file is discarded after parsing.
+- **Zerodha holdings report:** an `.xlsx` since April 2017, but its column names are not published, so no template until we have real files.
+- **Later:** consolidated account statement (CAS) and contract notes. **Not planned:** broker login, Kite Connect, Account Aggregator.
+
+
+### One data model for every phase
+
+**Proposed migration 0040_holdings (not written)**
+
+```
+holding_entries   (id, user_id, instrument_id, kind: 'opening' | 'add' | 'remove',
+                   trade_date, shares int, price_paise bigint, charges_paise bigint,
+                   source: 'manual' | 'file', import_batch_id, note, created_at)
+import_batches    (id, user_id, filename_hash, row_count, created_at)   -- no file kept
+holding_prefs     (user_id, columns, default_benchmark)                 -- later
+-- shares and cost per holding are DERIVED on read: Σ entries, adjusted by corporate_actions
+-- average cost is never stored; every price is integer paise (hard rule 3)
+```
+
+Because the MVP already stores dated entries, Phases 3–5 add no migration. The “opening balance” kind covers people who only know a total and an average.
+
+
+### Corporate actions and edge cases
+
+| Case | What happens to the user’s entries | MVP? |
+|---|---|---|
+| Stock split | Shares multiply, cost per share divides, total cost unchanged. Applied on read from `corporate_actions`. | Yes (prompt + apply) |
+| Bonus | Shares increase, total cost unchanged; for tax the bonus lot has zero cost and its own acquisition date. | Yes |
+| Demerger | Cost is split by the company’s published percentage. A notice asks the user to confirm; we do not guess. | Prompt only |
+| Merger or amalgamation | Shares convert at the exchange ratio; needs a manual confirmation. | Prompt only |
+| Rights issue | Treated as an ordinary addition at the rights price, entered by the user. | Manual |
+| Buyback | Entered as removed shares at the buyback price, user-confirmed. | Manual |
+| Symbol or ISIN change | Entries follow the instrument through the alias table. | Phase 2 |
+| Delisting | Holding stays, last price shown with “delisted on …”, value flagged as stale. | Phase 2 |
+| IPO allotment | Entered as an addition at the allotment price on the allotment date; listing price is irrelevant to cost. | Yes (tip in form) |
+| Entered before the stock existed | Entry refused with a clear message. | Yes |
+| Selling more than held | Refused with the date it first goes negative. | Yes |
+| Duplicate import | Skipped by trade id, or by exact match on stock, date, shares, price. | Yes |
+| ISIN missing in file | Matched by symbol and flagged Check. | Yes |
+| Intraday and F&O rows | Skipped with a reason shown. | Yes |
+
+
+### Price source and refresh
+
+- Valued at the latest close from the existing `latest_quotes` cache; end-of-day candles as fallback. Every screen shows the time of the price.
+- The worker’s symbol union must include every stock held by any user. That is a **small worker change** and it is the one place holdings touch the hot path.
+- Refresh stays at market-data cadence. No new polling, no new provider.
+- Stale or missing price → the value says “as of 4 Oct” and a banner says why. A number is never silently old.
+
+
+### What we already have and will reuse
+
+| Existing piece | Use in holdings |
+|---|---|
+| Integer paise and `formatPaise()` | Every amount. |
+| `latest_quotes`, daily candles | Valuation, day change, sparklines. |
+| `corporate_actions` (kind, ex_date, ratio) | Split and bonus adjustment on read; prompts for the rest. |
+| `dividends` (ex_date, kind, amountPaise) | Dividends received; upcoming ex-dates. |
+| `instruments.industry`, index membership files | Sector and size split (index membership as a proxy). |
+| Screener snapshot (~95 metrics, including volatility) | Per-holding facts on the drill-down. |
+| Stock page, calendar events, announcements | “From the stock page” and “Coming up” on a holding. |
+| Watchlist add flow and `/api/search` | Stock picker in the add form. |
+| Route-auth test, CSRF layer, rate limiter | New routes slot into the same guards and tests. |
+| Event log | Log counts and error codes only, never figures. |
+| Alerts v1 | Later: dividend or price-level notices on held names. |
+
+
+### Privacy and per-user isolation
+
+- Every repository function takes `userId` and filters by it. The route-auth test gains a case that proves user A cannot read user B’s entries.
+- No admin page, export or support tool shows holdings. Admin sees counts of entries only.
+- Holdings never appear in logs, the event log, analytics, error reports or URLs (CLAUDE.md edit 3).
+- Uploaded files are parsed in memory and discarded. A hash of the filename is kept for duplicate detection only.
+- Delete-all and account deletion remove entries and batches at once.
+- Privacy page updated to name the data, the purpose and the rights, ahead of the DPDP duties in May 2027.
+- Usage measurement counts events (“opened page”, “imported file”) with no figures and no stock names.
+
+
+### Risks, open questions, and what would make it fail
+
 | Risk | Why it matters | Mitigation |
-| --- | --- | --- |
-| Reads as advice | Gain/loss and analytics sit near stocks | §9 wording rules, no direction badges, standing line, lawyer review before Tier 2+ |
-| Sensitive data | Financial figures | Owner-scoped, cascade delete, no logs, no admin view, itemised notice |
-| Wrong numbers | Splits, missing prices, FIFO assumption, XIRR edge cases | Warnings, "as of", coverage counts, labelled assumptions, tested fixtures |
-| Tax errors | Rules change; mistakes land on a return | Versioned config with stale warning; classify not compute; "check with your CA" |
-| Scope creep | Tier 3–4 is large | Build triggers (§11); each tier is a separate decision |
-| Benchmark honesty | Price index excludes dividends | Label it, or hold back until a total-return series exists |
-| Provider terms | New page showing provider prices | Same data and terms as the watchlist; open data-terms question |
+|---|---|---|
+| Cold start: nobody types 30 trades | The single most likely failure. | File import in the MVP; real sample files before building. |
+| Numbers differ from the broker | One mismatch ends trust. | Say what each number includes; show the entries behind it; allow charges. |
+| Advice by accident | SEBI line. | Word list, lawyer review, no verdict language, tests that scan strings for banned words. |
+| Wrong corporate-action adjustment | Silently wrong cost. | Prompt, never auto-apply demergers or mergers; show a before/after. |
+| Index data licence | Benchmark may not be free to show. | Check NSE Indices terms; fall back to a plain price index with a label. |
+| Privacy incident | Holdings are the most sensitive data we would hold. | Owner-scoped queries, tests, no logging of figures, delete-all. |
+| Cap-size list unverified | Wrong large/mid/small label. | Use index membership, label it “by index”, switch when the AMFI list is confirmed. |
+| Low use after launch | Cost without value. | Count opens, imports and returns after 30 days; decide at a set date. |
 
----
+**Open questions.** Which brokers do your first users actually use? Is the Zerodha holdings `.xlsx` stable? May we show Nifty 50 and Nifty 500 total-return levels? Do you want P&L shown at all on a public product, or only allocation? Who reviews the wording?
 
-## 14. Sources (accessed 2026-10-05)
 
-- Zerodha Console, holdings analytics — what it shows (XIRR, dividends, contributors, timeline):
-  https://support.zerodha.com/category/console/portfolio/console-holdings/articles/console-analytics
-- Zerodha Console, holdings report (.xlsx, by date, from April 2017; column names not published):
-  https://support.zerodha.com/category/console/portfolio/console-holdings/articles/holding-report
-- Groww, portfolio analysis (AUM over time, sector and cap allocation, XIRR, Nifty 50 benchmark):
-  https://groww.in/updates/portfolio-analysis-on-groww
-- INDmoney, portfolio analytics (XIRR, benchmark, dividends, sector, cap, family):
-  https://www.indmoney.com/stocks/portfolio-analytics
-- mProfit, capital gains ready reckoner FY 2025-26 (rates, ₹1.25 lakh, surcharge cap):
-  https://www.mprofit.in/blog/2026/07/capital-gains-tax-ready-reckoner-fy-2025-26/
-- Section 112A grandfathering: https://www.manipalcigna.com/blog/section-112a-of-income-tax-act
-  and https://scripbox.com/mf/section-112a-income-tax-act/
-- Capital-loss set-off and 8-year carry-forward: https://cleartax.in/s/set-off-carry-forward-capital-losses
-  and https://www.taxmann.com/post/blog/faqs-income-tax-returns-itr-set-off-losses/
-- SEBI Investment Advisers Regulations 2013, definition of investment advice:
-  https://indiacorplaw.in/2013/01/sebi-investment-advisers-regulations.html and
-  https://icmai.in/upload/pd/SEBI-IA-Regulations-2013.pdf
-- DPDP Rules 2025 (notified 14 Nov 2025; phased dates): https://www.scconline.com/blog/post/2025/12/26/digital-personal-data-protection-rules-2025-key-highlights/
-  and the KPMG guidance PDF.
-- XIRR and its limits (short periods, multiple solutions): https://freefincal.com/compute-xirr-annualized-return-of-stocks-and-stock-portfolio-with-this-sheet/
-  and https://support.zerodha.com/category/console/portfolio/holdings/articles/xirr-and-cagr-for-equity
-- User pain points (corporate actions, manual entry, one-broker limits): vendor and forum
-  snippets from search, directional only.
+## 3. The experience
 
-## 15. What the owner decides
+Simple first, deep on request. A new user should get “how am I doing, why, and what needs attention” within five seconds.
 
-1. **A, B or C?** (§1) — blocks everything.
-2. Include gain and loss in Tier 1? (assumed yes)
-3. Ship Tier 1 to everyone after the privacy update? (assumed yes)
-4. Tier 2–4: adopt the build triggers in §11, or pick tiers now?
-5. Analytics: first-party counters (§12.2) or a cookieless tool? (assumed first-party)
-6. Supply 2–3 real broker holdings files (with the numbers blanked) when import is wanted.
+- **Three questions, three cards, in that order.** How am I doing (value, total gain, yearly return). Why (what moved it). What needs attention (plain facts about your list).
+- **Progressive disclosure.** Overview → holdings table → one holding → allocation → returns → tax. Each level is one tap from the one above.
+- **Every metric explains itself twice:** one plain sentence under it, plus an info tooltip with the longer version and the method.
+- **Charts, each earning its place:** value over time against cost and Nifty; allocation treemap plus two donuts; contribution bars; drawdown; correlation heatmap with the number in every cell; dividends by quarter.
+- **Colour is never the only signal.** Gains and losses carry ▲ ▼ and a sign. Chart series differ by line style as well as hue. Categorical colours are a colour-blind-safe set.
+- **Mobile first.** Cards instead of wide tables, bottom navigation, no horizontal scrolling of the page, 44 px touch targets.
+- **Light and dark** with the same contrast care. Tokens only, no one-theme literals.
+- **States are designed:** empty, loading skeleton, late prices, could not load, not enough history.
+- **Neutral tone.** No buy or sell language, no rating, no score without its parts. See the word list in Part 0.
+- **Accessible:** every chart has a title and text alternative; tooltips open by focus as well as hover; tables are real tables.
+
+| Say | Never say |
+|---|---|
+| Added shares, Removed shares | Buy, Sell, Position, Order |
+| Number of shares, Holding, Average cost | Quantity, Entry price |
+| ITC is 18.7% of your value | You are overexposed to ITC |
+| Zen Technologies is 26.6% below your average cost | Consider exiting Zen Technologies |
+| Same money in Nifty 50 would be worth ₹11,91,435 | You are underperforming |
+| Indicative tax | Tax payable |
+
+
+## 4. Mockups
+
+Eight screens, each at desktop and phone width, in light and dark. The live versions are in the published artifact page. All figures below are **synthetic sample data** (a made-up ledger of 9 holdings and 5 sold stocks, 1 Oct 2024 to 5 Oct 2026).
+
+1. **Overview.** The answer in five seconds: how you are doing, why, and what needs attention. Everything else is one tap down.
+2. **Holdings table.** Every stock you hold, sortable and filterable. Desktop gets the full table; phone gets cards that keep the three numbers that matter.
+3. **One holding.** Your own numbers for one stock, each purchase on its own line, with the stock page facts alongside.
+4. **Allocation and risk.** Where the money sits and how bumpy the ride has been. Each risk number comes with a sentence in plain words.
+5. **Returns vs benchmark.** Two honest yearly figures side by side, a like-for-like Nifty comparison, contribution by stock and dividends.
+6. **Realised gains and tax.** What you sold, whether it counted as short or long term, grandfathering shown line by line. Indicative only.
+7. **Add or import.** Type one entry or upload a file. Nothing is saved until you have seen every row and its status.
+8. **Empty and other states.** First visit, loading, late prices, errors and too little history.
+
+Sample portfolio, as shown in the mocks: value ₹11,24,665; invested ₹9,25,922; total gain +21.46%; yearly return (XIRR) 12.6% against 14.8% for the same money in Nifty 50; volatility 12.7%; beta 0.90; deepest fall −13.1%; effective holdings 7.9 of 9.
+
+## 5. Summary
+
+
+### Recommended MVP
+
+Phase 1 only: add and edit shares, **file import with a review step**, a three-question overview, a holdings table, split and bonus prompts, a lite drill-down, CSV export, an empty state, a privacy page and delete-all. Effort **L**. No benchmark, tax or risk yet.
+
+
+### Decisions you need to make
+
+1. Approve (or change) the four CLAUDE.md edits in Part 0. Nothing starts without this.
+2. Confirm the line: typed and uploaded data only, no broker link, now or later. Account Aggregator stays a separate future decision.
+3. Show profit and loss at all, or allocation only? Showing it is what users expect; it also raises more privacy weight.
+4. Benchmark data: confirm we may show Nifty 50 and Nifty 500, and whether to license total-return levels.
+5. Market-cap labels: accept index membership as a proxy for now, or wait for the AMFI list.
+6. Who reviews the wording and the privacy notice for the SEBI “describe, don’t advise” line.
+7. Send 3–5 real broker files (Zerodha tradebook and holdings report, one other broker) with names and amounts blanked.
+8. How to measure success: for example, 30-day return rate of users who imported a file.
+
+
+### Suggested next step
+
+Say yes or no to the four CLAUDE.md edits and send two sample broker files. With those, I can write the migration `0040_holdings`, the import parser and its tests first, and leave screens for after the import works on real data.
+
+
