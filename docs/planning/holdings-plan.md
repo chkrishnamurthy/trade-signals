@@ -494,3 +494,11 @@ Phase 1 only: add and edit shares, **file import with a review step**, a three-q
 Say yes or no to the four CLAUDE.md edits and send two sample broker files. With those, I can write the migration `0040_holdings`, the import parser and its tests first, and leave screens for after the import works on real data.
 
 
+
+## Addendum (2026-10-05): merged analysis hub
+
+Screens 4 to 8 of the mockups are combined into one page, `/holdings/analysis`: a pinned summary strip (value, total gain, yearly return vs Nifty 50, dividends, indicative tax), four tabs (Allocation, Returns, Risk, Tax), and one add-or-import drawer (right side on desktop, bottom sheet on phone) reachable from every tab. With no shares the strip and tabs are replaced by the onboarding view; "Preview with sample data" fills the page.
+
+Tabs unlock with data, not payment: Allocation needs shares and prices; Returns needs dated entries; Risk needs about 6 months; Tax needs at least one removed-shares entry. A tab that cannot show a number says why.
+
+Build mapping: Phase 1 ships the drawer, empty state and a one-tab hub (strip + Allocation); Phase 2 completes Allocation; Phases 3 and 4 turn on Returns and Tax; Phase 5 turns on Risk. Interactive mockup: the "Holdings Analysis Hub" artifact.
