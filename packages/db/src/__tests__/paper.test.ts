@@ -364,7 +364,11 @@ suite('paper trading persistence on real PostgreSQL', () => {
       portfolioId,
     );
     const undecided = await listUndecidedSignals(handle.db, portfolioId, '2026-09-17');
-    expect(undecided.map((u) => u.id)).toEqual([intent.id]);
+    // The test database is shared by every suite (one process, files in turn), and the
+    // intraday suite publishes signals for this same session date and leaves them. Only
+    // this suite's own intent is asserted; whatever else exists must be untouched below.
+    expect(undecided.map((u) => u.id)).toContain(intent.id);
+    const strangers = undecided.map((u) => u.id).filter((id) => id !== intent.id);
     const state = await loadPaperState(
       handle.db,
       portfolioId,
@@ -388,7 +392,9 @@ suite('paper trading persistence on real PostgreSQL', () => {
       settingsVersion: fresh.settings.settingsVersion,
       squareOffAt: session.squareOffAt,
     });
-    expect(await listUndecidedSignals(handle.db, portfolioId, '2026-09-17')).toEqual([]);
+    expect(
+      (await listUndecidedSignals(handle.db, portfolioId, '2026-09-17')).map((u) => u.id),
+    ).toEqual(strangers);
     const live = await listLivePaperTrades(handle.db);
     const mine = live.find((t) => t.portfolioId === portfolioId);
     expect(mine).toMatchObject({ filled: false, validUntil: intent.validUntil });

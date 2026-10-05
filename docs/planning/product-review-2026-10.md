@@ -33,7 +33,7 @@ This is the source of truth for what is left. Items fixed in the working tree ar
 removed from this tracker so it stays useful as a short action list. A code-verified
 ledger of every older plan and issue is in [pending-features.md](pending-features.md)
 ("Status ledger", 2026-10-05). **Other tab** marks work assigned to a separate session on
-2026-10-05; do not duplicate it. The numbered
+2026-10-05; do not duplicate it. **Verified 2026-10-05:** the owner ran `pnpm test:integration` against Postgres 17 + TimescaleDB and everything passed, including migrations 0035/0036/0038 and the new database tests (`alerts-runs-events.test.ts`). The numbered
 sections below are the original review text and are not edited as items close.
 
 | # | Item | Review ref | Severity |
@@ -43,21 +43,20 @@ sections below are the original review text and are not edited as items close.
 | 3 | Alerts v2: intraday/price-level alerts (needs the quote cache), more rules, push | §6 | Medium |
 | 4 | Optionally require 2FA for admin accounts | new | Low-Medium |
 | 5 | Still unreviewed: VPS/Nginx `X-Forwarded-For`, backups, secret handling in CI, CSP `unsafe-inline`, provider/NSE data licence | new | Unknown |
-| 6 | Run DB migration/integration verification on a scratch database before deploy: migrations `0035_latest_quotes`, `0036_alerts`, `0038_event_log`, plus the SQL behind alerts, ingestion runs, instrument-metadata update and the event log, none of which has run against Postgres yet. Blocked locally until Docker is running. CI also migrates a fresh database, so a PR will check the migrations | new | Medium |
-| 7 | Clean the tree before committing: `.pnpm-store/v11/index.db` is staged, `pnpm-workspace.yaml` gained placeholder `allowBuilds:` text, and `pnpm exec` fails with `ERR_PNPM_UNEXPECTED_STORE` (pnpm v10/v11 mismatch). `apps/worker/run-history.tmp.mjs` is tracked in git, not scratch: decide whether to delete it | new | Low |
-| 8 | Extend freshness/unavailable treatment beyond watchlists to remaining stale-data surfaces that do not already show it clearly | §3.10, §3.11 | Medium |
-| 9 | Mobile responsive Phase 4 (EW-066): no Playwright or viewport tests exist in the repo; CI only builds Storybook | §2.8 | Medium |
-| 10 | Watchlist reorder and note editor are built, with a disabled-reorder hint. Still unchecked: real mouse drag, touch route on device, and the live page with real data/PATCH/PUT calls. | §2.9 | Low |
-| 11 | Label or widen signal coverage: daily signals still cover the configured signal universe, while indicators/screener cover more names | §2.10, §3.7 | Medium |
-| 12 | Fundamentals (XBRL) (EW-109, no source yet), compare page, and watchlist-scoped news feed | §3.1, §3.4, §3.5 | Medium-High |
-| 13 | **Built, uncommitted, SQL unverified.** `ingest-daily`, the bhavcopy pass and `compute-indicators` now record runs in `ingestion_runs`; `compute-indicators` checks the newest candle date has a successful run (warns by default, blocks with `INDICATORS_REQUIRE_INGEST_RUN=true`); `pnpm data:coverage` lists recent runs. Next: apply on a scratch DB, watch a week of runs line up with the candles, then turn enforcement on | pending-features 1.5 | Medium |
-| 14 | **Built, uncommitted, SQL unverified.** Plan phases 1–4: migration `0038_event_log` (renames `auth_audit`, adds `category`/`actor_type`), `logEvent`, worker `job_failed` (throttled, redacted), `provider/credential_*` events, and a read-only `/admin/logs` + `/api/admin/logs`. Check the rename on a scratch DB. Open from the plan: retention (kept forever) and whether to keep logging every failed login | logging-plan | Medium |
-| 15 | **Built, uncommitted, SQL unverified.** `isTradingDay`/`tradingDaysBetween`/`previousTradingDay` added to `packages/core` over the existing calendar (EW-108). New worker job `sync-instrument-metadata` (08:20 weekdays) writes the provider's real tick/lot sizes over the placeholders (EW-107). No offline path remains that needs the helper | pending-features 2.2, 2.3 | Low |
-| 16 | Product surfaces still absent: indices **selection** per user (EW-133 phase 5; the strip's cache is process-wide by design, so this is a redesign, not a patch), NIFTY 50 view, horizon navigation (EW-131), options chain (EW-082, optional), a volatility mention in the `/today` read (the rest of EW-129 already exists as "Today's technical read") | issues | Low-Medium |
-| 17 | Indices drawer (EW-133 phase 4) is built: click a strip cell for level, change, day range, session OHLC and the chart (checked in Storybook). Left out on purpose: 52-week range and constituent breadth, because neither is in the strip's snapshot. Focus does not return to the cell on close | issues | Low |
-| 18 | Confirm the **Dhan production cut-over** (EW-075) on the VPS: not verifiable from the repo, and `.env.example` still defaults to `fyers` | dhan-provider-plan | Medium |
-| 19 | IPO plan tail: curl the NSE endpoints from the VPS IP, run `--once backfill-ipos`, watch feed health for a week, decide on the BSE source | ipos-plan | Medium |
-| 20 | Housekeeping: close or split stale plan items (EW-088 phases 4–6, EW-058 design-system 0/8, dhan plan 8/9); decide on `apps/worker/run-history.tmp.mjs` (tracked in git) | plans | Low |
+| 6 | Clean the tree before committing: `.pnpm-store/v11/index.db` is staged, `pnpm-workspace.yaml` gained placeholder `allowBuilds:` text, and `pnpm exec` fails with `ERR_PNPM_UNEXPECTED_STORE` (pnpm v10/v11 mismatch). `apps/worker/run-history.tmp.mjs` is tracked in git, not scratch: decide whether to delete it | new | Low |
+| 7 | Extend freshness/unavailable treatment beyond watchlists to remaining stale-data surfaces that do not already show it clearly | §3.10, §3.11 | Medium |
+| 8 | Mobile responsive Phase 4 (EW-066): no Playwright or viewport tests exist in the repo; CI only builds Storybook | §2.8 | Medium |
+| 9 | Watchlist reorder and note editor are built, with a disabled-reorder hint. Still unchecked: real mouse drag, touch route on device, and the live page with real data/PATCH/PUT calls. | §2.9 | Low |
+| 10 | Label or widen signal coverage: daily signals still cover the configured signal universe, while indicators/screener cover more names | §2.10, §3.7 | Medium |
+| 11 | Fundamentals (XBRL) (EW-109, no source yet), compare page, and watchlist-scoped news feed | §3.1, §3.4, §3.5 | Medium-High |
+| 12 | **Built, uncommitted, SQL unverified.** `ingest-daily`, the bhavcopy pass and `compute-indicators` now record runs in `ingestion_runs`; `compute-indicators` checks the newest candle date has a successful run (warns by default, blocks with `INDICATORS_REQUIRE_INGEST_RUN=true`); `pnpm data:coverage` lists recent runs. Next: apply on a scratch DB, watch a week of runs line up with the candles, then turn enforcement on | pending-features 1.5 | Medium |
+| 13 | **Built, uncommitted, SQL unverified.** Plan phases 1–4: migration `0038_event_log` (renames `auth_audit`, adds `category`/`actor_type`), `logEvent`, worker `job_failed` (throttled, redacted), `provider/credential_*` events, and a read-only `/admin/logs` + `/api/admin/logs`. Check the rename on a scratch DB. Open from the plan: retention (kept forever) and whether to keep logging every failed login | logging-plan | Medium |
+| 14 | **Built, uncommitted, SQL unverified.** `isTradingDay`/`tradingDaysBetween`/`previousTradingDay` added to `packages/core` over the existing calendar (EW-108). New worker job `sync-instrument-metadata` (08:20 weekdays) writes the provider's real tick/lot sizes over the placeholders (EW-107). No offline path remains that needs the helper | pending-features 2.2, 2.3 | Low |
+| 15 | Product surfaces still absent: indices **selection** per user (EW-133 phase 5; the strip's cache is process-wide by design, so this is a redesign, not a patch), NIFTY 50 view, horizon navigation (EW-131), options chain (EW-082, optional), a volatility mention in the `/today` read (the rest of EW-129 already exists as "Today's technical read") | issues | Low-Medium |
+| 16 | Indices drawer (EW-133 phase 4) is built: click a strip cell for level, change, day range, session OHLC and the chart (checked in Storybook). Left out on purpose: 52-week range and constituent breadth, because neither is in the strip's snapshot. Focus does not return to the cell on close | issues | Low |
+| 17 | Confirm the **Dhan production cut-over** (EW-075) on the VPS: not verifiable from the repo, and `.env.example` still defaults to `fyers` | dhan-provider-plan | Medium |
+| 18 | IPO plan tail: curl the NSE endpoints from the VPS IP, run `--once backfill-ipos`, watch feed health for a week, decide on the BSE source | ipos-plan | Medium |
+| 19 | Housekeeping: close or split stale plan items (EW-088 phases 4–6, EW-058 design-system 0/8, dhan plan 8/9); decide on `apps/worker/run-history.tmp.mjs` (tracked in git) | plans | Low |
 
 ### Needs a decision before anyone builds it
 
