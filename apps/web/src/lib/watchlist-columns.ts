@@ -505,7 +505,8 @@ const COLUMNS: readonly WatchlistColumn[] = [
   {
     id: 'signal',
     label: 'Signal',
-    description: 'The daily engine’s latest direction for this name',
+    description:
+      'The daily engine’s latest direction for this name. Computed only for the NIFTY 50 and Bank Nifty names the engine is configured for; other stocks show a dash, not a neutral reading.',
     group: 'signals',
     source: 'signals',
     numeric: false,
@@ -516,7 +517,8 @@ const COLUMNS: readonly WatchlistColumn[] = [
   {
     id: 'signalStrength',
     label: 'Signal Strength',
-    description: 'Conviction behind the daily signal, 0-100 with 50 neutral',
+    description:
+      'Conviction behind the daily signal, 0-100 with 50 neutral. A dash means no signal is computed for this stock.',
     group: 'signals',
     source: 'signals',
     numeric: true,
