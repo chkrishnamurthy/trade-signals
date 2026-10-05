@@ -23,19 +23,21 @@ import type {
   PortfolioAnalysisDto,
   PortfolioBenchmarkDto,
   PortfolioReturnsDto,
+  PortfolioRiskDto,
   PortfolioTaxDto,
   UpcomingEventDto,
 } from '@/lib/portfolio-types';
 import { DonutWithLegend, GainBars, ShareBar, Treemap } from './portfolio-charts';
 import { PortfolioNav } from './portfolio-nav';
 import { ReturnsTab } from './returns-view';
+import { RiskTab } from './risk-view';
 import { SummaryStrip } from './summary-strip';
 import { TaxTab } from './tax-view';
 
 /**
- * Portfolio analysis — one page, four tabs, the summary pinned on top. Phase 2
- * fills Allocation; Returns, Risk and Tax say what they will show and what they
- * need. Describes the user's own numbers; never suggests what to do.
+ * Portfolio analysis — one page, four tabs (Allocation, Returns, Risk, Tax), the
+ * summary pinned on top. A tab without the data it needs says what it will show
+ * and what it needs. Describes the user's own numbers; never suggests what to do.
  */
 const TABS = ['allocation', 'returns', 'risk', 'tax'] as const;
 type TabKey = (typeof TABS)[number];
@@ -45,11 +47,13 @@ export function AnalysisView({
   returns,
   benchmark,
   tax,
+  risk = null,
 }: {
   analysis: PortfolioAnalysisDto;
   returns: PortfolioReturnsDto | null;
   benchmark: PortfolioBenchmarkDto | null;
   tax: PortfolioTaxDto | null;
+  risk?: PortfolioRiskDto | null;
 }) {
   const empty = analysis.holdingCount === 0;
   // The open tab follows the address (#returns), so a tab can be linked to and the
@@ -155,11 +159,15 @@ export function AnalysisView({
                   )}
                 </TabsContent>
                 <TabsContent value="risk">
-                  <Later
-                    title="Risk"
-                    shows="How much your value moves (volatility), how closely it follows Nifty 50 (beta), the deepest fall from a high, and how your stocks move together."
-                    needs="It needs about six months of history behind your holdings."
-                  />
+                  {risk === null ? (
+                    <Later
+                      title="Risk"
+                      shows="How much your value moves (volatility), how closely it follows Nifty 50 (beta), the deepest fall from a high, and how your stocks move together."
+                      needs="Add your shares first. Figures appear after about six months of history."
+                    />
+                  ) : (
+                    <RiskTab risk={risk} />
+                  )}
                 </TabsContent>
                 <TabsContent value="tax">
                   {tax === null ? (

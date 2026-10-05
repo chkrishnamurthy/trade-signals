@@ -14,8 +14,16 @@ export const dynamic = 'force-dynamic';
 
 export default async function PortfolioAnalysisPage() {
   try {
-    const { analysis, returns, benchmark, tax } = await getPortfolioAnalysis();
-    return <AnalysisView analysis={analysis} returns={returns} benchmark={benchmark} tax={tax} />;
+    const { analysis, returns, benchmark, tax, risk } = await getPortfolioAnalysis();
+    return (
+      <AnalysisView
+        analysis={analysis}
+        returns={returns}
+        benchmark={benchmark}
+        tax={tax}
+        risk={risk}
+      />
+    );
   } catch (error) {
     if (error instanceof MarketDataError && error.status === 401)
       redirect(`/login?next=${encodeURIComponent('/portfolio/analysis')}`);
