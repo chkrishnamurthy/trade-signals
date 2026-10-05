@@ -59,10 +59,20 @@ export function summarisePortfolio(
     const q = quotes.get(h.instrumentId);
     const avg = h.shares > 0 ? Math.round(h.costPaise / h.shares) : 0;
     if (q === undefined) {
-      return { ...h, avgCostPaise: avg, valuePaise: null, gainPaise: null, gainRatio: null, dayChangePaise: null, dayChangeRatio: null, weight: null };
+      return {
+        ...h,
+        avgCostPaise: avg,
+        valuePaise: null,
+        gainPaise: null,
+        gainRatio: null,
+        dayChangePaise: null,
+        dayChangeRatio: null,
+        weight: null,
+      };
     }
     const v = h.shares * q.ltpPaise;
-    const dayChange = q.previousClosePaise === null ? null : h.shares * (q.ltpPaise - q.previousClosePaise);
+    const dayChange =
+      q.previousClosePaise === null ? null : h.shares * (q.ltpPaise - q.previousClosePaise);
     return {
       ...h,
       avgCostPaise: avg,
@@ -70,7 +80,10 @@ export function summarisePortfolio(
       gainPaise: v - h.costPaise,
       gainRatio: h.costPaise > 0 ? (v - h.costPaise) / h.costPaise : null,
       dayChangePaise: dayChange,
-      dayChangeRatio: q.previousClosePaise === null || q.previousClosePaise === 0 ? null : q.ltpPaise / q.previousClosePaise - 1,
+      dayChangeRatio:
+        q.previousClosePaise === null || q.previousClosePaise === 0
+          ? null
+          : q.ltpPaise / q.previousClosePaise - 1,
       weight: value > 0 ? v / value : null,
     };
   });

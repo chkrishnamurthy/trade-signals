@@ -38,10 +38,18 @@ export interface DerivedHolding {
   /** Total cost of the shares still held, in paise. */
   readonly costPaise: number;
   /** Corporate actions that changed this holding's share count. */
-  readonly adjustments: readonly { readonly kind: string; readonly exDate: string; readonly ratio: number }[];
+  readonly adjustments: readonly {
+    readonly kind: string;
+    readonly exDate: string;
+    readonly ratio: number;
+  }[];
 }
 
-export type DeriveProblem = { readonly entryId: number; readonly code: 'REMOVES_MORE_THAN_HELD'; readonly held: number };
+export type DeriveProblem = {
+  readonly entryId: number;
+  readonly code: 'REMOVES_MORE_THAN_HELD';
+  readonly held: number;
+};
 
 export interface DerivedPortfolio {
   readonly holdings: readonly DerivedHolding[];
@@ -50,7 +58,11 @@ export interface DerivedPortfolio {
 
 const SHARE_CHANGING = new Set(['split', 'bonus', 'consolidation']);
 
-export function adjustedShares(shares: number, entryDate: string, changes: readonly ShareChange[]): number {
+export function adjustedShares(
+  shares: number,
+  entryDate: string,
+  changes: readonly ShareChange[],
+): number {
   let result = shares;
   for (const change of changes) {
     if (!SHARE_CHANGING.has(change.kind) || change.ratio <= 0) continue;
@@ -59,9 +71,21 @@ export function adjustedShares(shares: number, entryDate: string, changes: reado
   return result;
 }
 
-export function derivePortfolio(entries: readonly PortfolioEntry[], changes: readonly ShareChange[]): DerivedPortfolio {
-  const ordered = [...entries].sort((a, b) => (a.tradeDate === b.tradeDate ? a.id - b.id : a.tradeDate < b.tradeDate ? -1 : 1));
-  const state = new Map<number, { shares: number; cost: number; adj: Map<string, { kind: string; exDate: string; ratio: number }> }>();
+export function derivePortfolio(
+  entries: readonly PortfolioEntry[],
+  changes: readonly ShareChange[],
+): DerivedPortfolio {
+  const ordered = [...entries].sort((a, b) =>
+    a.tradeDate === b.tradeDate ? a.id - b.id : a.tradeDate < b.tradeDate ? -1 : 1,
+  );
+  const state = new Map<
+    number,
+    {
+      shares: number;
+      cost: number;
+      adj: Map<string, { kind: string; exDate: string; ratio: number }>;
+    }
+  >();
   const problems: DeriveProblem[] = [];
 
   for (const entry of ordered) {
@@ -70,7 +94,8 @@ export function derivePortfolio(entries: readonly PortfolioEntry[], changes: rea
     const cur = state.get(entry.instrumentId) ?? { shares: 0, cost: 0, adj: new Map() };
     if (shares !== entry.shares) {
       for (const c of mine) {
-        if (SHARE_CHANGING.has(c.kind) && c.exDate > entry.tradeDate) cur.adj.set(`${c.kind}|${c.exDate}`, { kind: c.kind, exDate: c.exDate, ratio: c.ratio });
+        if (SHARE_CHANGING.has(c.kind) && c.exDate > entry.tradeDate)
+          cur.adj.set(`${c.kind}|${c.exDate}`, { kind: c.kind, exDate: c.exDate, ratio: c.ratio });
       }
     }
     if (entry.kind === 'remove') {
@@ -79,7 +104,8 @@ export function derivePortfolio(entries: readonly PortfolioEntry[], changes: rea
         state.set(entry.instrumentId, cur);
         continue;
       }
-      const costOut = shares === cur.shares ? cur.cost : Math.round((cur.cost * shares) / cur.shares);
+      const costOut =
+        shares === cur.shares ? cur.cost : Math.round((cur.cost * shares) / cur.shares);
       cur.shares -= shares;
       cur.cost -= costOut;
     } else {
@@ -92,7 +118,12 @@ export function derivePortfolio(entries: readonly PortfolioEntry[], changes: rea
   const holdings: DerivedHolding[] = [];
   for (const [instrumentId, s] of state) {
     if (s.shares <= 0) continue;
-    holdings.push({ instrumentId, shares: s.shares, costPaise: s.cost, adjustments: [...s.adj.values()] });
+    holdings.push({
+      instrumentId,
+      shares: s.shares,
+      costPaise: s.cost,
+      adjustments: [...s.adj.values()],
+    });
   }
   return { holdings, problems };
 }

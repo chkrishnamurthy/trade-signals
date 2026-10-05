@@ -45,6 +45,7 @@ session on 2026-10-05 and in progress. Nothing here is committed yet.
 | Breadth page, stock page, watchlist-scoped filings, IPO section, Google sign-in, indices strip (phases 0–3), market calendar, profile page, paper-trading phases 1–7 (admin-only) | Present in the tree |
 | Run tracking, event log, metadata sync, trading-day helper, indices drawer, lint in CI (2026-10-05) | Built and committed; verified on a fresh Postgres 17 + TimescaleDB (all 39 migrations, 1,717 tests) and in the running app where there is a page: `ingestion_runs` writers + indicator gate (EW-105); `event_log` migration 0038 with `job_failed`, credential events and `/admin/logs` (EW-071); `sync-instrument-metadata` (EW-107); `isTradingDay` and friends (EW-108); strip drawer (EW-133 phase 4); `pnpm lint:app` in CI. Regime line (EW-129) already existed as "Today's technical read". `CLAUDE.md`/`AGENTS.md` now point at the real docs (EW-110) |
 | Security hardening (2026-10-05) | Route guards + audit test, admin-only Fyers connect, CSRF layer, search/sign-up/2FA-confirm limits, worker credential-mint switch |
+| My portfolio, phase 1 (2026-10-05) | `/portfolio`: typed entries, CSV import (holdings snapshot or trade list) with a row-by-row check, valued from `latest_quotes`, splits/bonuses applied on read, entries list, delete-all, CSV export. Migration `0040`. Verified against Postgres and in the running app. Later phases (allocation, returns, tax, risk) are open — see `holdings-plan.md` |
 
 ### Open — confirmed absent in the code
 

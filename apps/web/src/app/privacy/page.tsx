@@ -75,11 +75,14 @@ export default async function PrivacyPage() {
               the data strictly necessary to provide your analytical account services: your email
               address, a cryptographic hash of your password (via Argon2id), authenticated session
               tokens, and your customized watchlist preferences, including any private notes you
-              attach to a stock and the alert rules you set. If you sign in with Google we receive
-              your Google account identifier, name, email address and profile picture. Each session
-              and security event also records the IP address and browser details it came from, so
-              that we can detect and investigate misuse. If you add a profile photo or details, we
-              store those too.
+              attach to a stock and the alert rules you set. If you use My portfolio we also store
+              the shares, dates and amounts you type in or approve from an uploaded file; the file
+              itself is read and discarded, only you can see these entries, no staff screen shows
+              them, and you can delete them all from that page at any time. If you sign in with
+              Google we receive your Google account identifier, name, email address and profile
+              picture. Each session and security event also records the IP address and browser
+              details it came from, so that we can detect and investigate misuse. If you add a
+              profile photo or details, we store those too.
             </p>
           </section>
 

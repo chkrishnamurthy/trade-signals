@@ -39,7 +39,10 @@ export interface NewHoldingEntry {
   readonly tradeId?: string | null;
 }
 
-export async function listHoldingEntries(db: Database, ownerId: number): Promise<HoldingEntryRow[]> {
+export async function listHoldingEntries(
+  db: Database,
+  ownerId: number,
+): Promise<HoldingEntryRow[]> {
   const rows = await db
     .select({
       id: holdingEntries.id,
@@ -58,7 +61,11 @@ export async function listHoldingEntries(db: Database, ownerId: number): Promise
     .innerJoin(instruments, eq(instruments.id, holdingEntries.instrumentId))
     .where(eq(holdingEntries.ownerId, ownerId))
     .orderBy(desc(holdingEntries.tradeDate), desc(holdingEntries.id));
-  return rows.map((r) => ({ ...r, kind: r.kind as HoldingEntryKind, source: r.source as 'manual' | 'file' }));
+  return rows.map((r) => ({
+    ...r,
+    kind: r.kind as HoldingEntryKind,
+    source: r.source as 'manual' | 'file',
+  }));
 }
 
 export type WriteResult<T> =
@@ -83,62 +90,74 @@ export async function writeHoldingEntries(
     readonly validate?: (ledger: readonly HoldingEntryRow[]) => string | null;
   },
 ): Promise<WriteResult<{ inserted: number; skippedDuplicates: number; replaced: number }>> {
-  return db.transaction(async (tx) => {
-    await tx.execute(sql`select pg_advisory_xact_lock(${ownerId}::int, 105)`);
+  return db
+    .transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(${ownerId}::int, 105)`);
 
-    let replaced = 0;
-    const replaceIds = input.replaceInstrumentIds ?? [];
-    if (replaceIds.length > 0) {
-      const removed = await tx
-        .delete(holdingEntries)
-        .where(and(eq(holdingEntries.ownerId, ownerId), inArray(holdingEntries.instrumentId, [...replaceIds])))
-        .returning({ id: holdingEntries.id });
-      replaced = removed.length;
-    }
-
-    let inserted = 0;
-    if (input.rows.length > 0) {
-      const result = await tx
-        .insert(holdingEntries)
-        .values(
-          input.rows.map((r) => ({
-            ownerId,
-            instrumentId: r.instrumentId,
-            kind: r.kind,
-            tradeDate: r.tradeDate,
-            shares: r.shares,
-            amountPaise: r.amountPaise,
-            source: r.source,
-            tradeId: r.tradeId ?? null,
-          })),
-        )
-        .onConflictDoNothing()
-        .returning({ id: holdingEntries.id });
-      inserted = result.length;
-    }
-
-    const [{ n } = { n: 0 }] = await tx
-      .select({ n: sql<number>`count(*)::int` })
-      .from(holdingEntries)
-      .where(eq(holdingEntries.ownerId, ownerId));
-    if (n > MAX_PORTFOLIO_ENTRIES) {
-      tx.rollback();
-    }
-
-    if (input.validate !== undefined) {
-      const ledger = await listHoldingEntriesTx(tx, ownerId);
-      const problem = input.validate(ledger);
-      if (problem !== null) {
-        // Throwing rolls the transaction back; the sentinel carries the message out.
-        throw new RejectedWrite(problem);
+      let replaced = 0;
+      const replaceIds = input.replaceInstrumentIds ?? [];
+      if (replaceIds.length > 0) {
+        const removed = await tx
+          .delete(holdingEntries)
+          .where(
+            and(
+              eq(holdingEntries.ownerId, ownerId),
+              inArray(holdingEntries.instrumentId, [...replaceIds]),
+            ),
+          )
+          .returning({ id: holdingEntries.id });
+        replaced = removed.length;
       }
-    }
-    return { ok: true as const, value: { inserted, skippedDuplicates: input.rows.length - inserted, replaced } };
-  }).catch((error: unknown) => {
-    if (error instanceof RejectedWrite) return { ok: false as const, reason: 'rejected' as const, message: error.message };
-    if (error instanceof Error && error.name === 'TransactionRollbackError') return { ok: false as const, reason: 'limit_reached' as const };
-    throw error;
-  });
+
+      let inserted = 0;
+      if (input.rows.length > 0) {
+        const result = await tx
+          .insert(holdingEntries)
+          .values(
+            input.rows.map((r) => ({
+              ownerId,
+              instrumentId: r.instrumentId,
+              kind: r.kind,
+              tradeDate: r.tradeDate,
+              shares: r.shares,
+              amountPaise: r.amountPaise,
+              source: r.source,
+              tradeId: r.tradeId ?? null,
+            })),
+          )
+          .onConflictDoNothing()
+          .returning({ id: holdingEntries.id });
+        inserted = result.length;
+      }
+
+      const [{ n } = { n: 0 }] = await tx
+        .select({ n: sql<number>`count(*)::int` })
+        .from(holdingEntries)
+        .where(eq(holdingEntries.ownerId, ownerId));
+      if (n > MAX_PORTFOLIO_ENTRIES) {
+        tx.rollback();
+      }
+
+      if (input.validate !== undefined) {
+        const ledger = await listHoldingEntriesTx(tx, ownerId);
+        const problem = input.validate(ledger);
+        if (problem !== null) {
+          // Throwing rolls the transaction back; the sentinel carries the message out.
+          throw new RejectedWrite(problem);
+        }
+      }
+      return {
+        ok: true as const,
+        value: { inserted, skippedDuplicates: input.rows.length - inserted, replaced },
+      };
+    })
+    .catch((error: unknown) => {
+      if (error instanceof RejectedWrite)
+        return { ok: false as const, reason: 'rejected' as const, message: error.message };
+      if (error instanceof Error && error.name === 'TransactionRollbackError')
+        return { ok: false as const, reason: 'limit_reached' as const };
+      throw error;
+    });
 }
 
 class RejectedWrite extends Error {}
@@ -163,7 +182,11 @@ async function listHoldingEntriesTx(tx: Tx, ownerId: number): Promise<HoldingEnt
     .from(holdingEntries)
     .innerJoin(instruments, eq(instruments.id, holdingEntries.instrumentId))
     .where(eq(holdingEntries.ownerId, ownerId));
-  return rows.map((r) => ({ ...r, kind: r.kind as HoldingEntryKind, source: r.source as 'manual' | 'file' }));
+  return rows.map((r) => ({
+    ...r,
+    kind: r.kind as HoldingEntryKind,
+    source: r.source as 'manual' | 'file',
+  }));
 }
 
 /** Deletes one of the owner's entries. `validate` may veto (removing an add can orphan a later removal). */
@@ -188,7 +211,8 @@ export async function deleteHoldingEntry(
       return { ok: true as const, value: true };
     })
     .catch((error: unknown) => {
-      if (error instanceof RejectedWrite) return { ok: false as const, reason: 'rejected' as const, message: error.message };
+      if (error instanceof RejectedWrite)
+        return { ok: false as const, reason: 'rejected' as const, message: error.message };
       throw error;
     });
 }
@@ -210,7 +234,10 @@ export interface ShareChangeRow {
 }
 
 /** Splits, bonuses and consolidations for some instruments, to apply on read. */
-export async function listShareChanges(db: Database, instrumentIds: readonly number[]): Promise<ShareChangeRow[]> {
+export async function listShareChanges(
+  db: Database,
+  instrumentIds: readonly number[],
+): Promise<ShareChangeRow[]> {
   if (instrumentIds.length === 0) return [];
   const rows = await db
     .select({

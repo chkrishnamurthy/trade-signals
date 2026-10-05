@@ -234,8 +234,14 @@ export async function listAllWatchedInstruments(
     .from(instruments)
     .where(
       or(
-        inArray(instruments.id, db.select({ id: watchlistItems.instrumentId }).from(watchlistItems)),
-        inArray(instruments.id, db.select({ id: holdingEntries.instrumentId }).from(holdingEntries)),
+        inArray(
+          instruments.id,
+          db.select({ id: watchlistItems.instrumentId }).from(watchlistItems),
+        ),
+        inArray(
+          instruments.id,
+          db.select({ id: holdingEntries.instrumentId }).from(holdingEntries),
+        ),
       ),
     )
     .orderBy(instruments.symbol);

@@ -39,23 +39,33 @@ export type FileKind = 'holdings' | 'trades';
 
 export type ParsedFile =
   | { readonly ok: true; readonly fileKind: FileKind; readonly rows: ParsedRow[] }
-  | { readonly ok: false; readonly code: 'EMPTY' | 'UNRECOGNISED' | 'TOO_LARGE'; readonly message: string };
+  | {
+      readonly ok: false;
+      readonly code: 'EMPTY' | 'UNRECOGNISED' | 'TOO_LARGE';
+      readonly message: string;
+    };
 
 export const MAX_IMPORT_ROWS = 2_000;
 
-const normalise = (header: string) => header.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+const normalise = (header: string) =>
+  header
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
 
-const SYMBOL = ['instrument', 'symbol', 'scrip', 'scrip name', 'stock', 'stock name', 'security', 'company', 'trading symbol'];
-const SHARES = ['qty', 'quantity', 'shares', 'no of shares', 'holding qty', 'qty available'];
-const AVG = ['avg cost', 'average cost', 'avg price', 'average price', 'buy avg', 'buy average', 'avg buy price'];
-const INVESTED = ['invested', 'invested value', 'total cost', 'buy value', 'cost'];
-const ISIN = ['isin'];
-const DATE = ['trade date', 'date', 'order execution time', 'execution date'];
-const SIDE = ['trade type', 'side', 'type', 'buy sell', 'transaction type'];
-const PRICE = ['price', 'trade price', 'rate'];
-const TRADE_ID = ['trade id', 'trade no', 'trade number'];
-const SEGMENT = ['segment'];
-const EXCHANGE = ['exchange'];
+import {
+  AVG,
+  DATE,
+  EXCHANGE,
+  INVESTED,
+  ISIN,
+  PRICE,
+  SEGMENT,
+  SHARES,
+  SIDE,
+  SYMBOL,
+  TRADE_ID,
+} from './columns.js';
 
 function indexOfAny(headers: readonly string[], names: readonly string[]): number {
   for (const name of names) {
@@ -84,7 +94,11 @@ export function parseTradeDate(raw: string): string | null {
   return null;
 }
 
-const skipped = (base: Omit<ParsedRow, 'status' | 'message'>, message: string): ParsedRow => ({ ...base, status: 'skipped', message });
+const skipped = (base: Omit<ParsedRow, 'status' | 'message'>, message: string): ParsedRow => ({
+  ...base,
+  status: 'skipped',
+  message,
+});
 
 export function parsePortfolioFile(text: string, today: string): ParsedFile {
   const records = readCsv(text);
@@ -93,7 +107,11 @@ export function parsePortfolioFile(text: string, today: string): ParsedFile {
   const headers = (records[headerIndex] ?? []).map(normalise);
   const body = records.slice(headerIndex + 1);
   if (body.length > MAX_IMPORT_ROWS) {
-    return { ok: false, code: 'TOO_LARGE', message: `The file has more than ${MAX_IMPORT_ROWS} rows. Split it and import in parts.` };
+    return {
+      ok: false,
+      code: 'TOO_LARGE',
+      message: `The file has more than ${MAX_IMPORT_ROWS} rows. Split it and import in parts.`,
+    };
   }
 
   const cSymbol = indexOfAny(headers, SYMBOL);
@@ -108,32 +126,44 @@ export function parsePortfolioFile(text: string, today: string): ParsedFile {
   const cSegment = indexOfAny(headers, SEGMENT);
   const cExchange = indexOfAny(headers, EXCHANGE);
 
-  const isTrades = cSymbol !== -1 && cShares !== -1 && cDate !== -1 && cSide !== -1 && cPrice !== -1;
+  const isTrades =
+    cSymbol !== -1 && cShares !== -1 && cDate !== -1 && cSide !== -1 && cPrice !== -1;
   const isHoldings = cSymbol !== -1 && cShares !== -1 && (cAvg !== -1 || cInvested !== -1);
   if (!isTrades && !isHoldings) {
     return {
       ok: false,
       code: 'UNRECOGNISED',
       message:
-        'We could not recognise the columns. A holdings file needs a stock, a number of shares and an average cost. A trade list needs a stock, date, buy or sell, number of shares and price.',
+        'We could not recognise the columns. A holdings file needs a stock, a number of shares and an average cost. A trade list needs a stock, date, whether shares were added or removed, number of shares and price.',
     };
   }
 
-  const cell = (record: readonly string[], col: number) => (col === -1 ? '' : (record[col] ?? '').trim());
+  const cell = (record: readonly string[], col: number) =>
+    col === -1 ? '' : (record[col] ?? '').trim();
   const rows: ParsedRow[] = [];
 
-  body.forEach((record, k) => {
-    if (record.every((c) => c === '')) return;
+  const readRecord = (record: readonly string[], k: number): ParsedRow | null => {
+    if (record.every((c) => c === '')) return null;
     const line = headerIndex + k + 2;
     const symbol = cell(record, cSymbol).toUpperCase();
     const isin = cell(record, cIsin).toUpperCase() || null;
     const sharesText = cell(record, cShares);
     const shares = parseShareCount(sharesText);
     const tradeId = cell(record, cTradeId) || null;
-    const base = { line, symbol, isin, kind: 'opening' as EntryKind, tradeDate: today, shares: shares ?? 0, amountPaise: 0, tradeId };
+    const base = {
+      line,
+      symbol,
+      isin,
+      kind: 'opening' as EntryKind,
+      tradeDate: today,
+      shares: shares ?? 0,
+      amountPaise: 0,
+      tradeId,
+    };
 
-    if (symbol === '') return void rows.push(skipped(base, 'No stock name on this row.'));
-    if (shares === null || shares <= 0) return void rows.push(skipped(base, `"${sharesText}" is not a whole number of shares.`));
+    if (symbol === '') return skipped(base, 'No stock name on this row.');
+    if (shares === null || shares <= 0)
+      return skipped(base, `"${sharesText}" is not a whole number of shares.`);
 
     if (isTrades) {
       const segment = cell(record, cSegment).toUpperCase();
@@ -141,17 +171,28 @@ export function parsePortfolioFile(text: string, today: string): ParsedFile {
       const sideText = cell(record, cSide).toLowerCase();
       const date = parseTradeDate(cell(record, cDate));
       const price = parseRupeesToPaise(cell(record, cPrice));
-      const kind: EntryKind | null = sideText.startsWith('b') ? 'add' : sideText.startsWith('s') ? 'remove' : null;
+      const kind: EntryKind | null = sideText.startsWith('b')
+        ? 'add'
+        : sideText.startsWith('s')
+          ? 'remove'
+          : null;
       const row = { ...base, kind: kind ?? 'add', tradeDate: date ?? today };
-      if (segment !== '' && segment !== 'EQ') return void rows.push(skipped(row, 'Skipped: only shares are imported, not futures, options or currency.'));
-      if (exchange !== '' && exchange !== 'NSE') return void rows.push(skipped(row, `Skipped: ${exchange} is not supported yet; only NSE.`));
-      if (kind === null) return void rows.push(skipped(row, `Skipped: "${sideText}" is not buy or sell.`));
-      if (date === null) return void rows.push(skipped(row, 'Skipped: the date could not be read.'));
-      if (date > today) return void rows.push(skipped(row, 'Skipped: the date is in the future.'));
-      if (price === null || price <= 0) return void rows.push(skipped(row, 'Skipped: the price could not be read.'));
+      if (segment !== '' && segment !== 'EQ')
+        return skipped(row, 'Skipped: only shares are imported, not futures, options or currency.');
+      if (exchange !== '' && exchange !== 'NSE')
+        return skipped(row, `Skipped: ${exchange} is not supported yet; only NSE.`);
+      if (kind === null) return skipped(row, `Skipped: the side "${sideText}" was not recognised.`);
+      if (date === null) return skipped(row, 'Skipped: the date could not be read.');
+      if (date > today) return skipped(row, 'Skipped: the date is in the future.');
+      if (price === null || price <= 0)
+        return skipped(row, 'Skipped: the price could not be read.');
       const verb = kind === 'add' ? 'added' : 'removed';
-      rows.push({ ...row, amountPaise: shares * price, status: 'ready', message: `Ready: ${verb} ${shares} shares.` });
-      return;
+      return {
+        ...row,
+        amountPaise: shares * price,
+        status: 'ready',
+        message: `Ready: ${verb} ${shares} shares.`,
+      };
     }
 
     // Holdings snapshot.
@@ -171,13 +212,19 @@ export function parsePortfolioFile(text: string, today: string): ParsedFile {
     } else if (avg !== null && avg > 0) {
       amountPaise = shares * avg;
     }
-    if (amountPaise === null) return void rows.push(skipped(base, 'Skipped: no average cost or invested amount on this row.'));
-    rows.push({
+    if (amountPaise === null)
+      return skipped(base, 'Skipped: no average cost or invested amount on this row.');
+    return {
       ...base,
       amountPaise,
       status: note === '' ? 'ready' : 'check',
       message: note === '' ? `Ready: ${shares} shares you hold today.` : `Check:${note}`,
-    });
+    };
+  };
+
+  body.forEach((record, k) => {
+    const row = readRecord(record, k);
+    if (row !== null) rows.push(row);
   });
 
   return { ok: true, fileKind: isTrades ? 'trades' : 'holdings', rows };

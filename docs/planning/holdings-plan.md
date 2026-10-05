@@ -502,3 +502,20 @@ Screens 4 to 8 of the mockups are combined into one page, `/holdings/analysis`: 
 Tabs unlock with data, not payment: Allocation needs shares and prices; Returns needs dated entries; Risk needs about 6 months; Tax needs at least one removed-shares entry. A tab that cannot show a number says why.
 
 Build mapping: Phase 1 ships the drawer, empty state and a one-tab hub (strip + Allocation); Phase 2 completes Allocation; Phases 3 and 4 turn on Returns and Tax; Phase 5 turns on Risk. Interactive mockup: the "Holdings Analysis Hub" artifact.
+
+## Build status (2026-10-05)
+
+**Phase 0 done:** the owner approved the `CLAUDE.md` edits (applied to `CLAUDE.md` and `AGENTS.md`), kept the work on `main`, chose the route `/portfolio` (not `/holdings`), shows profit and loss, and made the page visible to every signed-in user. A real broker holdings file (a three-stock export) was supplied.
+
+**Phase 1 slice built:**
+
+- `packages/core/src/portfolio`: exact rupee-to-paise parsing, CSV reader, file recognition (holdings snapshot and trade list), share and cost derivation by average cost with splits and bonuses applied on read, and valuation. 22 tests.
+- `packages/db`: `holding_entries` (migration `0040_portfolio`), an owner-scoped repository with an all-or-nothing validation hook, replace-on-snapshot and trade-id de-duplication. 11 tests on a real Postgres. The worker's quote refresh now also prices held stocks.
+- `apps/web`: `/portfolio`, `/api/portfolio` (+ `entries`, `import`), nav entry, privacy text, a vocabulary test that scans the page's wording for banned words.
+
+**Differences from the plan, and why:**
+
+- The row stores a **total amount in paise**, not a per-share price. Brokers round the average cost they print; the invested total is exact (3,290 shares at a printed ₹16.53 is really ₹54,389.19).
+- A holdings snapshot is stored as an **opening** entry dated the day it is uploaded, and uploading a fresh snapshot **replaces** the entries for those stocks. A trade list adds dated entries and skips repeats by trade id.
+- Excel files are not read yet; the upload says to save as CSV. Only Zerodha's holdings export has been seen; the trade-list reader follows the published tradebook columns but has not been run on a real file.
+- Not yet built: lite single-holding page, the pinned-strip analysis hub, allocation charts, returns, tax and risk tabs (Phases 2 to 5).

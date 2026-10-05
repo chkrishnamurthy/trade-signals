@@ -61,7 +61,13 @@ describe('parsePortfolioFile — holdings snapshot', () => {
     if (!parsed.ok) return;
     expect(parsed.fileKind).toBe('holdings');
     const beta = parsed.rows.find((r) => r.symbol === 'BETA');
-    expect(beta).toMatchObject({ kind: 'opening', shares: 3290, amountPaise: 5438919, status: 'ready', tradeDate: '2026-10-05' });
+    expect(beta).toMatchObject({
+      kind: 'opening',
+      shares: 3290,
+      amountPaise: 5438919,
+      status: 'ready',
+      tradeDate: '2026-10-05',
+    });
   });
   it('flags a disagreement between average cost and invested for a person to check', () => {
     if (!parsed.ok) throw new Error('unreachable');
@@ -93,7 +99,14 @@ describe('parsePortfolioFile — trade list', () => {
   it('maps buy and sell to added and removed shares with exact amounts', () => {
     if (!parsed.ok) throw new Error('unreachable');
     expect(parsed.fileKind).toBe('trades');
-    expect(parsed.rows[0]).toMatchObject({ kind: 'add', shares: 20, amountPaise: 20 * 154025, tradeDate: '2025-09-02', tradeId: 'T1', status: 'ready' });
+    expect(parsed.rows[0]).toMatchObject({
+      kind: 'add',
+      shares: 20,
+      amountPaise: 20 * 154025,
+      tradeDate: '2025-09-02',
+      tradeId: 'T1',
+      status: 'ready',
+    });
     expect(parsed.rows[1]).toMatchObject({ kind: 'remove', amountPaise: 15 * 160000 });
   });
   it('reads Indian day-first dates', () => {
@@ -110,36 +123,69 @@ describe('parsePortfolioFile — trade list', () => {
 describe('parsePortfolioFile — bad input', () => {
   it('rejects an empty or unrecognised file with a plain message', () => {
     expect(parsePortfolioFile('', '2026-10-05')).toMatchObject({ ok: false, code: 'EMPTY' });
-    expect(parsePortfolioFile('a,b\n1,2\n', '2026-10-05')).toMatchObject({ ok: false, code: 'UNRECOGNISED' });
+    expect(parsePortfolioFile('a,b\n1,2\n', '2026-10-05')).toMatchObject({
+      ok: false,
+      code: 'UNRECOGNISED',
+    });
   });
 });
 
-const e = (id: number, kind: PortfolioEntry['kind'], date: string, shares: number, amountPaise: number, instrumentId = 1): PortfolioEntry => ({ id, instrumentId, kind, tradeDate: date, shares, amountPaise });
+const e = (
+  id: number,
+  kind: PortfolioEntry['kind'],
+  date: string,
+  shares: number,
+  amountPaise: number,
+  instrumentId = 1,
+): PortfolioEntry => ({ id, instrumentId, kind, tradeDate: date, shares, amountPaise });
 
 describe('derivePortfolio', () => {
   it('adds shares and cost, and removes cost in proportion', () => {
-    const r = derivePortfolio([e(1, 'add', '2025-01-01', 10, 10_000), e(2, 'add', '2025-02-01', 10, 14_000), e(3, 'remove', '2025-03-01', 5, 9_000)], []);
+    const r = derivePortfolio(
+      [
+        e(1, 'add', '2025-01-01', 10, 10_000),
+        e(2, 'add', '2025-02-01', 10, 14_000),
+        e(3, 'remove', '2025-03-01', 5, 9_000),
+      ],
+      [],
+    );
     expect(r.problems).toEqual([]);
-    expect(r.holdings).toEqual([{ instrumentId: 1, shares: 15, costPaise: 18_000, adjustments: [] }]);
+    expect(r.holdings).toEqual([
+      { instrumentId: 1, shares: 15, costPaise: 18_000, adjustments: [] },
+    ]);
   });
   it('closes a holding when everything is removed and leaves no cost behind', () => {
-    const r = derivePortfolio([e(1, 'add', '2025-01-01', 3, 1_000), e(2, 'remove', '2025-02-01', 3, 2_000)], []);
+    const r = derivePortfolio(
+      [e(1, 'add', '2025-01-01', 3, 1_000), e(2, 'remove', '2025-02-01', 3, 2_000)],
+      [],
+    );
     expect(r.holdings).toEqual([]);
   });
   it('refuses to remove more than was held on that date', () => {
-    const r = derivePortfolio([e(1, 'add', '2025-01-01', 3, 1_000), e(2, 'remove', '2025-02-01', 4, 2_000)], []);
+    const r = derivePortfolio(
+      [e(1, 'add', '2025-01-01', 3, 1_000), e(2, 'remove', '2025-02-01', 4, 2_000)],
+      [],
+    );
     expect(r.problems).toEqual([{ entryId: 2, code: 'REMOVES_MORE_THAN_HELD', held: 3 }]);
     expect(r.holdings[0]?.shares).toBe(3);
   });
   it('orders by date, not by when the row was typed', () => {
-    const r = derivePortfolio([e(2, 'remove', '2025-02-01', 3, 2_000), e(1, 'add', '2025-03-01', 3, 1_000)], []);
+    const r = derivePortfolio(
+      [e(2, 'remove', '2025-02-01', 3, 2_000), e(1, 'add', '2025-03-01', 3, 1_000)],
+      [],
+    );
     expect(r.problems.length).toBe(1);
   });
   it('applies a split to earlier entries only and keeps the total cost', () => {
     const split = { instrumentId: 1, kind: 'split', exDate: '2025-06-01', ratio: 0.2 };
-    const r = derivePortfolio([e(1, 'add', '2025-01-01', 10, 50_000), e(2, 'add', '2025-07-01', 5, 6_000)], [split]);
+    const r = derivePortfolio(
+      [e(1, 'add', '2025-01-01', 10, 50_000), e(2, 'add', '2025-07-01', 5, 6_000)],
+      [split],
+    );
     expect(r.holdings[0]).toMatchObject({ shares: 55, costPaise: 56_000 });
-    expect(r.holdings[0]?.adjustments).toEqual([{ kind: 'split', exDate: '2025-06-01', ratio: 0.2 }]);
+    expect(r.holdings[0]?.adjustments).toEqual([
+      { kind: 'split', exDate: '2025-06-01', ratio: 0.2 },
+    ]);
   });
   it('applies a 1:1 bonus (ratio 0.5) and ignores dividends and other stocks', () => {
     const changes = [
@@ -151,7 +197,10 @@ describe('derivePortfolio', () => {
     expect(r.holdings[0]?.shares).toBe(14);
   });
   it('does not adjust an opening entry dated after the ex-date', () => {
-    const r = derivePortfolio([e(1, 'opening', '2026-10-05', 40, 4_000)], [{ instrumentId: 1, kind: 'split', exDate: '2026-01-01', ratio: 0.5 }]);
+    const r = derivePortfolio(
+      [e(1, 'opening', '2026-10-05', 40, 4_000)],
+      [{ instrumentId: 1, kind: 'split', exDate: '2026-01-01', ratio: 0.5 }],
+    );
     expect(r.holdings[0]?.shares).toBe(40);
   });
 });
@@ -170,7 +219,10 @@ describe('summarisePortfolio', () => {
     { instrumentId: 2, shares: 10, costPaise: 20_000, adjustments: [] },
   ];
   it('values priced holdings, ignores unpriced ones in the gain, and counts them', () => {
-    const s = summarisePortfolio(holdings, new Map([[1, { ltpPaise: 6_000, previousClosePaise: 5_900 }]]));
+    const s = summarisePortfolio(
+      holdings,
+      new Map([[1, { ltpPaise: 6_000, previousClosePaise: 5_900 }]]),
+    );
     expect(s.valuePaise).toBe(600_000);
     expect(s.gainPaise).toBe(100_000);
     expect(s.gainRatio).toBeCloseTo(0.2, 10);
@@ -181,7 +233,10 @@ describe('summarisePortfolio', () => {
     expect(s.holdings[1]).toMatchObject({ valuePaise: null, gainPaise: null });
   });
   it('has no day change when the previous close is missing', () => {
-    const s = summarisePortfolio(holdings, new Map([[1, { ltpPaise: 6_000, previousClosePaise: null }]]));
+    const s = summarisePortfolio(
+      holdings,
+      new Map([[1, { ltpPaise: 6_000, previousClosePaise: null }]]),
+    );
     expect(s.dayChangeRatio).toBeNull();
     expect(s.dayChangePaise).toBe(0);
   });

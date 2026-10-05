@@ -54,7 +54,15 @@ suite('portfolio entries', () => {
     await handle?.close();
   }, SETUP_TIMEOUT_MS);
 
-  const add = (instrumentId: number, over: Partial<{ kind: 'opening' | 'add' | 'remove'; shares: number; tradeId: string | null; tradeDate: string }> = {}) => ({
+  const add = (
+    instrumentId: number,
+    over: Partial<{
+      kind: 'opening' | 'add' | 'remove';
+      shares: number;
+      tradeId: string | null;
+      tradeDate: string;
+    }> = {},
+  ) => ({
     instrumentId,
     kind: 'add' as const,
     tradeDate: '2026-01-02',
@@ -70,12 +78,20 @@ suite('portfolio entries', () => {
     expect(await listHoldingEntries(handle.db, stranger)).toEqual([]);
     const mine = await listHoldingEntries(handle.db, owner);
     expect(mine).toHaveLength(1);
-    expect(mine[0]).toMatchObject({ symbol: symA, shares: 10, amountPaise: 1_000_000, kind: 'add' });
+    expect(mine[0]).toMatchObject({
+      symbol: symA,
+      shares: 10,
+      amountPaise: 1_000_000,
+      kind: 'add',
+    });
   });
 
   it('cannot delete another owner’s entry by id', async () => {
     const [mine] = await listHoldingEntries(handle.db, owner);
-    expect(await deleteHoldingEntry(handle.db, stranger, mine!.id)).toEqual({ ok: true, value: false });
+    expect(await deleteHoldingEntry(handle.db, stranger, mine!.id)).toEqual({
+      ok: true,
+      value: false,
+    });
     expect(await listHoldingEntries(handle.db, owner)).toHaveLength(1);
   });
 
@@ -85,7 +101,11 @@ suite('portfolio entries', () => {
       rows: [add(b), add(b, { kind: 'remove', shares: 99, tradeDate: '2026-02-01' })],
       validate: () => 'You removed more shares than you held.',
     });
-    expect(result).toEqual({ ok: false, reason: 'rejected', message: 'You removed more shares than you held.' });
+    expect(result).toEqual({
+      ok: false,
+      reason: 'rejected',
+      message: 'You removed more shares than you held.',
+    });
     expect((await listHoldingEntries(handle.db, owner)).length).toBe(before);
   });
 
@@ -112,14 +132,25 @@ suite('portfolio entries', () => {
   });
 
   it('lets a delete be vetoed, leaving the row in place', async () => {
-    const [target] = (await listHoldingEntries(handle.db, owner)).filter((e) => e.instrumentId === a);
-    const vetoed = await deleteHoldingEntry(handle.db, owner, target!.id, () => 'A later removal depends on this.');
+    const [target] = (await listHoldingEntries(handle.db, owner)).filter(
+      (e) => e.instrumentId === a,
+    );
+    const vetoed = await deleteHoldingEntry(
+      handle.db,
+      owner,
+      target!.id,
+      () => 'A later removal depends on this.',
+    );
     expect(vetoed).toMatchObject({ ok: false, reason: 'rejected' });
-    expect((await listHoldingEntries(handle.db, owner)).some((e) => e.id === target!.id)).toBe(true);
+    expect((await listHoldingEntries(handle.db, owner)).some((e) => e.id === target!.id)).toBe(
+      true,
+    );
   });
 
   it('refuses a non-positive share count or a negative amount at the database', async () => {
-    await expect(writeHoldingEntries(handle.db, owner, { rows: [add(a, { shares: 0 })] })).rejects.toThrow();
+    await expect(
+      writeHoldingEntries(handle.db, owner, { rows: [add(a, { shares: 0 })] }),
+    ).rejects.toThrow();
     await expect(
       writeHoldingEntries(handle.db, owner, { rows: [{ ...add(a), amountPaise: -1 }] }),
     ).rejects.toThrow();
