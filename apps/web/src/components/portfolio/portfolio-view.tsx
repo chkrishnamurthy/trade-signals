@@ -54,9 +54,11 @@ import type {
   PortfolioDto,
   PortfolioHoldingDto,
 } from '@/lib/portfolio-types';
+import { UpcomingList } from './analysis-view';
 import { EntryRows } from './entry-edit';
 import { longDate, pctText, request } from './portfolio-client';
 import { paiseToPlain, parseRupeesInput } from './portfolio-format';
+import { PortfolioNav } from './portfolio-nav';
 import { readSpreadsheet } from './spreadsheet';
 
 /**
@@ -107,6 +109,7 @@ export function PortfolioView({ portfolio }: { portfolio: PortfolioDto }) {
         </PageHeader>
 
         <PageContent>
+          {!empty && <PortfolioNav current="overview" />}
           {empty ? (
             <Onboarding onAdd={() => setAddOpen(true)} onImport={() => setImportOpen(true)} />
           ) : (
@@ -273,6 +276,26 @@ function Overview({ portfolio }: { portfolio: PortfolioDto }) {
           <p className="mt-2 text-xs text-muted-foreground">
             Facts about your own list. Not a suggestion to do anything.
           </p>
+        </Section>
+      )}
+
+      {portfolio.upcoming.length > 0 && (
+        <Section
+          aria-labelledby="coming-up"
+          className="rounded-lg border border-border bg-surface p-4 shadow-subtle"
+        >
+          <div className="mb-1 flex items-center justify-between gap-2">
+            <h2 id="coming-up" className="text-sm font-semibold">
+              Coming up for your holdings
+            </h2>
+            <Link
+              href={'/portfolio/analysis' as Route}
+              className="text-sm text-primary hover:underline"
+            >
+              See the analysis
+            </Link>
+          </div>
+          <UpcomingList events={portfolio.upcoming.slice(0, 5)} />
         </Section>
       )}
 

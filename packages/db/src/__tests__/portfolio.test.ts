@@ -7,11 +7,13 @@ import { ensureInstruments } from '../repositories/instruments.js';
 import {
   deleteAllHoldingEntries,
   deleteHoldingEntry,
+  holdingReference,
   latestDailyCloses,
   listHoldingEntries,
   listShareChanges,
   portfolioUsageSummary,
   recordPortfolioUsage,
+  upcomingHoldingEvents,
   updateHoldingEntry,
   writeHoldingEntries,
 } from '../repositories/portfolio.js';
@@ -252,6 +254,42 @@ suite('portfolio entries', () => {
     expect(summary.users).toBeGreaterThanOrEqual(1);
     expect(summary.returnedAfter30Days).toBeGreaterThanOrEqual(1);
     expect(summary.eligibleFor30DayReturn).toBeGreaterThanOrEqual(summary.returnedAfter30Days);
+  });
+
+  it('reads industry and current index memberships, leaving old memberships out', async () => {
+    await handle.db.execute(
+      sql`insert into instrument_reference(instrument_id, series, industry) values (${a}, 'EQ', 'Banks')`,
+    );
+    await handle.db.execute(sql`insert into index_memberships(index_key, instrument_id, effective_from, effective_to, source) values
+      ('nifty100', ${a}, '2026-01-01', null, 'test'), ('niftymidcap150', ${a}, '2025-01-01', '2025-12-31', 'test')`);
+    const ref = await holdingReference(handle.db, [a, b]);
+    expect(ref.get(a)).toEqual({ industry: 'Banks', indexKeys: ['nifty100'] });
+    expect(ref.get(b)).toEqual({ industry: null, indexKeys: [] });
+    expect((await holdingReference(handle.db, [])).size).toBe(0);
+  });
+
+  it('lists upcoming events for held stocks with dividend amounts, inside the window only', async () => {
+    await handle.db.execute(sql`insert into market_events(instrument_id, symbol, event_type, title, event_date) values
+      (${a}, ${symA}, 'dividend', 'Final dividend', '2026-10-16'),
+      (${a}, ${symA}, 'result', 'Q2 results', '2026-10-20'),
+      (${a}, ${symA}, 'ipo', 'Not for holders', '2026-10-18'),
+      (${b}, ${symB}, 'result', 'Outside window', '2027-03-01')`);
+    await handle.db.execute(sql`insert into dividends(instrument_id, ex_date, kind, amount_paise, subject, source) values
+      (${a}, '2026-10-16', 'final', 2100, 'Final Dividend - Rs 21', 'test'),
+      (${b}, '2026-11-02', 'interim', 500, 'Interim Dividend - Rs 5', 'test')`);
+    const events = await upcomingHoldingEvents(handle.db, [a, b], '2026-10-05', '2026-12-04');
+    expect(
+      events.map((e) => [
+        e.instrumentId === a ? 'A' : 'B',
+        e.eventType,
+        e.eventDate,
+        e.dividendPaise,
+      ]),
+    ).toEqual([
+      ['A', 'dividend', '2026-10-16', 2100],
+      ['A', 'result', '2026-10-20', null],
+      ['B', 'dividend', '2026-11-02', 500],
+    ]);
   });
 
   it('cascades when the account is deleted', async () => {

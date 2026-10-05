@@ -58,6 +58,8 @@ export interface PortfolioDto {
   pricesStale: boolean;
   /** Entries that cannot be applied (for example a removal of shares never held). */
   problems: string[];
+  /** Events in the next 60 days on stocks the user holds. */
+  upcoming: UpcomingEventDto[];
 }
 
 export type ImportRowStatus = 'ready' | 'check' | 'skipped';
@@ -110,4 +112,61 @@ export interface EditEntryBody {
   shares: number;
   /** Total money for the entry in integer paise (cost with charges, or proceeds). */
   totalPaise: number;
+}
+
+export interface UpcomingEventDto {
+  symbol: string;
+  name: string;
+  eventType: string;
+  eventDate: string;
+  title: string;
+  /** Dividend a share, paise, when the record has one. */
+  dividendPaise: number | null;
+  /** Shares held today; an estimate of the dividend uses it. */
+  shares: number;
+}
+
+export interface WeightGroupDto {
+  key: string;
+  label: string;
+  valuePaise: number;
+  weight: number;
+  count: number;
+}
+
+export type CompanySizeKey = 'large' | 'mid' | 'small' | 'micro' | 'other';
+
+export interface AnalysisHoldingDto {
+  instrumentId: number;
+  symbol: string;
+  name: string;
+  valuePaise: number;
+  weight: number;
+  dayChangeRatio: number | null;
+  gainPaise: number | null;
+  gainRatio: number | null;
+  sector: string;
+  size: CompanySizeKey;
+}
+
+export interface PortfolioAnalysisDto {
+  totals: PortfolioDto['totals'];
+  holdingCount: number;
+  pricesAsOf: string | null;
+  pricesStale: boolean;
+  /** Priced holdings only: allocation needs a value. */
+  holdings: AnalysisHoldingDto[];
+  sectors: WeightGroupDto[];
+  sizes: WeightGroupDto[];
+  concentration: {
+    holdings: number;
+    largest: number;
+    top3: number;
+    top5: number;
+    effectiveHoldings: number;
+    largestName: string;
+  } | null;
+  contributors: { symbol: string; name: string; gainPaise: number }[];
+  attention: string[];
+  upcoming: UpcomingEventDto[];
 }

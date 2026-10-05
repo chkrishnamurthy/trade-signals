@@ -1,6 +1,16 @@
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import type { MarketEventType } from '@equitywise/shared';
+import { and, asc, desc, eq, gte, inArray, isNull, lte, sql } from 'drizzle-orm';
 import type { Database } from '../client.js';
-import { corporateActions, holdingEntries, instruments, portfolioUsage } from '../schema/index.js';
+import {
+  corporateActions,
+  dividends,
+  holdingEntries,
+  indexMemberships,
+  instrumentReference,
+  instruments,
+  marketEvents,
+  portfolioUsage,
+} from '../schema/index.js';
 
 /**
  * A user's own typed or uploaded share entries (`schema/portfolio.ts`).
@@ -412,4 +422,154 @@ export async function portfolioUsageSummary(db: Database): Promise<PortfolioUsag
     eligibleFor30DayReturn: row?.eligible ?? 0,
     returnedAfter30Days: row?.returned ?? 0,
   };
+}
+
+export interface HoldingReference {
+  /** NSE index industry, or null when NSE has not classified the stock. */
+  readonly industry: string | null;
+  /** Current index memberships, e.g. `nifty100`. */
+  readonly indexKeys: readonly string[];
+}
+
+/** Industry and current index memberships for some instruments. Unknown ids get an empty entry. */
+export async function holdingReference(
+  db: Database,
+  instrumentIds: readonly number[],
+): Promise<Map<number, HoldingReference>> {
+  const out = new Map<number, { industry: string | null; indexKeys: string[] }>();
+  if (instrumentIds.length === 0) return out;
+  for (const id of instrumentIds) out.set(id, { industry: null, indexKeys: [] });
+  const [refs, memberships] = await Promise.all([
+    db
+      .select({
+        instrumentId: instrumentReference.instrumentId,
+        industry: instrumentReference.industry,
+      })
+      .from(instrumentReference)
+      .where(inArray(instrumentReference.instrumentId, [...instrumentIds])),
+    db
+      .select({ instrumentId: indexMemberships.instrumentId, indexKey: indexMemberships.indexKey })
+      .from(indexMemberships)
+      .where(
+        and(
+          inArray(indexMemberships.instrumentId, [...instrumentIds]),
+          isNull(indexMemberships.effectiveTo),
+        ),
+      ),
+  ]);
+  for (const r of refs) {
+    const cur = out.get(r.instrumentId);
+    if (cur !== undefined) cur.industry = r.industry;
+  }
+  for (const m of memberships) out.get(m.instrumentId)?.indexKeys.push(m.indexKey);
+  return out;
+}
+
+export interface UpcomingHoldingEvent {
+  readonly instrumentId: number;
+  readonly eventType: string;
+  readonly eventDate: string;
+  readonly title: string;
+  /** Dividend a share in paise, when the dividend record has one for that ex-date. */
+  readonly dividendPaise: number | null;
+}
+
+/**
+ * Corporate events on the calendar for some instruments between two dates:
+ * results and board meetings, dividends, bonuses, splits, rights issues and
+ * buybacks. Dividend amounts come from the `dividends` table where known.
+ */
+export async function upcomingHoldingEvents(
+  db: Database,
+  instrumentIds: readonly number[],
+  from: string,
+  to: string,
+): Promise<UpcomingHoldingEvent[]> {
+  if (instrumentIds.length === 0) return [];
+  const types: MarketEventType[] = [
+    'result',
+    'board_meeting',
+    'dividend',
+    'bonus',
+    'stock_split',
+    'rights_issue',
+    'buyback',
+  ];
+  const [events, divs] = await Promise.all([
+    db
+      .select({
+        instrumentId: marketEvents.instrumentId,
+        eventType: marketEvents.eventType,
+        eventDate: marketEvents.eventDate,
+        title: marketEvents.title,
+      })
+      .from(marketEvents)
+      .where(
+        and(
+          inArray(marketEvents.instrumentId, [...instrumentIds]),
+          inArray(marketEvents.eventType, types),
+          gte(marketEvents.eventDate, from),
+          lte(marketEvents.eventDate, to),
+        ),
+      )
+      .orderBy(asc(marketEvents.eventDate)),
+    db
+      .select({
+        instrumentId: dividends.instrumentId,
+        exDate: dividends.exDate,
+        amountPaise: dividends.amountPaise,
+      })
+      .from(dividends)
+      .where(
+        and(
+          inArray(dividends.instrumentId, [...instrumentIds]),
+          gte(dividends.exDate, from),
+          lte(dividends.exDate, to),
+        ),
+      ),
+  ]);
+  const amount = new Map<string, number>();
+  for (const d of divs) {
+    if (d.amountPaise === null) continue;
+    const key = `${d.instrumentId}|${d.exDate}`;
+    amount.set(key, (amount.get(key) ?? 0) + d.amountPaise);
+  }
+  const seen = new Set<string>();
+  const out: UpcomingHoldingEvent[] = [];
+  for (const e of events) {
+    if (e.instrumentId === null) continue;
+    const key = `${e.instrumentId}|${e.eventType}|${e.eventDate}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({
+      instrumentId: e.instrumentId,
+      eventType: e.eventType,
+      eventDate: e.eventDate,
+      title: e.title,
+      dividendPaise:
+        e.eventType === 'dividend'
+          ? (amount.get(`${e.instrumentId}|${e.eventDate}`) ?? null)
+          : null,
+    });
+  }
+  // A dividend in the dividends table with no calendar row still matters to a holder.
+  for (const d of divs) {
+    const key = `${d.instrumentId}|dividend|${d.exDate}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({
+      instrumentId: d.instrumentId,
+      eventType: 'dividend',
+      eventDate: d.exDate,
+      title: 'Dividend',
+      dividendPaise: amount.get(`${d.instrumentId}|${d.exDate}`) ?? null,
+    });
+  }
+  return out.sort((a, b) =>
+    a.eventDate < b.eventDate
+      ? -1
+      : a.eventDate > b.eventDate
+        ? 1
+        : a.instrumentId - b.instrumentId,
+  );
 }

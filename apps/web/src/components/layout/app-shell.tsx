@@ -78,7 +78,7 @@ export function AppShell({
               variant="ghost"
               size="icon"
               onClick={() => setDrawerOpen(true)}
-              className="shrink-0 xl:hidden"
+              className="shrink-0 min-[1600px]:hidden"
               aria-label="Open navigation"
             >
               <MenuIcon />
@@ -98,9 +98,8 @@ export function AppShell({
             {/* Primary destinations. A single row of names — the whole point of
                 the redesign — so the app announces where you can go instead of
                 hiding it behind icons. Eight names, the search box and the theme
-                toggle need 1280px with the brand reduced to its mark (the full
-                wordmark returns at 2xl); below that the menu button opens them. */}
-            <nav aria-label="Primary" className="hidden items-center gap-0.5 xl:flex">
+                toggle need 1600px; below that the menu button opens them. */}
+            <nav aria-label="Primary" className="hidden items-center gap-0.5 min-[1600px]:flex">
               {PRIMARY_NAV.map((item) => (
                 <NavLink key={item.href} item={item} />
               ))}
@@ -178,7 +177,7 @@ function NavLink({
         // icon at any width, so all eight fit with the account menu on screen.
         variant === 'drawer'
           ? 'px-3 py-2.5 text-sm'
-          : 'whitespace-nowrap px-2 py-1.5 text-sm 2xl:px-3',
+          : 'whitespace-nowrap px-2 py-1.5 text-sm 2xl:px-2.5',
         active
           ? 'bg-primary/10 text-primary'
           : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground',

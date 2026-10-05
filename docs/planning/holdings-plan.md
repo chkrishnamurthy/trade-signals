@@ -534,3 +534,14 @@ Then, on the owner's go-ahead:
 - **Trade-list import on a real file**: still waiting for a real tradebook CSV; the reader follows Zerodha's published columns.
 - **Demerger/merger notice**: `corporate_actions` holds only split, bonus, dividend and consolidation rows, so there is nothing to prompt from.
 - **Legal review** of the privacy sentences and the page wording.
+
+### Phase 2 — Insight (built 2026-10-05)
+
+- **`/portfolio/analysis`**: the merged hub. A summary strip pinned under the app bar (value, today, total gain, what you paid), and tabs Allocation · Returns · Risk · Tax. Returns, Risk and Tax say what they will show and what they need; they are Phases 3 to 5.
+- **Allocation tab**: a treemap of holdings (size = share of value, colour = sector, today's move on each box), a sector donut and a company-size donut, both with the numbers printed beside them; concentration (largest, top 3, top 5, effective number of holdings); "What moved your gain" diverging bars; "Worth a look" facts; "Coming up" for the next 60 days.
+- **Company size is labelled "by index"** (owner did not pick; the recommended option was used): NIFTY 100 large, Midcap 150 mid, Smallcap 250 small, Microcap 250 micro, from `index_memberships`. Switch to the AMFI list when it is sourced.
+- **Sector** is NSE's industry from `instrument_reference`; unclassified stocks are shown as "Not classified", never guessed.
+- **Coming up** reads `market_events` (results, board meetings, dividends, bonuses, splits, rights, buybacks) and `dividends` for the per-share amount; the estimate uses today's share count and says "about".
+- **Overview** gained the Overview/Analysis switch and a "Coming up for your holdings" card.
+- Pure figures in `packages/core/src/portfolio/insight.ts`; sentences in `apps/web/src/lib/portfolio-facts.ts` (tested to contain no advice words).
+- Side fix: the extra nav item made the top bar overflow between 1280 and 1600 px. The inline nav now appears from 1600 px (menu button below), and item padding at 2xl is 2.5.

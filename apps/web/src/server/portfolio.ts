@@ -1,17 +1,22 @@
 import 'server-only';
 import {
+  companySizeByIndex,
+  concentration,
   derivePortfolio,
+  groupByWeight,
   type ParsedRow,
   type PortfolioEntry,
   parsePortfolioFile,
   type ShareChange,
   summarisePortfolio,
+  topContributors,
 } from '@equitywise/core';
 import {
   deleteAllHoldingEntries,
   deleteHoldingEntry,
   getInstrumentBySymbol,
   type HoldingEntryRow,
+  holdingReference,
   latestDailyCloses,
   latestIndicatorsForInstruments,
   latestQuotesForInstruments,
@@ -22,16 +27,21 @@ import {
   type PortfolioUsageEvent,
   recordPortfolioUsage,
   resolveInstrumentIds,
+  upcomingHoldingEvents,
   updateHoldingEntry,
   writeHoldingEntries,
 } from '@equitywise/db';
 import { z } from 'zod';
+import { attentionFacts, SIZE_LABEL, UNCLASSIFIED_SECTOR } from '@/lib/portfolio-facts';
 import type {
+  AnalysisHoldingDto,
   HoldingDetailDto,
   ImportPreviewDto,
   ImportRowDto,
+  PortfolioAnalysisDto,
   PortfolioDto,
   PortfolioEntryDto,
+  UpcomingEventDto,
 } from '@/lib/portfolio-types';
 import { getSessionUser } from './auth/require-user';
 import { getDatabase } from './db';
@@ -66,6 +76,13 @@ export function todayInIndia(now: Date = new Date()): string {
 }
 
 const STALE_AFTER_MS = 3 * 24 * 3_600_000;
+
+/** How far ahead "Coming up" looks. */
+const UPCOMING_DAYS = 60;
+
+function addDays(iso: string, days: number): string {
+  return new Date(Date.parse(`${iso}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
+}
 
 function toEntry(row: HoldingEntryRow): PortfolioEntry {
   return {
@@ -137,6 +154,14 @@ async function buildPortfolio(ownerId: number): Promise<Built> {
     });
 
   const derived = derivePortfolio(ledger.map(toEntry), changes);
+  const heldIds = derived.holdings.map((h) => h.instrumentId);
+  const today = todayInIndia();
+  const events = await upcomingHoldingEvents(
+    db,
+    heldIds,
+    today,
+    addDays(today, UPCOMING_DAYS),
+  ).catch(() => []);
   const summary = summarisePortfolio(
     derived.holdings,
     new Map(
@@ -190,6 +215,22 @@ async function buildPortfolio(ownerId: number): Promise<Built> {
     },
     pricesAsOf: newest?.toISOString() ?? null,
     pricesStale: newest !== null && Date.now() - newest.getTime() > STALE_AFTER_MS,
+    upcoming: events.flatMap((e): UpcomingEventDto[] => {
+      const info = names.get(e.instrumentId);
+      const held = derived.holdings.find((x) => x.instrumentId === e.instrumentId);
+      if (info === undefined || held === undefined) return [];
+      return [
+        {
+          symbol: info.symbol,
+          name: info.name,
+          eventType: e.eventType,
+          eventDate: e.eventDate,
+          title: e.title,
+          dividendPaise: e.dividendPaise,
+          shares: held.shares,
+        },
+      ];
+    }),
     problems: derived.problems.map((problem) => {
       const row = ledger.find((entry) => entry.id === problem.entryId);
       return `${row?.symbol ?? 'A stock'}: an entry removes more shares than you held on that date.`;
@@ -216,6 +257,75 @@ export async function getPortfolio(): Promise<PortfolioDto> {
   const built = await buildPortfolio(ownerId);
   await countUse(ownerId, 'view');
   return built.dto;
+}
+
+/**
+ * Phase 2 analysis: where the money sits (sector, company size, treemap), how
+ * concentrated it is, what moved the gain, and plain facts worth a look. Built
+ * from the same derived holdings as the overview, so the totals always agree.
+ */
+export async function getPortfolioAnalysis(): Promise<PortfolioAnalysisDto> {
+  const ownerId = await requireOwnerId();
+  const { dto } = await buildPortfolio(ownerId);
+  const priced = dto.holdings.filter((h) => h.valuePaise !== null && h.valuePaise > 0);
+  const reference = await holdingReference(
+    getDatabase(),
+    priced.map((h) => h.instrumentId),
+  ).catch(() => new Map());
+
+  const holdings: AnalysisHoldingDto[] = priced.map((h) => {
+    const ref = reference.get(h.instrumentId);
+    return {
+      instrumentId: h.instrumentId,
+      symbol: h.symbol,
+      name: h.name,
+      valuePaise: h.valuePaise ?? 0,
+      weight: h.weight ?? 0,
+      dayChangeRatio: h.dayChangeRatio,
+      gainPaise: h.gainPaise,
+      gainRatio: h.gainRatio,
+      sector: ref?.industry ?? UNCLASSIFIED_SECTOR,
+      size: companySizeByIndex(ref?.indexKeys ?? []),
+    };
+  });
+  const sectors = groupByWeight(
+    holdings.map((h) => ({ key: h.sector, valuePaise: h.valuePaise })),
+  ).map((g) => ({ ...g, label: g.key }));
+  const sizes = groupByWeight(holdings.map((h) => ({ key: h.size, valuePaise: h.valuePaise }))).map(
+    (g) => ({ ...g, label: SIZE_LABEL[g.key as keyof typeof SIZE_LABEL] ?? g.key }),
+  );
+  const conc = concentration(holdings.map((h) => h.valuePaise));
+  const largest = [...holdings].sort((a, b) => b.valuePaise - a.valuePaise)[0];
+  const contributors = topContributors(
+    holdings
+      .filter((h) => h.gainPaise !== null)
+      .map((h) => ({ key: h.symbol, gainPaise: h.gainPaise ?? 0 })),
+    8,
+  ).map((c) => ({
+    symbol: c.key,
+    name: holdings.find((h) => h.symbol === c.key)?.name ?? c.key,
+    gainPaise: c.gainPaise,
+  }));
+
+  return {
+    totals: dto.totals,
+    holdingCount: dto.holdings.length,
+    pricesAsOf: dto.pricesAsOf,
+    pricesStale: dto.pricesStale,
+    holdings,
+    sectors,
+    sizes,
+    concentration:
+      conc === null || largest === undefined ? null : { ...conc, largestName: largest.name },
+    contributors,
+    attention: attentionFacts({
+      holdings,
+      sectors,
+      upcoming: dto.upcoming,
+      unpriced: dto.totals.unpriced,
+    }),
+    upcoming: dto.upcoming,
+  };
 }
 
 /** One holding with every entry behind it, or null when the user holds none of that stock. */
