@@ -558,3 +558,46 @@ Then, on the owner's go-ahead:
 8. The treemap has a "Show as a table" toggle, and the same table is always present for screen readers.
 9. A dividend after a bonus or split shows the per-share amount and no total, with the reason.
 10. The page assembly is a pure, tested function (`lib/portfolio-analysis.ts`); the analysis page is counted in usage; tabs follow the address (`#returns`).
+
+## Phase 3 — Returns: refined plan (2026-10-05, before build)
+
+### Scope
+
+1. **Purchase lots (FIFO).** Each add/opening entry is a lot; a removal takes shares from the oldest lots first. Per lot: acquired date, shares, cost, days held, short/long term. Splits and bonuses adjust a lot's share count (cost unchanged) for returns; the tax view's zero-cost bonus lot is Phase 4.
+2. **Realised vs unrealised.** Realised gain per removal (proceeds after charges − FIFO cost of the shares taken), totals per stock, per financial year (Apr–Mar, IST) and overall. Unrealised = today's value − FIFO cost of the lots still held.
+3. **Dividends received.** NSE dividend records × shares held at the close before each ex-date, from dated entries. Shown in total, by quarter, per stock. Rows with no amount are counted and named, never guessed.
+4. **XIRR** with a bracketed solver: money in (adds, openings), money out (removals, dividends), today's value. Shown beside the simple return. Under 12 months of money-weighted history, the simple return and a plain sentence replace it; no sign change or no root gives "cannot be worked out", never a number.
+5. **Value over time**: daily value (shares held that day on that day's basis × that day's close) against net money put in. Weekly points beyond one year.
+6. **Per-holding returns table**: unrealised, realised, dividends, total, and dividend yield on cost over the last 12 months.
+7. **Holding page**: lots table, removals with realised gain, dividends received.
+8. **Export realised gains (CSV)** for the user's accountant: stock, acquired, removed, shares, cost, proceeds, gain, days held, short/long term. Labelled "not a tax computation".
+
+### Gaps found in the plan, and the fix for each
+
+| # | Gap | Fix |
+|---|---|---|
+| G1 | **A holdings file wipes history.** Today a holdings snapshot *replaces* every entry for its stocks, so importing a trade list and then a holdings file deletes the dated trades, and re-uploading a holdings file each month resets the tracking start (XIRR restarts). | Snapshot becomes a **reconcile**: same share count as your entries, the row is skipped ("already matches"); different, the row is marked Check and imports the *difference* as an entry dated today (cost from the file's totals; a smaller count is recorded as removed shares at today's price). Dated trades are never deleted by a snapshot. |
+| G2 | **Corporate actions only go back about two years** (the worker's backfill window). An entry dated before that with a split or bonus since would get the wrong share count, and value-over-time / dividends cannot go back further. | Entries older than the data window get a notice on the holding ("splits and bonuses before <date> are not on record"). Option: extend the corporate-action backfill (decision D4). |
+| G3 | **Value over time needs the share count on each day's basis.** Today's derived shares are on today's basis; multiplying them by an older raw close is wrong across a split. | Build the series from entries un-adjusted until each ex-date, times that day's raw close. |
+| G4 | **Opening entries with no real purchase date** (holdings file, "Shares I own now"). | Per D2: counted from the day added at that day's close; an optional real purchase date can be typed (one nullable column, migration 0042). |
+| G5 | **Same-day buy and sell in a trade list** is intraday (business income), not a capital gain. | Import flags same-day round trips as Check ("same-day trade"); realised gains mark them intraday and the tax view (Phase 4) leaves them out. |
+| G6 | **Average cost will change** for anyone who has removed shares (average → FIFO, per D1). | One-line note on the overview the first time; the method is named in the tooltip. |
+| G7 | **XIRR edge cases**: one-day holdings annualise to nonsense; several roots; all money in on one day. | Threshold rule (12 months), bracketed search over −99%…+1,000%, "cannot be worked out" otherwise; tests against spreadsheet XIRR on hand-computed cases. |
+| G8 | **Missing candles** (holiday, stock not ingested, suspended). | Carry the last close forward; if a held stock has no close for >5 sessions, the chart says "partial" for that span. |
+| G9 | **Request cost**: a few thousand entries × two years of daily closes on every page load. | One query for all closes of held stocks in the window; computed once per request; weekly sampling past one year. No cache table yet. |
+| G10 | **Dividend eligibility**: shares bought on the ex-date do not get that dividend. | Use shares held at the close of the session before the ex-date. |
+
+### Improvements added
+
+- "Tracking since <date>" next to XIRR, so the period is never ambiguous.
+- Dividend yield on cost (last 12 months) per holding — descriptive, not a forecast.
+- Realised-gains CSV export (item 8).
+- A "How this is worked out" panel on the Returns tab: FIFO, what XIRR includes, data window.
+
+### Decisions (owner)
+
+- D1 Cost method: FIFO everywhere (recommended) or average on overview + FIFO for realised.
+- D2 Undated openings: count from the day added at that day's price, with an optional real purchase date (recommended).
+- D3 Dividends in total return and XIRR: yes, as a separate line (recommended).
+- D4 Extend corporate-action and dividend history beyond two years: run the existing backfill with `years: 10` for corporate actions only (recommended, worker job, no new code beyond a flag), or leave at two years.
+- D5 A real Zerodha tradebook CSV, to test against (until then, synthetic files in the published format).
