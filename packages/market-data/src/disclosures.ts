@@ -132,7 +132,20 @@ export interface RawParticipantOi {
  */
 export interface DisclosureSource {
   readonly id: string;
-  fetchAnnouncements(options: { since: Date }): Promise<readonly RawAnnouncement[]>;
+  /**
+   * Filings disseminated at or after `since`, newest first.
+   *
+   * `now` fixes "today" for tests and replays; it defaults to the clock. With
+   * `onBatch` the source hands over each completed day as it finishes, so a crawl
+   * that fails late has already delivered the earlier days, and returns whatever it
+   * did not deliver that way (normally nothing). Without it, every filing comes back
+   * in the return value.
+   */
+  fetchAnnouncements(options: {
+    since: Date;
+    now?: Date;
+    onBatch?: (filings: readonly RawAnnouncement[]) => Promise<void>;
+  }): Promise<readonly RawAnnouncement[]>;
   fetchFiiDii(options: { from: Date; to: Date }): Promise<readonly RawFiiDiiFlow[]>;
   fetchDeals(options: { date: Date }): Promise<readonly RawDeal[]>;
   fetchShareholding(options: { symbols: readonly string[] }): Promise<readonly RawShareholding[]>;

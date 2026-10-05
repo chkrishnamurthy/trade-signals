@@ -73,6 +73,10 @@ export function AnnouncementsView({
               {coverageNotice(data.coverage)}
             </p>
           )}
+          <p className="text-muted-foreground text-xs" data-slot="announcement-source">
+            Source: BSE filings, matched to NSE symbols by ISIN. Companies listed only on BSE show
+            as BSE:TICKER. Attachments are not analysed.
+          </p>
           {data.rows.some((row) => row.onWatchlist) && (
             <p className="text-sm">
               On this page, {data.rows.filter((row) => row.onWatchlist).length} filings relate to

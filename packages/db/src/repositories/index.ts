@@ -146,6 +146,7 @@ export {
   getRecentFiiDii,
   latestShareholdingForInstruments,
   listAnnouncementCategories,
+  listAnnouncementsWithScripCodeSymbols,
   upsertAnnouncements,
   upsertDeals,
   upsertFiiDiiFlows,

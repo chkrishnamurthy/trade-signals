@@ -66,8 +66,19 @@ describe('announcement presentation', () => {
         stale: false,
       },
     });
-    expect(html).toContain("couldn&#x27;t be refreshed");
+    expect(html).toContain('couldn&#x27;t be refreshed');
     expect(html).toContain('Last updated 1 Oct');
+  });
+  it('always states where the filings come from and what is not covered', () => {
+    for (const coverage of [
+      data.coverage,
+      { latestAttempt: null, lastSuccess: '2026-10-01T10:50:00Z', failed: false, stale: false },
+    ]) {
+      const html = render({ ...data, coverage });
+      expect(html).toContain('Source: BSE filings');
+      expect(html).toContain('BSE:TICKER');
+      expect(html).toContain('Attachments are not analysed');
+    }
   });
   it('shows no coverage notice while the feed is healthy', () => {
     const html = render({

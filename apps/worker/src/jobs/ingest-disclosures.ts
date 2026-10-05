@@ -6,6 +6,7 @@ import {
   type FiiDiiUpsert,
   FLOW_FEEDS,
   listAllWatchedInstruments,
+  listAnnouncementsWithScripCodeSymbols,
   type ParticipantOiUpsert,
   recordAnnouncementIngestion,
   recordFeedIngestion,
@@ -26,9 +27,15 @@ import type {
   RawParticipantOi,
   RawShareholding,
 } from '@equitywise/market-data';
+import { istParts } from '@equitywise/shared';
 import type { WorkerContext } from '../context.js';
-import type { Logger } from '../log.js';
-import { createIndiaDisclosureSource } from '../sources/india-disclosures.js';
+import { errorFields, type Logger } from '../log.js';
+import {
+  createIndiaDisclosureSource,
+  listingSymbol,
+  loadSymbolDirectory,
+  type SymbolDirectory,
+} from '../sources/india-disclosures.js';
 import {
   interpretPendingAnnouncements,
   withAnnouncementInterpretation,
@@ -97,6 +104,8 @@ export async function withFeedHealth(
 interface JobOptions {
   readonly source?: DisclosureSource;
   readonly now?: Date;
+  /** Test seam: where the relink pass reads BSE's and NSE's listings. */
+  readonly loadDirectory?: () => Promise<SymbolDirectory>;
 }
 
 const DAY_MS = 86_400_000;
@@ -134,26 +143,56 @@ export function announcementWindowStart(now: Date, lastSuccessStartedAt: Date | 
   return new Date(Math.max(floor, lastSuccessStartedAt.getTime() - ANNOUNCEMENT_OVERLAP_MS));
 }
 
+/** IST weekday hours in which BSE filings arrive in volume. */
+const FILING_HOURS = { from: 9, to: 20 } as const;
+/** A weekday window with at least this many such hours cannot honestly contain no filings. */
+const MIN_FILING_HOURS_TO_EXPECT_ANY = 3;
+
+/**
+ * How many whole-ish weekday business hours (09:00–20:00 IST) the window `[since, now]`
+ * covers, counted by the hour. BSE posts hundreds of filings an hour then, so a
+ * window with several of them and no filings means the endpoint changed, not that the
+ * market was quiet.
+ */
+export function businessHoursInWindow(since: Date, now: Date): number {
+  let hours = 0;
+  for (let at = since.getTime(); at < now.getTime(); at += 3_600_000) {
+    const parts = istParts(new Date(at));
+    const weekday = parts.weekday >= 1 && parts.weekday <= 5;
+    if (weekday && parts.hour >= FILING_HOURS.from && parts.hour < FILING_HOURS.to) hours += 1;
+  }
+  return hours;
+}
+
+/** Off-switch for the BSE crawl: `BSE_ANNOUNCEMENTS_ENABLED=false`. */
+function bseAnnouncementsDisabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env.BSE_ANNOUNCEMENTS_ENABLED?.trim().toLowerCase() === 'false';
+}
+
 export async function ingestAnnouncements(
   context: WorkerContext,
   log: Logger,
   options: JobOptions = {},
 ): Promise<IngestCount> {
-  const source = options.source ?? createIndiaDisclosureSource();
+  const source =
+    options.source ?? createIndiaDisclosureSource({ warn: (message) => log.warn(message) });
   const now = options.now ?? new Date();
 
-  let fetched: readonly RawAnnouncement[] = [];
-  try {
-    await interpretPendingAnnouncements(context);
-    const health = await announcementIngestionHealth(context.db);
-    const since = announcementWindowStart(now, health.successful?.startedAt ?? null);
-    fetched = await source.fetchAnnouncements({ since });
+  if (bseAnnouncementsDisabled()) {
+    log.info('BSE announcements are switched off (BSE_ANNOUNCEMENTS_ENABLED=false)');
+    return { fetched: 0, written: 0 };
+  }
+
+  let fetched = 0;
+  let written = 0;
+  /** Resolves and stores one batch. Idempotent, so a retry of the same window is harmless. */
+  const save = async (batch: readonly RawAnnouncement[]): Promise<void> => {
+    if (batch.length === 0) return;
     const ids = await resolve(
       context,
-      fetched.map((a: RawAnnouncement) => a.symbol),
+      batch.map((a) => a.symbol),
     );
-
-    const rows: AnnouncementUpsert[] = fetched.map((a) => ({
+    const rows: AnnouncementUpsert[] = batch.map((a) => ({
       instrumentId: ids.get(a.symbol) ?? null,
       symbol: a.symbol,
       companyName: a.companyName,
@@ -165,24 +204,50 @@ export async function ingestAnnouncements(
       attachmentUrl: a.attachmentUrl,
       announcedAt: a.announcedAt,
     }));
+    written += await upsertAnnouncements(context.db, rows.map(withAnnouncementInterpretation));
+    fetched += batch.length;
+  };
 
-    const written = await upsertAnnouncements(context.db, rows.map(withAnnouncementInterpretation));
+  try {
+    await interpretPendingAnnouncements(context);
+    const health = await announcementIngestionHealth(context.db);
+    const since = announcementWindowStart(now, health.successful?.startedAt ?? null);
+
+    // Days are stored as they complete, so a crawl that dies on an older day keeps the newer ones.
+    const rest = await source.fetchAnnouncements({ since, now, onBatch: save });
+    await save(rest);
+
+    // A "successful" run that found nothing across several business hours is how the
+    // previous endpoint failed (it answered "No Record Found!" to everything). Record it
+    // as a failure so the window does not move past filings that were never read.
+    const hours = businessHoursInWindow(since, now);
+    if (fetched === 0 && hours >= MIN_FILING_HOURS_TO_EXPECT_ANY) {
+      throw new Error(
+        `BSE returned no filings across ${hours} weekday business hours since ${since.toISOString()}; the endpoint may have changed (or this was a market holiday)`,
+      );
+    }
+
     await recordAnnouncementIngestion(context.db, {
       source: source.id,
       succeeded: true,
-      fetched: fetched.length,
+      fetched,
       written,
       startedAt: now,
       completedAt: new Date(),
     });
-    log.info('announcements ingested', { fetched: fetched.length, written });
-    return { fetched: fetched.length, written };
+    log.info('announcements ingested', { fetched, written });
+
+    // Best effort: repairing old rows must never fail a run that already stored its filings.
+    await relinkAnnouncementSymbols(context, log, options).catch((error: unknown) =>
+      log.warn('could not relink announcement symbols', errorFields(error)),
+    );
+    return { fetched, written };
   } catch (error) {
     await recordAnnouncementIngestion(context.db, {
       source: source.id,
       succeeded: false,
-      fetched: fetched.length,
-      written: 0,
+      fetched,
+      written,
       error: errorText(error),
       startedAt: now,
       completedAt: new Date(),
@@ -190,6 +255,48 @@ export async function ingestAnnouncements(
     log.warn('Announcement ingestion failed; existing filings remain available');
     throw error;
   }
+}
+
+/**
+ * Replaces BSE scrip codes with real symbols on filings already stored.
+ *
+ * The first BSE ingestion kept the numeric `SCRIP_CD` as the symbol, and a run that
+ * could not read the listings keeps it on purpose. Those filings reach no watchlist.
+ * This reads the listings, maps each code to its NSE symbol (or `BSE:<ticker>`), and
+ * writes the rows back through the normal upsert, so every change is recorded as a
+ * new version of the filing. Reads nothing from the network when there is nothing to fix,
+ * and does nothing at all while the listings are incomplete.
+ */
+export async function relinkAnnouncementSymbols(
+  context: WorkerContext,
+  log: Logger,
+  options: { loadDirectory?: () => Promise<SymbolDirectory> } = {},
+): Promise<number> {
+  const stale = await listAnnouncementsWithScripCodeSymbols(context.db, 500);
+  if (stale.length === 0) return 0;
+
+  const directory = await (options.loadDirectory ?? (() => loadSymbolDirectory()))();
+  if (!directory.complete) {
+    log.warn('not relinking announcement symbols yet: the listings are incomplete', {
+      waiting: stale.length,
+    });
+    return 0;
+  }
+
+  const symbols = stale.map((row) =>
+    listingSymbol(row.symbol, directory.scrips, directory.nseByIsin),
+  );
+  const ids = await resolve(context, symbols);
+  const repaired: AnnouncementUpsert[] = stale.map((row, index) => {
+    const symbol = symbols[index] ?? row.symbol;
+    return { ...row, symbol, instrumentId: ids.get(symbol) ?? null };
+  });
+  await upsertAnnouncements(context.db, repaired);
+  log.info('announcement symbols relinked', {
+    relinked: repaired.length,
+    onNse: repaired.filter((row) => row.instrumentId !== null).length,
+  });
+  return repaired.length;
 }
 
 export async function ingestFiiDii(

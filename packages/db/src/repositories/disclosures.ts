@@ -1,5 +1,18 @@
 import type { AnnouncementInterpretation } from '@equitywise/core';
-import { and, desc, eq, exists, gte, ilike, inArray, not, or, type SQL, sql } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  exists,
+  gte,
+  ilike,
+  inArray,
+  not,
+  or,
+  type SQL,
+  sql,
+} from 'drizzle-orm';
 import type { Database } from '../client.js';
 import {
   announcementUserState,
@@ -114,6 +127,39 @@ export async function upsertAnnouncements(
     }
   });
   return rows.length;
+}
+
+/**
+ * Filings still stored under a BSE scrip code (all digits) instead of a symbol.
+ *
+ * The first BSE ingestion stored `SCRIP_CD` as the symbol, and a run that could not
+ * read the listings keeps the code on purpose. Neither links to a watchlist. Oldest
+ * first and bounded, so a repair pass works through them in steps.
+ */
+export async function listAnnouncementsWithScripCodeSymbols(
+  db: Database,
+  limit = 500,
+): Promise<AnnouncementUpsert[]> {
+  const rows = await db
+    .select()
+    .from(corporateAnnouncements)
+    .where(sql`${corporateAnnouncements.symbol} ~ '^[0-9]+$'`)
+    .orderBy(asc(corporateAnnouncements.id))
+    .limit(limit);
+  return rows.map((row) => ({
+    instrumentId: row.instrumentId,
+    symbol: row.symbol,
+    companyName: row.companyName,
+    source: row.source,
+    externalId: row.externalId,
+    category: row.category,
+    headline: row.headline,
+    detail: row.detail,
+    attachmentUrl: row.attachmentUrl,
+    announcedAt: row.announcedAt,
+    interpretation: row.interpretation,
+    interpretationChecksum: row.interpretationChecksum,
+  }));
 }
 
 export interface AnnouncementRow {

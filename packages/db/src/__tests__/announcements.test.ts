@@ -12,6 +12,7 @@ import {
 import {
   type AnnouncementUpsert,
   getAnnouncements,
+  listAnnouncementsWithScripCodeSymbols,
   upsertAnnouncements,
 } from '../repositories/disclosures.js';
 import { announcementVersions, authUsers } from '../schema/index.js';
@@ -131,5 +132,32 @@ suite('announcement persistence on real PostgreSQL', () => {
         (row) => row.externalId === a.externalId,
       ),
     ).toBe(false);
+  });
+  it('finds filings keyed by a BSE scrip code, and a relink records a version without touching the rest', async () => {
+    const code = `8${String(Date.now()).slice(-8)}`;
+    const stale = { ...fixture('scrip'), symbol: code };
+    const named = { ...fixture('named'), symbol: 'RELIANCE' };
+    await upsertAnnouncements(handle.db, [stale, named]);
+
+    const found = await listAnnouncementsWithScripCodeSymbols(handle.db, 5000);
+    expect(found.map((row) => row.externalId)).toContain(stale.externalId);
+    expect(found.map((row) => row.externalId)).not.toContain(named.externalId);
+
+    const id = await itemId(stale);
+    const versionsBefore = (await getAnnouncementVersions(handle.db, id)).length;
+
+    // The relink writes the stored row back with only the symbol changed.
+    const loaded = found.find((row) => row.externalId === stale.externalId)!;
+    await upsertAnnouncements(handle.db, [{ ...loaded, symbol: 'BSE:RELINKED' }]);
+
+    const after = await listAnnouncementsWithScripCodeSymbols(handle.db, 5000);
+    expect(after.map((row) => row.externalId)).not.toContain(stale.externalId);
+    expect((await getAnnouncementVersions(handle.db, id)).length).toBe(versionsBefore + 1);
+    // The stored reading of the filing survived the symbol change.
+    const [reloaded] = (
+      await getAnnouncements(handle.db, { search: stale.companyName })
+    ).rows.filter((row) => row.externalId === stale.externalId);
+    expect(reloaded?.symbol).toBe('BSE:RELINKED');
+    expect(reloaded?.interpretationChecksum).toBe(stale.interpretationChecksum);
   });
 });

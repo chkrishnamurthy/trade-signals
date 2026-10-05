@@ -620,6 +620,18 @@ const BSE_HEADERS: Record<string, string> = {
 const BSE_ATTEMPTS = 3;
 /** BSE serves 50 filings a page; no real day comes near this many pages. */
 const BSE_MAX_PAGES_PER_DAY = 200;
+/**
+ * Page requests one run may make. A first run over the three-day lookback needs
+ * about 180; this stops a changed endpoint, or an ordering assumption that no longer
+ * holds, from turning a sweep into an unbounded crawl of a third party's API.
+ */
+const BSE_MAX_REQUESTS_PER_RUN = 400;
+
+/** Node's HTTP parser reports a refused header as an error whose code starts `HPE_`. */
+function isHeaderParseError(error: unknown): boolean {
+  const code = (error as { code?: unknown } | null)?.code;
+  return typeof code === 'string' && code.startsWith('HPE_');
+}
 
 class BseHttpError extends Error {
   constructor(
@@ -638,13 +650,15 @@ class BseHttpError extends Error {
  * space, which `fetch` rejects outright ("Unexpected whitespace after header
  * value"), and the CDN caches that response for a minute, so retrying does not
  * help. Node's own parser accepts it in lenient mode. The leniency is scoped to
- * this one read-only exchange API, never to anything this app serves.
+ * this one read-only exchange API, never to anything this app serves, and it is
+ * switched on only for a request the strict parser has already refused (see
+ * {@link fetchBseJson}), so a well-formed reply is always parsed strictly.
  */
-function bseGet(url: string): Promise<unknown> {
+function bseGet(url: string, lenient: boolean): Promise<unknown> {
   return new Promise((resolve, reject) => {
     const request = httpsRequest(
       url,
-      { headers: BSE_HEADERS, insecureHTTPParser: true, signal: AbortSignal.timeout(20_000) },
+      { headers: BSE_HEADERS, insecureHTTPParser: lenient, signal: AbortSignal.timeout(20_000) },
       (response) => {
         const chunks: Buffer[] = [];
         response.on('data', (chunk: Buffer) => chunks.push(chunk));
@@ -672,14 +686,21 @@ function bseGet(url: string): Promise<unknown> {
   });
 }
 
-/** {@link bseGet}, retrying network failures and 5xx; a 4xx is final. */
+/**
+ * {@link bseGet}, retrying network failures and 5xx; a 4xx is final.
+ *
+ * Starts with the strict HTTP parser and drops to the lenient one only after the
+ * strict parser refused a reply's headers.
+ */
 async function fetchBseJson(url: string): Promise<unknown> {
+  let lenient = false;
   for (let attempt = 1; ; attempt += 1) {
     try {
-      return await bseGet(url);
+      return await bseGet(url, lenient);
     } catch (error) {
       const final = error instanceof BseHttpError && error.status < 500;
       if (final || attempt >= BSE_ATTEMPTS) throw error;
+      if (isHeaderParseError(error)) lenient = true;
       await sleep(1_000 * attempt);
     }
   }
@@ -716,17 +737,27 @@ async function fetchBseAnnouncementDay(
   day: string,
   since: Date,
   pageDelayMs: number,
+  budget: { left: number },
 ): Promise<RawAnnouncement[]> {
   const out: RawAnnouncement[] = [];
   let seen = 0;
   for (let page = 1; page <= BSE_MAX_PAGES_PER_DAY; page += 1) {
+    if (budget.left <= 0) {
+      throw new Error(
+        `BSE announcements stopped after ${BSE_MAX_REQUESTS_PER_RUN} page requests in one run (${day} page ${page})`,
+      );
+    }
+    budget.left -= 1;
     const url = `${BSE_API}/AnnSubCategoryGetData/w?pageno=${page}&strCat=-1&strPrevDate=${day}&strScrip=&strSearch=P&strToDate=${day}&strType=C&subcategory=-1`;
     const payload = await fetchBseJson(url);
     const parsed = bseAnnouncementPage.safeParse(payload);
     if (!parsed.success) {
-      throw new Error(
-        `BSE announcements ${day} page ${page} is not a filing table: ${JSON.stringify(payload).slice(0, 160)}`,
-      );
+      // Names the shape, never quotes the body: this message is stored.
+      const shape =
+        payload !== null && typeof payload === 'object'
+          ? `object with keys [${Object.keys(payload).slice(0, 8).join(', ')}]`
+          : typeof payload;
+      throw new Error(`BSE announcements ${day} page ${page} is not a filing table (${shape})`);
     }
     const table = parsed.data.Table;
     if (table.length === 0) return out;
@@ -753,6 +784,52 @@ async function fetchBseAnnouncementDay(
 export interface IndiaDisclosureSourceOptions {
   /** Pause between BSE announcement pages, to stay a polite client. */
   readonly pageDelayMs?: number;
+  /** Told when the symbol directory is incomplete and filings keep BSE scrip codes. */
+  readonly warn?: (message: string) => void;
+}
+
+/** What turns a BSE scrip code into the symbol the rest of the app uses. */
+export interface SymbolDirectory {
+  readonly scrips: ReadonlyMap<string, BseScrip>;
+  readonly nseByIsin: ReadonlyMap<string, string>;
+  /** False when either listing could not be read: do not trust a lookup miss. */
+  readonly complete: boolean;
+}
+
+/**
+ * Reads BSE's scrip master and NSE's equity list.
+ *
+ * Never throws: if either listing is unavailable the directory comes back
+ * incomplete and `warn` says why. Callers then keep the BSE scrip code as a
+ * provisional symbol (digits only) instead of guessing; `relinkAnnouncementSymbols`
+ * replaces those once the listings can be read again.
+ */
+export async function loadSymbolDirectory(
+  warn?: (message: string) => void,
+): Promise<SymbolDirectory> {
+  const [bseResult, nseResult] = await Promise.allSettled([
+    fetchBseJson(BSE_SCRIP_MASTER_URL).then(parseBseScripMaster),
+    fetchText(NSE_EQUITY_LIST_URL, NSE_HEADERS).then(parseNseEquityList),
+  ]);
+  const problems: string[] = [];
+  const scrips = bseResult.status === 'fulfilled' ? bseResult.value : new Map<string, BseScrip>();
+  const nseByIsin = nseResult.status === 'fulfilled' ? nseResult.value : new Map<string, string>();
+  if (bseResult.status === 'rejected') {
+    problems.push(`BSE scrip master failed: ${(bseResult.reason as Error).message}`);
+  } else if (scrips.size === 0) {
+    problems.push('BSE scrip master returned no scrips');
+  }
+  if (nseResult.status === 'rejected') {
+    problems.push(`NSE equity list failed: ${(nseResult.reason as Error).message}`);
+  } else if (nseByIsin.size === 0) {
+    problems.push('NSE equity list returned no listings');
+  }
+  if (problems.length > 0) {
+    warn?.(
+      `symbol directory incomplete; filings keep BSE scrip codes until it loads: ${problems.join('; ')}`,
+    );
+  }
+  return { scrips, nseByIsin, complete: problems.length === 0 };
 }
 
 /**
@@ -768,26 +845,38 @@ export function createIndiaDisclosureSource(
   return {
     id: 'india-exchanges',
 
-    fetchAnnouncements: async ({ since }) => {
-      const byId = new Map<string, RawAnnouncement>();
-      for (const day of istDaysBack(new Date(), since)) {
-        for (const filing of await fetchBseAnnouncementDay(compact(day), since, pageDelayMs)) {
-          byId.set(filing.externalId, filing);
-        }
-      }
-      if (byId.size === 0) return [];
+    fetchAnnouncements: async ({ since, now, onBatch }) => {
+      const delivered: RawAnnouncement[] = [];
+      const seen = new Set<string>();
+      const budget = { left: BSE_MAX_REQUESTS_PER_RUN };
+      // Only fetched once a day actually has a filing, and then reused.
+      let directory: Promise<SymbolDirectory> | null = null;
+      const symbols = (): Promise<SymbolDirectory> => {
+        directory ??= loadSymbolDirectory(options.warn);
+        return directory;
+      };
 
-      const [scrips, nseByIsin] = await Promise.all([
-        fetchBseJson(BSE_SCRIP_MASTER_URL).then(parseBseScripMaster),
-        fetchText(NSE_EQUITY_LIST_URL, NSE_HEADERS).then(parseNseEquityList),
-      ]);
-      // Without both listings every filing would lose its watchlist link.
-      if (scrips.size === 0) throw new Error('BSE scrip master returned no scrips');
-      if (nseByIsin.size === 0) throw new Error('NSE equity list returned no listings');
-      return [...byId.values()].map((filing) => ({
-        ...filing,
-        symbol: listingSymbol(filing.symbol, scrips, nseByIsin),
-      }));
+      for (const day of istDaysBack(now ?? new Date(), since)) {
+        const rows = await fetchBseAnnouncementDay(compact(day), since, pageDelayMs, budget);
+        // A filing that arrived mid-crawl can repeat on the next page, or on the next day's.
+        const fresh = rows.filter((filing) => {
+          if (seen.has(filing.externalId)) return false;
+          seen.add(filing.externalId);
+          return true;
+        });
+        if (fresh.length === 0) continue;
+
+        const { scrips, nseByIsin, complete } = await symbols();
+        const keyed = fresh.map((filing) => ({
+          ...filing,
+          // Incomplete listings: keep the digits-only scrip code, which the relink pass
+          // recognises, rather than a BSE:<ticker> that could pass for a final answer.
+          symbol: complete ? listingSymbol(filing.symbol, scrips, nseByIsin) : filing.symbol,
+        }));
+        if (onBatch === undefined) delivered.push(...keyed);
+        else await onBatch(keyed);
+      }
+      return delivered;
     },
 
     fetchFiiDii: async () =>

@@ -2,7 +2,13 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { getTableConfig, type PgTable } from 'drizzle-orm/pg-core';
 import { describe, expect, it } from 'vitest';
-import { alertEvents, alerts, eventLog, latestQuotes } from '../schema/index.js';
+import {
+  alertEvents,
+  alerts,
+  announcementIngestionRuns,
+  eventLog,
+  latestQuotes,
+} from '../schema/index.js';
 
 /**
  * Database-free checks on the migration files.
@@ -113,6 +119,24 @@ describe('new tables’ indexes and constraints match their migrations', () => {
       const sql = readFileSync(join(DRIZZLE, `${file}.sql`), 'utf8');
       for (const check of getTableConfig(table).checks) expect(sql).toContain(`"${check.name}"`);
     }
+  });
+});
+
+describe('0039_announcement_ingestion_error', () => {
+  const sql = readFileSync(join(DRIZZLE, '0039_announcement_ingestion_error.sql'), 'utf8');
+
+  it('adds the column the schema declares, and can be applied twice', () => {
+    expect(getTableConfig(announcementIngestionRuns).columns.map((c) => c.name)).toContain('error');
+    expect(sql).toContain(
+      'ALTER TABLE "announcement_ingestion_runs" ADD COLUMN IF NOT EXISTS "error" text',
+    );
+  });
+
+  it('sorts after every migration that already exists, so a database at 0038 still applies it', () => {
+    const entry = journal.entries.find((e) => e.tag === '0039_announcement_ingestion_error');
+    const earlier = journal.entries.filter((e) => e.tag < '0039');
+    expect(entry).toBeDefined();
+    for (const other of earlier) expect(entry?.when).toBeGreaterThan(other.when);
   });
 });
 
