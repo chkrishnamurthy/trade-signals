@@ -13,6 +13,10 @@ export interface PortfolioHoldingDto {
   /** Cost ÷ shares, for display only. */
   avgCostPaise: number;
   ltpPaise: number | null;
+  /** Where the price came from: the live-quote cache, or the last stored daily close. */
+  priceSource: 'quote' | 'close' | null;
+  /** When that price was taken, ISO. */
+  priceAsOf: string | null;
   valuePaise: number | null;
   gainPaise: number | null;
   gainRatio: number | null;
@@ -88,4 +92,22 @@ export interface AddEntryBody {
   shares: number;
   pricePaise: number;
   chargesPaise: number;
+}
+
+export interface HoldingDetailDto {
+  holding: PortfolioHoldingDto;
+  /** Every entry the user made for this stock, newest first. */
+  entries: PortfolioEntryDto[];
+  low52wPaise: number | null;
+  high52wPaise: number | null;
+  /** Share of the whole portfolio, 0..1. */
+  portfolioWeight: number | null;
+  pricesStale: boolean;
+}
+
+export interface EditEntryBody {
+  tradeDate: string;
+  shares: number;
+  /** Total money for the entry in integer paise (cost with charges, or proceeds). */
+  totalPaise: number;
 }

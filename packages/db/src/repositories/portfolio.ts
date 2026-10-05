@@ -255,3 +255,89 @@ export async function listShareChanges(
     );
   return rows.map((r) => ({ ...r, ratio: Number(r.ratio) }));
 }
+
+export interface LatestCloses {
+  readonly closePaise: number;
+  readonly previousClosePaise: number | null;
+  /** The session the newest close belongs to. */
+  readonly at: Date;
+}
+
+/**
+ * Newest and previous daily close for some instruments, from stored candles.
+ * The fallback price for a holding the live-quote cache has not reached yet
+ * (a stock added outside market hours, or one outside the refresh list).
+ */
+export async function latestDailyCloses(
+  db: Database,
+  instrumentIds: readonly number[],
+): Promise<Map<number, LatestCloses>> {
+  if (instrumentIds.length === 0) return new Map();
+  const result = await db.execute<{
+    instrument_id: number;
+    ts: Date;
+    close: number;
+    rn: number;
+  }>(sql`
+    select instrument_id, ts, close, rn from (
+      select instrument_id, ts, close,
+             (row_number() over (partition by instrument_id order by ts desc))::int as rn
+      from daily_candles
+      where instrument_id in (${sql.join(
+        instrumentIds.map((id) => sql`${id}`),
+        sql`, `,
+      )})
+        and ts > now() - interval '45 days'
+    ) t where rn <= 2`);
+  const out = new Map<
+    number,
+    { closePaise: number; previousClosePaise: number | null; at: Date }
+  >();
+  for (const row of result.rows) {
+    if (row.rn === 1)
+      out.set(row.instrument_id, {
+        closePaise: row.close,
+        previousClosePaise: null,
+        at: new Date(row.ts),
+      });
+  }
+  for (const row of result.rows) {
+    const cur = out.get(row.instrument_id);
+    if (row.rn === 2 && cur !== undefined) cur.previousClosePaise = row.close;
+  }
+  return out;
+}
+
+/**
+ * Corrects one of the owner's entries: shares, date and total amount. The kind and
+ * the stock stay as they were; to change those, delete and add again. `validate`
+ * sees the ledger AFTER the change and may veto it.
+ */
+export async function updateHoldingEntry(
+  db: Database,
+  ownerId: number,
+  id: number,
+  patch: { readonly tradeDate: string; readonly shares: number; readonly amountPaise: number },
+  validate?: (ledger: readonly HoldingEntryRow[]) => string | null,
+): Promise<WriteResult<boolean>> {
+  return db
+    .transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(${ownerId}::int, 105)`);
+      const updated = await tx
+        .update(holdingEntries)
+        .set({ tradeDate: patch.tradeDate, shares: patch.shares, amountPaise: patch.amountPaise })
+        .where(and(eq(holdingEntries.ownerId, ownerId), eq(holdingEntries.id, id)))
+        .returning({ id: holdingEntries.id });
+      if (updated.length === 0) return { ok: true as const, value: false };
+      if (validate !== undefined) {
+        const problem = validate(await listHoldingEntriesTx(tx, ownerId));
+        if (problem !== null) throw new RejectedWrite(problem);
+      }
+      return { ok: true as const, value: true };
+    })
+    .catch((error: unknown) => {
+      if (error instanceof RejectedWrite)
+        return { ok: false as const, reason: 'rejected' as const, message: error.message };
+      throw error;
+    });
+}

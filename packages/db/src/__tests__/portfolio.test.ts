@@ -7,8 +7,10 @@ import { ensureInstruments } from '../repositories/instruments.js';
 import {
   deleteAllHoldingEntries,
   deleteHoldingEntry,
+  latestDailyCloses,
   listHoldingEntries,
   listShareChanges,
+  updateHoldingEntry,
   writeHoldingEntries,
 } from '../repositories/portfolio.js';
 import { listAllWatchedInstruments } from '../repositories/watchlists.js';
@@ -172,6 +174,42 @@ suite('portfolio entries', () => {
     const changes = await listShareChanges(handle.db, [a, b]);
     expect(changes).toEqual([{ instrumentId: a, kind: 'split', exDate: '2026-06-01', ratio: 0.2 }]);
     expect(await listShareChanges(handle.db, [])).toEqual([]);
+  });
+
+  it('edits an entry in place, only for its owner, and lets a validator veto', async () => {
+    const [target] = (await listHoldingEntries(handle.db, owner)).filter(
+      (e) => e.instrumentId === a,
+    );
+    const patch = { tradeDate: '2026-01-05', shares: 12, amountPaise: 1_200_000 };
+    expect(await updateHoldingEntry(handle.db, stranger, target!.id, patch)).toEqual({
+      ok: true,
+      value: false,
+    });
+    expect(
+      await updateHoldingEntry(handle.db, owner, target!.id, patch, () => 'No.'),
+    ).toMatchObject({ ok: false, reason: 'rejected' });
+    expect(
+      (await listHoldingEntries(handle.db, owner)).find((e) => e.id === target!.id)?.shares,
+    ).toBe(target!.shares);
+    expect(await updateHoldingEntry(handle.db, owner, target!.id, patch)).toEqual({
+      ok: true,
+      value: true,
+    });
+    expect(
+      (await listHoldingEntries(handle.db, owner)).find((e) => e.id === target!.id),
+    ).toMatchObject({ shares: 12, tradeDate: '2026-01-05', amountPaise: 1_200_000, kind: 'add' });
+  });
+
+  it('finds the newest and previous daily close as a fallback price', async () => {
+    await handle.db.execute(
+      sql`insert into daily_candles(instrument_id, ts, open, high, low, close, volume, provider_id) values
+        (${a}, now() - interval '3 days', 100, 110, 90, 105, 10, 'test'),
+        (${a}, now() - interval '2 days', 105, 115, 95, 111, 10, 'test')`,
+    );
+    const closes = await latestDailyCloses(handle.db, [a, b]);
+    expect(closes.get(a)).toMatchObject({ closePaise: 111, previousClosePaise: 105 });
+    expect(closes.has(b)).toBe(false);
+    expect((await latestDailyCloses(handle.db, [])).size).toBe(0);
   });
 
   it('deletes everything an owner entered, and only theirs', async () => {

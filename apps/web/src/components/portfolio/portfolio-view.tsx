@@ -9,6 +9,8 @@ import {
   ShieldCheckIcon,
   Trash2Icon,
 } from 'lucide-react';
+import type { Route } from 'next';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import * as React from 'react';
 import { MetricCard } from '@/components/data-display/metric-card';
@@ -50,9 +52,10 @@ import type {
   AddEntryBody,
   ImportPreviewDto,
   PortfolioDto,
-  PortfolioEntryDto,
   PortfolioHoldingDto,
 } from '@/lib/portfolio-types';
+import { EntryRows } from './entry-edit';
+import { longDate, pctText, request } from './portfolio-client';
 import { paiseToPlain, parseRupeesInput } from './portfolio-format';
 
 /**
@@ -62,47 +65,6 @@ import { paiseToPlain, parseRupeesInput } from './portfolio-format';
  * affordance, no verdicts. Wording follows the portfolio vocabulary in CLAUDE.md
  * ("Added shares", "Removed shares", "Number of shares", "Average cost").
  */
-
-type Result = { ok: true } | { ok: false; message: string };
-
-async function request(
-  url: string,
-  method: 'POST' | 'DELETE',
-  body?: unknown,
-): Promise<Result & { data?: unknown }> {
-  try {
-    const init: RequestInit =
-      body === undefined
-        ? { method }
-        : { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) };
-    const response = await fetch(url, init);
-    const payload: unknown = await response.json().catch(() => null);
-    if (response.ok) return { ok: true, data: payload };
-    const err = payload as { error?: string; remedy?: string } | null;
-    return {
-      ok: false,
-      message: [err?.error, err?.remedy].filter(Boolean).join(' ') || 'Something went wrong.',
-    };
-  } catch {
-    return { ok: false, message: 'Could not reach the server. Check your connection.' };
-  }
-}
-
-const KIND_LABEL: Record<PortfolioEntryDto['kind'], string> = {
-  opening: 'Shares I own',
-  add: 'Added shares',
-  remove: 'Removed shares',
-};
-
-const longDate = (iso: string) =>
-  new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-IN', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    timeZone: 'UTC',
-  });
-
-const pctText = (ratio: number, decimals = 1) => `${(Math.abs(ratio) * 100).toFixed(decimals)}%`;
 
 export function PortfolioView({ portfolio }: { portfolio: PortfolioDto }) {
   const router = useRouter();
@@ -408,7 +370,12 @@ function HoldingsTable({ holdings }: { holdings: readonly PortfolioHoldingDto[] 
             {rows.map((h) => (
               <tr key={h.instrumentId}>
                 <td className="px-3 py-2">
-                  <div className="font-medium">{h.symbol}</div>
+                  <Link
+                    href={`/portfolio/${h.symbol}` as Route}
+                    className="font-medium hover:underline"
+                  >
+                    {h.symbol}
+                  </Link>
                   <div className="max-w-56 truncate text-xs text-muted-foreground">{h.name}</div>
                 </td>
                 <td className="px-3 py-2 text-right">{h.shares.toLocaleString('en-IN')}</td>
@@ -419,7 +386,14 @@ function HoldingsTable({ holdings }: { holdings: readonly PortfolioHoldingDto[] 
                   {h.ltpPaise === null ? (
                     <span className="text-muted-foreground">No price yet</span>
                   ) : (
-                    <Price paise={h.ltpPaise} />
+                    <div className="flex flex-col items-end">
+                      <Price paise={h.ltpPaise} />
+                      {h.priceSource === 'close' && h.priceAsOf !== null && (
+                        <span className="text-xs text-muted-foreground">
+                          close of {longDate(h.priceAsOf.slice(0, 10))}
+                        </span>
+                      )}
+                    </div>
                   )}
                 </td>
                 <td className="px-3 py-2 text-right">
@@ -463,7 +437,12 @@ function HoldingsTable({ holdings }: { holdings: readonly PortfolioHoldingDto[] 
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <div className="font-medium">{h.symbol}</div>
+                <Link
+                  href={`/portfolio/${h.symbol}` as Route}
+                  className="font-medium hover:underline"
+                >
+                  {h.symbol}
+                </Link>
                 <div className="truncate text-xs text-muted-foreground">{h.name}</div>
               </div>
               <div className="text-right tabular-nums">
@@ -1004,14 +983,6 @@ function EntriesDialog({
   const [confirmAll, setConfirmAll] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
 
-  const remove = async (id: number) => {
-    setBusy(true);
-    setError(null);
-    const result = await request(`/api/portfolio/entries/${id}`, 'DELETE');
-    setBusy(false);
-    if (!result.ok) return setError(result.message);
-    onChanged();
-  };
   const removeAll = async () => {
     setBusy(true);
     setError(null);
@@ -1050,33 +1021,12 @@ function EntriesDialog({
             {error}
           </p>
         )}
-        <ul className="max-h-80 divide-y divide-border overflow-auto rounded-md border border-border text-sm">
-          {portfolio.entries.map((entry) => (
-            <li key={entry.id} className="flex items-center justify-between gap-3 px-3 py-2">
-              <div className="min-w-0">
-                <div className="font-medium">
-                  {entry.symbol}{' '}
-                  <span className="font-normal text-muted-foreground">
-                    · {KIND_LABEL[entry.kind]}
-                  </span>
-                </div>
-                <div className="text-xs text-muted-foreground tabular-nums">
-                  {longDate(entry.tradeDate)} · {entry.shares} shares ·{' '}
-                  {formatPaise(entry.amountPaise)} {entry.source === 'file' ? '· from a file' : ''}
-                </div>
-              </div>
-              <Button
-                size="icon"
-                variant="ghost"
-                disabled={busy}
-                aria-label={`Delete ${entry.symbol} entry from ${longDate(entry.tradeDate)}`}
-                onClick={() => void remove(entry.id)}
-              >
-                <Trash2Icon />
-              </Button>
-            </li>
-          ))}
-        </ul>
+        <EntryRows
+          entries={portfolio.entries}
+          onChanged={onChanged}
+          onError={setError}
+          className="max-h-80 divide-y divide-border overflow-auto rounded-md border border-border text-sm"
+        />
         {portfolio.entryCount > portfolio.entries.length && (
           <p className="text-xs text-muted-foreground">
             Showing the newest {portfolio.entries.length}.

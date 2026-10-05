@@ -519,3 +519,15 @@ Build mapping: Phase 1 ships the drawer, empty state and a one-tab hub (strip + 
 - A holdings snapshot is stored as an **opening** entry dated the day it is uploaded, and uploading a fresh snapshot **replaces** the entries for those stocks. A trade list adds dated entries and skips repeats by trade id.
 - Excel files are not read yet; the upload says to save as CSV. Only Zerodha's holdings export has been seen; the trade-list reader follows the published tradebook columns but has not been run on a real file.
 - Not yet built: lite single-holding page, the pinned-strip analysis hub, allocation charts, returns, tax and risk tabs (Phases 2 to 5).
+
+### Phase 1 completion (2026-10-05)
+
+Built since the first slice: **edit an entry** (date, shares, total amount; the stock and kind stay), the **single-holding page** `/portfolio/[symbol]` (value, today, gain, paid, 52-week range, share of portfolio, every entry with edit and delete, link to the stock page), **loading and error states**, and a **fallback price**: a holding the live-quote cache has not reached is valued at its last stored daily close, labelled "close of <date>".
+
+Still open in Phase 1, each waiting on something outside the code:
+
+- **Excel upload** — needs a spreadsheet-reading dependency (owner decision).
+- **Usage measurement** — needs a privacy design (owner decision).
+- **Demerger/merger notice** — `corporate_actions` holds only split, bonus, dividend and consolidation rows, so there is nothing to prompt from yet.
+- **Trade-list import on a real file** — needs a real tradebook CSV.
+- **Legal review** of the privacy sentence and the page wording.

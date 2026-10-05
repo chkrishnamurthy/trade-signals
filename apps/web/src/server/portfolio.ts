@@ -12,16 +12,25 @@ import {
   deleteHoldingEntry,
   getInstrumentBySymbol,
   type HoldingEntryRow,
+  latestDailyCloses,
+  latestIndicatorsForInstruments,
   latestQuotesForInstruments,
   listHoldingEntries,
   listInstrumentsById,
   listShareChanges,
   MAX_PORTFOLIO_ENTRIES,
   resolveInstrumentIds,
+  updateHoldingEntry,
   writeHoldingEntries,
 } from '@equitywise/db';
 import { z } from 'zod';
-import type { ImportPreviewDto, ImportRowDto, PortfolioDto } from '@/lib/portfolio-types';
+import type {
+  HoldingDetailDto,
+  ImportPreviewDto,
+  ImportRowDto,
+  PortfolioDto,
+  PortfolioEntryDto,
+} from '@/lib/portfolio-types';
 import { getSessionUser } from './auth/require-user';
 import { getDatabase } from './db';
 import { MarketDataError } from './errors';
@@ -84,37 +93,63 @@ function firstProblem(
   return `${who}: that would remove more shares than you held on that date (${problem.held}). Add the earlier entries first.`;
 }
 
-export async function getPortfolio(): Promise<PortfolioDto> {
-  const ownerId = await requireOwnerId();
+interface Built {
+  readonly dto: PortfolioDto;
+  readonly ledger: readonly HoldingEntryRow[];
+}
+
+async function buildPortfolio(ownerId: number): Promise<Built> {
   const db = getDatabase();
   const ledger = await listHoldingEntries(db, ownerId);
   const ids = [...new Set(ledger.map((entry) => entry.instrumentId))];
-  const [changes, quotes] = await Promise.all([
+  const [changes, cached] = await Promise.all([
     shareChangesFor(ids),
     latestQuotesForInstruments(db, ids).catch(() => new Map()),
   ]);
+  // Anything the live-quote cache has not reached yet falls back to its last stored close.
+  const missing = ids.filter((id) => !cached.has(id));
+  const closes = await latestDailyCloses(db, missing).catch(() => new Map());
+
+  const prices = new Map<
+    number,
+    { ltpPaise: number; previousClosePaise: number | null; source: 'quote' | 'close'; at: Date }
+  >();
+  for (const [id, q] of cached)
+    prices.set(id, {
+      ltpPaise: q.ltpPaise,
+      previousClosePaise: q.previousClosePaise,
+      source: 'quote',
+      at: q.fetchedAt,
+    });
+  for (const [id, c] of closes)
+    prices.set(id, {
+      ltpPaise: c.closePaise,
+      previousClosePaise: c.previousClosePaise,
+      source: 'close',
+      at: c.at,
+    });
 
   const derived = derivePortfolio(ledger.map(toEntry), changes);
   const summary = summarisePortfolio(
     derived.holdings,
     new Map(
-      [...quotes].map(([id, q]) => [
+      [...prices].map(([id, p]) => [
         id,
-        { ltpPaise: q.ltpPaise, previousClosePaise: q.previousClosePaise },
+        { ltpPaise: p.ltpPaise, previousClosePaise: p.previousClosePaise },
       ]),
     ),
   );
   const names = new Map(ledger.map((entry) => [entry.instrumentId, entry]));
 
   let newest: Date | null = null;
-  for (const q of quotes.values())
-    if (newest === null || q.fetchedAt > newest) newest = q.fetchedAt;
+  for (const p of prices.values()) if (newest === null || p.at > newest) newest = p.at;
 
-  return {
+  const dto: PortfolioDto = {
     holdings: [...summary.holdings]
-      .sort((a, b) => (b.valuePaise ?? b.costPaise) - (a.valuePaise ?? a.costPaise))
+      .sort((x, y) => (y.valuePaise ?? y.costPaise) - (x.valuePaise ?? x.costPaise))
       .map((h) => {
         const info = names.get(h.instrumentId);
+        const price = prices.get(h.instrumentId);
         return {
           instrumentId: h.instrumentId,
           symbol: info?.symbol ?? '',
@@ -122,7 +157,9 @@ export async function getPortfolio(): Promise<PortfolioDto> {
           shares: h.shares,
           costPaise: h.costPaise,
           avgCostPaise: h.avgCostPaise,
-          ltpPaise: quotes.get(h.instrumentId)?.ltpPaise ?? null,
+          ltpPaise: price?.ltpPaise ?? null,
+          priceSource: price?.source ?? null,
+          priceAsOf: price?.at.toISOString() ?? null,
           valuePaise: h.valuePaise,
           gainPaise: h.gainPaise,
           gainRatio: h.gainRatio,
@@ -132,16 +169,7 @@ export async function getPortfolio(): Promise<PortfolioDto> {
           adjustments: [...h.adjustments],
         };
       }),
-    entries: ledger.slice(0, 500).map((entry) => ({
-      id: entry.id,
-      symbol: entry.symbol,
-      name: entry.name,
-      kind: entry.kind,
-      tradeDate: entry.tradeDate,
-      shares: entry.shares,
-      amountPaise: entry.amountPaise,
-      source: entry.source,
-    })),
+    entries: ledger.slice(0, 500).map(toEntryDto),
     entryCount: ledger.length,
     entryLimit: MAX_PORTFOLIO_ENTRIES,
     totals: {
@@ -159,6 +187,45 @@ export async function getPortfolio(): Promise<PortfolioDto> {
       const row = ledger.find((entry) => entry.id === problem.entryId);
       return `${row?.symbol ?? 'A stock'}: an entry removes more shares than you held on that date.`;
     }),
+  };
+  return { dto, ledger };
+}
+
+function toEntryDto(entry: HoldingEntryRow): PortfolioEntryDto {
+  return {
+    id: entry.id,
+    symbol: entry.symbol,
+    name: entry.name,
+    kind: entry.kind,
+    tradeDate: entry.tradeDate,
+    shares: entry.shares,
+    amountPaise: entry.amountPaise,
+    source: entry.source,
+  };
+}
+
+export async function getPortfolio(): Promise<PortfolioDto> {
+  return (await buildPortfolio(await requireOwnerId())).dto;
+}
+
+/** One holding with every entry behind it, or null when the user holds none of that stock. */
+export async function getHoldingDetail(symbol: string): Promise<HoldingDetailDto | null> {
+  const ownerId = await requireOwnerId();
+  const { dto, ledger } = await buildPortfolio(ownerId);
+  const wanted = symbol.toUpperCase();
+  const holding = dto.holdings.find((h) => h.symbol === wanted);
+  if (holding === undefined) return null;
+  const indicators = await latestIndicatorsForInstruments(getDatabase(), [
+    holding.instrumentId,
+  ]).catch(() => new Map());
+  const range = indicators.get(holding.instrumentId);
+  return {
+    holding,
+    entries: ledger.filter((entry) => entry.instrumentId === holding.instrumentId).map(toEntryDto),
+    low52wPaise: range?.low52w ?? null,
+    high52wPaise: range?.high52w ?? null,
+    portfolioWeight: holding.weight,
+    pricesStale: dto.pricesStale,
   };
 }
 
@@ -253,6 +320,43 @@ export async function addPortfolioEntry(
     );
   }
   return fail(409, 'WOULD_OVERSELL', written.message);
+}
+
+export const editEntrySchema = z.object({
+  tradeDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Enter the date as YYYY-MM-DD.'),
+  shares: z
+    .number()
+    .int('Shares must be a whole number.')
+    .min(1, 'Enter at least 1 share.')
+    .max(1_000_000_000),
+  totalPaise: z.number().int().min(0).max(1_000_000_000_000_00),
+});
+
+export async function editPortfolioEntry(
+  id: number,
+  input: z.infer<typeof editEntrySchema>,
+): Promise<MutationOutcome> {
+  const ownerId = await requireOwnerId();
+  if (!realDate(input.tradeDate)) return fail(400, 'INVALID_DATE', 'That date does not exist.');
+  if (input.tradeDate > todayInIndia())
+    return fail(400, 'FUTURE_DATE', 'The date cannot be in the future.');
+  const db = getDatabase();
+  const existing = await listHoldingEntries(db, ownerId);
+  const changes = await shareChangesFor(existing.map((entry) => entry.instrumentId));
+  const result = await updateHoldingEntry(
+    db,
+    ownerId,
+    id,
+    { tradeDate: input.tradeDate, shares: input.shares, amountPaise: input.totalPaise },
+    (ledger) => firstProblem(ledger, changes),
+  );
+  if (!result.ok)
+    return fail(
+      409,
+      'WOULD_OVERSELL',
+      result.reason === 'rejected' ? result.message : 'Could not save that change.',
+    );
+  return result.value ? { ok: true } : fail(404, 'NOT_FOUND', 'That entry no longer exists.');
 }
 
 export async function removePortfolioEntry(id: number): Promise<MutationOutcome> {
