@@ -137,6 +137,18 @@ export function termOf(acquiredOn: string, removedOn: string): Term {
   return Date.parse(`${removedOn}T00:00:00Z`) > anniversary.getTime() ? 'long' : 'short';
 }
 
+/**
+ * The order a removal draws on lots: shares added the same day first (an
+ * intraday trade is matched within the day, as brokers and the tax rules treat
+ * it), then the oldest acquisition first (FIFO).
+ */
+export function sameDayFirst<
+  T extends { readonly acquiredOn: string; readonly trackedFrom: string },
+>(lots: readonly T[], removedOn: string): T[] {
+  const sameDay = (lot: T) => lot.trackedFrom === removedOn && lot.acquiredOn === removedOn;
+  return [...lots.filter(sameDay), ...lots.filter((lot) => !sameDay(lot))];
+}
+
 /** Entries in the order they apply: by date; on one day additions before removals; then as entered. */
 export function orderEntries<T extends PortfolioEntry>(entries: readonly T[]): T[] {
   const rank = (kind: EntryKind) => (kind === 'remove' ? 1 : 0);
@@ -203,7 +215,7 @@ export function derivePortfolio(
     }
     let left = shares;
     let proceedsLeft = entry.amountPaise;
-    for (const lot of cur.lots) {
+    for (const lot of sameDayFirst(cur.lots, entry.tradeDate)) {
       if (left === 0) break;
       if (lot.shares === 0) continue;
       const take = Math.min(left, lot.shares);

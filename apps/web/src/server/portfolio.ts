@@ -37,7 +37,13 @@ import {
 } from '@equitywise/db';
 import { z } from 'zod';
 import { composeAnalysis, type HoldingRef } from '@/lib/portfolio-analysis';
-import { composeReturns, headlineReturn, lotsFor, realisedCsv } from '@/lib/portfolio-returns';
+import {
+  composeReturns,
+  headlineReturn,
+  lotsFor,
+  realisedCsv,
+  valueForReturns,
+} from '@/lib/portfolio-returns';
 import { BENCHMARKS, composeBenchmark, composeTax, taxCsv } from '@/lib/portfolio-tax';
 import type {
   HoldingDetailDto,
@@ -332,9 +338,10 @@ export async function getPortfolio(): Promise<PortfolioDto> {
   return { ...built.dto, returns };
 }
 
+type ReturnInputs = Awaited<ReturnType<typeof returnInputs>>;
+
 /** Everything the Returns tab shows. */
-async function returnsFor(built: Built): Promise<PortfolioReturnsDto> {
-  const inputs = await returnInputs(built);
+function returnsFor(built: Built, inputs: ReturnInputs): PortfolioReturnsDto {
   return composeReturns({
     entries: built.entries,
     names: namesOf(built.ledger),
@@ -369,22 +376,22 @@ async function indexClosesFor(
   return new Map([...ids].map(([symbol, id]) => [symbol, closes.get(id) ?? []]));
 }
 
-async function benchmarkFor(built: Built): Promise<PortfolioBenchmarkDto> {
-  const [inputs, indexCloses] = await Promise.all([returnInputs(built), indexClosesFor(built)]);
+async function benchmarkFor(built: Built, inputs: ReturnInputs): Promise<PortfolioBenchmarkDto> {
+  const indexCloses = await indexClosesFor(built);
   return composeBenchmark({
     entries: built.entries,
     changes: built.changes,
     closes: inputs.closes,
     indexCloses,
+    valuePaise: valueForReturns(built.dto.holdings).valuePaise,
     today: inputs.today,
   });
 }
 
-async function taxFor(built: Built): Promise<PortfolioTaxDto> {
+async function taxFor(built: Built, inputs: ReturnInputs): Promise<PortfolioTaxDto> {
   const db = getDatabase();
   const ids = [...new Set(built.ledger.map((e) => e.instrumentId))];
-  const [inputs, fmv2018, fmvLoaded, isins] = await Promise.all([
-    returnInputs(built),
+  const [fmv2018, fmvLoaded, isins] = await Promise.all([
     fairMarketValuesFor(db, ids).catch(() => new Map<number, number>()),
     fairMarketValuesLoaded(db).catch(() => false),
     instrumentIsins(db, ids).catch(() => new Map<number, string>()),
@@ -406,7 +413,7 @@ async function taxFor(built: Built): Promise<PortfolioTaxDto> {
 export async function getTaxCsv(year: string): Promise<string | null> {
   const ownerId = await requireOwnerId();
   const built = await buildPortfolio(ownerId);
-  const tax = await taxFor(built);
+  const tax = await taxFor(built, await returnInputs(built));
   const summary = tax.byYear[year];
   return summary === undefined ? null : taxCsv(summary);
 }
@@ -415,7 +422,7 @@ export async function getTaxCsv(year: string): Promise<string | null> {
 export async function getRealisedCsv(): Promise<string> {
   const ownerId = await requireOwnerId();
   const built = await buildPortfolio(ownerId);
-  const returns = await returnsFor(built);
+  const returns = returnsFor(built, await returnInputs(built));
   return realisedCsv(returns.realisedRows);
 }
 
@@ -440,11 +447,10 @@ export async function getPortfolioAnalysis(): Promise<{
   await countUse(ownerId, 'view');
   if (built.ledger.length === 0)
     return { analysis: composeAnalysis(dto, reference), returns: null, benchmark: null, tax: null };
-  const [returns, benchmark, tax] = await Promise.all([
-    returnsFor(built),
-    benchmarkFor(built),
-    taxFor(built),
-  ]);
+  // Closes and dividends since the first entry are read once for all three tabs.
+  const inputs = await returnInputs(built);
+  const [benchmark, tax] = await Promise.all([benchmarkFor(built, inputs), taxFor(built, inputs)]);
+  const returns = returnsFor(built, inputs);
   return { analysis: composeAnalysis(dto, reference), returns, benchmark, tax };
 }
 
@@ -456,7 +462,7 @@ export async function getHoldingDetail(symbol: string): Promise<HoldingDetailDto
   const wanted = symbol.toUpperCase();
   const holding = dto.holdings.find((h) => h.symbol === wanted);
   if (holding === undefined) return null;
-  const returns = await returnsFor(built);
+  const returns = returnsFor(built, await returnInputs(built));
   const own = returns.perHolding.find((p) => p.symbol === holding.symbol);
   const indicators = await latestIndicatorsForInstruments(getDatabase(), [
     holding.instrumentId,

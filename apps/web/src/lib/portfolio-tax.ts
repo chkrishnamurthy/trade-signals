@@ -10,7 +10,9 @@ import {
   periodReturns,
   type ShareChange,
   samplePoints,
+  summariseReturns,
   summariseTaxYear,
+  summariseTaxYears,
   type TaxRealisation,
   taxRealisations,
   taxYears,
@@ -39,6 +41,8 @@ export function composeBenchmark(input: {
   readonly closes: ReadonlyMap<number, readonly DailyCloseInput[]>;
   /** Index symbol → its daily closes (paise). */
   readonly indexCloses: ReadonlyMap<string, readonly DailyCloseInput[]>;
+  /** Today's value of what is held (as the Returns tab counts it). */
+  readonly valuePaise: number;
   readonly today: string;
 }): PortfolioBenchmarkDto {
   const priceOn = priceLookup(input.closes);
@@ -58,6 +62,10 @@ export function composeBenchmark(input: {
     ]),
   );
 
+  // Holdings value at the end of a day: the first session on or after it, which
+  // includes that day's entries (a removal on a holiday shows on the next session).
+  const valueAfter = (date: string) => daily.find((p) => p.date >= date)?.valuePaise ?? null;
+
   const indices: BenchmarkIndexDto[] = BENCHMARKS.map((b) => {
     const closes = input.indexCloses.get(b.symbol) ?? [];
     const lookup = priceLookup(new Map([[0, closes]]));
@@ -68,6 +76,8 @@ export function composeBenchmark(input: {
             entries: input.entries,
             priceOn,
             indexOn: (date) => lookup(0, date),
+            indexFrom: closes[0]?.date ?? null,
+            valueAfter,
             today: input.today,
           });
     return {
@@ -83,6 +93,7 @@ export function composeBenchmark(input: {
               simpleReturn: replay.simpleReturn,
               xirr: replay.xirr,
               status: replay.status,
+              indexFrom: replay.indexFrom,
             },
       periods: periodReturns(indexSeries.get(b.symbol) ?? [], input.today),
     };
@@ -110,8 +121,22 @@ export function composeBenchmark(input: {
     nifty500: n500(p.date),
   }));
 
+  // Dividends left out, as a price index leaves them out.
+  const priceOnly = summariseReturns({
+    entries: input.entries,
+    dividends: [],
+    valuePaise: input.valuePaise,
+    today: input.today,
+    priceOn,
+  });
   return {
     indices,
+    yoursPriceOnly: {
+      simpleReturn: priceOnly.simpleReturn,
+      xirr: priceOnly.xirr,
+      status: priceOnly.status,
+    },
+    from: priceOnly.trackingSince,
     periods: periodReturns(yours, input.today),
     growth: samplePoints(growth, input.today),
     available: indices.some((i) => i.replay !== null),
@@ -137,9 +162,10 @@ export function composeTax(input: {
   const dividends = dividendsReceived(input.entries, input.changes, input.dividendRecords);
   const label = (id: number) => input.names.get(id) ?? { symbol: '', name: '' };
 
+  const summaries = summariseTaxYears(realisations, current);
   const byYear: Record<string, TaxYearDto> = {};
   for (const year of years) {
-    const summary = summariseTaxYear(realisations, year);
+    const summary = summaries.get(year) ?? summariseTaxYear([], year);
     const rows: TaxRowDto[] = realisations
       .filter((r) => r.financialYear === year)
       .map((r) => ({
@@ -157,10 +183,12 @@ export function composeTax(input: {
         term: termKey(r),
         bonus: r.bonus,
         grandfathered: r.grandfathered,
+        fmvMissing: r.fmvMissing,
       }))
       .reverse();
     byYear[year] = {
       ...summary,
+      carryForward: summary.carryForward.map((l) => ({ ...l })),
       dividendsPaise: dividends
         .filter((d) => financialYear(d.exDate) === year && d.amountPaise !== null)
         .reduce((a, d) => a + (d.amountPaise ?? 0), 0),
@@ -213,6 +241,7 @@ export function taxCsv(year: TaxYearDto): string {
     'Days held',
     'Term',
     'Bonus shares',
+    'Note',
   ];
   const lines = year.rows.map((r) =>
     [
@@ -232,11 +261,17 @@ export function taxCsv(year: TaxYearDto): string {
       String(r.daysHeld),
       term[r.term],
       r.bonus ? 'Yes' : 'No',
+      q(r.fmvMissing ? '31 Jan 2018 price not found; 2018 rule not applied' : ''),
     ].join(','),
   );
   return [
-    `"FY ${year.year}. Indicative, for your accountant. Not tax advice or a tax computation. Oldest purchase first; transfer expenses not included."`,
+    `"FY ${year.year}. Indicative, for your accountant. Not tax advice or a tax computation. Same-day additions first, then oldest purchase first; transfer expenses not included."`,
     header.join(','),
     ...lines,
+    ...(year.broughtForwardUsedPaise > 0
+      ? [
+          `"Losses from earlier years set off this year (from the years recorded in EquityWise): Rs ${rupees(year.broughtForwardUsedPaise)}"`,
+        ]
+      : []),
   ].join('\n');
 }

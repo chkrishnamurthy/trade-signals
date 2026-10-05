@@ -3,6 +3,7 @@ import {
   orderEntries,
   type PortfolioEntry,
   type ShareChange,
+  sameDayFirst,
   type Term,
   termOf,
 } from './derive.js';
@@ -10,8 +11,8 @@ import { financialYear } from './returns.js';
 
 /**
  * Indicative capital-gains figures for Indian listed shares, from the user's own
- * entries. Not tax advice: no surcharge, no losses brought forward from earlier
- * years, no other income. Every rule here is named in the tax view.
+ * entries. Not tax advice: no surcharge, no other income, and losses brought
+ * forward only from the years recorded here. Every rule here is named in the tax view.
  *
  * Tax lots differ from the returns lots in one place: a bonus creates new
  * zero-cost shares acquired on the ex-date (Income-tax Act s.55(2)(aa)), so they
@@ -44,6 +45,8 @@ export interface TaxRealisation {
   /** Present when the 2018 rule was considered: total fair market value of the shares sold. */
   readonly fmvPaise: number | null;
   readonly grandfathered: boolean;
+  /** Acquired before 1 Feb 2018 and disposed of as long term, but no 31 Jan 2018 price was found. */
+  readonly fmvMissing: boolean;
   readonly financialYear: string;
 }
 
@@ -58,14 +61,64 @@ interface TaxLot {
 }
 
 const SHARE_CHANGING = new Set(['split', 'bonus', 'consolidation']);
+const LAST_DAY_BEFORE_CUTOFF = '2018-01-31';
 
 type Event =
   | { readonly at: string; readonly order: 0; readonly change: ShareChange }
-  | { readonly at: string; readonly order: 1; readonly entry: PortfolioEntry };
+  | { readonly at: string; readonly order: 1; readonly entry: PortfolioEntry }
+  /** End of 31 Jan 2018: every lot acquired by then takes that day's value. */
+  | { readonly at: string; readonly order: 2 };
+
+const byAcquired = (a: TaxLot, b: TaxLot) =>
+  a.acquiredOn < b.acquiredOn ? -1 : a.acquiredOn > b.acquiredOn ? 1 : 0;
+
+/** Restates a count across one split, bonus or consolidation (ratio is the price multiplier). */
+const restate = (shares: number, ratio: number) => Math.floor(shares / ratio + 1e-9);
 
 /**
- * Removals matched to tax lots, oldest acquisition first, with the 2018 rule
- * applied. `fmv2018` maps an instrument to its 31 Jan 2018 high a share (paise).
+ * An entry whose shares were acquired before it was entered (an opening balance
+ * with an "Acquired on" date) already includes any bonus shares allotted in
+ * between. Those are rebuilt as their own zero-cost lots dated the ex-date, and
+ * the original purchase is restated back to its own count, so each part has the
+ * right holding period. Without such changes it is one lot.
+ */
+function piecesOf(
+  entry: PortfolioEntry,
+  changes: readonly ShareChange[],
+): { acquiredOn: string; shares: number; costPaise: number; bonus: boolean }[] {
+  const acquiredOn = entry.acquiredOn ?? entry.tradeDate;
+  const single = [{ acquiredOn, shares: entry.shares, costPaise: entry.amountPaise, bonus: false }];
+  const between = changes.filter((c) => c.exDate > acquiredOn && c.exDate <= entry.tradeDate);
+  if (!between.some((c) => c.kind === 'bonus')) return single;
+  // Back to the count first acquired…
+  let original = entry.shares;
+  for (const c of [...between].reverse()) original = Math.round(original * c.ratio);
+  if (original <= 0) return single;
+  // …then forward again, each bonus adding a new zero-cost lot.
+  const pieces = [{ acquiredOn, shares: original, costPaise: entry.amountPaise, bonus: false }];
+  for (const c of between) {
+    if (c.kind === 'bonus') {
+      const held = pieces.reduce((a, p) => a + p.shares, 0);
+      const extra = restate(held, c.ratio) - held;
+      if (extra > 0)
+        pieces.push({ acquiredOn: c.exDate, shares: extra, costPaise: 0, bonus: true });
+    } else {
+      for (const p of pieces) p.shares = restate(p.shares, c.ratio);
+    }
+  }
+  // Rounding lands on the original purchase so the pieces add up to the entry.
+  const first = pieces[0];
+  const total = pieces.reduce((a, p) => a + p.shares, 0);
+  if (first === undefined || first.shares + entry.shares - total <= 0) return single;
+  first.shares += entry.shares - total;
+  return pieces;
+}
+
+/**
+ * Removals matched to tax lots (same-day additions first, then the oldest
+ * acquisition), with the 2018 rule applied. `fmv2018` maps an instrument to
+ * its 31 Jan 2018 high a share (paise). A removal of more shares than were
+ * held is left out, as the returns view leaves it out.
  */
 export function taxRealisations(
   entries: readonly PortfolioEntry[],
@@ -75,9 +128,9 @@ export function taxRealisations(
   const out: TaxRealisation[] = [];
   const instruments = [...new Set(entries.map((e) => e.instrumentId))];
   for (const instrumentId of instruments) {
-    const mine = changes.filter(
-      (c) => c.instrumentId === instrumentId && SHARE_CHANGING.has(c.kind) && c.ratio > 0,
-    );
+    const mine = changes
+      .filter((c) => c.instrumentId === instrumentId && SHARE_CHANGING.has(c.kind) && c.ratio > 0)
+      .sort((a, b) => (a.exDate < b.exDate ? -1 : a.exDate > b.exDate ? 1 : 0));
     const fmvShare = fmv2018.get(instrumentId) ?? null;
     const events: Event[] = [
       ...mine.map((change) => ({ at: change.exDate, order: 0 as const, change })),
@@ -86,24 +139,32 @@ export function taxRealisations(
         order: 1 as const,
         entry,
       })),
+      { at: LAST_DAY_BEFORE_CUTOFF, order: 2 as const },
     ].sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : a.order - b.order));
 
     const lots: TaxLot[] = [];
-    // Restate shares entered on a later basis back to 31 Jan 2018's, for the fair
-    // market value of an opening balance acquired before 2018.
+    // A count entered after 31 Jan 2018, restated to that day's basis. Bonuses
+    // are their own lots, so only splits and consolidations restate it.
     const sharesOn2018 = (shares: number, enteredOn: string) => {
       let s = shares;
-      for (const c of mine) if (c.exDate > '2018-01-31' && c.exDate <= enteredOn) s *= c.ratio;
+      for (const c of mine)
+        if (c.kind !== 'bonus' && c.exDate > LAST_DAY_BEFORE_CUTOFF && c.exDate <= enteredOn)
+          s *= c.ratio;
       return s;
     };
 
     for (const ev of events) {
+      if (ev.order === 2) {
+        if (fmvShare === null) continue;
+        for (const lot of lots)
+          if (lot.acquiredOn < GRANDFATHERING_CUTOFF && lot.shares > 0)
+            lot.fmvPaise = lot.shares * fmvShare;
+        continue;
+      }
       if (ev.order === 0) {
         const { change } = ev;
-        const before = [...lots];
-        for (const lot of before) {
-          if (lot.acquiredOn >= change.exDate && lot.trackedFrom >= change.exDate) continue;
-          const restated = Math.floor(lot.shares / change.ratio + 1e-9);
+        for (const lot of [...lots]) {
+          const restated = restate(lot.shares, change.ratio);
           if (change.kind === 'bonus') {
             const extra = restated - lot.shares;
             if (extra > 0)
@@ -119,34 +180,32 @@ export function taxRealisations(
             lot.shares = restated;
           }
         }
-        lots.sort((a, b) =>
-          a.acquiredOn < b.acquiredOn ? -1 : a.acquiredOn > b.acquiredOn ? 1 : 0,
-        );
+        lots.sort(byAcquired);
         continue;
       }
       const e = ev.entry;
       if (e.kind !== 'remove') {
-        const acquiredOn = e.acquiredOn ?? e.tradeDate;
-        const fmv =
-          fmvShare !== null && acquiredOn < GRANDFATHERING_CUTOFF
-            ? Math.round(sharesOn2018(e.shares, e.tradeDate) * fmvShare)
-            : null;
-        lots.push({
-          acquiredOn,
-          trackedFrom: e.tradeDate,
-          shares: e.shares,
-          costPaise: e.amountPaise,
-          fmvPaise: fmv,
-          bonus: false,
-        });
-        lots.sort((a, b) =>
-          a.acquiredOn < b.acquiredOn ? -1 : a.acquiredOn > b.acquiredOn ? 1 : 0,
-        );
+        const afterCutoff = e.tradeDate > LAST_DAY_BEFORE_CUTOFF;
+        for (const piece of piecesOf(e, mine)) {
+          lots.push({
+            ...piece,
+            trackedFrom: e.tradeDate,
+            // Entered after 31 Jan 2018 for shares acquired before it: that day's
+            // value from the count restated back. Earlier entries get it on the day.
+            fmvPaise:
+              fmvShare !== null && afterCutoff && piece.acquiredOn < GRANDFATHERING_CUTOFF
+                ? Math.round(sharesOn2018(piece.shares, e.tradeDate) * fmvShare)
+                : null,
+          });
+        }
+        lots.sort(byAcquired);
         continue;
       }
+      const held = lots.reduce((a, l) => a + l.shares, 0);
+      if (e.shares > held) continue;
       let left = e.shares;
       let proceedsLeft = e.amountPaise;
-      for (const lot of lots) {
+      for (const lot of sameDayFirst(lots, e.tradeDate)) {
         if (left === 0) break;
         if (lot.shares === 0) continue;
         const take = Math.min(left, lot.shares);
@@ -183,10 +242,10 @@ export function taxRealisations(
           bonus: lot.bonus,
           fmvPaise: ruleApplies ? fmvOut : null,
           grandfathered: ruleApplies && costUsed !== costOut,
+          fmvMissing: term === 'long' && lot.acquiredOn < GRANDFATHERING_CUTOFF && fmvOut === null,
           financialYear: financialYear(e.tradeDate),
         });
       }
-      // Shares beyond what the lots hold are left for the returns engine to report.
       for (let i = lots.length - 1; i >= 0; i--) if (lots[i]?.shares === 0) lots.splice(i, 1);
     }
   }
@@ -218,6 +277,18 @@ export function longTermExemptionPaise(year: string): number {
 
 export const CESS = 0.04;
 
+/** A loss not yet used, by the financial year it arose in. */
+export interface LossCarried {
+  readonly year: string;
+  readonly shortTermPaise: number;
+  readonly longTermPaise: number;
+}
+
+/** A capital loss may be carried forward for eight years after the year it arose in. */
+export const LOSS_CARRY_YEARS = 8;
+
+const startYear = (year: string) => Number(year.slice(0, 4));
+
 export interface TaxYearSummary {
   readonly year: string;
   readonly shortTermGainsPaise: number;
@@ -225,7 +296,12 @@ export interface TaxYearSummary {
   readonly longTermGainsPaise: number;
   readonly longTermLossesPaise: number;
   readonly intradayPaise: number;
-  /** Gains left after this year's losses are set off. */
+  /** Earlier years' losses available at the start of the year. */
+  readonly broughtForwardShortTermPaise: number;
+  readonly broughtForwardLongTermPaise: number;
+  /** How much of them this year's gains used. */
+  readonly broughtForwardUsedPaise: number;
+  /** Gains left after this year's losses and earlier years' losses are set off. */
   readonly netShortTermPaise: number;
   readonly netLongTermPaise: number;
   readonly exemptionPaise: number;
@@ -235,9 +311,11 @@ export interface TaxYearSummary {
   readonly taxPaise: number;
   readonly cessPaise: number;
   readonly totalTaxPaise: number;
-  /** Losses this year could not use; they carry forward only if the return is filed on time. */
+  /** This year's losses that this year could not use. */
   readonly shortTermLossCarriedPaise: number;
   readonly longTermLossCarriedPaise: number;
+  /** Every loss still usable next year (this year's and earlier ones not yet expired). */
+  readonly carryForward: readonly LossCarried[];
   readonly count: number;
 }
 
@@ -258,14 +336,18 @@ const take = (bucket: Bucket, amount: number): number => {
 };
 
 /**
- * One financial year's capital gains with this year's set-off: a short-term
- * loss can reduce short- and then long-term gains; a long-term loss only
- * long-term gains. Then the long-term exemption, then the rates by sale date,
- * then 4% cess. Intraday is shown apart and not taxed here.
+ * One financial year's capital gains. Set-off is required, not optional:
+ *   1. this year's losses: a short-term loss reduces short- and then long-term
+ *      gains; a long-term loss only long-term gains;
+ *   2. earlier years' losses (`broughtForward`, oldest first, at most eight years
+ *      old) in the same way, even when the gain is within the exemption;
+ *   3. the long-term exemption, then the rates by sale date, then 4% cess.
+ * Intraday is shown apart and neither taxed nor carried here.
  */
 export function summariseTaxYear(
   realisations: readonly TaxRealisation[],
   year: string,
+  broughtForward: readonly LossCarried[] = [],
 ): TaxYearSummary {
   const rows = realisations.filter((r) => r.financialYear === year);
   const st: Bucket = { old: 0, current: 0 };
@@ -288,10 +370,38 @@ export function summariseTaxYear(
   const stGains = st.old + st.current;
   const ltGains = lt.old + lt.current;
 
-  // Set-off within the year.
+  // 1. This year's losses.
   const stUsedOnSt = take(st, stLoss);
   const stUsedOnLt = take(lt, stLoss - stUsedOnSt);
   const ltUsed = take(lt, ltLoss);
+
+  // 2. Earlier years' losses still in date, oldest first. A long-term loss can
+  // only meet long-term gains, so it goes first and leaves short-term losses free.
+  const usable = broughtForward
+    .filter((l) => {
+      const age = startYear(year) - startYear(l.year);
+      return age >= 1 && age <= LOSS_CARRY_YEARS;
+    })
+    .sort((a, b) => (a.year < b.year ? -1 : 1))
+    .map((l) => ({ ...l }));
+  const bfShort = usable.reduce((a, l) => a + l.shortTermPaise, 0);
+  const bfLong = usable.reduce((a, l) => a + l.longTermPaise, 0);
+  let bfUsed = 0;
+  for (const l of usable) {
+    const used = take(lt, l.longTermPaise);
+    l.longTermPaise -= used;
+    bfUsed += used;
+  }
+  for (const l of usable) {
+    const onSt = take(st, l.shortTermPaise);
+    const onLt = take(lt, l.shortTermPaise - onSt);
+    l.shortTermPaise -= onSt + onLt;
+    bfUsed += onSt + onLt;
+  }
+
+  // 3. Exemption, rates and cess.
+  const netShort = st.old + st.current;
+  const netLong = lt.old + lt.current;
   const exemption = longTermExemptionPaise(year);
   const exemptionUsed = take(lt, exemption);
 
@@ -304,6 +414,19 @@ export function summariseTaxYear(
       lt.current * now.longTerm,
   );
   const cess = Math.round(tax * CESS);
+  const stCarried = stLoss - stUsedOnSt - stUsedOnLt;
+  const ltCarried = ltLoss - ltUsed;
+  const nextYear = startYear(year) + 1;
+  const carryForward: LossCarried[] = [
+    ...usable.filter(
+      (l) =>
+        (l.shortTermPaise > 0 || l.longTermPaise > 0) &&
+        nextYear - startYear(l.year) <= LOSS_CARRY_YEARS,
+    ),
+    ...(stCarried > 0 || ltCarried > 0
+      ? [{ year, shortTermPaise: stCarried, longTermPaise: ltCarried }]
+      : []),
+  ];
   return {
     year,
     shortTermGainsPaise: stGains,
@@ -311,8 +434,11 @@ export function summariseTaxYear(
     longTermGainsPaise: ltGains,
     longTermLossesPaise: ltLoss,
     intradayPaise: intraday,
-    netShortTermPaise: stGains - stUsedOnSt,
-    netLongTermPaise: ltGains - stUsedOnLt - ltUsed,
+    broughtForwardShortTermPaise: bfShort,
+    broughtForwardLongTermPaise: bfLong,
+    broughtForwardUsedPaise: bfUsed,
+    netShortTermPaise: netShort,
+    netLongTermPaise: netLong,
     exemptionPaise: exemption,
     exemptionUsedPaise: exemptionUsed,
     taxableShortTermPaise: st.old + st.current,
@@ -320,10 +446,34 @@ export function summariseTaxYear(
     taxPaise: tax,
     cessPaise: cess,
     totalTaxPaise: tax + cess,
-    shortTermLossCarriedPaise: stLoss - stUsedOnSt - stUsedOnLt,
-    longTermLossCarriedPaise: ltLoss - ltUsed,
+    shortTermLossCarriedPaise: stCarried,
+    longTermLossCarriedPaise: ltCarried,
+    carryForward,
     count: rows.length,
   };
+}
+
+const fyLabel = (start: number) => `${start}-${String((start + 1) % 100).padStart(2, '0')}`;
+
+/**
+ * Every financial year from the first one with a removal to `through`, each
+ * with the losses carried in from the years before it. Assumes each year's
+ * return was filed on time, which carrying a loss forward requires.
+ */
+export function summariseTaxYears(
+  realisations: readonly TaxRealisation[],
+  through: string,
+): Map<string, TaxYearSummary> {
+  const out = new Map<string, TaxYearSummary>();
+  const first = taxYears(realisations).at(-1);
+  if (first === undefined) return out;
+  let carried: readonly LossCarried[] = [];
+  for (let y = startYear(first); y <= startYear(through); y++) {
+    const summary = summariseTaxYear(realisations, fyLabel(y), carried);
+    out.set(summary.year, summary);
+    carried = summary.carryForward;
+  }
+  return out;
 }
 
 /** Financial years with any removal, newest first. */

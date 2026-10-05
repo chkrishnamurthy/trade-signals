@@ -53,6 +53,11 @@ function CostCell({ row }: { row: TaxRowDto }) {
         </span>
       )}
       {row.bonus && <span className="text-xs text-muted-foreground">Bonus shares: cost nil</span>}
+      {row.fmvMissing && (
+        <span className="text-xs text-muted-foreground">
+          No 31 Jan 2018 price found: 2018 rule not applied
+        </span>
+      )}
     </span>
   );
 }
@@ -65,6 +70,9 @@ export function TaxTab({ tax }: { tax: PortfolioTaxDto }) {
   const y = tax.byYear[year];
   if (y === undefined) return null;
   const longTermBeforeExemption = y.netLongTermPaise;
+  const carried = y.carryForward.reduce((a, l) => a + l.shortTermPaise + l.longTermPaise, 0);
+  const broughtForward = y.broughtForwardShortTermPaise + y.broughtForwardLongTermPaise;
+  const missingFmv = y.rows.filter((r) => r.fmvMissing).length;
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -98,7 +106,7 @@ export function TaxTab({ tax }: { tax: PortfolioTaxDto }) {
 
       <p role="note" className="rounded-md border border-border bg-muted px-3 py-2 text-sm">
         Indicative, from the entries you made. Not tax advice and not a tax return: surcharge,
-        losses brought forward from earlier years, transfer expenses and your other income are not
+        transfer expenses, your other income and losses from shares not recorded here are not
         included. Check with a chartered accountant.
       </p>
       {!tax.fmvLoaded && (
@@ -143,12 +151,43 @@ export function TaxTab({ tax }: { tax: PortfolioTaxDto }) {
         </Tile>
       </div>
 
-      {(y.shortTermLossCarriedPaise > 0 || y.longTermLossCarriedPaise > 0) && (
-        <p className="text-sm text-muted-foreground">
-          Losses this year could not use: short term {money(y.shortTermLossCarriedPaise)}, long term{' '}
-          {money(y.longTermLossCarriedPaise)}. They can be carried forward up to 8 years only if the
-          return is filed on time.
+      {missingFmv > 0 && tax.fmvLoaded && (
+        <p role="status" className="rounded-md border border-border bg-muted px-3 py-2 text-sm">
+          {missingFmv === 1 ? 'One sale' : `${missingFmv} sales`} of shares acquired before February
+          2018 had no 31 Jan 2018 price on record (the stock may not have traded on NSE that day, or
+          has changed name), so the 2018 rule is not applied and the gain may be overstated.
         </p>
+      )}
+
+      {(broughtForward > 0 || carried > 0) && (
+        <section className="flex flex-col gap-1 rounded-lg border border-border bg-surface p-4 text-sm shadow-subtle">
+          <h2 className="flex items-center gap-1 text-sm font-semibold">
+            Losses from other years
+            <MetricHint>
+              A capital loss that a year cannot use is carried forward for up to 8 years, and must
+              be set off against the next gains, even gains within the exemption. This assumes each
+              return was filed on time and counts only the years recorded here.
+            </MetricHint>
+          </h2>
+          {broughtForward > 0 && (
+            <p className="tabular-nums">
+              Brought into FY {year}: {money(broughtForward)} (short term{' '}
+              {money(y.broughtForwardShortTermPaise)}, long term{' '}
+              {money(y.broughtForwardLongTermPaise)}). Used this year:{' '}
+              {money(y.broughtForwardUsedPaise)}.
+            </p>
+          )}
+          {carried > 0 && (
+            <p className="tabular-nums">
+              Carried into the next year: {money(carried)}
+              {y.carryForward.length > 0 &&
+                ` (${y.carryForward
+                  .map((l) => `FY ${l.year}: ${money(l.shortTermPaise + l.longTermPaise)}`)
+                  .join(', ')})`}
+              .
+            </p>
+          )}
+        </section>
       )}
 
       <section className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-4 shadow-subtle">
@@ -162,7 +201,8 @@ export function TaxTab({ tax }: { tax: PortfolioTaxDto }) {
             <div className="hidden overflow-x-auto md:block">
               <table className="w-full text-sm">
                 <caption className="sr-only">
-                  Shares removed in FY {year}, matched to purchases oldest first
+                  Shares removed in FY {year}, matched to same-day additions first, then oldest
+                  purchases
                 </caption>
                 <thead className="text-left text-xs uppercase tracking-wide text-muted-foreground">
                   <tr>
@@ -245,6 +285,7 @@ export function TaxTab({ tax }: { tax: PortfolioTaxDto }) {
                       Cost used {money(r.costUsedPaise)}
                       {r.grandfathered ? ' (2018 rule)' : ''}
                       {r.bonus ? ' (bonus)' : ''}
+                      {r.fmvMissing ? ' (no 31 Jan 2018 price: 2018 rule not applied)' : ''}
                     </span>
                     <span>Proceeds {money(r.proceedsPaise)}</span>
                   </div>
@@ -300,8 +341,8 @@ export function TaxTab({ tax }: { tax: PortfolioTaxDto }) {
         <summary className="cursor-pointer text-sm font-semibold">How this is worked out</summary>
         <ul className="mt-3 flex max-w-prose list-disc flex-col gap-2 pl-5 text-sm text-muted-foreground">
           <li>
-            Removed shares are matched to your oldest purchases first (FIFO). Long term means held
-            more than 12 months.
+            Removed shares are matched first to shares added the same day (an intraday trade), then
+            to your oldest purchases (FIFO). Long term means held more than 12 months.
           </li>
           <li>
             Rates by the date of sale: from 23 Jul 2024, 20% short term and 12.5% long term; before
@@ -309,9 +350,11 @@ export function TaxTab({ tax }: { tax: PortfolioTaxDto }) {
             before. 4% cess is added.
           </li>
           <li>
-            This year&apos;s losses: a short-term loss reduces short-term gains first, then
-            long-term gains; a long-term loss reduces only long-term gains. Losses from earlier
-            years are not known here.
+            Losses: a short-term loss reduces short-term gains first, then long-term gains; a
+            long-term loss reduces only long-term gains. This year&apos;s losses are used first,
+            then earlier years&apos; losses (up to 8 years old, oldest first), then the exemption.
+            Earlier years count only from the entries recorded here, and assume each return was
+            filed on time.
           </li>
           <li>
             Shares acquired before 1 Feb 2018 and disposed of as long term use the higher of what
@@ -319,8 +362,8 @@ export function TaxTab({ tax }: { tax: PortfolioTaxDto }) {
             sale value.
           </li>
           <li>
-            Bonus shares cost nothing and are held from the bonus date. Splits change the count
-            only.
+            Bonus shares cost nothing and are held from the bonus date, including bonus shares
+            inside an opening balance with an earlier acquired date. Splits change the count only.
           </li>
           <li>
             Same-day trades are shown apart: they are usually business income. Surcharge is not

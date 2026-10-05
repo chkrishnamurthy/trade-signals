@@ -21,21 +21,32 @@ export interface BenchmarkResult {
   readonly valuePaise: number;
   readonly simpleReturn: number | null;
   readonly xirr: number | null;
-  readonly status: ReturnStatus;
-  /** Flows on dates with no index close on or before them (counted at the next known close). */
-  readonly missingDates: number;
+  /** `no_history`: the index series starts after the first entry, so there is no fair comparison. */
+  readonly status: ReturnStatus | 'no_history';
+  /** First date the index has a close for, as far as the caller loaded it. */
+  readonly indexFrom: string | null;
 }
 
 /**
- * Replays every amount the user put in or took out, on its own date, into an
- * index: money in buys index units at that day's close, money out sells units.
- * Dividends are not replayed, because a price index pays none.
+ * Replays the user's money into an index on the same dates (a "modified public
+ * market equivalent"): money in buys index units at that day's close; taking
+ * money out sells the same FRACTION of the index units as it did of the
+ * holdings, so a well-chosen sale cannot leave the index owing units. Dividends
+ * are not replayed, because a price index pays none.
  */
 export function benchmarkReplay(input: {
   readonly entries: readonly PortfolioEntry[];
   readonly priceOn: PriceLookup;
   /** Index close on or before a date, paise; null before the series starts. */
   readonly indexOn: (date: string) => number | null;
+  /** First date the index has a close for. */
+  readonly indexFrom: string | null;
+  /**
+   * What the holdings were worth at the end of a day, after its entries. Gives
+   * the fraction a removal took out; without it, the same rupees are taken out
+   * of the index, never more than it holds.
+   */
+  readonly valueAfter?: (date: string) => number | null;
   readonly today: string;
 }): BenchmarkResult | null {
   const ordered = orderEntries(input.entries);
@@ -45,24 +56,50 @@ export function benchmarkReplay(input: {
   let units = 0;
   let invested = 0;
   let withdrawn = 0;
-  let missing = 0;
+  // Money put in before the index history starts has nowhere fair to go:
+  // counting it at a later close would show the index as flat for that time.
+  if (input.indexOn(first.tradeDate) === null) {
+    return {
+      investedPaise: 0,
+      withdrawnPaise: 0,
+      valuePaise: 0,
+      simpleReturn: null,
+      xirr: null,
+      status: 'no_history',
+      indexFrom: input.indexFrom,
+    };
+  }
   const flows: CashFlow[] = [];
+  // A day's removals are taken together, after that day's additions (the order
+  // `orderEntries` gives).
+  const removedOn = new Map<string, number>();
+  for (const e of ordered)
+    if (e.kind === 'remove')
+      removedOn.set(e.tradeDate, (removedOn.get(e.tradeDate) ?? 0) + e.amountPaise);
   for (const e of ordered) {
-    let close = input.indexOn(e.tradeDate);
-    if (close === null) {
-      missing += 1;
-      close = todayClose;
-    }
-    if (e.kind === 'remove') {
-      units -= e.amountPaise / close;
-      withdrawn += e.amountPaise;
-      flows.push({ date: e.tradeDate, amountPaise: e.amountPaise });
-    } else {
+    const close = input.indexOn(e.tradeDate) ?? todayClose;
+    if (e.kind !== 'remove') {
       const amount = moneyIn(e, input.priceOn);
       units += amount / close;
       invested += amount;
       flows.push({ date: e.tradeDate, amountPaise: -amount });
+      continue;
     }
+    const proceeds = removedOn.get(e.tradeDate);
+    if (proceeds === undefined) continue; // that day's removals are already taken
+    removedOn.delete(e.tradeDate);
+    const indexValue = units * close;
+    const after = input.valueAfter?.(e.tradeDate) ?? null;
+    const fraction =
+      after !== null && after + proceeds > 0
+        ? proceeds / (after + proceeds)
+        : indexValue > 0
+          ? Math.min(1, proceeds / indexValue)
+          : 0;
+    const out = Math.round(fraction * indexValue);
+    units -= fraction * units;
+    withdrawn += out;
+    flows.push({ date: e.tradeDate, amountPaise: out });
   }
   const value = Math.round(units * todayClose);
   flows.push({ date: input.today, amountPaise: value });
@@ -73,7 +110,7 @@ export function benchmarkReplay(input: {
     withdrawnPaise: withdrawn,
     valuePaise: value,
     simpleReturn: invested > 0 ? gain / invested : null,
-    missingDates: missing,
+    indexFrom: input.indexFrom,
   };
   if (years < MIN_YEARS_FOR_XIRR) return { ...base, xirr: null, status: 'too_short' };
   const rate = xirr(flows);
@@ -109,14 +146,13 @@ export function timeWeightedGrowth(points: readonly ValuePoint[]): GrowthPoint[]
   return out;
 }
 
-/** An index rebased to 100 on `from` (its close on or before that day). */
+/** An index rebased to 100 on `from` (its close on or before that day); empty when it has none. */
 export function indexGrowth(
   closes: readonly { readonly date: string; readonly closePaise: number }[],
   from: string,
   to: string,
 ): GrowthPoint[] {
-  const before = [...closes].filter((c) => c.date <= from).at(-1);
-  const base = before?.closePaise ?? closes.find((c) => c.date >= from)?.closePaise;
+  const base = [...closes].filter((c) => c.date <= from).at(-1)?.closePaise;
   if (base === undefined || base <= 0) return [];
   const points = closes
     .filter((c) => c.date >= from && c.date <= to)
@@ -131,7 +167,15 @@ const MONTHS: Record<Exclude<PeriodKey, 'all'>, number> = { '1M': 1, '3M': 3, '6
 
 function monthsBefore(date: string, months: number): string {
   const d = new Date(`${date}T00:00:00Z`);
-  const target = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - months, d.getUTCDate()));
+  // 31 Mar less one month is 28 (or 29) Feb, not 3 Mar.
+  const lastDay = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - months + 1, 0));
+  const target = new Date(
+    Date.UTC(
+      lastDay.getUTCFullYear(),
+      lastDay.getUTCMonth(),
+      Math.min(d.getUTCDate(), lastDay.getUTCDate()),
+    ),
+  );
   return target.toISOString().slice(0, 10);
 }
 

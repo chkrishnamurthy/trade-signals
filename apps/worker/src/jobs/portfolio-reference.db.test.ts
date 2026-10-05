@@ -97,6 +97,13 @@ suite('portfolio reference jobs', () => {
       source,
     });
     expect(second.sessions).toBe(0);
+    // Run again days later: the same backfill, already done, not a fresh ten years.
+    const later = await backfillIndexCloses(context, createLogger('test'), {
+      now: new Date('2026-10-09T14:00:00Z'),
+      years: 0.02,
+      source,
+    });
+    expect(later.sessions).toBe(0);
   });
 
   it('loads 31 Jan 2018 highs and matches them to instruments by symbol when the ISIN is unknown', async () => {

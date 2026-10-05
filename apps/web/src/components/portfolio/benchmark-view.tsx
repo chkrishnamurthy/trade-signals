@@ -4,6 +4,7 @@ import { formatPaise } from '@equitywise/shared';
 import { MetricHint } from '@/components/data-display/metric-card';
 import { PercentChange } from '@/components/market/numeric';
 import type { PeriodKeyDto, PortfolioBenchmarkDto, ReturnSummaryDto } from '@/lib/portfolio-types';
+import { longDate } from './portfolio-client';
 import { LinesChart } from './returns-charts';
 
 const PERIODS: { key: PeriodKeyDto; label: string }[] = [
@@ -48,7 +49,13 @@ export function BenchmarkSection({
       </section>
     );
   }
-  const yours = yearly(summary.status, summary.xirr, summary.simpleReturn);
+  // Like for like: a price index pays no dividends, so yours are left out here too.
+  const yours = yearly(
+    benchmark.yoursPriceOnly.status,
+    benchmark.yoursPriceOnly.xirr,
+    benchmark.yoursPriceOnly.simpleReturn,
+  );
+  const withDividends = yearly(summary.status, summary.xirr, summary.simpleReturn);
   const n50 = benchmark.indices.find((i) => i.symbol === 'NIFTY50');
   const n500 = benchmark.indices.find((i) => i.symbol === 'NIFTY500');
   return (
@@ -56,9 +63,9 @@ export function BenchmarkSection({
       <h2 className="flex items-center gap-1 text-sm font-semibold">
         Compared with the market
         <MetricHint>
-          &quot;Same money&quot; puts every amount you added or took out into the index on the same
-          day, so both sides had the same money for the same time. Nifty 50 and Nifty 500 here are
-          price indices, without dividends.
+          &quot;Same money&quot; puts every amount you added into the index on the same day, and
+          each time you took money out, takes out the same share of the index as you took of your
+          holdings. Nifty 50 and Nifty 500 here are price indices, without dividends.
         </MetricHint>
       </h2>
       <div className="grid gap-3 sm:grid-cols-3">
@@ -67,7 +74,17 @@ export function BenchmarkSection({
           <div className="text-xl font-semibold">
             <Pct value={yours.value} />
           </div>
-          <div className="text-xs text-muted-foreground">{yours.label}, dividends included</div>
+          <div className="text-xs text-muted-foreground">
+            {yours.label}, without dividends
+            {withDividends.value !== null && (
+              <>
+                {' · '}
+                <span className="tabular-nums">
+                  {(withDividends.value * 100).toFixed(2)}% with them
+                </span>
+              </>
+            )}
+          </div>
         </div>
         {[n50, n500].map((idx) =>
           idx === undefined ? null : (
@@ -75,6 +92,12 @@ export function BenchmarkSection({
               <div className="text-xs text-muted-foreground">Same money in {idx.name}</div>
               {idx.replay === null ? (
                 <div className="text-sm text-muted-foreground">History not loaded</div>
+              ) : idx.replay.status === 'no_history' ? (
+                <div className="text-sm text-muted-foreground">
+                  {idx.replay.indexFrom === null || benchmark.from === null
+                    ? 'History not loaded'
+                    : `History here starts ${longDate(idx.replay.indexFrom)}, after your first entry on ${longDate(benchmark.from)}. No comparison until it is loaded.`}
+                </div>
               ) : (
                 <>
                   <div className="text-xl font-semibold">

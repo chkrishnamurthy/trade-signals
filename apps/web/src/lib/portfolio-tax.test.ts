@@ -61,7 +61,7 @@ describe('composeTax', () => {
     const lines = taxCsv(y).split('\n');
     expect(lines[0]).toContain('Not tax advice');
     expect(lines[2]).toBe(
-      '"INE154A01025","ITC","ITC",2016-06-15,2025-08-12,100,387.81,38781.00,25000.00,270.00,27000.00,27000.00,11781.00,3345,Long term,No',
+      '"INE154A01025","ITC","ITC",2016-06-15,2025-08-12,100,387.81,38781.00,25000.00,270.00,27000.00,27000.00,11781.00,3345,Long term,No,""',
     );
   });
 });
@@ -87,6 +87,7 @@ describe('composeBenchmark', () => {
     changes: [],
     closes,
     indexCloses: new Map([['NIFTY50', index]]),
+    valuePaise: 12_100,
     today: '2025-01-03',
   });
   it('replays the money into the loaded index and leaves the other out', () => {
@@ -111,5 +112,9 @@ describe('composeBenchmark', () => {
       ['2025-01-03', 121, 110],
     ]);
     expect(b.periods.all).toBeCloseTo(0.21, 10);
+  });
+  it('gives your return without dividends for a like-for-like comparison', () => {
+    expect(b.yoursPriceOnly.simpleReturn).toBeCloseTo(0.21, 10);
+    expect(b.from).toBe('2025-01-01');
   });
 });

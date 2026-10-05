@@ -117,7 +117,11 @@ export async function ingestIndexCloses(
   return { sessions, written };
 }
 
-/** Walks back `years`, oldest first, resumable: a run cut short continues from its checkpoint. */
+/**
+ * Walks back `years`, oldest first, resumable: a run cut short continues from
+ * its checkpoint, on any later day. A finished run that already reached back as
+ * far does nothing; the nightly job keeps it current after that.
+ */
 export async function backfillIndexCloses(
   context: WorkerContext,
   log: Logger,
@@ -126,10 +130,12 @@ export async function backfillIndexCloses(
   const today = istDateKey(options.now ?? new Date());
   const start = shiftDate(today, -Math.round(365 * (options.years ?? 10)));
   const checkpoint = await getWorkerCheckpoint(context.db, INDEX_BACKFILL_CHECKPOINT);
-  if (checkpoint?.done === true && checkpoint.from === start)
-    return { sessions: 0, written: 0, done: true };
-  const resumeFrom =
-    typeof checkpoint?.next === 'string' && checkpoint.from === start ? checkpoint.next : start;
+  // The start moves with the calendar; a checkpoint that reaches back at least
+  // as far belongs to the same backfill.
+  const sameRun = typeof checkpoint?.from === 'string' && checkpoint.from <= start;
+  const from = sameRun && typeof checkpoint?.from === 'string' ? checkpoint.from : start;
+  if (sameRun && checkpoint?.done === true) return { sessions: 0, written: 0, done: true };
+  const resumeFrom = sameRun && typeof checkpoint?.next === 'string' ? checkpoint.next : from;
   const source = options.source ?? createNseIndexTaxSource({ maxRequestsPerRun: 3_000 });
   const ids = await indexIds(context);
   let sessions = 0;
@@ -143,7 +149,7 @@ export async function backfillIndexCloses(
       await setWorkerCheckpoint(
         context.db,
         INDEX_BACKFILL_CHECKPOINT,
-        { from: start, next: shiftDate(date, 1), done: false },
+        { from, next: shiftDate(date, 1), done: false },
         Date.now(),
       );
     }
@@ -151,10 +157,10 @@ export async function backfillIndexCloses(
   await setWorkerCheckpoint(
     context.db,
     INDEX_BACKFILL_CHECKPOINT,
-    { from: start, done: true },
+    { from, done: true },
     Date.now(),
   );
-  log.info('index close backfill finished', { from: start, sessions, written });
+  log.info('index close backfill finished', { from, sessions, written });
   return { sessions, written, done: true };
 }
 

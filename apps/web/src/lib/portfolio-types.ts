@@ -325,7 +325,10 @@ export interface BenchmarkIndexDto {
     valuePaise: number;
     simpleReturn: number | null;
     xirr: number | null;
-    status: ReturnStatusKey;
+    /** `no_history`: the index history loaded here starts after your first entry. */
+    status: ReturnStatusKey | 'no_history';
+    /** First date with an index close, as far as loaded. */
+    indexFrom: string | null;
   } | null;
   periods: Record<PeriodKeyDto, number | null>;
 }
@@ -339,6 +342,10 @@ export interface GrowthPointDto {
 
 export interface PortfolioBenchmarkDto {
   indices: BenchmarkIndexDto[];
+  /** Your return without dividends, so it compares like for like with a price index. */
+  yoursPriceOnly: { simpleReturn: number | null; xirr: number | null; status: ReturnStatusKey };
+  /** Your first entry date. */
+  from: string | null;
   /** Your time-weighted return over the same periods. */
   periods: Record<PeriodKeyDto, number | null>;
   growth: GrowthPointDto[];
@@ -362,6 +369,8 @@ export interface TaxRowDto {
   term: TermKey;
   bonus: boolean;
   grandfathered: boolean;
+  /** Acquired before Feb 2018 and long term, but no 31 Jan 2018 price was found: the 2018 rule is not applied. */
+  fmvMissing: boolean;
 }
 
 export interface TaxYearDto {
@@ -371,6 +380,10 @@ export interface TaxYearDto {
   longTermGainsPaise: number;
   longTermLossesPaise: number;
   intradayPaise: number;
+  /** Earlier years' losses available at the start of this year, and how much was used. */
+  broughtForwardShortTermPaise: number;
+  broughtForwardLongTermPaise: number;
+  broughtForwardUsedPaise: number;
   netShortTermPaise: number;
   netLongTermPaise: number;
   exemptionPaise: number;
@@ -382,6 +395,8 @@ export interface TaxYearDto {
   totalTaxPaise: number;
   shortTermLossCarriedPaise: number;
   longTermLossCarriedPaise: number;
+  /** All losses still usable next year, by the year they arose in. */
+  carryForward: { year: string; shortTermPaise: number; longTermPaise: number }[];
   dividendsPaise: number;
   rows: TaxRowDto[];
 }

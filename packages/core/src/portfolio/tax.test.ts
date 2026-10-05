@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { benchmarkReplay, indexGrowth, periodReturns, timeWeightedGrowth } from './benchmark.js';
-import type { PortfolioEntry } from './derive.js';
+import { derivePortfolio, type PortfolioEntry } from './derive.js';
 import {
   longTermExemptionPaise,
   ratesOn,
   summariseTaxYear,
+  summariseTaxYears,
   type TaxRealisation,
   taxRealisations,
   taxYears,
@@ -142,6 +143,7 @@ const real = (over: Partial<TaxRealisation>): TaxRealisation => ({
   bonus: false,
   fmvPaise: null,
   grandfathered: false,
+  fmvMissing: false,
   financialYear: '2025-26',
   ...over,
 });
@@ -237,6 +239,7 @@ describe('benchmarkReplay', () => {
       entries: [e(1, 'add', '2024-01-01', 10, rs(1_000)), e(2, 'remove', '2024-07-01', 5, rs(600))],
       priceOn: () => null,
       indexOn,
+      indexFrom: '2024-01-01',
       today: '2025-06-01',
     });
     // 10 units at 100; 4 sold at 150; 6 left at 120 = ₹720.
@@ -254,6 +257,7 @@ describe('benchmarkReplay', () => {
         entries: [e(1, 'add', '2024-01-01', 1, 1)],
         priceOn: () => null,
         indexOn: () => null,
+        indexFrom: null,
         today: '2025-01-01',
       }),
     ).toBeNull();
@@ -288,5 +292,191 @@ describe('time-weighted growth and period returns', () => {
     expect(r.all).toBeCloseTo(0.21, 10);
     expect(r['6M']).toBeCloseTo(0.1, 10);
     expect(r['1Y']).toBeNull();
+  });
+});
+
+describe('phase 4 review fixes', () => {
+  it('matches a removal to shares added the same day first: an intraday trade, not a sale of old shares', () => {
+    const entries = [
+      e(1, 'add', '2024-01-01', 10, rs(1_000)),
+      e(2, 'add', '2025-06-02', 10, rs(2_000)),
+      e(3, 'remove', '2025-06-02', 10, rs(2_100)),
+    ];
+    expect(taxRealisations(entries, [], new Map())).toEqual([
+      expect.objectContaining({ shares: 10, actualCostPaise: rs(2_000), intraday: true }),
+    ]);
+    const derived = derivePortfolio(entries, []);
+    expect(derived.realisations[0]).toMatchObject({ costPaise: rs(2_000), intraday: true });
+    // The old purchase is still held, still long term.
+    expect(derived.holdings[0]?.lots[0]).toMatchObject({ acquiredOn: '2024-01-01', shares: 10 });
+  });
+
+  it('splits bonus shares out of an opening balance with an earlier acquired date', () => {
+    // 20 shares typed in 2026, first acquired in 2023 as 10; a 1:1 bonus in Mar 2025.
+    const bonus = { instrumentId: 1, kind: 'bonus', exDate: '2025-03-01', ratio: 0.5 };
+    const r = taxRealisations(
+      [
+        e(1, 'opening', '2026-01-01', 20, rs(10_000), { acquiredOn: '2023-01-01' }),
+        e(2, 'remove', '2026-02-02', 20, rs(30_000)),
+      ],
+      [bonus],
+      new Map(),
+    );
+    expect(r.map((x) => [x.acquiredOn, x.shares, x.actualCostPaise, x.term, x.bonus])).toEqual([
+      ['2023-01-01', 10, rs(10_000), 'long', false],
+      ['2025-03-01', 10, 0, 'short', true],
+    ]);
+  });
+
+  it('values bonus shares allotted before February 2018 at 31 Jan 2018, and a pre-2018 split at the restated count', () => {
+    const fmv = new Map([[1, rs(1_200)]]);
+    const bonus = { instrumentId: 1, kind: 'bonus', exDate: '2017-01-02', ratio: 0.5 };
+    const r = taxRealisations(
+      [e(1, 'add', '2016-01-01', 10, rs(10_000)), e(2, 'remove', '2025-08-01', 20, rs(30_000))],
+      [bonus],
+      fmv,
+    );
+    expect(r.map((x) => [x.bonus, x.costUsedPaise, x.gainPaise, x.grandfathered])).toEqual([
+      [false, rs(12_000), rs(3_000), true],
+      [true, rs(12_000), rs(3_000), true],
+    ]);
+    const split = { instrumentId: 1, kind: 'split', exDate: '2017-06-01', ratio: 0.5 };
+    const s = taxRealisations(
+      [e(1, 'add', '2016-01-01', 10, rs(10_000)), e(2, 'remove', '2025-08-01', 20, rs(30_000))],
+      [split],
+      new Map([[1, rs(600)]]),
+    );
+    expect(s[0]).toMatchObject({ shares: 20, fmvPaise: rs(12_000), costUsedPaise: rs(12_000) });
+  });
+
+  it('flags a pre-2018 long-term sale with no 31 Jan 2018 price, and skips a removal of more than was held', () => {
+    const r = taxRealisations(
+      [
+        e(1, 'add', '2016-01-01', 10, rs(1_000)),
+        e(2, 'remove', '2024-01-01', 50, rs(9_000)),
+        e(3, 'remove', '2025-01-01', 10, rs(3_000)),
+      ],
+      [],
+      new Map(),
+    );
+    expect(r).toEqual([
+      expect.objectContaining({ removedOn: '2025-01-01', fmvMissing: true, grandfathered: false }),
+    ]);
+  });
+});
+
+describe('losses carried forward', () => {
+  it('sets earlier losses off against later gains, even within the exemption, and carries the rest', () => {
+    const years = summariseTaxYears(
+      [
+        real({
+          term: 'short',
+          gainPaise: -rs(50_000),
+          removedOn: '2023-06-01',
+          financialYear: '2023-24',
+        }),
+        real({ gainPaise: rs(30_000), removedOn: '2024-09-01', financialYear: '2024-25' }),
+        real({
+          term: 'short',
+          gainPaise: rs(30_000),
+          removedOn: '2025-09-01',
+          financialYear: '2025-26',
+        }),
+      ],
+      '2025-26',
+    );
+    expect(years.get('2023-24')).toMatchObject({
+      shortTermLossCarriedPaise: rs(50_000),
+      carryForward: [{ year: '2023-24', shortTermPaise: rs(50_000), longTermPaise: 0 }],
+    });
+    expect(years.get('2024-25')).toMatchObject({
+      broughtForwardShortTermPaise: rs(50_000),
+      broughtForwardUsedPaise: rs(30_000),
+      netLongTermPaise: 0,
+      exemptionUsedPaise: 0,
+      carryForward: [{ year: '2023-24', shortTermPaise: rs(20_000), longTermPaise: 0 }],
+    });
+    // ₹10,000 short term left after ₹20,000 of the 2023-24 loss: 20% + 4% cess.
+    expect(years.get('2025-26')).toMatchObject({
+      broughtForwardUsedPaise: rs(20_000),
+      taxableShortTermPaise: rs(10_000),
+      totalTaxPaise: rs(2_080),
+      carryForward: [],
+    });
+  });
+
+  it('lets a long-term loss meet only long-term gains, and drops a loss more than eight years old', () => {
+    const lt = summariseTaxYear([real({ term: 'short', gainPaise: rs(10_000) })], '2025-26', [
+      { year: '2024-25', shortTermPaise: 0, longTermPaise: rs(10_000) },
+    ]);
+    expect(lt).toMatchObject({
+      broughtForwardUsedPaise: 0,
+      taxableShortTermPaise: rs(10_000),
+      carryForward: [{ year: '2024-25', shortTermPaise: 0, longTermPaise: rs(10_000) }],
+    });
+    const old = summariseTaxYear([real({ term: 'short', gainPaise: rs(10_000) })], '2025-26', [
+      { year: '2016-17', shortTermPaise: rs(10_000), longTermPaise: 0 },
+      { year: '2017-18', shortTermPaise: rs(4_000), longTermPaise: 0 },
+    ]);
+    // 2016-17 is nine years back: gone. 2017-18 is eight: used, and the last year it could be.
+    expect(old).toMatchObject({
+      broughtForwardShortTermPaise: rs(4_000),
+      taxableShortTermPaise: rs(6_000),
+      carryForward: [],
+    });
+  });
+});
+
+describe('benchmark review fixes', () => {
+  it('takes out of the index the fraction a removal took of the holdings, never more than it holds', () => {
+    const index = (date: string) =>
+      date < '2024-07-01' ? 10_000 : date < '2025-06-01' ? 15_000 : 12_000;
+    const entries = [
+      e(1, 'add', '2024-01-01', 10, rs(1_000)),
+      e(2, 'remove', '2024-07-01', 5, rs(600)),
+    ];
+    // Half the holdings were removed (₹600 out, ₹600 left): half the 10 index units go.
+    const half = benchmarkReplay({
+      entries,
+      priceOn: () => null,
+      indexOn: index,
+      indexFrom: '2024-01-01',
+      valueAfter: () => rs(600),
+      today: '2025-06-01',
+    });
+    expect(half).toMatchObject({ withdrawnPaise: rs(750), valuePaise: rs(600) });
+    // Taking out more than the index holds sells it all; it never goes below nothing.
+    const all = benchmarkReplay({
+      entries: [
+        e(1, 'add', '2024-01-01', 10, rs(1_000)),
+        e(2, 'remove', '2024-07-01', 10, rs(5_000)),
+      ],
+      priceOn: () => null,
+      indexOn: index,
+      indexFrom: '2024-01-01',
+      today: '2025-06-01',
+    });
+    expect(all).toMatchObject({ withdrawnPaise: rs(1_500), valuePaise: 0 });
+  });
+  it('gives no comparison when the index history starts after the first entry', () => {
+    const r = benchmarkReplay({
+      entries: [e(1, 'add', '2020-01-01', 10, rs(1_000))],
+      priceOn: () => null,
+      indexOn: (date) => (date >= '2026-09-28' ? 10_000 : null),
+      indexFrom: '2026-09-28',
+      today: '2026-10-05',
+    });
+    expect(r).toMatchObject({ status: 'no_history', xirr: null, simpleReturn: null });
+  });
+  it('reads one month back from the 31st as the end of the shorter month', () => {
+    const r = periodReturns(
+      [
+        { date: '2025-02-28', value: 100 },
+        { date: '2025-03-03', value: 150 },
+        { date: '2025-03-31', value: 110 },
+      ],
+      '2025-03-31',
+    );
+    expect(r['1M']).toBeCloseTo(0.1, 10);
   });
 });
