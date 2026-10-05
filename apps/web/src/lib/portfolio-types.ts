@@ -417,3 +417,50 @@ export interface PortfolioTaxDto {
     daysToLongTerm: number;
   }[];
 }
+
+// ---------------------------------------------------------------------------
+// Phase 5: risk
+// ---------------------------------------------------------------------------
+
+/** A figure, or how many sessions it still needs. */
+export type RiskFigureDto<T> =
+  | { status: 'ok'; value: T; sessions: number }
+  | { status: 'needs_history'; sessions: number; needed: number };
+
+export interface DeepestFallDto {
+  /** Negative fraction: −0.131 is a fall of 13.1%. */
+  depth: number;
+  peakOn: string;
+  troughOn: string;
+  /** First day back at the old high; null while still below it. */
+  recoveredOn: string | null;
+}
+
+export interface PortfolioRiskDto {
+  /** Sessions with a daily return, all history. */
+  sessions: number;
+  /** Days left out because a price was stale. */
+  skippedDays: number;
+  /** Sessions a figure needs (about six months). */
+  minSessions: number;
+  volatility: { oneYear: RiskFigureDto<number>; all: RiskFigureDto<number> };
+  deepestFall: RiskFigureDto<DeepestFallDto>;
+  /** How far below its last high the portfolio stood (sampled weekly beyond a year). */
+  drawdown: { date: string; drawdown: number }[];
+  /** Against Nifty 50, over the last year. */
+  beta: RiskFigureDto<{ beta: number; correlation: number | null }>;
+  /** Largest holding first; figures over the last year. */
+  stocks: {
+    symbol: string;
+    name: string;
+    /** Share of today's value, 0 to 1. */
+    weight: number;
+    sessions: number;
+    volatility: number | null;
+    deepestFall: DeepestFallDto | null;
+    /** Share of the portfolio's ups and downs; can be negative; null without enough history. */
+    share: number | null;
+  }[];
+  /** Largest holdings (up to 15); cells[i][j] is null with too few shared sessions. */
+  correlation: { symbols: string[]; cells: (number | null)[][] };
+}

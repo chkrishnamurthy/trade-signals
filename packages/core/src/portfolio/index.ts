@@ -6,5 +6,6 @@ export * from './insight.js';
 export * from './money.js';
 export * from './reconcile.js';
 export * from './returns.js';
+export * from './risk.js';
 export * from './summary.js';
 export * from './tax.js';

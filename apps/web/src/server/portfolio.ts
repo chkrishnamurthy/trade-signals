@@ -7,6 +7,7 @@ import {
   reconcileHolding,
   type ShareChange,
   summarisePortfolio,
+  yearBefore,
 } from '@equitywise/core';
 import {
   corporateHistoryFrom,
@@ -44,6 +45,7 @@ import {
   realisedCsv,
   valueForReturns,
 } from '@/lib/portfolio-returns';
+import { composeRisk } from '@/lib/portfolio-risk';
 import { BENCHMARKS, composeBenchmark, composeTax, taxCsv } from '@/lib/portfolio-tax';
 import type {
   HoldingDetailDto,
@@ -54,6 +56,7 @@ import type {
   PortfolioDto,
   PortfolioEntryDto,
   PortfolioReturnsDto,
+  PortfolioRiskDto,
   PortfolioTaxDto,
   UpcomingEventDto,
 } from '@/lib/portfolio-types';
@@ -110,6 +113,9 @@ function shareChangeBefore(
 
 /** How far ahead "Coming up" looks. */
 const UPCOMING_DAYS = 60;
+
+/** The earlier of two dates; the first when the second is not given. */
+const earliest = (a: string, b?: string) => (b !== undefined && b < a ? b : a);
 
 function addDays(iso: string, days: number): string {
   return new Date(Date.parse(`${iso}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
@@ -299,8 +305,12 @@ function toEntryDto(entry: HoldingEntryRow): PortfolioEntryDto {
   };
 }
 
-/** Daily closes and dividend records for every stock the user has entries for. */
-async function returnInputs(built: Built) {
+/**
+ * Daily closes and dividend records for every stock the user has entries for.
+ * `reachBack` loads closes from at least that date too (the Risk tab needs a
+ * year of each held stock's prices, however recently it was added).
+ */
+async function returnInputs(built: Built, reachBack?: string) {
   const db = getDatabase();
   const ids = [...new Set(built.ledger.map((entry) => entry.instrumentId))];
   const first = built.ledger.reduce<string | null>(
@@ -311,7 +321,9 @@ async function returnInputs(built: Built) {
   if (first === null) return { closes: new Map(), dividendRecords: [], today };
   const [closes, dividendRecords] = await Promise.all([
     // A few days earlier than the first entry, so an entry on a holiday finds the last close.
-    dailyClosesBetween(db, ids, addDays(first, -10), today).catch(() => new Map()),
+    dailyClosesBetween(db, ids, earliest(addDays(first, -10), reachBack), today).catch(
+      () => new Map(),
+    ),
     dividendsBetween(db, ids, first, today).catch(() => []),
   ]);
   return { closes, dividendRecords, today };
@@ -356,6 +368,7 @@ function returnsFor(built: Built, inputs: ReturnInputs): PortfolioReturnsDto {
 /** Nifty 50 / Nifty 500 closes from a little before the first entry to today. */
 async function indexClosesFor(
   built: Built,
+  reachBack?: string,
 ): Promise<Map<string, { date: string; closePaise: number }[]>> {
   const db = getDatabase();
   const first = built.ledger.reduce<string | null>(
@@ -370,14 +383,17 @@ async function indexClosesFor(
   const closes = await dailyClosesBetween(
     db,
     [...ids.values()],
-    addDays(first, -10),
+    earliest(addDays(first, -10), reachBack),
     todayInIndia(),
   ).catch(() => new Map<number, { date: string; closePaise: number }[]>());
   return new Map([...ids].map(([symbol, id]) => [symbol, closes.get(id) ?? []]));
 }
 
-async function benchmarkFor(built: Built, inputs: ReturnInputs): Promise<PortfolioBenchmarkDto> {
-  const indexCloses = await indexClosesFor(built);
+function benchmarkFor(
+  built: Built,
+  inputs: ReturnInputs,
+  indexCloses: Map<string, { date: string; closePaise: number }[]>,
+): PortfolioBenchmarkDto {
   return composeBenchmark({
     entries: built.entries,
     changes: built.changes,
@@ -436,6 +452,7 @@ export async function getPortfolioAnalysis(): Promise<{
   returns: PortfolioReturnsDto | null;
   benchmark: PortfolioBenchmarkDto | null;
   tax: PortfolioTaxDto | null;
+  risk: PortfolioRiskDto | null;
 }> {
   const ownerId = await requireOwnerId();
   const built = await buildPortfolio(ownerId);
@@ -446,12 +463,31 @@ export async function getPortfolioAnalysis(): Promise<{
   );
   await countUse(ownerId, 'view');
   if (built.ledger.length === 0)
-    return { analysis: composeAnalysis(dto, reference), returns: null, benchmark: null, tax: null };
-  // Closes and dividends since the first entry are read once for all three tabs.
-  const inputs = await returnInputs(built);
-  const [benchmark, tax] = await Promise.all([benchmarkFor(built, inputs), taxFor(built, inputs)]);
+    return {
+      analysis: composeAnalysis(dto, reference),
+      returns: null,
+      benchmark: null,
+      tax: null,
+      risk: null,
+    };
+  // Closes and dividends are read once for every tab, and a year back at least for Risk.
+  const reachBack = addDays(yearBefore(todayInIndia()), -10);
+  const [inputs, indexCloses] = await Promise.all([
+    returnInputs(built, reachBack),
+    indexClosesFor(built, reachBack),
+  ]);
+  const tax = await taxFor(built, inputs);
   const returns = returnsFor(built, inputs);
-  return { analysis: composeAnalysis(dto, reference), returns, benchmark, tax };
+  const benchmark = benchmarkFor(built, inputs, indexCloses);
+  const risk = composeRisk({
+    entries: built.entries,
+    changes: built.changes,
+    closes: inputs.closes,
+    indexCloses: indexCloses.get('NIFTY50') ?? [],
+    holdings: dto.holdings,
+    today: inputs.today,
+  });
+  return { analysis: composeAnalysis(dto, reference), returns, benchmark, tax, risk };
 }
 
 /** One holding with every entry behind it, or null when the user holds none of that stock. */
