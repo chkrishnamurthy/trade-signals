@@ -21,13 +21,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { dividendEstimatePaise, eventLabel, shortDate } from '@/lib/portfolio-facts';
 import type {
   PortfolioAnalysisDto,
+  PortfolioBenchmarkDto,
   PortfolioReturnsDto,
+  PortfolioTaxDto,
   UpcomingEventDto,
 } from '@/lib/portfolio-types';
 import { DonutWithLegend, GainBars, ShareBar, Treemap } from './portfolio-charts';
 import { PortfolioNav } from './portfolio-nav';
 import { ReturnsTab } from './returns-view';
 import { SummaryStrip } from './summary-strip';
+import { TaxTab } from './tax-view';
 
 /**
  * Portfolio analysis — one page, four tabs, the summary pinned on top. Phase 2
@@ -40,9 +43,13 @@ type TabKey = (typeof TABS)[number];
 export function AnalysisView({
   analysis,
   returns,
+  benchmark,
+  tax,
 }: {
   analysis: PortfolioAnalysisDto;
   returns: PortfolioReturnsDto | null;
+  benchmark: PortfolioBenchmarkDto | null;
+  tax: PortfolioTaxDto | null;
 }) {
   const empty = analysis.holdingCount === 0;
   // The open tab follows the address (#returns), so a tab can be linked to and the
@@ -144,7 +151,7 @@ export function AnalysisView({
                       needs="Add your shares first."
                     />
                   ) : (
-                    <ReturnsTab returns={returns} />
+                    <ReturnsTab returns={returns} benchmark={benchmark} />
                   )}
                 </TabsContent>
                 <TabsContent value="risk">
@@ -155,11 +162,15 @@ export function AnalysisView({
                   />
                 </TabsContent>
                 <TabsContent value="tax">
-                  <Later
-                    title="Tax"
-                    shows="Shares you removed this financial year, split into short and long term, with the 2018 grandfathering rule applied and an indicative figure. Not tax advice."
-                    needs="It needs at least one removed-shares entry with the date of the original purchase."
-                  />
+                  {tax === null ? (
+                    <Later
+                      title="Tax"
+                      shows="Shares removed by financial year, short and long term, with an indicative figure."
+                      needs="Add your shares first."
+                    />
+                  ) : (
+                    <TaxTab tax={tax} />
+                  )}
                 </TabsContent>
               </Tabs>
             </>

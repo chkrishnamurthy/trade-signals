@@ -1,3 +1,4 @@
+export * from './benchmark.js';
 export * from './csv.js';
 export * from './derive.js';
 export * from './files.js';
@@ -6,3 +7,4 @@ export * from './money.js';
 export * from './reconcile.js';
 export * from './returns.js';
 export * from './summary.js';
+export * from './tax.js';

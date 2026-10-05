@@ -38,6 +38,11 @@ import {
 import { createIntradayJobs } from './jobs/intraday-orb.js';
 import { marketCalendarSync } from './jobs/market-calendar-sync.js';
 import { createPaperJobs } from './jobs/paper.js';
+import {
+  backfillIndexCloses,
+  ingestIndexCloses,
+  loadFairMarketValues2018,
+} from './jobs/portfolio-reference.js';
 import { refreshLatestQuotes } from './jobs/quote-cache.js';
 import { refreshProviderCredential } from './jobs/refresh-credential.js';
 import {
@@ -187,6 +192,8 @@ const SCHEDULES = {
   marketCalendarSync: '35 6 * * *',
   /** Worker-backed cache for polled watchlist quote reads. */
   latestQuotes: '*/30 9-15 * * 1-6',
+  /** NSE posts the day's index closing file in the evening; the last week is re-read. */
+  ingestIndexCloses: '20 19 * * 1-5',
 } as const;
 
 interface Jobs {
@@ -433,6 +440,31 @@ function buildScheduler(context: WorkerContext): Jobs {
         schedule: '0 0 31 2 *',
         run: async () => {
           await backfillDividends(context, log.child('backfill-dividends'));
+        },
+      },
+      {
+        name: 'ingest-index-closes',
+        schedule: SCHEDULES.ingestIndexCloses,
+        run: async () => {
+          await ingestIndexCloses(context, log.child('ingest-index-closes'));
+        },
+      },
+      {
+        // On demand only (`--once backfill-index-closes`): ten years of Nifty 50 /
+        // Nifty 500 closes for the portfolio benchmark. Resumable. Never scheduled.
+        name: 'backfill-index-closes',
+        schedule: '0 0 31 2 *',
+        run: async () => {
+          await backfillIndexCloses(context, log.child('backfill-index-closes'));
+        },
+      },
+      {
+        // On demand only (`--once load-fair-market-values-2018`): 31 Jan 2018 highs
+        // for the long-term-gains grandfathering rule. Safe to re-run.
+        name: 'load-fair-market-values-2018',
+        schedule: '0 0 31 2 *',
+        run: async () => {
+          await loadFairMarketValues2018(context, log.child('load-fair-market-values-2018'));
         },
       },
       {
@@ -700,6 +732,9 @@ async function main(): Promise<void> {
           'ingest-sebi-filings',
           'backfill-ipos',
           'backfill-corporate-history',
+          'ingest-index-closes',
+          'backfill-index-closes',
+          'load-fair-market-values-2018',
           'backfill-ipo-rhp',
           'calendar-refresh',
           'calendar-check',

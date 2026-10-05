@@ -4,6 +4,7 @@ import type { Database } from '../client.js';
 import {
   corporateActions,
   dividends,
+  fairMarketValues2018,
   holdingEntries,
   indexMemberships,
   instrumentReference,
@@ -681,4 +682,99 @@ export async function corporateHistoryFrom(db: Database): Promise<string | null>
       (select to_char(min(ex_date), 'YYYY-MM-DD') from corporate_actions)
     ) as from_date`);
   return result.rows[0]?.from_date ?? null;
+}
+
+export interface FairMarketValue2018 {
+  readonly isin: string;
+  readonly symbol: string;
+  readonly highPaise: number;
+  readonly closePaise: number;
+}
+
+/** Records 31 Jan 2018 highs; a re-run replaces a row with the same ISIN. */
+export async function upsertFairMarketValues2018(
+  db: Database,
+  rows: readonly FairMarketValue2018[],
+  source: string,
+): Promise<number> {
+  let written = 0;
+  for (let i = 0; i < rows.length; i += 1_000) {
+    const chunk = rows.slice(i, i + 1_000);
+    if (chunk.length === 0) continue;
+    const result = await db
+      .insert(fairMarketValues2018)
+      .values(chunk.map((r) => ({ ...r, source })))
+      .onConflictDoUpdate({
+        target: fairMarketValues2018.isin,
+        set: {
+          symbol: sql`excluded.symbol`,
+          highPaise: sql`excluded.high_paise`,
+          closePaise: sql`excluded.close_paise`,
+          source: sql`excluded.source`,
+        },
+      })
+      .returning({ isin: fairMarketValues2018.isin });
+    written += result.length;
+  }
+  return written;
+}
+
+/**
+ * The 31 Jan 2018 high for some instruments, by instrument id: matched on ISIN
+ * first (symbols change), then on the symbol.
+ */
+export async function fairMarketValuesFor(
+  db: Database,
+  instrumentIds: readonly number[],
+): Promise<Map<number, number>> {
+  const out = new Map<number, number>();
+  if (instrumentIds.length === 0) return out;
+  const result = await db.execute<{ id: number; high_paise: number }>(sql`
+    select i.id, coalesce(by_isin.high_paise, by_symbol.high_paise) as high_paise
+    from instruments i
+    left join fair_market_values_2018 by_isin on by_isin.isin = i.isin
+    left join lateral (
+      select f.high_paise from fair_market_values_2018 f where f.symbol = i.symbol limit 1
+    ) by_symbol on true
+    where i.id in (${sql.join(
+      instrumentIds.map((id) => sql`${id}`),
+      sql`, `,
+    )})`);
+  for (const row of result.rows)
+    if (row.high_paise !== null) out.set(row.id, Number(row.high_paise));
+  return out;
+}
+
+/** Whether the 2018 values have been loaded at all (the tax view says so when not). */
+export async function fairMarketValuesLoaded(db: Database): Promise<boolean> {
+  const result = await db.execute<{ n: number }>(
+    sql`select count(*)::int as n from fair_market_values_2018`,
+  );
+  return (result.rows[0]?.n ?? 0) > 0;
+}
+
+/** Instrument ids of benchmark indices by symbol (e.g. NIFTY50, NIFTY500). */
+export async function indexInstrumentIds(
+  db: Database,
+  symbols: readonly string[],
+): Promise<Map<string, number>> {
+  if (symbols.length === 0) return new Map();
+  const rows = await db
+    .select({ id: instruments.id, symbol: instruments.symbol })
+    .from(instruments)
+    .where(and(inArray(instruments.symbol, [...symbols]), eq(instruments.kind, 'index')));
+  return new Map(rows.map((r) => [r.symbol, r.id]));
+}
+
+/** ISIN for some instruments, where known. */
+export async function instrumentIsins(
+  db: Database,
+  instrumentIds: readonly number[],
+): Promise<Map<number, string>> {
+  if (instrumentIds.length === 0) return new Map();
+  const rows = await db
+    .select({ id: instruments.id, isin: instruments.isin })
+    .from(instruments)
+    .where(inArray(instruments.id, [...instrumentIds]));
+  return new Map(rows.filter((r) => r.isin !== null).map((r) => [r.id, r.isin as string]));
 }

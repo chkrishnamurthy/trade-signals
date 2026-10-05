@@ -93,3 +93,28 @@ export const portfolioUsage = pgTable('portfolio_usage', {
   imports: integer().notNull().default(0),
   entriesAdded: integer().notNull().default(0),
 });
+
+/**
+ * Each stock's highest traded price on 31 Jan 2018, from NSE's bhavcopy for
+ * that day: the "fair market value" in the 2018 grandfathering rule for long-term
+ * gains on shares acquired before 1 Feb 2018 (Income-tax Act s.112A). Loaded
+ * once; reference data, not price history. Integer paise.
+ */
+export const fairMarketValues2018 = pgTable(
+  'fair_market_values_2018',
+  {
+    isin: text().primaryKey(),
+    symbol: text().notNull(),
+    highPaise: integer().notNull(),
+    closePaise: integer().notNull(),
+    source: text().notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('fair_market_values_2018_symbol_idx').on(table.symbol),
+    check(
+      'fair_market_values_2018_prices_positive',
+      sql`${table.highPaise} > 0 and ${table.closePaise} > 0`,
+    ),
+  ],
+);

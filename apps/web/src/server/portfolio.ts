@@ -14,9 +14,13 @@ import {
   deleteAllHoldingEntries,
   deleteHoldingEntry,
   dividendsBetween,
+  fairMarketValuesFor,
+  fairMarketValuesLoaded,
   getInstrumentBySymbol,
   type HoldingEntryRow,
   holdingReference,
+  indexInstrumentIds,
+  instrumentIsins,
   latestDailyCloses,
   latestIndicatorsForInstruments,
   latestQuotesForInstruments,
@@ -34,14 +38,17 @@ import {
 import { z } from 'zod';
 import { composeAnalysis, type HoldingRef } from '@/lib/portfolio-analysis';
 import { composeReturns, headlineReturn, lotsFor, realisedCsv } from '@/lib/portfolio-returns';
+import { BENCHMARKS, composeBenchmark, composeTax, taxCsv } from '@/lib/portfolio-tax';
 import type {
   HoldingDetailDto,
   ImportPreviewDto,
   ImportRowDto,
   PortfolioAnalysisDto,
+  PortfolioBenchmarkDto,
   PortfolioDto,
   PortfolioEntryDto,
   PortfolioReturnsDto,
+  PortfolioTaxDto,
   UpcomingEventDto,
 } from '@/lib/portfolio-types';
 import { getSessionUser } from './auth/require-user';
@@ -339,6 +346,71 @@ async function returnsFor(built: Built): Promise<PortfolioReturnsDto> {
   });
 }
 
+/** Nifty 50 / Nifty 500 closes from a little before the first entry to today. */
+async function indexClosesFor(
+  built: Built,
+): Promise<Map<string, { date: string; closePaise: number }[]>> {
+  const db = getDatabase();
+  const first = built.ledger.reduce<string | null>(
+    (a, e) => (a === null || e.tradeDate < a ? e.tradeDate : a),
+    null,
+  );
+  if (first === null) return new Map();
+  const ids = await indexInstrumentIds(
+    db,
+    BENCHMARKS.map((b) => b.symbol),
+  ).catch(() => new Map<string, number>());
+  const closes = await dailyClosesBetween(
+    db,
+    [...ids.values()],
+    addDays(first, -10),
+    todayInIndia(),
+  ).catch(() => new Map<number, { date: string; closePaise: number }[]>());
+  return new Map([...ids].map(([symbol, id]) => [symbol, closes.get(id) ?? []]));
+}
+
+async function benchmarkFor(built: Built): Promise<PortfolioBenchmarkDto> {
+  const [inputs, indexCloses] = await Promise.all([returnInputs(built), indexClosesFor(built)]);
+  return composeBenchmark({
+    entries: built.entries,
+    changes: built.changes,
+    closes: inputs.closes,
+    indexCloses,
+    today: inputs.today,
+  });
+}
+
+async function taxFor(built: Built): Promise<PortfolioTaxDto> {
+  const db = getDatabase();
+  const ids = [...new Set(built.ledger.map((e) => e.instrumentId))];
+  const [inputs, fmv2018, fmvLoaded, isins] = await Promise.all([
+    returnInputs(built),
+    fairMarketValuesFor(db, ids).catch(() => new Map<number, number>()),
+    fairMarketValuesLoaded(db).catch(() => false),
+    instrumentIsins(db, ids).catch(() => new Map<number, string>()),
+  ]);
+  return composeTax({
+    entries: built.entries,
+    changes: built.changes,
+    derived: built.derived,
+    names: namesOf(built.ledger),
+    isins,
+    fmv2018,
+    fmvLoaded,
+    dividendRecords: inputs.dividendRecords,
+    today: inputs.today,
+  });
+}
+
+/** One financial year's sales as CSV for the user's accountant; null for a year with none. */
+export async function getTaxCsv(year: string): Promise<string | null> {
+  const ownerId = await requireOwnerId();
+  const built = await buildPortfolio(ownerId);
+  const tax = await taxFor(built);
+  const summary = tax.byYear[year];
+  return summary === undefined ? null : taxCsv(summary);
+}
+
 /** The realised-gains CSV for the user's records. */
 export async function getRealisedCsv(): Promise<string> {
   const ownerId = await requireOwnerId();
@@ -355,6 +427,8 @@ export async function getRealisedCsv(): Promise<string> {
 export async function getPortfolioAnalysis(): Promise<{
   analysis: PortfolioAnalysisDto;
   returns: PortfolioReturnsDto | null;
+  benchmark: PortfolioBenchmarkDto | null;
+  tax: PortfolioTaxDto | null;
 }> {
   const ownerId = await requireOwnerId();
   const built = await buildPortfolio(ownerId);
@@ -364,8 +438,14 @@ export async function getPortfolioAnalysis(): Promise<{
     () => new Map<number, HoldingRef>(),
   );
   await countUse(ownerId, 'view');
-  const returns = built.ledger.length === 0 ? null : await returnsFor(built);
-  return { analysis: composeAnalysis(dto, reference), returns };
+  if (built.ledger.length === 0)
+    return { analysis: composeAnalysis(dto, reference), returns: null, benchmark: null, tax: null };
+  const [returns, benchmark, tax] = await Promise.all([
+    returnsFor(built),
+    benchmarkFor(built),
+    taxFor(built),
+  ]);
+  return { analysis: composeAnalysis(dto, reference), returns, benchmark, tax };
 }
 
 /** One holding with every entry behind it, or null when the user holds none of that stock. */

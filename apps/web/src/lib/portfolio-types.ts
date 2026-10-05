@@ -308,3 +308,97 @@ export interface LotDto {
   /** Days until the lot is long term (more than 12 months); 0 when it already is. */
   daysToLongTerm: number;
 }
+
+// ---------------------------------------------------------------------------
+// Phase 4: benchmark and tax
+// ---------------------------------------------------------------------------
+
+export type PeriodKeyDto = '1M' | '3M' | '6M' | '1Y' | 'all';
+
+export interface BenchmarkIndexDto {
+  symbol: string;
+  name: string;
+  /** Same money, same dates, in this index; null when its closes are not loaded. */
+  replay: {
+    investedPaise: number;
+    withdrawnPaise: number;
+    valuePaise: number;
+    simpleReturn: number | null;
+    xirr: number | null;
+    status: ReturnStatusKey;
+  } | null;
+  periods: Record<PeriodKeyDto, number | null>;
+}
+
+export interface GrowthPointDto {
+  date: string;
+  yours: number;
+  nifty50: number | null;
+  nifty500: number | null;
+}
+
+export interface PortfolioBenchmarkDto {
+  indices: BenchmarkIndexDto[];
+  /** Your time-weighted return over the same periods. */
+  periods: Record<PeriodKeyDto, number | null>;
+  growth: GrowthPointDto[];
+  /** True when at least one index has closes loaded. */
+  available: boolean;
+}
+
+export interface TaxRowDto {
+  symbol: string;
+  name: string;
+  isin: string | null;
+  acquiredOn: string;
+  removedOn: string;
+  shares: number;
+  actualCostPaise: number;
+  costUsedPaise: number;
+  fmvPaise: number | null;
+  proceedsPaise: number;
+  gainPaise: number;
+  daysHeld: number;
+  term: TermKey;
+  bonus: boolean;
+  grandfathered: boolean;
+}
+
+export interface TaxYearDto {
+  year: string;
+  shortTermGainsPaise: number;
+  shortTermLossesPaise: number;
+  longTermGainsPaise: number;
+  longTermLossesPaise: number;
+  intradayPaise: number;
+  netShortTermPaise: number;
+  netLongTermPaise: number;
+  exemptionPaise: number;
+  exemptionUsedPaise: number;
+  taxableShortTermPaise: number;
+  taxableLongTermPaise: number;
+  taxPaise: number;
+  cessPaise: number;
+  totalTaxPaise: number;
+  shortTermLossCarriedPaise: number;
+  longTermLossCarriedPaise: number;
+  dividendsPaise: number;
+  rows: TaxRowDto[];
+}
+
+export interface PortfolioTaxDto {
+  /** Financial years with a removal, newest first; the current year is always present. */
+  years: string[];
+  byYear: Record<string, TaxYearDto>;
+  /** Whether 31 Jan 2018 prices are loaded (the 2018 rule needs them). */
+  fmvLoaded: boolean;
+  /** Purchases still held that pass 12 months in the next 90 days. */
+  turningLongTerm: {
+    symbol: string;
+    name: string;
+    acquiredOn: string;
+    shares: number;
+    costPaise: number;
+    daysToLongTerm: number;
+  }[];
+}

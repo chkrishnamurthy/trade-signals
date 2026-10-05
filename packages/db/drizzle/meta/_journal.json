@@ -295,6 +295,13 @@
       "when": 1791795600000,
       "tag": "0042_holding_acquired_on",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1791882000000,
+      "tag": "0043_fair_market_values_2018",
+      "breakpoints": true
     }
   ]
 }

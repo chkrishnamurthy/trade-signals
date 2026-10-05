@@ -6,8 +6,9 @@ import * as React from 'react';
 import { MetricHint } from '@/components/data-display/metric-card';
 import { PercentChange, PriceChange } from '@/components/market/numeric';
 import { Button } from '@/components/ui/button';
-import type { PortfolioReturnsDto, TermKey } from '@/lib/portfolio-types';
+import type { PortfolioBenchmarkDto, PortfolioReturnsDto, TermKey } from '@/lib/portfolio-types';
 import { cn } from '@/lib/utils';
+import { BenchmarkSection } from './benchmark-view';
 import { longDate } from './portfolio-client';
 import { filterRange, QuarterBars, type Range, ValueChart } from './returns-charts';
 
@@ -69,7 +70,13 @@ function Row({
   );
 }
 
-export function ReturnsTab({ returns }: { returns: PortfolioReturnsDto }) {
+export function ReturnsTab({
+  returns,
+  benchmark = null,
+}: {
+  returns: PortfolioReturnsDto;
+  benchmark?: PortfolioBenchmarkDto | null;
+}) {
   const { summary } = returns;
   const today = returns.series.at(-1)?.date ?? summary.trackingSince ?? '';
   const [range, setRange] = React.useState<Range>('All');
@@ -141,6 +148,8 @@ export function ReturnsTab({ returns }: { returns: PortfolioReturnsDto }) {
           )}
         </Card>
       </div>
+
+      <BenchmarkSection benchmark={benchmark} summary={summary} />
 
       <Card
         title="Value over time"
