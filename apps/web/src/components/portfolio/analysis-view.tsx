@@ -19,9 +19,14 @@ import {
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { dividendEstimatePaise, eventLabel, shortDate } from '@/lib/portfolio-facts';
-import type { PortfolioAnalysisDto, UpcomingEventDto } from '@/lib/portfolio-types';
+import type {
+  PortfolioAnalysisDto,
+  PortfolioReturnsDto,
+  UpcomingEventDto,
+} from '@/lib/portfolio-types';
 import { DonutWithLegend, GainBars, ShareBar, Treemap } from './portfolio-charts';
 import { PortfolioNav } from './portfolio-nav';
+import { ReturnsTab } from './returns-view';
 import { SummaryStrip } from './summary-strip';
 
 /**
@@ -32,7 +37,13 @@ import { SummaryStrip } from './summary-strip';
 const TABS = ['allocation', 'returns', 'risk', 'tax'] as const;
 type TabKey = (typeof TABS)[number];
 
-export function AnalysisView({ analysis }: { analysis: PortfolioAnalysisDto }) {
+export function AnalysisView({
+  analysis,
+  returns,
+}: {
+  analysis: PortfolioAnalysisDto;
+  returns: PortfolioReturnsDto | null;
+}) {
   const empty = analysis.holdingCount === 0;
   // The open tab follows the address (#returns), so a tab can be linked to and the
   // back button behaves.
@@ -126,11 +137,15 @@ export function AnalysisView({ analysis }: { analysis: PortfolioAnalysisDto }) {
                   )}
                 </TabsContent>
                 <TabsContent value="returns">
-                  <Later
-                    title="Returns"
-                    shows="Your yearly return (XIRR) beside the same money in Nifty 50 and Nifty 500, value over time, and dividends received."
-                    needs="It needs the date of each purchase. Entries from a trade list already have them; a holdings file gives today's date only."
-                  />
+                  {returns === null ? (
+                    <Later
+                      title="Returns"
+                      shows="Your yearly return, realised and unrealised gains, dividends received and value over time."
+                      needs="Add your shares first."
+                    />
+                  ) : (
+                    <ReturnsTab returns={returns} />
+                  )}
                 </TabsContent>
                 <TabsContent value="risk">
                   <Later

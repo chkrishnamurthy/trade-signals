@@ -47,6 +47,8 @@ const dto = (holdings: PortfolioHoldingDto[]): PortfolioDto => ({
   pricesStale: false,
   problems: [],
   upcoming: [],
+  returns: null,
+  hasRemovals: false,
 });
 
 describe('composeAnalysis', () => {

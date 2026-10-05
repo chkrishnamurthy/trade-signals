@@ -71,6 +71,10 @@ export interface PortfolioDto {
   problems: string[];
   /** Events in the next 60 days on stocks the user holds. */
   upcoming: UpcomingEventDto[];
+  /** The headline return, for the overview tile. */
+  returns: ReturnSummaryDto | null;
+  /** True once any shares have been removed: FIFO and average cost can then differ. */
+  hasRemovals: boolean;
 }
 
 export type ImportRowStatus = 'ready' | 'check' | 'skipped';
@@ -117,6 +121,13 @@ export interface HoldingDetailDto {
   /** Share of the whole portfolio, 0..1. */
   portfolioWeight: number | null;
   pricesStale: boolean;
+  /** Purchases still held, oldest first. */
+  lots: LotDto[];
+  /** Shares removed from this stock, matched to purchases oldest first. */
+  realised: RealisedRowDto[];
+  dividends: DividendRowDto[];
+  /** This stock's own return: unrealised + realised + dividends. */
+  totalReturnPaise: number | null;
 }
 
 export interface EditEntryBody {
@@ -193,4 +204,107 @@ export interface PortfolioAnalysisDto {
   unpriced: { count: number; costPaise: number };
   attention: string[];
   upcoming: UpcomingEventDto[];
+}
+
+// ---------------------------------------------------------------------------
+// Phase 3: returns
+// ---------------------------------------------------------------------------
+
+export type ReturnStatusKey = 'ok' | 'too_short' | 'no_solution' | 'empty';
+
+export interface ReturnSummaryDto {
+  status: ReturnStatusKey;
+  /** Yearly, money-weighted, as a fraction; only when status is 'ok'. */
+  xirr: number | null;
+  /** (value + money out + dividends − money in) ÷ money in. */
+  simpleReturn: number | null;
+  trackingSince: string | null;
+  years: number;
+  investedPaise: number;
+  withdrawnPaise: number;
+  dividendsPaise: number;
+  valuePaise: number;
+  gainPaise: number;
+}
+
+export type TermKey = 'short' | 'long' | 'intraday';
+
+export interface RealisedRowDto {
+  symbol: string;
+  name: string;
+  acquiredOn: string;
+  removedOn: string;
+  shares: number;
+  costPaise: number;
+  proceedsPaise: number;
+  gainPaise: number;
+  daysHeld: number;
+  term: TermKey;
+  /** "2025-26". */
+  financialYear: string;
+}
+
+export interface RealisedTotalsDto {
+  shortTermPaise: number;
+  longTermPaise: number;
+  intradayPaise: number;
+  totalPaise: number;
+  count: number;
+}
+
+export interface DividendRowDto {
+  symbol: string;
+  name: string;
+  exDate: string;
+  perSharePaise: number | null;
+  shares: number;
+  amountPaise: number | null;
+}
+
+export interface PerHoldingReturnDto {
+  symbol: string;
+  name: string;
+  held: boolean;
+  /** Today's paper gain on shares still held; null when unpriced or none held. */
+  unrealisedPaise: number | null;
+  realisedPaise: number;
+  dividendsPaise: number;
+  totalPaise: number;
+  /** Dividends in the last 12 months ÷ cost of shares held now. */
+  yieldOnCost: number | null;
+}
+
+export interface ValuePointDto {
+  date: string;
+  valuePaise: number;
+  netInvestedPaise: number;
+  partial: boolean;
+}
+
+export interface PortfolioReturnsDto {
+  summary: ReturnSummaryDto;
+  realised: RealisedTotalsDto & { byYear: (RealisedTotalsDto & { year: string })[] };
+  realisedRows: RealisedRowDto[];
+  dividends: {
+    totalPaise: number;
+    unknownCount: number;
+    byQuarter: { label: string; amountPaise: number }[];
+    rows: DividendRowDto[];
+  };
+  series: ValuePointDto[];
+  perHolding: PerHoldingReturnDto[];
+  /** How far back splits, bonuses and dividends are on record; null when unknown. */
+  historyFrom: string | null;
+  /** Holdings with no price are counted at what was paid for them in today's value. */
+  unpricedAtCost: number;
+}
+
+export interface LotDto {
+  acquiredOn: string;
+  trackedFrom: string;
+  shares: number;
+  costPaise: number;
+  daysHeld: number;
+  /** Days until the lot is long term (more than 12 months); 0 when it already is. */
+  daysToLongTerm: number;
 }

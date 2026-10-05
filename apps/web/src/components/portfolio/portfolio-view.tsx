@@ -211,7 +211,9 @@ function Overview({ portfolio }: { portfolio: PortfolioDto }) {
         </p>
       ))}
 
-      <Section aria-label="Summary" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      {portfolio.hasRemovals && <FifoNote />}
+
+      <Section aria-label="Summary" className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <MetricCard
           label="Value"
           hint="Shares you hold times the latest price we have for each."
@@ -246,6 +248,19 @@ function Overview({ portfolio }: { portfolio: PortfolioDto }) {
               percent={totals.gainRatio === null ? null : totals.gainRatio * 100}
               size="lg"
             />
+          }
+        />
+        <MetricCard
+          label="Yearly return"
+          hint="XIRR: the steady yearly rate that turns your dated amounts in and out, plus dividends, into today's value. Shown once you have 12 months of history; before that, the simple return."
+          value={<YearlyReturn summary={portfolio.returns} />}
+          footer={
+            <Link
+              href={'/portfolio/analysis#returns' as Route}
+              className="text-primary hover:underline"
+            >
+              See returns
+            </Link>
           }
         />
         <MetricCard
@@ -305,6 +320,70 @@ function Overview({ portfolio }: { portfolio: PortfolioDto }) {
 
       <HoldingsTable holdings={portfolio.holdings} />
     </>
+  );
+}
+
+function YearlyReturn({ summary }: { summary: PortfolioDto['returns'] }) {
+  if (summary === null) return <span className="text-2xl">—</span>;
+  if (summary.status === 'ok' && summary.xirr !== null) {
+    return (
+      <span className="text-2xl font-semibold">
+        <PercentChange value={summary.xirr * 100} />
+        <span className="ml-1 text-xs font-normal text-muted-foreground">a year</span>
+      </span>
+    );
+  }
+  return (
+    <span className="flex flex-col">
+      <span className="text-2xl font-semibold">
+        <PercentChange value={summary.simpleReturn === null ? null : summary.simpleReturn * 100} />
+      </span>
+      <span className="text-xs text-muted-foreground">
+        {summary.status === 'too_short' ? 'Simple return; yearly needs 12 months' : 'Simple return'}
+      </span>
+    </span>
+  );
+}
+
+const FIFO_NOTE_KEY = 'ew-portfolio-fifo-note-dismissed';
+
+/** Shown once (per browser) after the first removal: average cost is FIFO. */
+function FifoNote() {
+  const [show, setShow] = React.useState(false);
+  React.useEffect(() => {
+    try {
+      setShow(window.localStorage.getItem(FIFO_NOTE_KEY) !== '1');
+    } catch {
+      setShow(true);
+    }
+  }, []);
+  if (!show) return null;
+  return (
+    <div
+      role="note"
+      className="flex flex-wrap items-start justify-between gap-3 rounded-md border border-border bg-muted px-3 py-2 text-sm"
+    >
+      <p className="max-w-prose">
+        Average cost uses your oldest purchases first (FIFO), the way Indian tax rules match sales.
+        After you remove shares it can differ slightly from a broker screen that keeps a running
+        average.
+      </p>
+      <Button
+        type="button"
+        size="sm"
+        variant="ghost"
+        onClick={() => {
+          setShow(false);
+          try {
+            window.localStorage.setItem(FIFO_NOTE_KEY, '1');
+          } catch {
+            // Private mode: the note simply comes back next time.
+          }
+        }}
+      >
+        Got it
+      </Button>
+    </div>
   );
 }
 
@@ -1114,6 +1193,13 @@ function EntriesDialog({
           ) : (
             <Button variant="outline" size="sm" onClick={() => setConfirmAll(true)}>
               <Trash2Icon /> Delete all my entries
+            </Button>
+          )}
+          {portfolio.hasRemovals && (
+            <Button asChild size="sm" variant="ghost">
+              <a href="/api/portfolio/realised" download>
+                <DownloadIcon /> Export realised gains (CSV)
+              </a>
             </Button>
           )}
           <Button onClick={() => onOpenChange(false)}>Close</Button>

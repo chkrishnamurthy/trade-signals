@@ -26,6 +26,13 @@ const FILES = [
   join(SRC, 'components/portfolio/portfolio-charts.tsx'),
   join(SRC, 'components/portfolio/summary-strip.tsx'),
   join(SRC, 'lib/portfolio-facts.ts'),
+  join(SRC, 'lib/portfolio-returns.ts'),
+  join(SRC, 'components/portfolio/returns-view.tsx'),
+  join(SRC, 'components/portfolio/returns-charts.tsx'),
+  join(SRC, 'components/portfolio/holding-detail-view.tsx'),
+  join(CORE, 'returns.ts'),
+  join(CORE, 'derive.ts'),
+  join(CORE, 'reconcile.ts'),
   join(SRC, 'app/portfolio/analysis/page.tsx'),
   join(CORE, 'files.ts'),
 ];

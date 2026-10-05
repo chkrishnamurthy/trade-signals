@@ -19,10 +19,12 @@ import {
   Section,
 } from '@/components/layout/page';
 import { PercentChange, Price, PriceChange } from '@/components/market/numeric';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type { HoldingDetailDto } from '@/lib/portfolio-types';
 import { EntryRows } from './entry-edit';
 import { longDate, pctText } from './portfolio-client';
+import { TERM_LABEL } from './returns-view';
 
 /**
  * One holding in full: the user's own numbers for a single stock, each entry behind
@@ -161,6 +163,172 @@ export function HoldingDetailView({ detail }: { detail: HoldingDetailDto }) {
               </p>
             ))}
           </Section>
+
+          <Section
+            aria-labelledby="lots-h"
+            className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-4 shadow-subtle"
+          >
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 id="lots-h" className="text-sm font-semibold">
+                Purchases still held ({detail.lots.length})
+              </h2>
+              {detail.totalReturnPaise !== null && (
+                <span className="text-sm">
+                  Return on this stock, all in: <PriceChange paise={detail.totalReturnPaise} />
+                </span>
+              )}
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <caption className="sr-only">
+                  Purchases of {h.name} still held, oldest first
+                </caption>
+                <thead className="text-left text-xs uppercase tracking-wide text-muted-foreground">
+                  <tr>
+                    <th scope="col" className="py-1.5 pr-3 font-medium">
+                      Acquired
+                    </th>
+                    <th scope="col" className="py-1.5 pr-3 text-right font-medium">
+                      Shares
+                    </th>
+                    <th scope="col" className="py-1.5 pr-3 text-right font-medium">
+                      Cost
+                    </th>
+                    <th scope="col" className="py-1.5 pr-3 text-right font-medium">
+                      Days held
+                    </th>
+                    <th scope="col" className="py-1.5 font-medium">
+                      Term
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border tabular-nums">
+                  {detail.lots.map((lot) => (
+                    <tr key={`${lot.acquiredOn}${lot.trackedFrom}${lot.shares}${lot.costPaise}`}>
+                      <td className="py-1.5 pr-3">
+                        {longDate(lot.acquiredOn)}
+                        {lot.trackedFrom !== lot.acquiredOn && (
+                          <span className="block text-xs text-muted-foreground">
+                            entered {longDate(lot.trackedFrom)}
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-1.5 pr-3 text-right">
+                        {lot.shares.toLocaleString('en-IN')}
+                      </td>
+                      <td className="py-1.5 pr-3 text-right">
+                        {formatPaise(lot.costPaise, { decimals: 0 })}
+                      </td>
+                      <td className="py-1.5 pr-3 text-right">
+                        {lot.daysHeld.toLocaleString('en-IN')}
+                      </td>
+                      <td className="py-1.5">
+                        {lot.daysToLongTerm === 0 ? (
+                          <Badge variant="neutral">Long term</Badge>
+                        ) : (
+                          <Badge variant="outline">
+                            Short term · long term in {lot.daysToLongTerm} days
+                          </Badge>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Removed shares are taken from the oldest purchase first. Long term means held more
+              than 12 months.
+            </p>
+          </Section>
+
+          {detail.realised.length > 0 && (
+            <Section
+              aria-labelledby="realised-h"
+              className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-4 shadow-subtle"
+            >
+              <h2 id="realised-h" className="text-sm font-semibold">
+                Shares removed ({detail.realised.length})
+              </h2>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <caption className="sr-only">
+                    Shares of {h.name} removed, matched to purchases
+                  </caption>
+                  <thead className="text-left text-xs uppercase tracking-wide text-muted-foreground">
+                    <tr>
+                      <th scope="col" className="py-1.5 pr-3 font-medium">
+                        Removed
+                      </th>
+                      <th scope="col" className="py-1.5 pr-3 font-medium">
+                        Acquired
+                      </th>
+                      <th scope="col" className="py-1.5 pr-3 text-right font-medium">
+                        Shares
+                      </th>
+                      <th scope="col" className="py-1.5 pr-3 text-right font-medium">
+                        Proceeds
+                      </th>
+                      <th scope="col" className="py-1.5 pr-3 text-right font-medium">
+                        Gain
+                      </th>
+                      <th scope="col" className="py-1.5 font-medium">
+                        Term
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border tabular-nums">
+                    {detail.realised.map((r) => (
+                      <tr key={`${r.removedOn}${r.acquiredOn}${r.shares}${r.proceedsPaise}`}>
+                        <td className="py-1.5 pr-3">{longDate(r.removedOn)}</td>
+                        <td className="py-1.5 pr-3">{longDate(r.acquiredOn)}</td>
+                        <td className="py-1.5 pr-3 text-right">
+                          {r.shares.toLocaleString('en-IN')}
+                        </td>
+                        <td className="py-1.5 pr-3 text-right">
+                          {formatPaise(r.proceedsPaise, { decimals: 0 })}
+                        </td>
+                        <td className="py-1.5 pr-3 text-right">
+                          <PriceChange paise={r.gainPaise} />
+                        </td>
+                        <td className="py-1.5">{TERM_LABEL[r.term]}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Section>
+          )}
+
+          {detail.dividends.length > 0 && (
+            <Section
+              aria-labelledby="dividends-h"
+              className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-4 shadow-subtle"
+            >
+              <h2 id="dividends-h" className="text-sm font-semibold">
+                Dividends received:{' '}
+                {formatPaise(
+                  detail.dividends.reduce((a, d) => a + (d.amountPaise ?? 0), 0),
+                  { decimals: 0 },
+                )}
+              </h2>
+              <ul className="divide-y divide-border text-sm">
+                {detail.dividends.map((d) => (
+                  <li
+                    key={d.exDate}
+                    className="flex items-baseline justify-between gap-3 py-1.5 tabular-nums"
+                  >
+                    <span>{longDate(d.exDate)}</span>
+                    <span>
+                      {d.amountPaise === null
+                        ? 'amount not on record'
+                        : `${formatPaise(d.amountPaise, { decimals: 0 })} (${d.shares} × ${d.perSharePaise === null ? '—' : formatPaise(d.perSharePaise)})`}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </Section>
+          )}
 
           <Section aria-labelledby="entries-h" className="flex flex-col gap-2">
             <h2 id="entries-h" className="text-sm font-semibold">

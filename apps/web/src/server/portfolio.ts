@@ -10,8 +10,10 @@ import {
 } from '@equitywise/core';
 import {
   corporateHistoryFrom,
+  dailyClosesBetween,
   deleteAllHoldingEntries,
   deleteHoldingEntry,
+  dividendsBetween,
   getInstrumentBySymbol,
   type HoldingEntryRow,
   holdingReference,
@@ -31,6 +33,7 @@ import {
 } from '@equitywise/db';
 import { z } from 'zod';
 import { composeAnalysis, type HoldingRef } from '@/lib/portfolio-analysis';
+import { composeReturns, headlineReturn, lotsFor, realisedCsv } from '@/lib/portfolio-returns';
 import type {
   HoldingDetailDto,
   ImportPreviewDto,
@@ -38,6 +41,7 @@ import type {
   PortfolioAnalysisDto,
   PortfolioDto,
   PortfolioEntryDto,
+  PortfolioReturnsDto,
   UpcomingEventDto,
 } from '@/lib/portfolio-types';
 import { getSessionUser } from './auth/require-user';
@@ -135,6 +139,10 @@ function firstProblem(
 interface Built {
   readonly dto: PortfolioDto;
   readonly ledger: readonly HoldingEntryRow[];
+  readonly entries: readonly PortfolioEntry[];
+  readonly changes: readonly ShareChange[];
+  readonly derived: ReturnType<typeof derivePortfolio>;
+  readonly historyFrom: string | null;
 }
 
 async function buildPortfolio(ownerId: number): Promise<Built> {
@@ -193,6 +201,8 @@ async function buildPortfolio(ownerId: number): Promise<Built> {
   for (const p of prices.values()) if (newest === null || p.at > newest) newest = p.at;
 
   const dto: PortfolioDto = {
+    returns: null,
+    hasRemovals: ledger.some((entry) => entry.kind === 'remove'),
     holdings: [...summary.holdings]
       .sort((x, y) => (y.valuePaise ?? y.costPaise) - (x.valuePaise ?? x.costPaise))
       .map((h) => {
@@ -259,7 +269,7 @@ async function buildPortfolio(ownerId: number): Promise<Built> {
       return `${row?.symbol ?? 'A stock'}: an entry removes more shares than you held on that date.`;
     }),
   };
-  return { dto, ledger };
+  return { dto, ledger, entries: ledger.map(toEntry), changes, derived, historyFrom };
 }
 
 function toEntryDto(entry: HoldingEntryRow): PortfolioEntryDto {
@@ -276,11 +286,65 @@ function toEntryDto(entry: HoldingEntryRow): PortfolioEntryDto {
   };
 }
 
+/** Daily closes and dividend records for every stock the user has entries for. */
+async function returnInputs(built: Built) {
+  const db = getDatabase();
+  const ids = [...new Set(built.ledger.map((entry) => entry.instrumentId))];
+  const first = built.ledger.reduce<string | null>(
+    (a, e) => (a === null || e.tradeDate < a ? e.tradeDate : a),
+    null,
+  );
+  const today = todayInIndia();
+  if (first === null) return { closes: new Map(), dividendRecords: [], today };
+  const [closes, dividendRecords] = await Promise.all([
+    // A few days earlier than the first entry, so an entry on a holiday finds the last close.
+    dailyClosesBetween(db, ids, addDays(first, -10), today).catch(() => new Map()),
+    dividendsBetween(db, ids, first, today).catch(() => []),
+  ]);
+  return { closes, dividendRecords, today };
+}
+
+function namesOf(ledger: readonly HoldingEntryRow[]) {
+  return new Map(
+    ledger.map((entry) => [entry.instrumentId, { symbol: entry.symbol, name: entry.name }]),
+  );
+}
+
 export async function getPortfolio(): Promise<PortfolioDto> {
   const ownerId = await requireOwnerId();
   const built = await buildPortfolio(ownerId);
   await countUse(ownerId, 'view');
-  return built.dto;
+  if (built.ledger.length === 0) return built.dto;
+  const inputs = await returnInputs(built);
+  const returns = headlineReturn({
+    entries: built.entries,
+    changes: built.changes,
+    holdings: built.dto.holdings,
+    ...inputs,
+  });
+  return { ...built.dto, returns };
+}
+
+/** Everything the Returns tab shows. */
+async function returnsFor(built: Built): Promise<PortfolioReturnsDto> {
+  const inputs = await returnInputs(built);
+  return composeReturns({
+    entries: built.entries,
+    names: namesOf(built.ledger),
+    changes: built.changes,
+    derived: built.derived,
+    holdings: built.dto.holdings,
+    historyFrom: built.historyFrom,
+    ...inputs,
+  });
+}
+
+/** The realised-gains CSV for the user's records. */
+export async function getRealisedCsv(): Promise<string> {
+  const ownerId = await requireOwnerId();
+  const built = await buildPortfolio(ownerId);
+  const returns = await returnsFor(built);
+  return realisedCsv(returns.realisedRows);
 }
 
 /**
@@ -288,24 +352,32 @@ export async function getPortfolio(): Promise<PortfolioDto> {
  * concentrated it is, what moved the gain, and plain facts worth a look. Built
  * from the same derived holdings as the overview, so the totals always agree.
  */
-export async function getPortfolioAnalysis(): Promise<PortfolioAnalysisDto> {
+export async function getPortfolioAnalysis(): Promise<{
+  analysis: PortfolioAnalysisDto;
+  returns: PortfolioReturnsDto | null;
+}> {
   const ownerId = await requireOwnerId();
-  const { dto } = await buildPortfolio(ownerId);
+  const built = await buildPortfolio(ownerId);
+  const { dto } = built;
   const pricedIds = dto.holdings.filter((h) => h.valuePaise !== null).map((h) => h.instrumentId);
   const reference = await holdingReference(getDatabase(), pricedIds).catch(
     () => new Map<number, HoldingRef>(),
   );
   await countUse(ownerId, 'view');
-  return composeAnalysis(dto, reference);
+  const returns = built.ledger.length === 0 ? null : await returnsFor(built);
+  return { analysis: composeAnalysis(dto, reference), returns };
 }
 
 /** One holding with every entry behind it, or null when the user holds none of that stock. */
 export async function getHoldingDetail(symbol: string): Promise<HoldingDetailDto | null> {
   const ownerId = await requireOwnerId();
-  const { dto, ledger } = await buildPortfolio(ownerId);
+  const built = await buildPortfolio(ownerId);
+  const { dto, ledger } = built;
   const wanted = symbol.toUpperCase();
   const holding = dto.holdings.find((h) => h.symbol === wanted);
   if (holding === undefined) return null;
+  const returns = await returnsFor(built);
+  const own = returns.perHolding.find((p) => p.symbol === holding.symbol);
   const indicators = await latestIndicatorsForInstruments(getDatabase(), [
     holding.instrumentId,
   ]).catch(() => new Map());
@@ -317,6 +389,10 @@ export async function getHoldingDetail(symbol: string): Promise<HoldingDetailDto
     high52wPaise: range?.high52w ?? null,
     portfolioWeight: holding.weight,
     pricesStale: dto.pricesStale,
+    lots: lotsFor(built.derived, holding.instrumentId, todayInIndia()),
+    realised: returns.realisedRows.filter((r) => r.symbol === holding.symbol),
+    dividends: returns.dividends.rows.filter((d) => d.symbol === holding.symbol),
+    totalReturnPaise: own?.totalPaise ?? null,
   };
 }
 
