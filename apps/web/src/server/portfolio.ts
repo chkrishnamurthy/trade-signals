@@ -4,6 +4,7 @@ import {
   type ParsedRow,
   type PortfolioEntry,
   parsePortfolioFile,
+  reconcileHolding,
   type ShareChange,
   summarisePortfolio,
 } from '@equitywise/core';
@@ -521,8 +522,36 @@ export type PreviewOutcome =
   | { ok: true; preview: ImportPreviewDto }
   | { ok: false; status: number; code: string; message: string };
 
-export async function previewPortfolioImport(text: string): Promise<PreviewOutcome> {
-  const ownerId = await requireOwnerId();
+interface PlannedRow {
+  readonly line: number;
+  readonly fileSymbol: string;
+  readonly instrumentId: number | null;
+  readonly symbol: string | null;
+  readonly name: string | null;
+  readonly kind: 'opening' | 'add' | 'remove';
+  readonly tradeDate: string;
+  readonly shares: number;
+  readonly amountPaise: number;
+  readonly tradeId: string | null;
+  readonly status: 'ready' | 'check' | 'skipped';
+  readonly message: string;
+}
+
+type ImportPlan =
+  | { ok: true; fileKind: 'holdings' | 'trades'; rows: PlannedRow[]; notInFile: string[] }
+  | { ok: false; status: number; code: string; message: string };
+
+/**
+ * What an import would do, row by row. The preview shows exactly this, and the
+ * commit re-plans from the file and writes exactly this, so the two can never
+ * disagree.
+ *
+ * A holdings file never deletes the user's dated entries. Each stock is
+ * reconciled (`reconcileHolding`): new stocks are opened, matching counts are
+ * left alone, and a different count becomes one entry for the difference,
+ * dated today, marked Check.
+ */
+async function planImport(ownerId: number, text: string): Promise<ImportPlan> {
   if (text.length > MAX_IMPORT_BYTES)
     return {
       ok: false,
@@ -530,40 +559,99 @@ export async function previewPortfolioImport(text: string): Promise<PreviewOutco
       code: 'FILE_TOO_LARGE',
       message: 'That file is too large to import.',
     };
-  const parsed = parsePortfolioFile(text, todayInIndia());
+  const today = todayInIndia();
+  const parsed = parsePortfolioFile(text, today);
   if (!parsed.ok) return { ok: false, status: 400, code: parsed.code, message: parsed.message };
   const resolved = await resolveRows(parsed.rows);
-
-  const db = getDatabase();
-  const existing = await listHoldingEntries(db, ownerId);
-  const existingByInstrument = new Map(existing.map((entry) => [entry.instrumentId, entry.symbol]));
-  const replaces =
-    parsed.fileKind === 'holdings'
-      ? [
-          ...new Set(
-            resolved
-              .filter((r) => r.instrumentId !== null && r.status !== 'skipped')
-              .map((r) => existingByInstrument.get(r.instrumentId ?? -1))
-              .filter((s): s is string => s !== undefined),
-          ),
-        ]
-      : [];
-
-  const rows: ImportRowDto[] = resolved.map((r) => ({
+  const base = (r: (typeof resolved)[number]): PlannedRow => ({
     line: r.parsed.line,
     fileSymbol: r.parsed.symbol,
+    instrumentId: r.instrumentId,
     symbol: r.symbol,
     name: r.name,
     kind: r.parsed.kind,
     tradeDate: r.parsed.tradeDate,
     shares: r.parsed.shares,
     amountPaise: r.parsed.amountPaise,
+    tradeId: r.parsed.tradeId,
+    status: r.status,
+    message: r.message,
+  });
+  if (parsed.fileKind === 'trades') {
+    return { ok: true, fileKind: 'trades', rows: resolved.map(base), notInFile: [] };
+  }
+
+  const { dto } = await buildPortfolio(ownerId);
+  const held = new Map(dto.holdings.map((h) => [h.instrumentId, h]));
+  const seen = new Set<number>();
+  const rows = resolved.map((r): PlannedRow => {
+    const row = base(r);
+    if (r.instrumentId === null || r.status === 'skipped') return row;
+    if (seen.has(r.instrumentId)) {
+      return {
+        ...row,
+        status: 'skipped',
+        message: 'Skipped: this stock appears more than once in the file.',
+      };
+    }
+    seen.add(r.instrumentId);
+    const current = held.get(r.instrumentId);
+    const plan = reconcileHolding({
+      fileShares: r.parsed.shares,
+      fileAmountPaise: r.parsed.amountPaise,
+      current:
+        current === undefined ? null : { shares: current.shares, costPaise: current.costPaise },
+      pricePaise: current?.ltpPaise ?? null,
+    });
+    if (plan.action === 'skip' || plan.action === 'cannot') {
+      return {
+        ...row,
+        shares: r.parsed.shares,
+        amountPaise: 0,
+        status: 'skipped',
+        message: plan.message,
+      };
+    }
+    // A file-level doubt (average cost and invested disagree) still needs a look.
+    const status = plan.status === 'check' || r.status === 'check' ? 'check' : 'ready';
+    const message = r.status === 'check' && plan.action === 'opening' ? r.message : plan.message;
+    return {
+      ...row,
+      kind: plan.action,
+      tradeDate: today,
+      shares: plan.shares,
+      amountPaise: plan.amountPaise,
+      status,
+      message,
+    };
+  });
+  const inFile = new Set(rows.filter((r) => r.instrumentId !== null).map((r) => r.instrumentId));
+  const notInFile = dto.holdings.filter((h) => !inFile.has(h.instrumentId)).map((h) => h.symbol);
+  return { ok: true, fileKind: 'holdings', rows, notInFile };
+}
+
+export async function previewPortfolioImport(text: string): Promise<PreviewOutcome> {
+  const ownerId = await requireOwnerId();
+  const plan = await planImport(ownerId, text);
+  if (!plan.ok) return plan;
+  const rows: ImportRowDto[] = plan.rows.map((r) => ({
+    line: r.line,
+    fileSymbol: r.fileSymbol,
+    symbol: r.symbol,
+    name: r.name,
+    kind: r.kind,
+    tradeDate: r.tradeDate,
+    shares: r.shares,
+    amountPaise: r.amountPaise,
     status: r.status,
     message: r.message,
   }));
   const counts = { ready: 0, check: 0, skipped: 0 };
   for (const row of rows) counts[row.status] += 1;
-  return { ok: true, preview: { fileKind: parsed.fileKind, rows, counts, replaces } };
+  return {
+    ok: true,
+    preview: { fileKind: plan.fileKind, rows, counts, notInFile: plan.notInFile },
+  };
 }
 
 export const importSchema = z.object({
@@ -579,19 +667,19 @@ export const importSchema = z.object({
 export const importBodySchema = importSchema.extend({ commit: z.boolean().default(false) });
 
 export type CommitOutcome =
-  | { ok: true; inserted: number; skippedDuplicates: number; replaced: number }
+  | { ok: true; inserted: number; skippedDuplicates: number }
   | { ok: false; status: number; code: string; message: string; remedy?: string };
 
 export async function commitPortfolioImport(
   input: z.infer<typeof importSchema>,
 ): Promise<CommitOutcome> {
   const ownerId = await requireOwnerId();
-  const parsed = parsePortfolioFile(input.text, todayInIndia());
-  if (!parsed.ok) return { ok: false, status: 400, code: parsed.code, message: parsed.message };
-  const resolved = await resolveRows(parsed.rows);
-  const accepted = resolved.filter(
+  const plan = await planImport(ownerId, input.text);
+  if (!plan.ok) return plan;
+  const accepted = plan.rows.filter(
     (r) =>
       r.instrumentId !== null &&
+      r.shares > 0 &&
       (r.status === 'ready' || (input.includeChecked && r.status === 'check')),
   );
   if (accepted.length === 0)
@@ -599,8 +687,9 @@ export async function commitPortfolioImport(
       ok: false,
       status: 400,
       code: 'NOTHING_TO_IMPORT',
-      message: 'No rows in the file can be imported.',
-      remedy: 'Check the rows marked Skipped or Check.',
+      message: 'No rows in the file need importing.',
+      remedy:
+        'Rows marked Skipped already match or cannot be read; rows marked Check need the box ticked.',
     };
 
   const db = getDatabase();
@@ -613,21 +702,22 @@ export async function commitPortfolioImport(
   const written = await writeHoldingEntries(db, ownerId, {
     rows: accepted.map((r) => ({
       instrumentId: r.instrumentId as number,
-      kind: r.parsed.kind,
-      tradeDate: r.parsed.tradeDate,
-      shares: r.parsed.shares,
-      amountPaise: r.parsed.amountPaise,
+      kind: r.kind,
+      tradeDate: r.tradeDate,
+      shares: r.shares,
+      amountPaise: r.amountPaise,
       source: 'file' as const,
-      tradeId: r.parsed.tradeId,
+      tradeId: r.tradeId,
     })),
-    ...(parsed.fileKind === 'holdings'
-      ? { replaceInstrumentIds: [...new Set(instrumentIds)] }
-      : {}),
     validate: (ledger) => firstProblem(ledger, changes),
   });
   if (written.ok) {
     await countUse(ownerId, 'import');
-    return { ok: true, ...written.value };
+    return {
+      ok: true,
+      inserted: written.value.inserted,
+      skippedDuplicates: written.value.skippedDuplicates,
+    };
   }
   if (written.reason === 'limit_reached')
     return {

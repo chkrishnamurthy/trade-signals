@@ -601,3 +601,7 @@ Then, on the owner's go-ahead:
 - D3 Dividends in total return and XIRR: yes, as a separate line (recommended).
 - D4 Extend corporate-action and dividend history beyond two years: run the existing backfill with `years: 10` for corporate actions only (recommended, worker job, no new code beyond a flag), or leave at two years.
 - D5 A real Zerodha tradebook CSV, to test against (until then, synthetic files in the published format).
+
+### Phase 3 progress
+
+- **Tasks 1–3 done (2026-10-05):** a holdings file now reconciles instead of replacing (`packages/core/src/portfolio/reconcile.ts`): new stocks open, matching counts are skipped, a different count becomes one entry for the difference dated today and marked Check (more shares at the file's average cost, fewer at today's price, or skipped with a reason when there is no price). Stocks you hold that the file omits are left alone and named in the preview. The repository can no longer delete entries during a write. A trade list's same-day add and remove of one stock is marked Check as intraday, and on one day additions are applied before removals. Preview and commit share one plan, so they cannot disagree.

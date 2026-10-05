@@ -244,5 +244,36 @@ export function parsePortfolioFile(text: string, today: string): ParsedFile {
     if (row !== null) rows.push(row);
   });
 
-  return { ok: true, fileKind: isTrades ? 'trades' : 'holdings', rows };
+  return {
+    ok: true,
+    fileKind: isTrades ? 'trades' : 'holdings',
+    rows: isTrades ? flagSameDayTrades(rows) : rows,
+  };
+}
+
+/**
+ * A stock added and removed on the same day in a trade list is an intraday trade:
+ * in India that is usually business income, not a capital gain. Those rows are
+ * not dropped (the user may want them) but they need a person to confirm.
+ */
+export function flagSameDayTrades(rows: readonly ParsedRow[]): ParsedRow[] {
+  const sides = new Map<string, Set<EntryKind>>();
+  for (const row of rows) {
+    if (row.status === 'skipped') continue;
+    const key = `${row.symbol}|${row.tradeDate}`;
+    const set = sides.get(key) ?? new Set<EntryKind>();
+    set.add(row.kind);
+    sides.set(key, set);
+  }
+  return rows.map((row) => {
+    const set = sides.get(`${row.symbol}|${row.tradeDate}`);
+    if (row.status === 'skipped' || set === undefined || !(set.has('add') && set.has('remove')))
+      return row;
+    return {
+      ...row,
+      status: 'check',
+      message:
+        'Check: added and removed on the same day, which is an intraday trade. It is usually treated as business income, not a capital gain.',
+    };
+  });
 }

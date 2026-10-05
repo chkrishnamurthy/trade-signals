@@ -75,8 +75,15 @@ export function derivePortfolio(
   entries: readonly PortfolioEntry[],
   changes: readonly ShareChange[],
 ): DerivedPortfolio {
+  // By date; on one day, shares added before shares removed (an intraday round trip
+  // can be listed in either order), then in the order entered.
+  const rank = (kind: EntryKind) => (kind === 'remove' ? 1 : 0);
   const ordered = [...entries].sort((a, b) =>
-    a.tradeDate === b.tradeDate ? a.id - b.id : a.tradeDate < b.tradeDate ? -1 : 1,
+    a.tradeDate !== b.tradeDate
+      ? a.tradeDate < b.tradeDate
+        ? -1
+        : 1
+      : rank(a.kind) - rank(b.kind) || a.id - b.id,
   );
   const state = new Map<
     number,

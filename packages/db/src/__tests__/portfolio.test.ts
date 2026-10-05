@@ -126,15 +126,15 @@ suite('portfolio entries', () => {
     expect(other).toMatchObject({ ok: true, value: { inserted: 1 } });
   });
 
-  it('replaces the entries of the stocks in a fresh snapshot, and only those', async () => {
+  it('only ever adds: writing a snapshot entry keeps every earlier entry', async () => {
+    const before = await listHoldingEntries(handle.db, owner);
     const result = await writeHoldingEntries(handle.db, owner, {
-      replaceInstrumentIds: [b],
       rows: [add(b, { kind: 'opening', shares: 7, tradeDate: '2026-10-05' })],
     });
-    expect(result).toMatchObject({ ok: true, value: { inserted: 1, replaced: 1 } });
-    const entries = await listHoldingEntries(handle.db, owner);
-    expect(entries.filter((e) => e.instrumentId === b)).toHaveLength(1);
-    expect(entries.filter((e) => e.instrumentId === a)).toHaveLength(1);
+    expect(result).toEqual({ ok: true, value: { inserted: 1, skippedDuplicates: 0 } });
+    const after = await listHoldingEntries(handle.db, owner);
+    expect(after).toHaveLength(before.length + 1);
+    for (const entry of before) expect(after.some((e) => e.id === entry.id)).toBe(true);
   });
 
   it('lets a delete be vetoed, leaving the row in place', async () => {

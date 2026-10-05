@@ -844,7 +844,7 @@ function ImportDialog({
     });
     setBusy(false);
     if (!result.ok) return setError(result.message);
-    const r = result.data as { inserted: number; skippedDuplicates: number; replaced: number };
+    const r = result.data as { inserted: number; skippedDuplicates: number };
     setDone(
       `Imported ${r.inserted} ${r.inserted === 1 ? 'row' : 'rows'}${r.skippedDuplicates > 0 ? `, ${r.skippedDuplicates} already imported` : ''}.`,
     );
@@ -913,20 +913,19 @@ function ImportDialog({
                   <strong>{preview.counts.skipped}</strong> skipped
                   <span className="text-muted-foreground">
                     {' '}
-                    ·{' '}
-                    {preview.fileKind === 'holdings'
-                      ? 'a holdings file, dated today'
-                      : 'a trade list'}
+                    · {preview.fileKind === 'holdings' ? 'a holdings file' : 'a trade list'}
                   </span>
                 </p>
-                {preview.replaces.length > 0 && (
+                {preview.fileKind === 'holdings' && (
                   <p
                     role="status"
                     className="rounded-md border border-border bg-muted px-3 py-2 text-sm"
                   >
-                    This holdings file replaces the entries you already have for{' '}
-                    {preview.replaces.slice(0, 6).join(', ')}
-                    {preview.replaces.length > 6 ? ` and ${preview.replaces.length - 6} more` : ''}.
+                    A holdings file never deletes your entries. Stocks whose count already matches
+                    are skipped; a different count adds one entry for the difference, dated today,
+                    for you to check.
+                    {preview.notInFile.length > 0 &&
+                      ` ${preview.notInFile.length} ${preview.notInFile.length === 1 ? 'stock you hold is' : 'stocks you hold are'} not in this file and stay as they are: ${preview.notInFile.slice(0, 6).join(', ')}${preview.notInFile.length > 6 ? ` and ${preview.notInFile.length - 6} more` : ''}.`}
                   </p>
                 )}
                 <div className="max-h-72 overflow-auto rounded-md border border-border">

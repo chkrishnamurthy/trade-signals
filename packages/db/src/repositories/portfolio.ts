@@ -84,8 +84,9 @@ export type WriteResult<T> =
   | { ok: false; reason: 'rejected'; message: string };
 
 /**
- * Inside one owner-scoped transaction: take the owner's lock, optionally clear
- * some stocks, add the new rows, then let `validate` look at the resulting
+ * Inside one owner-scoped transaction: take the owner's lock, add the new rows
+ * (never deleting any: a holdings file reconciles, it does not replace), then let
+ * `validate` look at the resulting
  * ledger and veto the whole write (for example a removal of shares never held).
  * Two requests from the same owner cannot interleave between the check and the
  * insert.
@@ -95,29 +96,12 @@ export async function writeHoldingEntries(
   ownerId: number,
   input: {
     readonly rows: readonly NewHoldingEntry[];
-    /** Delete every existing entry for these instruments first (a fresh holdings snapshot). */
-    readonly replaceInstrumentIds?: readonly number[];
     readonly validate?: (ledger: readonly HoldingEntryRow[]) => string | null;
   },
-): Promise<WriteResult<{ inserted: number; skippedDuplicates: number; replaced: number }>> {
+): Promise<WriteResult<{ inserted: number; skippedDuplicates: number }>> {
   return db
     .transaction(async (tx) => {
       await tx.execute(sql`select pg_advisory_xact_lock(${ownerId}::int, 105)`);
-
-      let replaced = 0;
-      const replaceIds = input.replaceInstrumentIds ?? [];
-      if (replaceIds.length > 0) {
-        const removed = await tx
-          .delete(holdingEntries)
-          .where(
-            and(
-              eq(holdingEntries.ownerId, ownerId),
-              inArray(holdingEntries.instrumentId, [...replaceIds]),
-            ),
-          )
-          .returning({ id: holdingEntries.id });
-        replaced = removed.length;
-      }
 
       let inserted = 0;
       if (input.rows.length > 0) {
@@ -158,7 +142,7 @@ export async function writeHoldingEntries(
       }
       return {
         ok: true as const,
-        value: { inserted, skippedDuplicates: input.rows.length - inserted, replaced },
+        value: { inserted, skippedDuplicates: input.rows.length - inserted },
       };
     })
     .catch((error: unknown) => {

@@ -87,8 +87,8 @@ export interface ImportPreviewDto {
   fileKind: 'holdings' | 'trades';
   rows: ImportRowDto[];
   counts: { ready: number; check: number; skipped: number };
-  /** Stocks the user already has entries for that a holdings file would replace. */
-  replaces: string[];
+  /** Stocks the user holds that a holdings file does not mention; they are left as they are. */
+  notInFile: string[];
 }
 
 export interface AddEntryBody {
