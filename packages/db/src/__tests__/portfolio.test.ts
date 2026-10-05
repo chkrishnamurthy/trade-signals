@@ -10,6 +10,8 @@ import {
   latestDailyCloses,
   listHoldingEntries,
   listShareChanges,
+  portfolioUsageSummary,
+  recordPortfolioUsage,
   updateHoldingEntry,
   writeHoldingEntries,
 } from '../repositories/portfolio.js';
@@ -219,11 +221,49 @@ suite('portfolio entries', () => {
     expect((await listHoldingEntries(handle.db, stranger)).length).toBeGreaterThan(0);
   });
 
+  it('counts use without storing anything about holdings, and adds a day only once', async () => {
+    await recordPortfolioUsage(handle.db, owner, 'view');
+    await recordPortfolioUsage(handle.db, owner, 'view');
+    await recordPortfolioUsage(handle.db, owner, 'import');
+    await recordPortfolioUsage(handle.db, owner, 'add');
+    const row = await handle.db.execute<Record<string, unknown>>(
+      sql`select * from portfolio_usage where owner_id = ${owner}`,
+    );
+    expect(Object.keys(row.rows[0] ?? {}).sort()).toEqual([
+      'active_days',
+      'entries_added',
+      'first_seen_at',
+      'imports',
+      'last_seen_at',
+      'owner_id',
+      'views',
+    ]);
+    expect(row.rows[0]).toMatchObject({ views: 2, imports: 1, entries_added: 1, active_days: 1 });
+    // A visit on a later day counts as a second active day, and as a 30-day return.
+    await handle.db.execute(
+      sql`update portfolio_usage set first_seen_at = now() - interval '40 days', last_seen_at = now() - interval '40 days' where owner_id = ${owner}`,
+    );
+    await recordPortfolioUsage(handle.db, owner, 'view');
+    const again = await handle.db.execute<{ active_days: number }>(
+      sql`select active_days from portfolio_usage where owner_id = ${owner}`,
+    );
+    expect(again.rows[0]?.active_days).toBe(2);
+    const summary = await portfolioUsageSummary(handle.db);
+    expect(summary.users).toBeGreaterThanOrEqual(1);
+    expect(summary.returnedAfter30Days).toBeGreaterThanOrEqual(1);
+    expect(summary.eligibleFor30DayReturn).toBeGreaterThanOrEqual(summary.returnedAfter30Days);
+  });
+
   it('cascades when the account is deleted', async () => {
     await handle.db.execute(sql`delete from auth_users where id = ${stranger}`);
     const left = await handle.db.execute<{ n: number }>(
       sql`select count(*)::int as n from holding_entries where owner_id = ${stranger}`,
     );
     expect(left.rows[0]?.n).toBe(0);
+    await handle.db.execute(sql`delete from auth_users where id = ${owner}`);
+    const usage = await handle.db.execute<{ n: number }>(
+      sql`select count(*)::int as n from portfolio_usage where owner_id = ${owner}`,
+    );
+    expect(usage.rows[0]?.n).toBe(0);
   });
 });

@@ -21,6 +21,7 @@ const FILES = [
   join(SRC, 'app/portfolio/error.tsx'),
   join(SRC, 'components/portfolio/holding-detail-view.tsx'),
   join(SRC, 'components/portfolio/entry-edit.tsx'),
+  join(SRC, 'components/portfolio/spreadsheet.ts'),
   join(CORE, 'files.ts'),
 ];
 
@@ -33,7 +34,8 @@ const ALLOWED_PHRASES = [/places an order/i];
 function readableText(source: string): string[] {
   const out: string[] = [];
   for (const m of source.matchAll(/(['"`])((?:\\.|(?!\1)[^\\\n])*)\1/g)) out.push(m[2] ?? '');
-  for (const m of source.matchAll(/>([^<>{}\n]*[A-Za-z][^<>{}\n]*)</g)) out.push(m[1] ?? '');
+  for (const m of source.matchAll(/>([^<>{}]*[A-Za-z][^<>{}]*)</g))
+    out.push((m[1] ?? '').replace(/\s+/g, ' '));
   return out.filter((t) => /\s/.test(t.trim()) || BANNED.test(t));
 }
 

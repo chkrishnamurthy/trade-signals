@@ -13,7 +13,19 @@ export const SYMBOL = [
   'company',
   'trading symbol',
 ];
-export const SHARES = ['qty', 'quantity', 'shares', 'no of shares', 'holding qty', 'qty available'];
+export const SHARES = [
+  'qty',
+  'quantity',
+  'shares',
+  'no of shares',
+  'holding qty',
+  'qty available',
+  'quantity available',
+  'total quantity',
+  'net qty',
+  'net quantity',
+  'holding quantity',
+];
 export const AVG = [
   'avg cost',
   'average cost',

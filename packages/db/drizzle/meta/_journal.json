@@ -281,6 +281,13 @@
       "when": 1791622800000,
       "tag": "0040_portfolio",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1791709200000,
+      "tag": "0041_portfolio_usage",
+      "breakpoints": true
     }
   ]
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readCsv } from './csv.js';
 import { derivePortfolio, type PortfolioEntry, wouldGoNegative } from './derive.js';
-import { parsePortfolioFile, parseTradeDate } from './files.js';
+import { parsePortfolioFile, parseTradeDate, recognisePortfolioHeader } from './files.js';
 import { parseRupeesToPaise, parseShareCount } from './money.js';
 import { summarisePortfolio } from './summary.js';
 
@@ -117,6 +117,32 @@ describe('parsePortfolioFile — trade list', () => {
   it('skips futures, other exchanges and future dates, saying why', () => {
     if (!parsed.ok) throw new Error('unreachable');
     expect(parsed.rows.slice(3).map((r) => r.status)).toEqual(['skipped', 'skipped', 'skipped']);
+  });
+});
+
+describe('parsePortfolioFile — rows above the table', () => {
+  it('finds the header under a title and account block', () => {
+    const csv = [
+      'Holdings statement',
+      'Client ID,AB1234',
+      ',',
+      'Symbol,ISIN,Sector,Quantity Available,Average Price',
+      'ALPHA,INE000A01010,Tech,12,100.5',
+    ].join('\n');
+    const p = parsePortfolioFile(csv, '2026-10-05');
+    expect(p.ok && p.rows[0]).toMatchObject({
+      symbol: 'ALPHA',
+      shares: 12,
+      amountPaise: 120600,
+      line: 5,
+    });
+  });
+  it('recognises header rows by kind', () => {
+    expect(recognisePortfolioHeader(['Instrument', 'Qty.', 'Avg. cost'])).toBe('holdings');
+    expect(
+      recognisePortfolioHeader(['symbol', 'trade_date', 'trade_type', 'quantity', 'price']),
+    ).toBe('trades');
+    expect(recognisePortfolioHeader(['Holdings statement'])).toBeNull();
   });
 });
 

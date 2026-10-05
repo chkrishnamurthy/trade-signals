@@ -64,3 +64,22 @@ export const holdingEntries = pgTable(
     check('holding_entries_amount_nonnegative', sql`${table.amountPaise} >= 0`),
   ],
 );
+
+/**
+ * How much each user uses the portfolio page: counts and dates only, one row per
+ * user. Never a stock, a share count or an amount (CLAUDE.md rule 9). It answers
+ * "do people come back?" — the success measure in `docs/planning/holdings-plan.md`.
+ * Deleted with the account.
+ */
+export const portfolioUsage = pgTable('portfolio_usage', {
+  ownerId: integer()
+    .primaryKey()
+    .references(() => authUsers.id, { onDelete: 'cascade' }),
+  firstSeenAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  lastSeenAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  /** Distinct UTC days with any use. */
+  activeDays: integer().notNull().default(1),
+  views: integer().notNull().default(0),
+  imports: integer().notNull().default(0),
+  entriesAdded: integer().notNull().default(0),
+});

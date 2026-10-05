@@ -1,4 +1,4 @@
-import { listUsers } from '@equitywise/db';
+import { listUsers, portfolioUsageSummary } from '@equitywise/db';
 import { ArrowLeftIcon } from 'lucide-react';
 import Link from 'next/link';
 import { AdminUsers } from '@/components/auth/admin-users';
@@ -24,7 +24,10 @@ export const metadata = {
 export default async function AdminPage() {
   const admin = await requireAdminPage();
 
-  const users = await listUsers(getDatabase());
+  const [users, usage] = await Promise.all([
+    listUsers(getDatabase()),
+    portfolioUsageSummary(getDatabase()).catch(() => null),
+  ]);
   const rows = users.map((u) => ({
     id: u.id,
     email: u.email,
@@ -70,6 +73,34 @@ export default async function AdminPage() {
             </Button>
           </PageActions>
         </PageHeader>
+        {usage !== null && (
+          <section
+            aria-labelledby="portfolio-usage-h"
+            className="mb-6 rounded-lg border border-border bg-surface p-4 shadow-subtle"
+          >
+            <h2 id="portfolio-usage-h" className="text-sm font-semibold">
+              Portfolio usage
+            </h2>
+            <p className="mb-3 text-xs text-muted-foreground">
+              Counts only, across all users. Nobody's holdings are shown here or anywhere else.
+            </p>
+            <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3 lg:grid-cols-6">
+              {[
+                ['Opened the page', usage.users],
+                ['Have entries now', usage.usersWithEntries],
+                ['Imported a file', usage.usersWhoImported],
+                ['Active in 7 days', usage.activeLast7Days],
+                ['Came 30+ days ago', usage.eligibleFor30DayReturn],
+                ['Came back after 30 days', usage.returnedAfter30Days],
+              ].map(([label, value]) => (
+                <div key={String(label)} className="flex flex-col">
+                  <dt className="text-xs text-muted-foreground">{label}</dt>
+                  <dd className="text-lg font-semibold tabular-nums">{value}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        )}
         <AdminUsers initial={rows} adminId={admin.id} />
       </PageContainer>
     </AppShell>

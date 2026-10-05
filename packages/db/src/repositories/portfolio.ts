@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import type { Database } from '../client.js';
-import { corporateActions, holdingEntries, instruments } from '../schema/index.js';
+import { corporateActions, holdingEntries, instruments, portfolioUsage } from '../schema/index.js';
 
 /**
  * A user's own typed or uploaded share entries (`schema/portfolio.ts`).
@@ -340,4 +340,76 @@ export async function updateHoldingEntry(
         return { ok: false as const, reason: 'rejected' as const, message: error.message };
       throw error;
     });
+}
+
+export type PortfolioUsageEvent = 'view' | 'import' | 'add';
+
+/**
+ * Counts one use of the portfolio page. Counts and dates only; nothing about what
+ * the user holds. A new UTC day adds one to `active_days`.
+ */
+export async function recordPortfolioUsage(
+  db: Database,
+  ownerId: number,
+  event: PortfolioUsageEvent,
+): Promise<void> {
+  const views = event === 'view' ? 1 : 0;
+  const imports = event === 'import' ? 1 : 0;
+  const added = event === 'add' ? 1 : 0;
+  await db
+    .insert(portfolioUsage)
+    .values({ ownerId, views, imports, entriesAdded: added })
+    .onConflictDoUpdate({
+      target: portfolioUsage.ownerId,
+      set: {
+        views: sql`${portfolioUsage.views} + ${views}`,
+        imports: sql`${portfolioUsage.imports} + ${imports}`,
+        entriesAdded: sql`${portfolioUsage.entriesAdded} + ${added}`,
+        activeDays: sql`${portfolioUsage.activeDays} + case when (${portfolioUsage.lastSeenAt} at time zone 'UTC')::date < (now() at time zone 'UTC')::date then 1 else 0 end`,
+        lastSeenAt: sql`now()`,
+      },
+    });
+}
+
+export interface PortfolioUsageSummary {
+  /** Users who opened the page at least once. */
+  readonly users: number;
+  /** Users who have at least one entry right now. */
+  readonly usersWithEntries: number;
+  readonly usersWhoImported: number;
+  /** Users active in the last 7 days. */
+  readonly activeLast7Days: number;
+  /** Of users who first came 30+ days ago, how many were seen again 30+ days later. */
+  readonly eligibleFor30DayReturn: number;
+  readonly returnedAfter30Days: number;
+}
+
+/** Totals across all users, for the admin page. No row identifies a person or a holding. */
+export async function portfolioUsageSummary(db: Database): Promise<PortfolioUsageSummary> {
+  const result = await db.execute<{
+    users: number;
+    imported: number;
+    active7: number;
+    eligible: number;
+    returned: number;
+    with_entries: number;
+  }>(sql`
+    select
+      count(*)::int as users,
+      count(*) filter (where imports > 0)::int as imported,
+      count(*) filter (where last_seen_at > now() - interval '7 days')::int as active7,
+      count(*) filter (where first_seen_at <= now() - interval '30 days')::int as eligible,
+      count(*) filter (where first_seen_at <= now() - interval '30 days'
+                         and last_seen_at >= first_seen_at + interval '30 days')::int as returned,
+      (select count(distinct owner_id)::int from holding_entries) as with_entries
+    from portfolio_usage`);
+  const row = result.rows[0];
+  return {
+    users: row?.users ?? 0,
+    usersWithEntries: row?.with_entries ?? 0,
+    usersWhoImported: row?.imported ?? 0,
+    activeLast7Days: row?.active7 ?? 0,
+    eligibleFor30DayReturn: row?.eligible ?? 0,
+    returnedAfter30Days: row?.returned ?? 0,
+  };
 }

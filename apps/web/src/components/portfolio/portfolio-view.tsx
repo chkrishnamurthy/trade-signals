@@ -57,6 +57,7 @@ import type {
 import { EntryRows } from './entry-edit';
 import { longDate, pctText, request } from './portfolio-client';
 import { paiseToPlain, parseRupeesInput } from './portfolio-format';
+import { readSpreadsheet } from './spreadsheet';
 
 /**
  * My portfolio — shares the signed-in user typed in or uploaded themselves.
@@ -784,12 +785,18 @@ function ImportDialog({
   const onFile = async (file: File | undefined) => {
     if (file === undefined) return;
     reset();
-    if (file.size > 1_000_000) return setError('That file is too large to import.');
-    if (/\.xlsx?$/i.test(file.name))
-      return setError(
-        'Excel files are not supported yet. Open it in Excel or Google Sheets and save it as CSV, then upload that.',
-      );
-    const content = await file.text();
+    if (file.size > 5_000_000) return setError('That file is too large to import.');
+    let content: string;
+    if (/\.xlsx?$/i.test(file.name)) {
+      setBusy(true);
+      const sheet = await readSpreadsheet(file);
+      setBusy(false);
+      if (!sheet.ok) return setError(sheet.message);
+      content = sheet.text;
+    } else {
+      content = await file.text();
+    }
+    if (content.length > 1_000_000) return setError('That file is too large to import.');
     setText(content);
     setFileName(file.name);
     setBusy(true);
@@ -832,9 +839,9 @@ function ImportDialog({
         <DialogHeader>
           <DialogTitle>Upload a file</DialogTitle>
           <DialogDescription>
-            A holdings file (stock, shares, average cost) or a trade list (stock, date, buy or sell,
-            shares, price), saved as CSV. We show every row before anything is saved, and we do not
-            keep the file.
+            A holdings file (stock, shares, average cost) or a trade list (stock, date, added or
+            removed, shares, price), as CSV or Excel (.xlsx). We show every row before anything is
+            saved, and we do not keep the file.
           </DialogDescription>
         </DialogHeader>
 
@@ -850,11 +857,11 @@ function ImportDialog({
         ) : (
           <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="pf-file">CSV file</Label>
+              <Label htmlFor="pf-file">CSV or Excel file</Label>
               <Input
                 id="pf-file"
                 type="file"
-                accept=".csv,text/csv"
+                accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 onChange={(e) => void onFile(e.target.files?.[0])}
               />
               {fileName !== '' && <span className="text-xs text-muted-foreground">{fileName}</span>}

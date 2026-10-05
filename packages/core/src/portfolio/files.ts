@@ -100,10 +100,27 @@ const skipped = (base: Omit<ParsedRow, 'status' | 'message'>, message: string): 
   message,
 });
 
+/** How many rows above the table a broker file may carry (title, client id, date range). */
+export const MAX_PREAMBLE_ROWS = 40;
+
+/** Which kind of file a header row describes, or null when it is not a header we know. */
+export function recognisePortfolioHeader(cells: readonly string[]): FileKind | null {
+  const headers = cells.map(normalise);
+  const has = (names: readonly string[]) => indexOfAny(headers, names) !== -1;
+  if (has(SYMBOL) && has(SHARES) && has(DATE) && has(SIDE) && has(PRICE)) return 'trades';
+  if (has(SYMBOL) && has(SHARES) && (has(AVG) || has(INVESTED))) return 'holdings';
+  return null;
+}
+
 export function parsePortfolioFile(text: string, today: string): ParsedFile {
   const records = readCsv(text);
-  const headerIndex = records.findIndex((r) => r.some((c) => c !== ''));
-  if (headerIndex === -1) return { ok: false, code: 'EMPTY', message: 'The file is empty.' };
+  const firstFilled = records.findIndex((r) => r.some((c) => c !== ''));
+  if (firstFilled === -1) return { ok: false, code: 'EMPTY', message: 'The file is empty.' };
+  // Broker exports often put a title and the account's details above the table.
+  const recognised = records
+    .slice(0, MAX_PREAMBLE_ROWS)
+    .findIndex((r) => recognisePortfolioHeader(r) !== null);
+  const headerIndex = recognised === -1 ? firstFilled : recognised;
   const headers = (records[headerIndex] ?? []).map(normalise);
   const body = records.slice(headerIndex + 1);
   if (body.length > MAX_IMPORT_ROWS) {

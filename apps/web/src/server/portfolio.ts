@@ -19,6 +19,8 @@ import {
   listInstrumentsById,
   listShareChanges,
   MAX_PORTFOLIO_ENTRIES,
+  type PortfolioUsageEvent,
+  recordPortfolioUsage,
   resolveInstrumentIds,
   updateHoldingEntry,
   writeHoldingEntries,
@@ -74,6 +76,11 @@ function toEntry(row: HoldingEntryRow): PortfolioEntry {
     shares: row.shares,
     amountPaise: row.amountPaise,
   };
+}
+
+/** Counts a use of the page (counts only, never contents). Never fails the request. */
+async function countUse(ownerId: number, event: PortfolioUsageEvent): Promise<void> {
+  await recordPortfolioUsage(getDatabase(), ownerId, event).catch(() => undefined);
 }
 
 async function shareChangesFor(instrumentIds: readonly number[]): Promise<ShareChange[]> {
@@ -205,7 +212,10 @@ function toEntryDto(entry: HoldingEntryRow): PortfolioEntryDto {
 }
 
 export async function getPortfolio(): Promise<PortfolioDto> {
-  return (await buildPortfolio(await requireOwnerId())).dto;
+  const ownerId = await requireOwnerId();
+  const built = await buildPortfolio(ownerId);
+  await countUse(ownerId, 'view');
+  return built.dto;
 }
 
 /** One holding with every entry behind it, or null when the user holds none of that stock. */
@@ -310,7 +320,10 @@ export async function addPortfolioEntry(
     ],
     validate: (ledger) => firstProblem(ledger, changes),
   });
-  if (written.ok) return { ok: true };
+  if (written.ok) {
+    await countUse(ownerId, 'add');
+    return { ok: true };
+  }
   if (written.reason === 'limit_reached') {
     return fail(
       409,
@@ -541,7 +554,10 @@ export async function commitPortfolioImport(
       : {}),
     validate: (ledger) => firstProblem(ledger, changes),
   });
-  if (written.ok) return { ok: true, ...written.value };
+  if (written.ok) {
+    await countUse(ownerId, 'import');
+    return { ok: true, ...written.value };
+  }
   if (written.reason === 'limit_reached')
     return {
       ok: false,
