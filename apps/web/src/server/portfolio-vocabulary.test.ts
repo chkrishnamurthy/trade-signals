@@ -43,6 +43,8 @@ const FILES = [
   join(CORE, 'risk.ts'),
   join(SRC, 'lib/portfolio-risk.ts'),
   join(SRC, 'components/portfolio/risk-view.tsx'),
+  join(SRC, 'components/portfolio/tax-lots-view.tsx'),
+  join(SRC, 'app/api/portfolio/tax/lots/route.ts'),
 ];
 
 const BANNED =

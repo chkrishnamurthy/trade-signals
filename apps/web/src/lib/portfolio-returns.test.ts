@@ -5,6 +5,7 @@ import {
   fillQuarters,
   lotsFor,
   priceLookup,
+  purchaseHistory,
   realisedCsv,
   valueForReturns,
 } from './portfolio-returns';
@@ -227,5 +228,52 @@ describe('fillQuarters', () => {
       { label: '2026 Q2', amountPaise: 7 },
     ]);
     expect(fillQuarters(new Map())).toEqual([]);
+  });
+});
+
+describe('purchaseHistory', () => {
+  it('shows each purchase with what was removed from it and what is left, after a split', () => {
+    const entries = [
+      e(1, 'add', '2024-01-10', 10, 100_000),
+      e(2, 'add', '2024-06-10', 10, 150_000),
+      e(3, 'remove', '2025-03-03', 30, 450_000),
+    ];
+    // A 1-into-2 split in Jan 2025: 20 + 20 shares on today's basis.
+    const changes = [{ instrumentId: 1, kind: 'split', exDate: '2025-01-06', ratio: 0.5 }];
+    const history = purchaseHistory(entries, changes, derivePortfolio(entries, changes), 1);
+    expect(history).toEqual([
+      {
+        acquiredOn: '2024-01-10',
+        trackedFrom: '2024-01-10',
+        shares: 20,
+        costPaise: 100_000,
+        removed: [
+          {
+            removedOn: '2025-03-03',
+            shares: 20,
+            proceedsPaise: 300_000,
+            gainPaise: 200_000,
+            term: 'long',
+          },
+        ],
+        leftShares: 0,
+      },
+      {
+        acquiredOn: '2024-06-10',
+        trackedFrom: '2024-06-10',
+        shares: 20,
+        costPaise: 150_000,
+        removed: [
+          {
+            removedOn: '2025-03-03',
+            shares: 10,
+            proceedsPaise: 150_000,
+            gainPaise: 75_000,
+            term: 'short',
+          },
+        ],
+        leftShares: 10,
+      },
+    ]);
   });
 });

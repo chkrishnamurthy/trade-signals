@@ -14,16 +14,20 @@ import {
   summariseTaxYear,
   summariseTaxYears,
   type TaxRealisation,
-  taxRealisations,
+  taxLots,
   taxYears,
   timeWeightedGrowth,
+  unrealisedByTerm,
+  valueOpenLots,
   valueSeries,
 } from '@equitywise/core';
-import { lotsFor, priceLookup } from './portfolio-returns';
+import { priceLookup } from './portfolio-returns';
 import type {
   BenchmarkIndexDto,
   GrowthPointDto,
+  OpenLotDto,
   PortfolioBenchmarkDto,
+  PortfolioHoldingDto,
   PortfolioTaxDto,
   TaxRowDto,
   TaxYearDto,
@@ -154,9 +158,11 @@ export function composeTax(input: {
   readonly fmv2018: ReadonlyMap<number, number>;
   readonly fmvLoaded: boolean;
   readonly dividendRecords: readonly DividendRecordInput[];
+  /** Today's holdings, to value the lots still held. */
+  readonly holdings: readonly PortfolioHoldingDto[];
   readonly today: string;
 }): PortfolioTaxDto {
-  const realisations = taxRealisations(input.entries, input.changes, input.fmv2018);
+  const { realisations, open } = taxLots(input.entries, input.changes, input.fmv2018);
   const current = financialYear(input.today);
   const years = [...new Set([current, ...taxYears(realisations)])].sort().reverse();
   const dividends = dividendsReceived(input.entries, input.changes, input.dividendRecords);
@@ -196,21 +202,57 @@ export function composeTax(input: {
     };
   }
 
-  const turningLongTerm = input.derived.holdings
-    .flatMap((h) =>
-      lotsFor(input.derived, h.instrumentId, input.today)
-        .filter((lot) => lot.daysToLongTerm > 0 && lot.daysToLongTerm <= 90)
-        .map((lot) => ({
-          ...label(h.instrumentId),
-          acquiredOn: lot.acquiredOn,
-          shares: lot.shares,
-          costPaise: lot.costPaise,
-          daysToLongTerm: lot.daysToLongTerm,
-        })),
-    )
+  const valued = valueOpenLots(
+    open,
+    new Map(
+      input.holdings.map((h) => [h.instrumentId, { valuePaise: h.valuePaise, shares: h.shares }]),
+    ),
+    input.today,
+  );
+  const openLots: OpenLotDto[] = valued
+    .map((lot) => ({
+      ...label(lot.instrumentId),
+      isin: input.isins.get(lot.instrumentId) ?? null,
+      acquiredOn: lot.acquiredOn,
+      trackedFrom: lot.trackedFrom,
+      shares: lot.shares,
+      costPaise: lot.costPaise,
+      fmvPaise: lot.fmvPaise,
+      valuePaise: lot.valuePaise,
+      costUsedPaise: lot.costUsedPaise,
+      gainPaise: lot.gainPaise,
+      daysHeld: lot.daysHeld,
+      term: lot.term,
+      daysToLongTerm: lot.daysToLongTerm,
+      bonus: lot.bonus,
+      grandfathered: lot.grandfathered,
+      fmvMissing: lot.fmvMissing,
+    }))
+    .sort((a, b) =>
+      a.symbol !== b.symbol ? (a.symbol < b.symbol ? -1 : 1) : a.acquiredOn < b.acquiredOn ? -1 : 1,
+    );
+  const totals = unrealisedByTerm(valued);
+  // From the tax lots, so bonus shares count from their own date.
+  const turningLongTerm = openLots
+    .filter((lot) => lot.daysToLongTerm > 0 && lot.daysToLongTerm <= 90)
+    .map((lot) => ({
+      symbol: lot.symbol,
+      name: lot.name,
+      acquiredOn: lot.acquiredOn,
+      shares: lot.shares,
+      costPaise: lot.costPaise,
+      daysToLongTerm: lot.daysToLongTerm,
+    }))
     .sort((a, b) => a.daysToLongTerm - b.daysToLongTerm);
 
-  return { years, byYear, fmvLoaded: input.fmvLoaded, turningLongTerm };
+  return {
+    years,
+    byYear,
+    fmvLoaded: input.fmvLoaded,
+    turningLongTerm,
+    openLots,
+    unrealised: { short: { ...totals.short }, long: { ...totals.long }, unpriced: totals.unpriced },
+  };
 }
 
 /** One financial year's sales as CSV, laid out like the long-term gains schedule (s.112A). */
@@ -273,5 +315,73 @@ export function taxCsv(year: TaxYearDto): string {
           `"Losses from earlier years set off this year (from the years recorded in EquityWise): Rs ${rupees(year.broughtForwardUsedPaise)}"`,
         ]
       : []),
+  ].join('\n');
+}
+
+/** The day a lot becomes long term: the day after its first anniversary. */
+function longTermFrom(acquiredOn: string): string {
+  const a = new Date(`${acquiredOn}T00:00:00Z`);
+  return new Date(Date.UTC(a.getUTCFullYear() + 1, a.getUTCMonth(), a.getUTCDate() + 1))
+    .toISOString()
+    .slice(0, 10);
+}
+
+/** Every lot still held as CSV, for the user's accountant. Indicative; not a tax computation. */
+export function openLotsCsv(lots: readonly OpenLotDto[], today: string): string {
+  const rupees = (p: number) => {
+    const sign = p < 0 ? '-' : '';
+    const abs = Math.abs(p);
+    return `${sign}${Math.floor(abs / 100)}.${String(abs % 100).padStart(2, '0')}`;
+  };
+  const q = (v: string) => `"${v.replace(/"/g, '""')}"`;
+  const header = [
+    'ISIN',
+    'Stock',
+    'Name',
+    'Acquired',
+    'Shares',
+    'Cost of acquisition (Rs)',
+    'FMV a share on 31 Jan 2018 (Rs)',
+    'Total FMV (Rs)',
+    'Value today (Rs)',
+    'Cost used today (Rs)',
+    'Unrealised gain (Rs)',
+    'Days held',
+    'Term today',
+    'Long term from',
+    'Bonus shares',
+    'Note',
+  ];
+  const lines = lots.map((l) =>
+    [
+      q(l.isin ?? ''),
+      q(l.symbol),
+      q(l.name),
+      l.acquiredOn,
+      String(l.shares),
+      rupees(l.costPaise),
+      l.fmvPaise === null || l.shares <= 0 ? '' : rupees(Math.round(l.fmvPaise / l.shares)),
+      l.fmvPaise === null ? '' : rupees(l.fmvPaise),
+      l.valuePaise === null ? '' : rupees(l.valuePaise),
+      rupees(l.costUsedPaise),
+      l.gainPaise === null ? '' : rupees(l.gainPaise),
+      String(l.daysHeld),
+      l.term === 'long' ? 'Long term' : 'Short term',
+      l.term === 'long' ? '' : longTermFrom(l.acquiredOn),
+      l.bonus ? 'Yes' : 'No',
+      q(
+        [
+          l.valuePaise === null ? 'No price today' : '',
+          l.fmvMissing ? '31 Jan 2018 price not found; 2018 rule not applied' : '',
+        ]
+          .filter((x) => x !== '')
+          .join('; '),
+      ),
+    ].join(','),
+  );
+  return [
+    `"Shares still held on ${today}. Indicative, for your accountant. Not tax advice or a tax computation. Bonus shares are their own lots from the bonus date; transfer expenses not included."`,
+    header.join(','),
+    ...lines,
   ].join('\n');
 }

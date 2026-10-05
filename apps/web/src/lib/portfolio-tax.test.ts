@@ -1,6 +1,7 @@
 import { derivePortfolio, type PortfolioEntry } from '@equitywise/core';
 import { describe, expect, it } from 'vitest';
-import { composeBenchmark, composeTax, taxCsv } from './portfolio-tax';
+import { composeBenchmark, composeTax, openLotsCsv, taxCsv } from './portfolio-tax';
+import type { PortfolioHoldingDto } from './portfolio-types';
 
 const e = (
   id: number,
@@ -28,6 +29,10 @@ describe('composeTax', () => {
     fmv2018: new Map([[1, 27_000]]),
     fmvLoaded: true,
     dividendRecords: [{ instrumentId: 1, exDate: '2025-06-03', amountPaise: 785 }],
+    // 50 shares left, worth ₹22,500 today.
+    holdings: [
+      { instrumentId: 1, symbol: 'ITC', name: 'ITC', shares: 50, valuePaise: 2_250_000 },
+    ] as PortfolioHoldingDto[],
     today: '2026-04-10',
   });
   it('lists the current year and every year with a sale, newest first', () => {
@@ -54,6 +59,34 @@ describe('composeTax', () => {
     expect(tax.turningLongTerm).toEqual([
       expect.objectContaining({ symbol: 'ITC', shares: 50, daysToLongTerm: 54 }),
     ]);
+  });
+  it('values the lots still held and totals unrealised gains by term', () => {
+    expect(tax.openLots).toEqual([
+      expect.objectContaining({
+        symbol: 'ITC',
+        acquiredOn: '2025-06-02',
+        shares: 50,
+        costPaise: 2_000_000,
+        valuePaise: 2_250_000,
+        gainPaise: 250_000,
+        term: 'short',
+        daysToLongTerm: 54,
+      }),
+    ]);
+    expect(tax.unrealised.short).toEqual({
+      lots: 1,
+      valuePaise: 2_250_000,
+      costUsedPaise: 2_000_000,
+      gainPaise: 250_000,
+    });
+    expect(tax.unrealised.long.lots).toBe(0);
+  });
+  it('writes the lots still held as CSV, with the day each turns long term', () => {
+    const lines = openLotsCsv(tax.openLots, '2026-04-10').split('\n');
+    expect(lines[0]).toContain('Not tax advice');
+    expect(lines[2]).toBe(
+      '"INE154A01025","ITC","ITC",2025-06-02,50,20000.00,,,22500.00,20000.00,2500.00,312,Short term,2026-06-03,No,""',
+    );
   });
   it('writes the accountant CSV with per-share sale price and 31 Jan 2018 value', () => {
     const y = tax.byYear['2025-26'];

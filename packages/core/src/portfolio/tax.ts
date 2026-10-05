@@ -114,18 +114,33 @@ function piecesOf(
   return pieces;
 }
 
+/** A tax lot still held: shares on today's basis, what was paid, and the 2018 value. */
+export interface OpenTaxLot {
+  readonly instrumentId: number;
+  readonly acquiredOn: string;
+  /** The entry date the lot was recorded from. */
+  readonly trackedFrom: string;
+  readonly shares: number;
+  /** What was actually paid for the shares still held (zero for bonus shares). */
+  readonly costPaise: number;
+  /** Total 31 Jan 2018 value of these shares, when acquired before February 2018 and known. */
+  readonly fmvPaise: number | null;
+  readonly bonus: boolean;
+}
+
 /**
  * Removals matched to tax lots (same-day additions first, then the oldest
- * acquisition), with the 2018 rule applied. `fmv2018` maps an instrument to
- * its 31 Jan 2018 high a share (paise). A removal of more shares than were
- * held is left out, as the returns view leaves it out.
+ * acquisition), with the 2018 rule applied, and the lots left over. `fmv2018`
+ * maps an instrument to its 31 Jan 2018 high a share (paise). A removal of more
+ * shares than were held is left out, as the returns view leaves it out.
  */
-export function taxRealisations(
+export function taxLots(
   entries: readonly PortfolioEntry[],
   changes: readonly ShareChange[],
   fmv2018: ReadonlyMap<number, number>,
-): TaxRealisation[] {
+): { readonly realisations: TaxRealisation[]; readonly open: OpenTaxLot[] } {
   const out: TaxRealisation[] = [];
+  const open: OpenTaxLot[] = [];
   const instruments = [...new Set(entries.map((e) => e.instrumentId))];
   for (const instrumentId of instruments) {
     const mine = changes
@@ -248,14 +263,134 @@ export function taxRealisations(
       }
       for (let i = lots.length - 1; i >= 0; i--) if (lots[i]?.shares === 0) lots.splice(i, 1);
     }
+    for (const lot of lots)
+      if (lot.shares > 0)
+        open.push({
+          instrumentId,
+          acquiredOn: lot.acquiredOn,
+          trackedFrom: lot.trackedFrom,
+          shares: lot.shares,
+          costPaise: lot.costPaise,
+          fmvPaise: lot.fmvPaise,
+          bonus: lot.bonus,
+        });
   }
-  return out.sort((a, b) =>
+  out.sort((a, b) =>
     a.removedOn < b.removedOn
       ? -1
       : a.removedOn > b.removedOn
         ? 1
         : a.instrumentId - b.instrumentId,
   );
+  return { realisations: out, open };
+}
+
+/** Removals matched to tax lots, with the 2018 rule; see `taxLots`. */
+export function taxRealisations(
+  entries: readonly PortfolioEntry[],
+  changes: readonly ShareChange[],
+  fmv2018: ReadonlyMap<number, number>,
+): TaxRealisation[] {
+  return taxLots(entries, changes, fmv2018).realisations;
+}
+
+/** Days until a lot acquired on `acquiredOn` is long term (more than 12 months); 0 once it is. */
+export function daysToLongTerm(acquiredOn: string, today: string): number {
+  if (termOf(acquiredOn, today) === 'long') return 0;
+  const a = new Date(`${acquiredOn}T00:00:00Z`);
+  const anniversary = new Date(Date.UTC(a.getUTCFullYear() + 1, a.getUTCMonth(), a.getUTCDate()));
+  return daysHeldBetween(today, anniversary.toISOString().slice(0, 10)) + 1;
+}
+
+export interface ValuedLot extends OpenTaxLot {
+  /** Today's value of the lot; null when the stock has no price. */
+  readonly valuePaise: number | null;
+  readonly daysHeld: number;
+  /** As of today. */
+  readonly term: Term;
+  readonly daysToLongTerm: number;
+  /**
+   * The cost a disposal today would be worked out from: what was paid, or for a
+   * long-term lot acquired before February 2018, the higher of that and the
+   * lower of the 31 Jan 2018 value and today's value.
+   */
+  readonly costUsedPaise: number;
+  /** Today's value less the cost used; null without a price. */
+  readonly gainPaise: number | null;
+  readonly grandfathered: boolean;
+  /** Acquired before February 2018 but no 31 Jan 2018 price is known. */
+  readonly fmvMissing: boolean;
+}
+
+/**
+ * Values each lot still held at today's price. `holdingValue` gives each
+ * stock's value and share count today; a lot is valued at its part of that.
+ */
+export function valueOpenLots(
+  lots: readonly OpenTaxLot[],
+  holdingValue: ReadonlyMap<
+    number,
+    { readonly valuePaise: number | null; readonly shares: number }
+  >,
+  today: string,
+): ValuedLot[] {
+  return lots.map((lot) => {
+    const holding = holdingValue.get(lot.instrumentId);
+    const valuePaise =
+      holding === undefined || holding.valuePaise === null || holding.shares <= 0
+        ? null
+        : Math.round((holding.valuePaise * lot.shares) / holding.shares);
+    const term = termOf(lot.acquiredOn, today);
+    const preCutoff = lot.acquiredOn < GRANDFATHERING_CUTOFF;
+    const ruleApplies =
+      preCutoff && term === 'long' && lot.fmvPaise !== null && valuePaise !== null;
+    const costUsedPaise =
+      ruleApplies && lot.fmvPaise !== null && valuePaise !== null
+        ? Math.max(lot.costPaise, Math.min(lot.fmvPaise, valuePaise))
+        : lot.costPaise;
+    return {
+      ...lot,
+      valuePaise,
+      daysHeld: daysHeldBetween(lot.acquiredOn, today),
+      term,
+      daysToLongTerm: daysToLongTerm(lot.acquiredOn, today),
+      costUsedPaise,
+      gainPaise: valuePaise === null ? null : valuePaise - costUsedPaise,
+      grandfathered: ruleApplies && costUsedPaise !== lot.costPaise,
+      fmvMissing: preCutoff && lot.fmvPaise === null,
+    };
+  });
+}
+
+export interface UnrealisedByTerm {
+  readonly lots: number;
+  readonly valuePaise: number;
+  readonly costUsedPaise: number;
+  readonly gainPaise: number;
+}
+
+/** Totals of priced lots by today's term, and how many lots have no price. */
+export function unrealisedByTerm(lots: readonly ValuedLot[]): {
+  readonly short: UnrealisedByTerm;
+  readonly long: UnrealisedByTerm;
+  readonly unpriced: number;
+} {
+  const zero = { lots: 0, valuePaise: 0, costUsedPaise: 0, gainPaise: 0 };
+  const short = { ...zero };
+  const long = { ...zero };
+  let unpriced = 0;
+  for (const lot of lots) {
+    if (lot.valuePaise === null || lot.gainPaise === null) {
+      unpriced += 1;
+      continue;
+    }
+    const t = lot.term === 'long' ? long : short;
+    t.lots += 1;
+    t.valuePaise += lot.valuePaise;
+    t.costUsedPaise += lot.costUsedPaise;
+    t.gainPaise += lot.gainPaise;
+  }
+  return { short, long, unpriced };
 }
 
 export interface TaxRates {

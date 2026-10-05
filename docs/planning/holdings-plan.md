@@ -629,3 +629,15 @@ Decisions (owner approved the task list as proposed): no Sharpe, Sortino or Calm
 - **Data:** the analysis page reads at least a year of closes for every held stock and Nifty 50, once, for every tab. No migration and no new source.
 - **Page (Risk tab):** three tiles with a plain sentence each (or "needs about N more months"), a "below the last high" drawdown chart with the deepest fall marked, a sortable per-stock table (a list on phones), the correlation grid with the number in every cell and a colour key (most and least related pairs on phones), and "How this is worked out". Portfolio vocabulary test covers the new files.
 - **Known limits:** Nifty 50 is a price index (no dividends); per-stock figures use the last year of prices whenever the stock was added; opening the page at `#risk` directly lands on Allocation (Phase 3 deferred fix).
+
+## Phase 6 — Later
+
+Three parts, each its own decision (see the phase table): 6.1 tax-lot reports, 6.2 alerts on holdings, 6.3 CAS and contract-note import. Account Aggregator and any broker connection stay out (CLAUDE.md).
+
+### 6.1 Tax-lot reports (built 2026-10-05)
+
+- **Core:** `taxLots()` returns the realisations and the tax lots still held (bonus shares as their own zero-cost lots, 31 Jan 2018 value kept per lot); `valueOpenLots()` values each lot at its part of today's holding, with the 2018 rule for long-term lots acquired before February 2018 and a flag when that price is missing; `unrealisedByTerm()`; `daysToLongTerm()`.
+- **Tax tab — "Shares still held":** unrealised short- and long-term totals, every lot (acquired, shares, cost used, value today, unrealised, term today and days to long term), 2018 rule and bonus notes, a phone list, and `GET /api/portfolio/tax/lots` CSV export with "Long term from" dates. "Passing 12 months soon" now reads the tax lots, so bonus shares count from their own date.
+- **Holding page — "Purchase history":** each purchase with what was later removed from it (date, shares, proceeds, gain, term) and what is left; shown once something has been removed.
+- **Fix found on the way:** the nightly corporate-actions sync records splits and bonuses up to 30 days before their ex-date, and the portfolio applied them at once (a 1:1 bonus showed doubled shares at the old price). The portfolio now applies only actions on or before today. The same early adjustment in price history (`packages/db/src/repositories/candles.ts`) is out of this scope and was raised as a separate task.
+- Left out on purpose: anything that suggests which lots to dispose of (tax harvesting).

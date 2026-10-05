@@ -125,6 +125,8 @@ export interface HoldingDetailDto {
   lots: LotDto[];
   /** Shares removed from this stock, matched to purchases oldest first. */
   realised: RealisedRowDto[];
+  /** Each purchase with what was later removed from it and what is left. */
+  purchases: PurchaseDto[];
   dividends: DividendRowDto[];
   /** This stock's own return: unrealised + realised + dividends. */
   totalReturnPaise: number | null;
@@ -407,6 +409,15 @@ export interface PortfolioTaxDto {
   byYear: Record<string, TaxYearDto>;
   /** Whether 31 Jan 2018 prices are loaded (the 2018 rule needs them). */
   fmvLoaded: boolean;
+  /** Every tax lot still held, valued today (bonus shares as their own lots). */
+  openLots: OpenLotDto[];
+  /** Unrealised gains of the lots still held, by today's term. */
+  unrealised: {
+    short: UnrealisedTermDto;
+    long: UnrealisedTermDto;
+    /** Lots without a price, left out of the totals. */
+    unpriced: number;
+  };
   /** Purchases still held that pass 12 months in the next 90 days. */
   turningLongTerm: {
     symbol: string;
@@ -463,4 +474,52 @@ export interface PortfolioRiskDto {
   }[];
   /** Largest holdings (up to 15); cells[i][j] is null with too few shared sessions. */
   correlation: { symbols: string[]; cells: (number | null)[][] };
+}
+
+export interface UnrealisedTermDto {
+  lots: number;
+  valuePaise: number;
+  costUsedPaise: number;
+  gainPaise: number;
+}
+
+/** A tax lot still held (phase 6.1). */
+export interface OpenLotDto {
+  symbol: string;
+  name: string;
+  isin: string | null;
+  acquiredOn: string;
+  trackedFrom: string;
+  shares: number;
+  /** What was paid for these shares; zero for bonus shares. */
+  costPaise: number;
+  /** Total 31 Jan 2018 value, for shares acquired before February 2018 when known. */
+  fmvPaise: number | null;
+  valuePaise: number | null;
+  /** Cost a gain would be worked out from today (the 2018 rule applied when long term). */
+  costUsedPaise: number;
+  gainPaise: number | null;
+  daysHeld: number;
+  term: 'short' | 'long';
+  daysToLongTerm: number;
+  bonus: boolean;
+  grandfathered: boolean;
+  fmvMissing: boolean;
+}
+
+/** One purchase of a stock and what became of it (phase 6.1). */
+export interface PurchaseDto {
+  acquiredOn: string;
+  trackedFrom: string;
+  /** Shares bought, on today's basis. */
+  shares: number;
+  costPaise: number;
+  removed: {
+    removedOn: string;
+    shares: number;
+    proceedsPaise: number;
+    gainPaise: number;
+    term: TermKey;
+  }[];
+  leftShares: number;
 }

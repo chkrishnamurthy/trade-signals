@@ -2,13 +2,17 @@ import { describe, expect, it } from 'vitest';
 import { benchmarkReplay, indexGrowth, periodReturns, timeWeightedGrowth } from './benchmark.js';
 import { derivePortfolio, type PortfolioEntry } from './derive.js';
 import {
+  daysToLongTerm,
   longTermExemptionPaise,
   ratesOn,
   summariseTaxYear,
   summariseTaxYears,
   type TaxRealisation,
+  taxLots,
   taxRealisations,
   taxYears,
+  unrealisedByTerm,
+  valueOpenLots,
 } from './tax.js';
 
 const e = (
@@ -478,5 +482,70 @@ describe('benchmark review fixes', () => {
       '2025-03-31',
     );
     expect(r['1M']).toBeCloseTo(0.1, 10);
+  });
+});
+
+describe('tax lots still held (phase 6.1)', () => {
+  const fmv = new Map([[1, rs(270)]]);
+  // 100 shares in 2016 for ₹25,000 (₹270 on 31 Jan 2018); 50 more in Aug 2025 for ₹20,000;
+  // a 1:1 bonus in Jan 2026; 60 removed in Mar 2026 (oldest first).
+  const entries = [
+    e(1, 'add', '2016-06-15', 100, rs(25_000)),
+    e(2, 'add', '2025-08-01', 50, rs(20_000)),
+    e(3, 'remove', '2026-03-02', 60, rs(30_000)),
+  ];
+  const bonus = { instrumentId: 1, kind: 'bonus', exDate: '2026-01-05', ratio: 0.5 };
+  const { open } = taxLots(entries, [bonus], fmv);
+
+  it('leaves the lots not yet removed, each purchase with its own zero-cost bonus lot', () => {
+    expect(open.map((l) => [l.acquiredOn, l.shares, l.costPaise, l.fmvPaise, l.bonus])).toEqual([
+      ['2016-06-15', 40, rs(10_000), rs(10_800), false],
+      ['2025-08-01', 50, rs(20_000), null, false],
+      ['2026-01-05', 100, 0, null, true],
+      ['2026-01-05', 50, 0, null, true],
+    ]);
+  });
+
+  it('values each lot at its part of the holding, with the 2018 rule on what is still held', () => {
+    // 240 shares worth ₹1,20,000 today (₹500 a share).
+    const valued = valueOpenLots(
+      open,
+      new Map([[1, { valuePaise: rs(120_000), shares: 240 }]]),
+      '2026-06-01',
+    );
+    expect(
+      valued.map((l) => [l.valuePaise, l.costUsedPaise, l.gainPaise, l.term, l.grandfathered]),
+    ).toEqual([
+      [rs(20_000), rs(10_800), rs(9_200), 'long', true],
+      [rs(25_000), rs(20_000), rs(5_000), 'short', false],
+      [rs(50_000), 0, rs(50_000), 'short', false],
+      [rs(25_000), 0, rs(25_000), 'short', false],
+    ]);
+    expect(valued[1]?.daysToLongTerm).toBe(62);
+    const totals = unrealisedByTerm(valued);
+    expect(totals.long).toEqual({
+      lots: 1,
+      valuePaise: rs(20_000),
+      costUsedPaise: rs(10_800),
+      gainPaise: rs(9_200),
+    });
+    expect(totals.short.gainPaise).toBe(rs(80_000));
+    expect(totals.unpriced).toBe(0);
+  });
+
+  it('counts a lot without a price apart, and flags a pre-2018 lot with no 31 Jan 2018 price', () => {
+    const [lot] = valueOpenLots(
+      taxLots([e(1, 'add', '2015-01-01', 10, rs(1_000))], [], new Map()).open,
+      new Map(),
+      '2026-06-01',
+    );
+    expect(lot).toMatchObject({ valuePaise: null, gainPaise: null, fmvMissing: true });
+    expect(unrealisedByTerm(lot === undefined ? [] : [lot]).unpriced).toBe(1);
+  });
+
+  it('counts days to long term from the day after the anniversary', () => {
+    expect(daysToLongTerm('2025-06-01', '2026-06-01')).toBe(1);
+    expect(daysToLongTerm('2025-06-01', '2026-06-02')).toBe(0);
+    expect(daysToLongTerm('2025-06-01', '2026-05-31')).toBe(2);
   });
 });

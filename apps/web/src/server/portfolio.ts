@@ -42,11 +42,12 @@ import {
   composeReturns,
   headlineReturn,
   lotsFor,
+  purchaseHistory,
   realisedCsv,
   valueForReturns,
 } from '@/lib/portfolio-returns';
 import { composeRisk } from '@/lib/portfolio-risk';
-import { BENCHMARKS, composeBenchmark, composeTax, taxCsv } from '@/lib/portfolio-tax';
+import { BENCHMARKS, composeBenchmark, composeTax, openLotsCsv, taxCsv } from '@/lib/portfolio-tax';
 import type {
   HoldingDetailDto,
   ImportPreviewDto,
@@ -138,8 +139,15 @@ async function countUse(ownerId: number, event: PortfolioUsageEvent): Promise<vo
   await recordPortfolioUsage(getDatabase(), ownerId, event).catch(() => undefined);
 }
 
+/**
+ * Splits, bonuses and consolidations that have taken effect. The nightly sync
+ * records announced ones up to a month ahead; until the ex-date the shares and
+ * the price are still on the old basis, so a future one must not apply yet.
+ */
 async function shareChangesFor(instrumentIds: readonly number[]): Promise<ShareChange[]> {
-  return listShareChanges(getDatabase(), [...new Set(instrumentIds)]);
+  const today = todayInIndia();
+  const changes = await listShareChanges(getDatabase(), [...new Set(instrumentIds)]);
+  return changes.filter((c) => c.exDate <= today);
 }
 
 /** A sentence for the first problem a ledger has, or null when it is consistent. */
@@ -421,8 +429,17 @@ async function taxFor(built: Built, inputs: ReturnInputs): Promise<PortfolioTaxD
     fmv2018,
     fmvLoaded,
     dividendRecords: inputs.dividendRecords,
+    holdings: built.dto.holdings,
     today: inputs.today,
   });
+}
+
+/** Every tax lot still held, as CSV for the user's accountant. */
+export async function getOpenLotsCsv(): Promise<string> {
+  const ownerId = await requireOwnerId();
+  const built = await buildPortfolio(ownerId);
+  const tax = await taxFor(built, await returnInputs(built));
+  return openLotsCsv(tax.openLots, todayInIndia());
 }
 
 /** One financial year's sales as CSV for the user's accountant; null for a year with none. */
@@ -513,6 +530,7 @@ export async function getHoldingDetail(symbol: string): Promise<HoldingDetailDto
     pricesStale: dto.pricesStale,
     lots: lotsFor(built.derived, holding.instrumentId, todayInIndia()),
     realised: returns.realisedRows.filter((r) => r.symbol === holding.symbol),
+    purchases: purchaseHistory(built.entries, built.changes, built.derived, holding.instrumentId),
     dividends: returns.dividends.rows.filter((d) => d.symbol === holding.symbol),
     totalReturnPaise: own?.totalPaise ?? null,
   };

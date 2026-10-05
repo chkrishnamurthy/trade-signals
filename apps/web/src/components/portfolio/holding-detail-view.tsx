@@ -237,8 +237,8 @@ export function HoldingDetailView({ detail }: { detail: HoldingDetailDto }) {
               </table>
             </div>
             <p className="text-xs text-muted-foreground">
-              Removed shares are taken from the oldest purchase first. Long term means held more
-              than 12 months.
+              Removed shares are taken from shares added the same day first, then from the oldest
+              purchase. Long term means held more than 12 months.
             </p>
           </Section>
 
@@ -297,6 +297,57 @@ export function HoldingDetailView({ detail }: { detail: HoldingDetailDto }) {
                   </tbody>
                 </table>
               </div>
+            </Section>
+          )}
+
+          {detail.purchases.some((p) => p.removed.length > 0) && (
+            <Section
+              aria-labelledby="purchases-h"
+              className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-4 shadow-subtle"
+            >
+              <h2 id="purchases-h" className="text-sm font-semibold">
+                Purchase history ({detail.purchases.length})
+              </h2>
+              <ol className="flex flex-col divide-y divide-border text-sm">
+                {detail.purchases.map((p) => (
+                  <li
+                    key={`${p.acquiredOn}${p.trackedFrom}${p.shares}${p.costPaise}`}
+                    className="py-2"
+                  >
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 tabular-nums">
+                      <span className="font-medium">
+                        {longDate(p.acquiredOn)} · {p.shares.toLocaleString('en-IN')} shares for{' '}
+                        {formatPaise(p.costPaise, { decimals: 0 })}
+                      </span>
+                      <span className="text-muted-foreground">
+                        {p.leftShares === 0
+                          ? 'None left'
+                          : `${p.leftShares.toLocaleString('en-IN')} left`}
+                      </span>
+                    </div>
+                    {p.removed.length > 0 && (
+                      <ul className="mt-1 flex flex-col gap-0.5 border-l-2 border-border pl-3 text-xs text-muted-foreground tabular-nums">
+                        {p.removed.map((r) => (
+                          <li
+                            key={`${r.removedOn}${r.shares}${r.proceedsPaise}`}
+                            className="flex flex-wrap items-baseline gap-x-2"
+                          >
+                            <span>
+                              {r.shares.toLocaleString('en-IN')} removed {longDate(r.removedOn)} for{' '}
+                              {formatPaise(r.proceedsPaise, { decimals: 0 })} · {TERM_LABEL[r.term]}
+                            </span>
+                            <PriceChange paise={r.gainPaise} />
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </li>
+                ))}
+              </ol>
+              <p className="text-xs text-muted-foreground">
+                Shares on today&apos;s basis, after any split or bonus. Removed shares come from
+                shares added the same day first, then from the oldest purchase.
+              </p>
             </Section>
           )}
 

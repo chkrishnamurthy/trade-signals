@@ -11,6 +11,7 @@ import type { PortfolioTaxDto, TaxRowDto } from '@/lib/portfolio-types';
 import { cn } from '@/lib/utils';
 import { longDate } from './portfolio-client';
 import { TERM_LABEL } from './returns-view';
+import { SharesStillHeld } from './tax-lots-view';
 
 /**
  * The Tax tab: one financial year of shares removed, split into short and long
@@ -295,6 +296,8 @@ export function TaxTab({ tax }: { tax: PortfolioTaxDto }) {
           </>
         )}
       </section>
+
+      <SharesStillHeld tax={tax} />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-4 shadow-subtle">

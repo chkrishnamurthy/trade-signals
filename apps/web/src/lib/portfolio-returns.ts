@@ -1,4 +1,5 @@
 import {
+  adjustedShares,
   type DailyCloseInput,
   type DerivedPortfolio,
   type DividendRecordInput,
@@ -21,6 +22,7 @@ import type {
   PerHoldingReturnDto,
   PortfolioHoldingDto,
   PortfolioReturnsDto,
+  PurchaseDto,
   RealisedRowDto,
   ReturnSummaryDto,
 } from './portfolio-types';
@@ -294,4 +296,48 @@ export function realisedCsv(rows: readonly RealisedRowDto[]): string {
     header.join(','),
     ...lines,
   ].join('\n');
+}
+
+/**
+ * Each purchase of one stock, oldest acquisition first, with what was later
+ * removed from it (same-day additions first, then FIFO) and what is left.
+ * Shares are on today's basis.
+ */
+export function purchaseHistory(
+  entries: readonly PortfolioEntry[],
+  changes: readonly ShareChange[],
+  derived: DerivedPortfolio,
+  instrumentId: number,
+): PurchaseDto[] {
+  const mine = changes.filter((c) => c.instrumentId === instrumentId);
+  const lots = derived.holdings.find((h) => h.instrumentId === instrumentId)?.lots ?? [];
+  return entries
+    .filter((e) => e.instrumentId === instrumentId && e.kind !== 'remove')
+    .map((e) => ({
+      acquiredOn: e.acquiredOn ?? e.tradeDate,
+      trackedFrom: e.tradeDate,
+      shares: adjustedShares(e.shares, e.tradeDate, mine),
+      costPaise: e.amountPaise,
+      removed: derived.realisations
+        .filter((r) => r.lotEntryId === e.id)
+        .map((r) => ({
+          removedOn: r.removedOn,
+          shares: r.shares,
+          proceedsPaise: r.proceedsPaise,
+          gainPaise: r.gainPaise,
+          term: r.intraday ? ('intraday' as const) : r.term,
+        })),
+      leftShares: lots.find((l) => l.entryId === e.id)?.shares ?? 0,
+    }))
+    .sort((a, b) =>
+      a.acquiredOn !== b.acquiredOn
+        ? a.acquiredOn < b.acquiredOn
+          ? -1
+          : 1
+        : a.trackedFrom < b.trackedFrom
+          ? -1
+          : a.trackedFrom > b.trackedFrom
+            ? 1
+            : 0,
+    );
 }
