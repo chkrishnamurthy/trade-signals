@@ -1,5 +1,11 @@
 'use client';
 
+import {
+  contractNoteToCsv,
+  detectStatementKind,
+  parseCasStatement,
+  parseContractNote,
+} from '@equitywise/core';
 import { formatPaise } from '@equitywise/shared';
 import {
   DownloadIcon,
@@ -53,13 +59,16 @@ import type {
   ImportPreviewDto,
   PortfolioDto,
   PortfolioHoldingDto,
+  StatementCheckDto,
 } from '@/lib/portfolio-types';
 import { UpcomingList } from './analysis-view';
 import { EntryRows } from './entry-edit';
+import { readPdfLines } from './pdf-reader';
 import { longDate, pctText, request } from './portfolio-client';
 import { paiseToPlain, parseRupeesInput } from './portfolio-format';
 import { PortfolioNav } from './portfolio-nav';
 import { readSpreadsheet } from './spreadsheet';
+import { StatementCheck } from './statement-check-view';
 
 /**
  * My portfolio — shares the signed-in user typed in or uploaded themselves.
@@ -906,6 +915,10 @@ function ImportDialog({
   const [error, setError] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [done, setDone] = React.useState<string | null>(null);
+  // A PDF waiting for its password, and what a CAS check found.
+  const [pdf, setPdf] = React.useState<File | null>(null);
+  const [password, setPassword] = React.useState('');
+  const [statement, setStatement] = React.useState<StatementCheckDto | null>(null);
 
   const reset = () => {
     setText(null);
@@ -914,12 +927,76 @@ function ImportDialog({
     setIncludeChecked(false);
     setError(null);
     setDone(null);
+    setPdf(null);
+    setPassword('');
+    setStatement(null);
+  };
+
+  /** Sends trade-list CSV text (from any file) to the preview. */
+  const previewText = async (content: string, name: string) => {
+    if (content.length > 1_000_000) return setError('That file is too large to import.');
+    setText(content);
+    setFileName(name);
+    setBusy(true);
+    const result = await request('/api/portfolio/import', 'POST', { text: content });
+    setBusy(false);
+    if (!result.ok) return setError(result.message);
+    setPreview(result.data as ImportPreviewDto);
+  };
+
+  /** A CAS is checked against the record; a contract note becomes a trade list. */
+  const openPdf = async (file: File, pass: string) => {
+    setBusy(true);
+    setError(null);
+    const read = await readPdfLines(file, pass);
+    if (!read.ok) {
+      setBusy(false);
+      if (read.reason !== 'unreadable') setPdf(file);
+      return setError(read.message);
+    }
+    setPdf(null);
+    setPassword('');
+    setFileName(file.name);
+    const kind = detectStatementKind(read.lines);
+    if (kind === 'contract_note') {
+      const note = parseContractNote(read.lines);
+      setBusy(false);
+      if (note.tradeDate === null)
+        return setError('We could not find the trade date on this contract note.');
+      if (note.trades.length === 0)
+        return setError('We found no share trades with an ISIN on this contract note.');
+      return previewText(contractNoteToCsv(note), file.name);
+    }
+    if (kind === 'cas') {
+      const cas = parseCasStatement(read.lines);
+      if (cas.holdings.length === 0) {
+        setBusy(false);
+        return setError('We found no equity shares on this statement.');
+      }
+      const result = await request('/api/portfolio/statement-check', 'POST', {
+        asOf: cas.asOf,
+        holdings: cas.holdings.map((h) => ({
+          isin: h.isin,
+          name: h.name.slice(0, 200),
+          shares: h.shares,
+          status: h.status,
+        })),
+      });
+      setBusy(false);
+      if (!result.ok) return setError(result.message);
+      return setStatement(result.data as StatementCheckDto);
+    }
+    setBusy(false);
+    return setError(
+      'We could not recognise this PDF. We read the consolidated account statement (CAS) from NSDL or CDSL, and contract notes.',
+    );
   };
 
   const onFile = async (file: File | undefined) => {
     if (file === undefined) return;
     reset();
     if (file.size > 5_000_000) return setError('That file is too large to import.');
+    if (/\.pdf$/i.test(file.name) || file.type === 'application/pdf') return openPdf(file, '');
     let content: string;
     if (/\.xlsx?$/i.test(file.name)) {
       setBusy(true);
@@ -930,14 +1007,7 @@ function ImportDialog({
     } else {
       content = await file.text();
     }
-    if (content.length > 1_000_000) return setError('That file is too large to import.');
-    setText(content);
-    setFileName(file.name);
-    setBusy(true);
-    const result = await request('/api/portfolio/import', 'POST', { text: content });
-    setBusy(false);
-    if (!result.ok) return setError(result.message);
-    setPreview(result.data as ImportPreviewDto);
+    return previewText(content, file.name);
   };
 
   const commit = async () => {
@@ -974,8 +1044,9 @@ function ImportDialog({
           <DialogTitle>Upload a file</DialogTitle>
           <DialogDescription>
             A holdings file (stock, shares, average cost) or a trade list (stock, date, added or
-            removed, shares, price), as CSV or Excel (.xlsx). We show every row before anything is
-            saved, and we do not keep the file.
+            removed, shares, price), as CSV or Excel (.xlsx); or a PDF contract note, or a CAS
+            statement to check your record against. We show every row before anything is saved, and
+            we do not keep the file.
           </DialogDescription>
         </DialogHeader>
 
@@ -985,17 +1056,25 @@ function ImportDialog({
               {done}
             </p>
             <DialogFooter>
-              <Button onClick={() => onOpenChange(false)}>Done</Button>
+              <Button
+                onClick={() => {
+                  onOpenChange(false);
+                  // Closing from here skips the dialog's own close handler; start fresh next time.
+                  reset();
+                }}
+              >
+                Done
+              </Button>
             </DialogFooter>
           </div>
         ) : (
           <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="pf-file">CSV or Excel file</Label>
+              <Label htmlFor="pf-file">CSV, Excel or PDF file</Label>
               <Input
                 id="pf-file"
                 type="file"
-                accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                accept=".csv,.xlsx,.pdf,text/csv,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 onChange={(e) => void onFile(e.target.files?.[0])}
               />
               {fileName !== '' && <span className="text-xs text-muted-foreground">{fileName}</span>}
@@ -1008,9 +1087,38 @@ function ImportDialog({
                 {error}
               </p>
             )}
+            {pdf !== null && (
+              <form
+                className="flex flex-wrap items-end gap-2"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void openPdf(pdf, password);
+                }}
+              >
+                <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                  <Label htmlFor="pf-pdf-password">PDF password</Label>
+                  <Input
+                    id="pf-pdf-password"
+                    type="password"
+                    autoComplete="off"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                  <span className="text-xs text-muted-foreground">
+                    A CAS is usually locked with your PAN in capitals; a contract note with the
+                    password your broker set. It opens the file here in your browser and is not sent
+                    or kept.
+                  </span>
+                </div>
+                <Button type="submit" disabled={busy || password === ''}>
+                  Open
+                </Button>
+              </form>
+            )}
             {busy && preview === null && (
               <p className="text-sm text-muted-foreground">Reading the file…</p>
             )}
+            {statement !== null && <StatementCheck result={statement} />}
 
             {preview !== null && (
               <>

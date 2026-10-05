@@ -778,3 +778,32 @@ export async function instrumentIsins(
     .where(inArray(instruments.id, [...instrumentIds]));
   return new Map(rows.filter((r) => r.isin !== null).map((r) => [r.id, r.isin as string]));
 }
+
+/** NSE equity instruments by ISIN, for files that name a stock by ISIN (statements, contract notes). */
+export async function instrumentsByIsin(
+  db: Database,
+  isins: readonly string[],
+): Promise<Map<string, { id: number; symbol: string; name: string }>> {
+  const wanted = [...new Set(isins.map((i) => i.trim().toUpperCase()).filter((i) => i !== ''))];
+  if (wanted.length === 0) return new Map();
+  const rows = await db
+    .select({
+      id: instruments.id,
+      symbol: instruments.symbol,
+      name: instruments.name,
+      isin: instruments.isin,
+    })
+    .from(instruments)
+    .where(
+      and(
+        inArray(instruments.isin, wanted),
+        eq(instruments.exchange, 'NSE'),
+        eq(instruments.kind, 'equity'),
+      ),
+    );
+  return new Map(
+    rows.flatMap((r) =>
+      r.isin === null ? [] : [[r.isin, { id: r.id, symbol: r.symbol, name: r.name }]],
+    ),
+  );
+}

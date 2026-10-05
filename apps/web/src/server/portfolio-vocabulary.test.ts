@@ -13,6 +13,9 @@ import { describe, expect, it } from 'vitest';
 
 const SRC = resolve(import.meta.dirname, '..');
 const CORE = resolve(SRC, '../../../packages/core/src/portfolio');
+// Left out on purpose: core columns.ts and statements.ts hold a broker's own words
+// ("buy", "sell" as a file's values), which are matched or written for the parser,
+// never shown to the user.
 const FILES = [
   join(SRC, 'components/portfolio/portfolio-view.tsx'),
   join(SRC, 'server/portfolio.ts'),
@@ -45,6 +48,13 @@ const FILES = [
   join(SRC, 'components/portfolio/risk-view.tsx'),
   join(SRC, 'components/portfolio/tax-lots-view.tsx'),
   join(SRC, 'app/api/portfolio/tax/lots/route.ts'),
+  join(CORE, 'notices.ts'),
+  join(SRC, 'components/portfolio/notice-text.ts'),
+  join(SRC, 'components/portfolio/notices-view.tsx'),
+  join(SRC, 'components/portfolio/notices-bell.tsx'),
+  join(SRC, 'components/portfolio/statement-check-view.tsx'),
+  join(SRC, 'components/portfolio/pdf-reader.ts'),
+  join(SRC, 'server/portfolio-notices.ts'),
 ];
 
 const BANNED =

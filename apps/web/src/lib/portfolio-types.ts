@@ -523,3 +523,77 @@ export interface PurchaseDto {
   }[];
   leftShares: number;
 }
+
+// ---------------------------------------------------------------------------
+// Phase 6.2: notices about holdings
+// ---------------------------------------------------------------------------
+
+export type NoticeKindDto =
+  | 'event_soon'
+  | 'share_change'
+  | 'stock_move'
+  | 'portfolio_move'
+  | 'long_term_soon';
+
+export interface NoticeDto {
+  id: number;
+  kind: NoticeKindDto;
+  /** The day the notice is about. */
+  noticeDate: string;
+  /** The facts (paise, dates, counts); the page words them. */
+  data: Record<string, string | number | null>;
+  createdAt: string;
+  read: boolean;
+}
+
+export interface NoticeSettingsDto {
+  events: boolean;
+  shareChanges: boolean;
+  stockMoves: boolean;
+  /** Whole percent, 1–50. */
+  stockMovePercent: number;
+  portfolioMoves: boolean;
+  portfolioMovePercent: number;
+  longTerm: boolean;
+  /** 1–90. */
+  longTermDays: number;
+}
+
+export interface PortfolioNoticesDto {
+  notices: NoticeDto[];
+  unread: number;
+  settings: NoticeSettingsDto;
+}
+
+// ---------------------------------------------------------------------------
+// Phase 6.3: statement check (CAS)
+// ---------------------------------------------------------------------------
+
+export type StatementCheckStatus =
+  | 'match'
+  | 'different'
+  | 'not_in_record'
+  | 'not_in_statement'
+  | 'unknown_stock';
+
+export interface StatementCheckRowDto {
+  isin: string | null;
+  name: string;
+  symbol: string | null;
+  /** Shares the statement lists; null for a stock only in the record. */
+  statementShares: number | null;
+  /** Shares in the user's record on the statement's date; null when the stock is unknown. */
+  recordShares: number | null;
+  status: StatementCheckStatus;
+  /** The statement line's numbers could not be cross-checked. */
+  statementCheck: boolean;
+}
+
+export interface StatementCheckDto {
+  /** The date the record was counted at. */
+  asOf: string;
+  /** The date printed on the statement, when it had one. */
+  statementDate: string | null;
+  rows: StatementCheckRowDto[];
+  counts: Record<StatementCheckStatus, number>;
+}

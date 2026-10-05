@@ -641,3 +641,21 @@ Three parts, each its own decision (see the phase table): 6.1 tax-lot reports, 6
 - **Holding page — "Purchase history":** each purchase with what was later removed from it (date, shares, proceeds, gain, term) and what is left; shown once something has been removed.
 - **Fix found on the way:** the nightly corporate-actions sync records splits and bonuses up to 30 days before their ex-date, and the portfolio applied them at once (a 1:1 bonus showed doubled shares at the old price). The portfolio now applies only actions on or before today. The same early adjustment in price history (`packages/db/src/repositories/candles.ts`) is out of this scope and was raised as a separate task.
 - Left out on purpose: anything that suggests which lots to dispose of (tax harvesting).
+
+### 6.2 Notices about holdings (built 2026-10-05, in the app only)
+
+Owner decision: in-app only for now; email later.
+
+- **Core:** `holdingNotices()` (pure) — five kinds, each a fact about the user's own shares: something coming up within 3 days (dividend ex-date with the amount on the shares held, bonus, split, results, board meeting, rights, buyback); a split, bonus or consolidation that took effect in the last 3 days, with the share count now; a stock's daily move at or past the user's level (default 5%; a split on the day is taken out); the holdings' move at or past the user's level (default 3%; only when at least 80% of the priced holdings have that session's close); a purchase passing 12 months within the user's days (default 7; from the tax lots, so bonus shares count from their own date).
+- **Data:** migration `0044` — `holding_notices` (facts as `data` jsonb, once-only per owner, kind and key; deleted after 180 days and with the account) and `holding_notice_settings` (a missing row means the defaults). Money is stored as paise and worded only in the page (rule 3).
+- **Worker:** `portfolio-notices` at 19:50 and 21:50 IST on weekdays, after each evening pass (twice is safe: once-only); `--once portfolio-notices`. Logs counts only.
+- **Pages:** `/portfolio/notices` (newest first, "New" for unread at opening, which marks them read; a link to the holding; settings with a switch and level per kind), a "Notices" tab with the unread count, and a header bell shown only when something is new. Routes: `GET /api/portfolio/notices`, `GET …/notices/count`, `POST …/notices/read`, `PUT …/notices/settings`. Privacy page says so.
+
+### 6.3 Statement (CAS) check and contract-note import (built 2026-10-05; needs real files)
+
+- **In the browser:** a PDF is opened with `unpdf` (already used by the worker), with its password when it has one; neither the file nor the password leaves the browser. Pages become text lines (`itemsToLines`).
+- **Core:** `detectStatementKind`, `parseCasStatement` (equity ISINs only; the share count is the whole number whose price × count matches a value on the line, taking the largest; several demat accounts added up; a line that does not cross-check is marked), `parseContractNote` (trade date, ISIN, side, shares, net rate when the line's total confirms it) and `contractNoteToCsv` (the trade-list format the import already reads).
+- **CAS → check, not import:** a CAS has no cost, so it is compared with the record on the statement's date (`POST /api/portfolio/statement-check`): matches, different (by how many), not in the record, not on the statement, not on the NSE list. Nothing is saved.
+- **Contract note → import:** through the existing review step; stocks matched by ISIN (new `instrumentsByIsin` fallback, which also helps CSV files that carry an ISIN); trade numbers stop a second import of the same note.
+- **Also fixed:** "Done" after an import left the dialog showing the old result when reopened.
+- **Not yet proven:** the parsers were built from the published layouts and tested on synthetic files. A real NSDL or CDSL CAS and a real contract note (personal details removed) are needed to confirm them; password-protected opening is pdf.js's own and was not tested here with an encrypted file.

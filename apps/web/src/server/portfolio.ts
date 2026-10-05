@@ -1,11 +1,13 @@
 import 'server-only';
 import {
   derivePortfolio,
+  MAX_IMPORT_ROWS,
   type ParsedRow,
   type PortfolioEntry,
   parsePortfolioFile,
   reconcileHolding,
   type ShareChange,
+  sharesHeldAt,
   summarisePortfolio,
   yearBefore,
 } from '@equitywise/core';
@@ -22,6 +24,7 @@ import {
   holdingReference,
   indexInstrumentIds,
   instrumentIsins,
+  instrumentsByIsin,
   latestDailyCloses,
   latestIndicatorsForInstruments,
   latestQuotesForInstruments,
@@ -59,6 +62,8 @@ import type {
   PortfolioReturnsDto,
   PortfolioRiskDto,
   PortfolioTaxDto,
+  StatementCheckDto,
+  StatementCheckRowDto,
   UpcomingEventDto,
 } from '@/lib/portfolio-types';
 import { getSessionUser } from './auth/require-user';
@@ -752,12 +757,24 @@ interface ResolvedRow {
 async function resolveRows(rows: readonly ParsedRow[]): Promise<ResolvedRow[]> {
   const db = getDatabase();
   const wanted = [...new Set(rows.flatMap((row) => symbolCandidates(row.symbol)))];
-  const ids = await resolveInstrumentIds(db, wanted, 'NSE');
+  const [ids, byIsin] = await Promise.all([
+    resolveInstrumentIds(db, wanted, 'NSE'),
+    // A statement or contract note names the stock by ISIN; a symbol miss falls back to it.
+    instrumentsByIsin(
+      db,
+      rows.flatMap((row) => (row.isin === null ? [] : [row.isin])),
+    ),
+  ]);
   const named = await listInstrumentsById(db, [...ids.values()]);
   const nameById = new Map(named.map((item) => [item.id, item.name]));
   return rows.map((parsed) => {
-    const hit = symbolCandidates(parsed.symbol).find((candidate) => ids.has(candidate));
-    const instrumentId = hit === undefined ? null : (ids.get(hit) ?? null);
+    const bySymbol = symbolCandidates(parsed.symbol).find((candidate) => ids.has(candidate));
+    const isinHit =
+      bySymbol === undefined && parsed.isin !== null ? byIsin.get(parsed.isin) : undefined;
+    const hit = bySymbol ?? isinHit?.symbol;
+    const instrumentId =
+      bySymbol !== undefined ? (ids.get(bySymbol) ?? null) : (isinHit?.id ?? null);
+    if (isinHit !== undefined) nameById.set(isinHit.id, isinHit.name);
     if (instrumentId === null) {
       return {
         parsed,
@@ -992,4 +1009,107 @@ export async function commitPortfolioImport(
       remedy: 'Delete entries you no longer need.',
     };
   return { ok: false, status: 409, code: 'WOULD_OVERSELL', message: written.message };
+}
+
+// ---------------------------------------------------------------------------
+// Phase 6.3: check the record against a depository statement (CAS)
+// ---------------------------------------------------------------------------
+
+export const statementCheckSchema = z.object({
+  asOf: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .nullable(),
+  holdings: z
+    .array(
+      z.object({
+        isin: z.string().regex(/^INE[A-Z0-9]{9}$/, 'Not an equity ISIN.'),
+        name: z.string().max(200),
+        shares: z.number().int().positive().max(1_000_000_000),
+        status: z.enum(['ok', 'check']),
+      }),
+    )
+    .min(1, 'The statement lists no equity shares.')
+    .max(MAX_IMPORT_ROWS),
+});
+
+/**
+ * Compares the user's record with the shares a CAS lists, on the statement's
+ * date (the user's later entries are not counted). Nothing is saved; the
+ * statement's rows are read and dropped (rule 9).
+ */
+export async function checkStatement(
+  body: z.infer<typeof statementCheckSchema>,
+): Promise<StatementCheckDto> {
+  const ownerId = await requireOwnerId();
+  const built = await buildPortfolio(ownerId);
+  const db = getDatabase();
+  const today = todayInIndia();
+  const asOf = body.asOf !== null && body.asOf <= today ? body.asOf : today;
+  const heldIds = [...new Set(built.entries.map((e) => e.instrumentId))];
+  const [byIsin, heldIsins] = await Promise.all([
+    instrumentsByIsin(
+      db,
+      body.holdings.map((h) => h.isin),
+    ),
+    instrumentIsins(db, heldIds).catch(() => new Map<number, string>()),
+  ]);
+  const names = namesOf(built.ledger);
+  const recordAt = (id: number) => sharesHeldAt(built.entries, built.changes, id, asOf);
+  const rows: StatementCheckRowDto[] = [];
+  const seen = new Set<number>();
+  for (const h of body.holdings) {
+    const inst = byIsin.get(h.isin) ?? null;
+    if (inst === null) {
+      rows.push({
+        isin: h.isin,
+        name: h.name,
+        symbol: null,
+        statementShares: h.shares,
+        recordShares: null,
+        status: 'unknown_stock',
+        statementCheck: h.status === 'check',
+      });
+      continue;
+    }
+    seen.add(inst.id);
+    const record = recordAt(inst.id);
+    rows.push({
+      isin: h.isin,
+      name: inst.name,
+      symbol: inst.symbol,
+      statementShares: h.shares,
+      recordShares: record,
+      status: record === 0 ? 'not_in_record' : record === h.shares ? 'match' : 'different',
+      statementCheck: h.status === 'check',
+    });
+  }
+  for (const id of heldIds) {
+    if (seen.has(id)) continue;
+    const record = recordAt(id);
+    if (record <= 0) continue;
+    rows.push({
+      isin: heldIsins.get(id) ?? null,
+      name: names.get(id)?.name ?? '',
+      symbol: names.get(id)?.symbol ?? null,
+      statementShares: null,
+      recordShares: record,
+      status: 'not_in_statement',
+      statementCheck: false,
+    });
+  }
+  const order = { different: 0, not_in_record: 1, not_in_statement: 2, unknown_stock: 3, match: 4 };
+  rows.sort(
+    (a, b) =>
+      order[a.status] - order[b.status] || (a.symbol ?? a.name).localeCompare(b.symbol ?? b.name),
+  );
+  const counts = {
+    match: 0,
+    different: 0,
+    not_in_record: 0,
+    not_in_statement: 0,
+    unknown_stock: 0,
+  };
+  for (const r of rows) counts[r.status] += 1;
+  return { asOf, statementDate: body.asOf, rows, counts };
 }

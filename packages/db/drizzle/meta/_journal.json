@@ -302,6 +302,13 @@
       "when": 1791882000000,
       "tag": "0043_fair_market_values_2018",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1791968400000,
+      "tag": "0044_holding_notices",
+      "breakpoints": true
     }
   ]
 }

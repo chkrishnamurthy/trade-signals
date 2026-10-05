@@ -77,7 +77,15 @@ export {
   paperStrategyAssignments,
   workerCheckpoints,
 } from './paper.js';
-export { fairMarketValues2018, holdingEntries, portfolioUsage } from './portfolio.js';
+export {
+  fairMarketValues2018,
+  HOLDING_NOTICE_KINDS,
+  type HoldingNoticeKind,
+  holdingEntries,
+  holdingNoticeSettings,
+  holdingNotices,
+  portfolioUsage,
+} from './portfolio.js';
 export { latestQuotes } from './quotes.js';
 export {
   dividends,

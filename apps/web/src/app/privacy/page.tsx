@@ -78,7 +78,9 @@ export default async function PrivacyPage() {
               attach to a stock and the alert rules you set. If you use My portfolio we also store
               the shares, dates and amounts you type in or approve from an uploaded file; the file
               itself is read and discarded, only you can see these entries, no staff screen shows
-              them, and you can delete them all from that page at any time. We also count how often
+              them, and you can delete them all from that page at any time. Each weekday evening we
+              check those holdings to write notices about them (such as a dividend coming up or a
+              large move), shown only to you and deleted after six months. We also count how often
               you open that page, upload a file or add an entry, without recording any of its
               contents. If you sign in with Google we receive your Google account identifier, name,
               email address and profile picture. Each session and security event also records the IP

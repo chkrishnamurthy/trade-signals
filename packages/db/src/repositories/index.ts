@@ -336,6 +336,7 @@ export * from './minute-bars.js';
 export * from './paper.js';
 export * from './paper-ops.js';
 export * from './portfolio.js';
+export * from './portfolio-notices.js';
 export type { ProfilePatch } from './profile.js';
 export {
   deleteOtherSessionsForUser,

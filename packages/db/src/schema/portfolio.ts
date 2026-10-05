@@ -1,10 +1,12 @@
 import { sql } from 'drizzle-orm';
 import {
   bigint,
+  boolean,
   check,
   date,
   index,
   integer,
+  jsonb,
   pgTable,
   text,
   timestamp,
@@ -115,6 +117,74 @@ export const fairMarketValues2018 = pgTable(
     check(
       'fair_market_values_2018_prices_positive',
       sql`${table.highPaise} > 0 and ${table.closePaise} > 0`,
+    ),
+  ],
+);
+
+/** What a holding notice is about. */
+export const HOLDING_NOTICE_KINDS = [
+  'event_soon',
+  'share_change',
+  'stock_move',
+  'portfolio_move',
+  'long_term_soon',
+] as const;
+export type HoldingNoticeKind = (typeof HOLDING_NOTICE_KINDS)[number];
+
+/**
+ * In-app notices about the user's own holdings, written by the worker after the
+ * nightly pass. Facts only ("ITC pays a dividend in 3 days"), never an
+ * instruction. `dedupe_key` makes each notice once-only per owner and kind;
+ * `data` carries the facts and the page words them.
+ * Private to the owner (rule 9); deleted with the account.
+ */
+export const holdingNotices = pgTable(
+  'holding_notices',
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    ownerId: integer()
+      .notNull()
+      .references(() => authUsers.id, { onDelete: 'cascade' }),
+    kind: text().notNull(),
+    instrumentId: integer().references(() => instruments.id, { onDelete: 'cascade' }),
+    dedupeKey: text().notNull(),
+    noticeDate: date().notNull(),
+    /** The facts (paise, dates, counts); the page writes the sentence. */
+    data: jsonb().$type<Record<string, unknown>>().notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    readAt: timestamp({ withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex('holding_notices_dedupe_idx').on(table.ownerId, table.kind, table.dedupeKey),
+    index('holding_notices_owner_idx').on(table.ownerId, table.createdAt.desc()),
+    check(
+      'holding_notices_kind_check',
+      sql`${table.kind} in ('event_soon', 'share_change', 'stock_move', 'portfolio_move', 'long_term_soon')`,
+    ),
+  ],
+);
+
+/** Which holding notices a user gets, and their levels. A missing row means the defaults. */
+export const holdingNoticeSettings = pgTable(
+  'holding_notice_settings',
+  {
+    ownerId: integer()
+      .primaryKey()
+      .references(() => authUsers.id, { onDelete: 'cascade' }),
+    events: boolean().notNull().default(true),
+    shareChanges: boolean().notNull().default(true),
+    stockMoves: boolean().notNull().default(true),
+    stockMovePercent: integer().notNull().default(5),
+    portfolioMoves: boolean().notNull().default(true),
+    portfolioMovePercent: integer().notNull().default(3),
+    longTerm: boolean().notNull().default(true),
+    longTermDays: integer().notNull().default(7),
+    updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    check(
+      'holding_notice_settings_ranges',
+      sql`${table.stockMovePercent} between 1 and 50 and ${table.portfolioMovePercent} between 1 and 50 and ${table.longTermDays} between 1 and 90`,
     ),
   ],
 );

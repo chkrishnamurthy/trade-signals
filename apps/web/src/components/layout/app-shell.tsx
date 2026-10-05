@@ -8,6 +8,7 @@ import { useCallback, useState } from 'react';
 import { UserMenu } from '@/components/auth/user-menu';
 import { IndexStrip } from '@/components/market/index-strip';
 import { StockSearch } from '@/components/market/stock-search';
+import { NoticesBell } from '@/components/portfolio/notices-bell';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -126,6 +127,7 @@ export function AppShell({
                 <StockSearch onSelect={handleSearchSelect} />
               </div>
               <ThemeToggle />
+              <NoticesBell />
               <UserMenu />
             </div>
           </div>

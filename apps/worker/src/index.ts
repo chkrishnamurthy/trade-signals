@@ -38,6 +38,7 @@ import {
 import { createIntradayJobs } from './jobs/intraday-orb.js';
 import { marketCalendarSync } from './jobs/market-calendar-sync.js';
 import { createPaperJobs } from './jobs/paper.js';
+import { writePortfolioNotices } from './jobs/portfolio-notices.js';
 import {
   backfillIndexCloses,
   ingestIndexCloses,
@@ -194,6 +195,8 @@ const SCHEDULES = {
   latestQuotes: '*/30 9-15 * * 1-6',
   /** NSE posts the day's index closing file in the evening; the last week is re-read. */
   ingestIndexCloses: '20 19 * * 1-5',
+  /** After each stock-analysis pass stores the day's closes; once-only, so twice is safe. */
+  portfolioNotices: '50 19,21 * * 1-5',
 } as const;
 
 interface Jobs {
@@ -447,6 +450,13 @@ function buildScheduler(context: WorkerContext): Jobs {
         schedule: SCHEDULES.ingestIndexCloses,
         run: async () => {
           await ingestIndexCloses(context, log.child('ingest-index-closes'));
+        },
+      },
+      {
+        name: 'portfolio-notices',
+        schedule: SCHEDULES.portfolioNotices,
+        run: async () => {
+          await writePortfolioNotices(context, log.child('portfolio-notices'));
         },
       },
       {
@@ -733,6 +743,7 @@ async function main(): Promise<void> {
           'backfill-ipos',
           'backfill-corporate-history',
           'ingest-index-closes',
+          'portfolio-notices',
           'backfill-index-closes',
           'load-fair-market-values-2018',
           'backfill-ipo-rhp',
