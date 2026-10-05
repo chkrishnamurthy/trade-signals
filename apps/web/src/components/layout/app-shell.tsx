@@ -1,6 +1,6 @@
 'use client';
 
-import { MenuIcon } from 'lucide-react';
+import { ChevronDownIcon, MenuIcon } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import type * as React from 'react';
@@ -9,6 +9,12 @@ import { UserMenu } from '@/components/auth/user-menu';
 import { IndexStrip } from '@/components/market/index-strip';
 import { StockSearch } from '@/components/market/stock-search';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   Sheet,
   SheetContent,
@@ -78,7 +84,7 @@ export function AppShell({
               variant="ghost"
               size="icon"
               onClick={() => setDrawerOpen(true)}
-              className="shrink-0 min-[1600px]:hidden"
+              className="shrink-0 xl:hidden"
               aria-label="Open navigation"
             >
               <MenuIcon />
@@ -98,11 +104,20 @@ export function AppShell({
             {/* Primary destinations. A single row of names — the whole point of
                 the redesign — so the app announces where you can go instead of
                 hiding it behind icons. Eight names, the search box and the theme
-                toggle need 1600px; below that the menu button opens them. */}
-            <nav aria-label="Primary" className="hidden items-center gap-0.5 min-[1600px]:flex">
-              {PRIMARY_NAV.map((item) => (
+                toggle need 1280px with the brand reduced to its mark and the Market record
+                pages folded into one menu (all inline from 1680px); below that the
+                menu button opens them. */}
+            <nav aria-label="Primary" className="hidden items-center gap-0.5 xl:flex">
+              {BAR_NAV.map((item) => (
                 <NavLink key={item.href} item={item} />
               ))}
+              {/* The "Market record" pages sit inline only when there is room for
+                  every name; between 1280 and 1680px they fold into one menu so
+                  the bar never pushes the page sideways. */}
+              {FOLDED_NAV.map((item) => (
+                <NavLink key={item.href} item={item} className="hidden min-[1680px]:flex" />
+              ))}
+              <FoldedNavMenu items={FOLDED_NAV} label={FOLDED_GROUP} />
             </nav>
 
             <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-2 sm:flex-none sm:gap-3">
@@ -157,10 +172,12 @@ function NavLink({
   item,
   variant = 'bar',
   onNavigate,
+  className,
 }: {
   item: ReadyNavItem;
   variant?: 'bar' | 'drawer';
   onNavigate?: (() => void) | undefined;
+  className?: string | undefined;
 }) {
   const pathname = usePathname();
   const Icon = item.icon;
@@ -181,6 +198,7 @@ function NavLink({
         active
           ? 'bg-primary/10 text-primary'
           : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground',
+        className,
       )}
     >
       <Icon className={cn('size-4 shrink-0', variant === 'bar' && 'hidden')} aria-hidden />
@@ -196,3 +214,52 @@ function NavLink({
 const PRIMARY_NAV: readonly ReadyNavItem[] = NAVIGATION.flatMap((group) =>
   group.label === 'Account' ? [] : group.items,
 ).filter((item): item is ReadyNavItem => item.status === 'ready');
+
+/** The group that folds into one menu on narrower desktop bars. */
+const FOLDED_GROUP = 'Market record';
+const isReady = (item: { status: string }): item is ReadyNavItem => item.status === 'ready';
+const FOLDED_NAV: readonly ReadyNavItem[] = (
+  NAVIGATION.find((group) => group.label === FOLDED_GROUP)?.items ?? []
+).filter(isReady);
+const BAR_NAV: readonly ReadyNavItem[] = PRIMARY_NAV.filter(
+  (item) => !FOLDED_NAV.some((folded) => folded.href === item.href),
+);
+
+/** The folded group as one menu button, shown only below 1680px. */
+function FoldedNavMenu({ items, label }: { items: readonly ReadyNavItem[]; label: string }) {
+  const pathname = usePathname();
+  const active = items.some(
+    (item) => pathname === item.href || pathname.startsWith(`${item.href}/`),
+  );
+  if (items.length === 0) return null;
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        className={cn(
+          'flex items-center gap-1 whitespace-nowrap rounded-md px-2 py-1.5 font-medium text-sm transition-colors min-[1680px]:hidden',
+          'focus-visible:outline-2 focus-visible:outline-ring',
+          active
+            ? 'bg-primary/10 text-primary'
+            : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground',
+        )}
+      >
+        {label}
+        <ChevronDownIcon className="size-3.5" aria-hidden />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start">
+        {items.map((item) => {
+          const Icon = item.icon;
+          const current = pathname === item.href || pathname.startsWith(`${item.href}/`);
+          return (
+            <DropdownMenuItem key={item.href} asChild>
+              <Link href={item.href} aria-current={current ? 'page' : undefined}>
+                <Icon className="size-4" aria-hidden />
+                {item.label}
+              </Link>
+            </DropdownMenuItem>
+          );
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}

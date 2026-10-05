@@ -272,6 +272,8 @@ suite('portfolio entries', () => {
     await handle.db.execute(sql`insert into market_events(instrument_id, symbol, event_type, title, event_date) values
       (${a}, ${symA}, 'dividend', 'Final dividend', '2026-10-16'),
       (${a}, ${symA}, 'result', 'Q2 results', '2026-10-20'),
+      (${a}, ${symA}, 'board_meeting', 'Board meeting for results', '2026-10-20'),
+      (${b}, ${symB}, 'dividend', 'Interim dividend', '2026-11-03'),
       (${a}, ${symA}, 'ipo', 'Not for holders', '2026-10-18'),
       (${b}, ${symB}, 'result', 'Outside window', '2027-03-01')`);
     await handle.db.execute(sql`insert into dividends(instrument_id, ex_date, kind, amount_paise, subject, source) values
@@ -288,7 +290,7 @@ suite('portfolio entries', () => {
     ).toEqual([
       ['A', 'dividend', '2026-10-16', 2100],
       ['A', 'result', '2026-10-20', null],
-      ['B', 'dividend', '2026-11-02', 500],
+      ['B', 'dividend', '2026-11-03', 500],
     ]);
   });
 

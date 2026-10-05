@@ -31,8 +31,17 @@ export function SummaryStrip({
             percent={totals.gainRatio === null ? null : totals.gainRatio * 100}
           />
         </Cell>
-        <Cell label={`You paid · ${holdings} ${holdings === 1 ? 'holding' : 'holdings'}`}>
-          <span className="font-semibold">{formatPaise(totals.costPaise, { decimals: 0 })}</span>
+        <Cell
+          label={
+            totals.unpriced > 0
+              ? `You paid · ${holdings - totals.unpriced} priced`
+              : `You paid · ${holdings} ${holdings === 1 ? 'holding' : 'holdings'}`
+          }
+        >
+          {/* Paid for the priced holdings only, so value − paid = gain on screen. */}
+          <span className="font-semibold">
+            {formatPaise(totals.pricedCostPaise, { decimals: 0 })}
+          </span>
         </Cell>
       </dl>
     </div>

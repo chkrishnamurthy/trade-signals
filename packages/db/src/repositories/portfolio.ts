@@ -528,14 +528,18 @@ export async function upcomingHoldingEvents(
         ),
       ),
   ]);
-  const amount = new Map<string, number>();
+  // Per-share amount per instrument and ex-date (interim and special on one day add up).
+  const amount = new Map<string, { instrumentId: number; exDate: string; paise: number | null }>();
   for (const d of divs) {
-    if (d.amountPaise === null) continue;
     const key = `${d.instrumentId}|${d.exDate}`;
-    amount.set(key, (amount.get(key) ?? 0) + d.amountPaise);
+    const cur = amount.get(key) ?? { instrumentId: d.instrumentId, exDate: d.exDate, paise: null };
+    if (d.amountPaise !== null) cur.paise = (cur.paise ?? 0) + d.amountPaise;
+    amount.set(key, cur);
   }
+  const dayGap = (x: string, y: string) => Math.abs(Date.parse(x) - Date.parse(y)) / 86_400_000;
+
   const seen = new Set<string>();
-  const out: UpcomingHoldingEvent[] = [];
+  const out: { -readonly [K in keyof UpcomingHoldingEvent]: UpcomingHoldingEvent[K] }[] = [];
   for (const e of events) {
     if (e.instrumentId === null) continue;
     const key = `${e.instrumentId}|${e.eventType}|${e.eventDate}`;
@@ -546,26 +550,39 @@ export async function upcomingHoldingEvents(
       eventType: e.eventType,
       eventDate: e.eventDate,
       title: e.title,
-      dividendPaise:
-        e.eventType === 'dividend'
-          ? (amount.get(`${e.instrumentId}|${e.eventDate}`) ?? null)
-          : null,
+      dividendPaise: null,
     });
   }
-  // A dividend in the dividends table with no calendar row still matters to a holder.
-  for (const d of divs) {
-    const key = `${d.instrumentId}|dividend|${d.exDate}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push({
+  // NSE often lists a board meeting and the results it is for on the same day: keep the results.
+  const results = new Set(
+    out.filter((e) => e.eventType === 'result').map((e) => `${e.instrumentId}|${e.eventDate}`),
+  );
+  const withoutDuplicateMeetings = out.filter(
+    (e) => !(e.eventType === 'board_meeting' && results.has(`${e.instrumentId}|${e.eventDate}`)),
+  );
+  // Match each dividend record to the calendar's dividend for that stock within three
+  // days (the two sources sometimes disagree on the date); unmatched records still matter.
+  for (const d of amount.values()) {
+    const match = withoutDuplicateMeetings.find(
+      (e) =>
+        e.eventType === 'dividend' &&
+        e.instrumentId === d.instrumentId &&
+        dayGap(e.eventDate, d.exDate) <= 3,
+    );
+    if (match !== undefined) {
+      if (match.dividendPaise === null) match.dividendPaise = d.paise;
+      continue;
+    }
+    withoutDuplicateMeetings.push({
       instrumentId: d.instrumentId,
       eventType: 'dividend',
       eventDate: d.exDate,
       title: 'Dividend',
-      dividendPaise: amount.get(`${d.instrumentId}|${d.exDate}`) ?? null,
+      dividendPaise: d.paise,
     });
   }
-  return out.sort((a, b) =>
+  const sorted = withoutDuplicateMeetings;
+  return sorted.sort((a, b) =>
     a.eventDate < b.eventDate
       ? -1
       : a.eventDate > b.eventDate

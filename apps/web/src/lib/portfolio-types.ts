@@ -45,8 +45,12 @@ export interface PortfolioDto {
   entryCount: number;
   entryLimit: number;
   totals: {
+    /** Value of the holdings that have a price. */
     valuePaise: number;
+    /** What was paid for every holding, priced or not. */
     costPaise: number;
+    /** What was paid for the priced holdings: value − this = gain. */
+    pricedCostPaise: number;
     gainPaise: number;
     gainRatio: number | null;
     dayChangePaise: number;
@@ -124,6 +128,11 @@ export interface UpcomingEventDto {
   dividendPaise: number | null;
   /** Shares held today; an estimate of the dividend uses it. */
   shares: number;
+  /**
+   * A bonus or split for the same stock on the calendar before this event. The
+   * share count will change first, so no dividend estimate is given.
+   */
+  shareChangeBefore: { kind: string; date: string } | null;
 }
 
 export interface WeightGroupDto {
@@ -146,6 +155,8 @@ export interface AnalysisHoldingDto {
   gainPaise: number | null;
   gainRatio: number | null;
   sector: string;
+  /** The sector group this holding is drawn in ("Other sectors" when folded). */
+  sectorGroup: string;
   size: CompanySizeKey;
 }
 
@@ -167,6 +178,10 @@ export interface PortfolioAnalysisDto {
     largestName: string;
   } | null;
   contributors: { symbol: string; name: string; gainPaise: number }[];
+  /** How many holdings have a gain to show; the bars show at most a few of them. */
+  contributorsTotal: number;
+  /** Holdings left out of this page because they have no price yet. */
+  unpriced: { count: number; costPaise: number };
   attention: string[];
   upcoming: UpcomingEventDto[];
 }

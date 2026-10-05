@@ -545,3 +545,16 @@ Then, on the owner's go-ahead:
 - **Overview** gained the Overview/Analysis switch and a "Coming up for your holdings" card.
 - Pure figures in `packages/core/src/portfolio/insight.ts`; sentences in `apps/web/src/lib/portfolio-facts.ts` (tested to contain no advice words).
 - Side fix: the extra nav item made the top bar overflow between 1280 and 1600 px. The inline nav now appears from 1600 px (menu button below), and item padding at 2xl is 2.5.
+
+#### Phase 2 review fixes (2026-10-05)
+
+1. "Largest sector" no longer names a classified sector when unclassified stocks hold more; it says how much is unclassified and names the largest classified one.
+2. The analysis page has a "No prices yet" state, and a banner when some holdings are left out for lack of a price.
+3. "You paid" shows the cost of the priced holdings, so value − paid = gain on screen; the unpriced cost is shown separately.
+4. "Worth a look" puts anything left out first and names at most three events, pointing to Coming up for the rest.
+5. Sectors past the largest seven fold into "Other sectors" (eight groups at most), so no two groups share a colour.
+6. Top bar: the inline nav is back from 1280px; the four Market record pages fold into one "Market record" menu until 1680px, where all fit inline.
+7. Coming up drops a board meeting on the same day as its results, and matches dividend records to calendar dividends within three days.
+8. The treemap has a "Show as a table" toggle, and the same table is always present for screen readers.
+9. A dividend after a bonus or split shows the per-share amount and no total, with the reason.
+10. The page assembly is a pure, tested function (`lib/portfolio-analysis.ts`); the analysis page is counted in usage; tabs follow the address (`#returns`).

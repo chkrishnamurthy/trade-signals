@@ -250,13 +250,17 @@ function Overview({ portfolio }: { portfolio: PortfolioDto }) {
         />
         <MetricCard
           label="You paid"
-          hint="The total you spent on the shares you still hold, with any charges you entered."
+          hint="The total you spent on the shares you still hold, with any charges you entered. Holdings with no price yet are counted separately, so value minus this is your gain."
           value={
             <span className="text-2xl font-semibold tabular-nums">
-              {formatPaise(totals.costPaise, { decimals: 0 })}
+              {formatPaise(totals.pricedCostPaise, { decimals: 0 })}
             </span>
           }
-          footer={`${portfolio.holdings.length} ${portfolio.holdings.length === 1 ? 'holding' : 'holdings'}`}
+          footer={
+            totals.unpriced > 0
+              ? `Plus ${formatPaise(totals.costPaise - totals.pricedCostPaise, { decimals: 0 })} on ${totals.unpriced} with no price yet`
+              : `${portfolio.holdings.length} ${portfolio.holdings.length === 1 ? 'holding' : 'holdings'}`
+          }
         />
       </Section>
 

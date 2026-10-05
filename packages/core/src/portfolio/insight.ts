@@ -160,3 +160,28 @@ export function treemapLayout<T extends TreemapInput>(
   lay(positive, 0, 0, width, height);
   return cells;
 }
+
+/**
+ * Keeps the largest `max - 1` groups and folds the rest into one `otherKey`
+ * group, so a chart never needs more colours than it can tell apart. Returns the
+ * groups unchanged when there are `max` or fewer.
+ */
+export function capGroups(
+  groups: readonly WeightedGroup[],
+  max: number,
+  otherKey: string,
+): { groups: WeightedGroup[]; folded: ReadonlySet<string> } {
+  if (groups.length <= max) return { groups: [...groups], folded: new Set() };
+  const kept = groups.slice(0, Math.max(max - 1, 1));
+  const rest = groups.slice(kept.length);
+  const other = rest.reduce(
+    (acc, g) => ({
+      key: otherKey,
+      valuePaise: acc.valuePaise + g.valuePaise,
+      weight: acc.weight + g.weight,
+      count: acc.count + g.count,
+    }),
+    { key: otherKey, valuePaise: 0, weight: 0, count: 0 },
+  );
+  return { groups: [...kept, other], folded: new Set(rest.map((g) => g.key)) };
+}

@@ -4,6 +4,7 @@ import { formatPaise } from '@equitywise/shared';
 import { FileUpIcon } from 'lucide-react';
 import type { Route } from 'next';
 import Link from 'next/link';
+import * as React from 'react';
 import { MetricHint } from '@/components/data-display/metric-card';
 import { EmptyState } from '@/components/data-display/states';
 import { AppShell } from '@/components/layout/app-shell';
@@ -28,8 +29,32 @@ import { SummaryStrip } from './summary-strip';
  * fills Allocation; Returns, Risk and Tax say what they will show and what they
  * need. Describes the user's own numbers; never suggests what to do.
  */
+const TABS = ['allocation', 'returns', 'risk', 'tax'] as const;
+type TabKey = (typeof TABS)[number];
+
 export function AnalysisView({ analysis }: { analysis: PortfolioAnalysisDto }) {
   const empty = analysis.holdingCount === 0;
+  // The open tab follows the address (#returns), so a tab can be linked to and the
+  // back button behaves.
+  const [tab, setTab] = React.useState<TabKey>('allocation');
+  React.useEffect(() => {
+    const read = () => {
+      const hash = window.location.hash.slice(1);
+      setTab((TABS as readonly string[]).includes(hash) ? (hash as TabKey) : 'allocation');
+    };
+    read();
+    window.addEventListener('hashchange', read);
+    return () => window.removeEventListener('hashchange', read);
+  }, []);
+  const selectTab = (value: string) => {
+    if (!(TABS as readonly string[]).includes(value)) return;
+    setTab(value as TabKey);
+    window.history.replaceState(
+      null,
+      '',
+      value === 'allocation' ? window.location.pathname : `#${value}`,
+    );
+  };
   return (
     <AppShell>
       <PageContainer>
@@ -68,7 +93,18 @@ export function AnalysisView({ analysis }: { analysis: PortfolioAnalysisDto }) {
                   These prices are not from today, so the figures may be out of date.
                 </p>
               )}
-              <Tabs defaultValue="allocation">
+              {analysis.unpriced.count > 0 && analysis.holdings.length > 0 && (
+                <p
+                  role="status"
+                  className="rounded-md border border-border bg-muted px-3 py-2 text-sm"
+                >
+                  {analysis.unpriced.count} {analysis.unpriced.count === 1 ? 'holding' : 'holdings'}{' '}
+                  ({formatPaise(analysis.unpriced.costPaise, { decimals: 0 })} paid){' '}
+                  {analysis.unpriced.count === 1 ? 'has' : 'have'} no price yet and{' '}
+                  {analysis.unpriced.count === 1 ? 'is' : 'are'} left out of this page.
+                </p>
+              )}
+              <Tabs value={tab} onValueChange={selectTab}>
                 <TabsList className="mb-3 flex w-full justify-start overflow-x-auto sm:w-auto">
                   <TabsTrigger value="allocation">Allocation</TabsTrigger>
                   <TabsTrigger value="returns">Returns</TabsTrigger>
@@ -76,7 +112,18 @@ export function AnalysisView({ analysis }: { analysis: PortfolioAnalysisDto }) {
                   <TabsTrigger value="tax">Tax</TabsTrigger>
                 </TabsList>
                 <TabsContent value="allocation">
-                  <Allocation analysis={analysis} />
+                  {analysis.holdings.length === 0 ? (
+                    <section className="rounded-lg border border-border bg-surface p-6">
+                      <h2 className="text-sm font-semibold">No prices yet</h2>
+                      <p className="mt-2 max-w-prose text-sm text-muted-foreground">
+                        None of your holdings has a price yet, so there is nothing to divide up.
+                        Prices arrive with the next refresh during market hours, or from the last
+                        stored close. Your entries are saved.
+                      </p>
+                    </section>
+                  ) : (
+                    <Allocation analysis={analysis} />
+                  )}
                 </TabsContent>
                 <TabsContent value="returns">
                   <Later
@@ -137,6 +184,7 @@ function Card({
 }
 
 function Allocation({ analysis }: { analysis: PortfolioAnalysisDto }) {
+  const [asTable, setAsTable] = React.useState(false);
   const sectorIndex = new Map(analysis.sectors.map((s, i) => [s.key, i]));
   const sizeIndex = new Map(analysis.sizes.map((s, i) => [s.key, i]));
   const pctText = (r: number) => `${(r * 100).toFixed(1)}%`;
@@ -148,18 +196,36 @@ function Allocation({ analysis }: { analysis: PortfolioAnalysisDto }) {
           title="Where your money sits"
           hint="Each box is one holding. Its size is its share of your value; its colour is its sector. Hover a box for the numbers."
         >
-          <Treemap
-            ariaLabel="Treemap of holdings by share of value"
-            items={analysis.holdings.map((h) => ({
-              key: h.symbol,
-              value: h.valuePaise,
-              label: h.symbol,
-              caption: `${pctText(h.weight)}${h.dayChangeRatio === null ? '' : ` · ${h.dayChangeRatio > 0 ? '▲' : h.dayChangeRatio < 0 ? '▼' : '→'} ${(Math.abs(h.dayChangeRatio) * 100).toFixed(1)}% today`}`,
-              colourIndex: sectorIndex.get(h.sector) ?? 0,
-              title: `${h.name}: ${pctText(h.weight)} of value, ${formatPaise(h.valuePaise, { decimals: 0 })}, ${h.sector}`,
-            }))}
-          />
-          <p className="text-xs text-muted-foreground">Colours match the sector list beside.</p>
+          <div className="-mt-1 flex justify-end">
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              aria-pressed={asTable}
+              onClick={() => setAsTable((v) => !v)}
+            >
+              {asTable ? 'Show as boxes' : 'Show as a table'}
+            </Button>
+          </div>
+          {asTable ? (
+            <ShareTable holdings={analysis.holdings} />
+          ) : (
+            <>
+              <ShareTable holdings={analysis.holdings} className="sr-only" />
+              <Treemap
+                ariaLabel="Treemap of holdings by share of value. The same figures follow as a table."
+                items={analysis.holdings.map((h) => ({
+                  key: h.symbol,
+                  value: h.valuePaise,
+                  label: h.symbol,
+                  caption: `${pctText(h.weight)}${h.dayChangeRatio === null ? '' : ` · ${h.dayChangeRatio > 0 ? '▲' : h.dayChangeRatio < 0 ? '▼' : '→'} ${(Math.abs(h.dayChangeRatio) * 100).toFixed(1)}% today`}`,
+                  colourIndex: sectorIndex.get(h.sectorGroup) ?? 0,
+                  title: `${h.name}: ${pctText(h.weight)} of value, ${formatPaise(h.valuePaise, { decimals: 0 })}, ${h.sector}`,
+                }))}
+              />
+              <p className="text-xs text-muted-foreground">Colours match the sector list beside.</p>
+            </>
+          )}
         </Card>
         <div className="flex min-w-0 flex-col gap-4">
           <Card
@@ -241,6 +307,12 @@ function Allocation({ analysis }: { analysis: PortfolioAnalysisDto }) {
                 gainPaise: r.gainPaise,
               }))}
             />
+            {analysis.contributorsTotal > analysis.contributors.length && (
+              <p className="text-xs text-muted-foreground">
+                The {analysis.contributors.length} largest moves of {analysis.contributorsTotal}{' '}
+                holdings. The full list is in the holdings table on the Overview.
+              </p>
+            )}
           </Card>
         )}
       </div>
@@ -271,6 +343,55 @@ function Allocation({ analysis }: { analysis: PortfolioAnalysisDto }) {
   );
 }
 
+/** The treemap's figures as a table: for screen readers always, for anyone on request. */
+function ShareTable({
+  holdings,
+  className,
+}: {
+  holdings: PortfolioAnalysisDto['holdings'];
+  className?: string;
+}) {
+  return (
+    <div className={className ?? 'overflow-x-auto'}>
+      <table className="w-full text-sm">
+        <caption className="sr-only">Your holdings by share of value</caption>
+        <thead className="text-left text-xs text-muted-foreground uppercase tracking-wide">
+          <tr>
+            <th scope="col" className="py-1.5 pr-3 font-medium">
+              Stock
+            </th>
+            <th scope="col" className="py-1.5 pr-3 font-medium">
+              Sector
+            </th>
+            <th scope="col" className="py-1.5 pr-3 text-right font-medium">
+              Value
+            </th>
+            <th scope="col" className="py-1.5 text-right font-medium">
+              Share
+            </th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border tabular-nums">
+          {[...holdings]
+            .sort((a, b) => b.valuePaise - a.valuePaise)
+            .map((h) => (
+              <tr key={h.symbol}>
+                <th scope="row" className="py-1.5 pr-3 text-left font-medium">
+                  {h.name}
+                </th>
+                <td className="py-1.5 pr-3 text-muted-foreground">{h.sector}</td>
+                <td className="py-1.5 pr-3 text-right">
+                  {formatPaise(h.valuePaise, { decimals: 0 })}
+                </td>
+                <td className="py-1.5 text-right">{(h.weight * 100).toFixed(1)}%</td>
+              </tr>
+            ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export function UpcomingList({ events }: { events: readonly UpcomingEventDto[] }) {
   if (events.length === 0) {
     return (
@@ -297,11 +418,15 @@ export function UpcomingList({ events }: { events: readonly UpcomingEventDto[] }
                 {e.title !== '' && e.title !== eventLabel(e.eventType) ? ` · ${e.title}` : ''}
               </div>
             </div>
-            {est !== null && e.dividendPaise !== null && (
+            {e.dividendPaise !== null && (
               <div className="shrink-0 text-right text-xs tabular-nums">
                 <div>{formatPaise(e.dividendPaise)} a share</div>
                 <div className="text-muted-foreground">
-                  about {formatPaise(est, { decimals: 0 })} for you
+                  {est !== null
+                    ? `about ${formatPaise(est, { decimals: 0 })} for you`
+                    : e.shareChangeBefore !== null
+                      ? `after the ${e.shareChangeBefore.kind} on ${shortDate(e.shareChangeBefore.date)}`
+                      : ''}
                 </div>
               </div>
             )}

@@ -1,15 +1,11 @@
 import 'server-only';
 import {
-  companySizeByIndex,
-  concentration,
   derivePortfolio,
-  groupByWeight,
   type ParsedRow,
   type PortfolioEntry,
   parsePortfolioFile,
   type ShareChange,
   summarisePortfolio,
-  topContributors,
 } from '@equitywise/core';
 import {
   deleteAllHoldingEntries,
@@ -32,9 +28,8 @@ import {
   writeHoldingEntries,
 } from '@equitywise/db';
 import { z } from 'zod';
-import { attentionFacts, SIZE_LABEL, UNCLASSIFIED_SECTOR } from '@/lib/portfolio-facts';
+import { composeAnalysis, type HoldingRef } from '@/lib/portfolio-analysis';
 import type {
-  AnalysisHoldingDto,
   HoldingDetailDto,
   ImportPreviewDto,
   ImportRowDto,
@@ -76,6 +71,23 @@ export function todayInIndia(now: Date = new Date()): string {
 }
 
 const STALE_AFTER_MS = 3 * 24 * 3_600_000;
+
+/** A bonus or split on the calendar for the same stock, on or before a dividend's ex-date. */
+function shareChangeBefore(
+  events: readonly { instrumentId: number; eventType: string; eventDate: string }[],
+  e: { instrumentId: number; eventType: string; eventDate: string },
+): { kind: string; date: string } | null {
+  if (e.eventType !== 'dividend') return null;
+  const change = events.find(
+    (x) =>
+      x.instrumentId === e.instrumentId &&
+      (x.eventType === 'bonus' || x.eventType === 'stock_split') &&
+      x.eventDate <= e.eventDate,
+  );
+  return change === undefined
+    ? null
+    : { kind: change.eventType === 'bonus' ? 'bonus' : 'split', date: change.eventDate };
+}
 
 /** How far ahead "Coming up" looks. */
 const UPCOMING_DAYS = 60;
@@ -211,6 +223,7 @@ async function buildPortfolio(ownerId: number): Promise<Built> {
       gainRatio: summary.gainRatio,
       dayChangePaise: summary.dayChangePaise,
       dayChangeRatio: summary.dayChangeRatio,
+      pricedCostPaise: summary.pricedCostPaise,
       unpriced: summary.unpriced,
     },
     pricesAsOf: newest?.toISOString() ?? null,
@@ -228,6 +241,7 @@ async function buildPortfolio(ownerId: number): Promise<Built> {
           title: e.title,
           dividendPaise: e.dividendPaise,
           shares: held.shares,
+          shareChangeBefore: shareChangeBefore(events, e),
         },
       ];
     }),
@@ -267,65 +281,12 @@ export async function getPortfolio(): Promise<PortfolioDto> {
 export async function getPortfolioAnalysis(): Promise<PortfolioAnalysisDto> {
   const ownerId = await requireOwnerId();
   const { dto } = await buildPortfolio(ownerId);
-  const priced = dto.holdings.filter((h) => h.valuePaise !== null && h.valuePaise > 0);
-  const reference = await holdingReference(
-    getDatabase(),
-    priced.map((h) => h.instrumentId),
-  ).catch(() => new Map());
-
-  const holdings: AnalysisHoldingDto[] = priced.map((h) => {
-    const ref = reference.get(h.instrumentId);
-    return {
-      instrumentId: h.instrumentId,
-      symbol: h.symbol,
-      name: h.name,
-      valuePaise: h.valuePaise ?? 0,
-      weight: h.weight ?? 0,
-      dayChangeRatio: h.dayChangeRatio,
-      gainPaise: h.gainPaise,
-      gainRatio: h.gainRatio,
-      sector: ref?.industry ?? UNCLASSIFIED_SECTOR,
-      size: companySizeByIndex(ref?.indexKeys ?? []),
-    };
-  });
-  const sectors = groupByWeight(
-    holdings.map((h) => ({ key: h.sector, valuePaise: h.valuePaise })),
-  ).map((g) => ({ ...g, label: g.key }));
-  const sizes = groupByWeight(holdings.map((h) => ({ key: h.size, valuePaise: h.valuePaise }))).map(
-    (g) => ({ ...g, label: SIZE_LABEL[g.key as keyof typeof SIZE_LABEL] ?? g.key }),
+  const pricedIds = dto.holdings.filter((h) => h.valuePaise !== null).map((h) => h.instrumentId);
+  const reference = await holdingReference(getDatabase(), pricedIds).catch(
+    () => new Map<number, HoldingRef>(),
   );
-  const conc = concentration(holdings.map((h) => h.valuePaise));
-  const largest = [...holdings].sort((a, b) => b.valuePaise - a.valuePaise)[0];
-  const contributors = topContributors(
-    holdings
-      .filter((h) => h.gainPaise !== null)
-      .map((h) => ({ key: h.symbol, gainPaise: h.gainPaise ?? 0 })),
-    8,
-  ).map((c) => ({
-    symbol: c.key,
-    name: holdings.find((h) => h.symbol === c.key)?.name ?? c.key,
-    gainPaise: c.gainPaise,
-  }));
-
-  return {
-    totals: dto.totals,
-    holdingCount: dto.holdings.length,
-    pricesAsOf: dto.pricesAsOf,
-    pricesStale: dto.pricesStale,
-    holdings,
-    sectors,
-    sizes,
-    concentration:
-      conc === null || largest === undefined ? null : { ...conc, largestName: largest.name },
-    contributors,
-    attention: attentionFacts({
-      holdings,
-      sectors,
-      upcoming: dto.upcoming,
-      unpriced: dto.totals.unpriced,
-    }),
-    upcoming: dto.upcoming,
-  };
+  await countUse(ownerId, 'view');
+  return composeAnalysis(dto, reference);
 }
 
 /** One holding with every entry behind it, or null when the user holds none of that stock. */

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  capGroups,
   companySizeByIndex,
   concentration,
   groupByWeight,
@@ -85,5 +86,25 @@ describe('treemapLayout', () => {
   });
   it('is empty for nothing', () => {
     expect(treemapLayout([], 10, 10)).toEqual([]);
+  });
+});
+
+describe('capGroups', () => {
+  const groups = ['A', 'B', 'C', 'D', 'E'].map((key, i) => ({
+    key,
+    valuePaise: 50 - i * 10,
+    weight: (50 - i * 10) / 150,
+    count: 1,
+  }));
+  it('folds everything past the largest max − 1 into one group', () => {
+    const { groups: out, folded } = capGroups(groups, 3, 'Other');
+    expect(out.map((g) => g.key)).toEqual(['A', 'B', 'Other']);
+    expect(out[2]).toMatchObject({ valuePaise: 60, count: 3 });
+    expect(out.reduce((a, g) => a + g.weight, 0)).toBeCloseTo(1, 10);
+    expect([...folded].sort()).toEqual(['C', 'D', 'E']);
+  });
+  it('leaves a short list alone', () => {
+    expect(capGroups(groups, 5, 'Other').groups).toHaveLength(5);
+    expect(capGroups(groups, 5, 'Other').folded.size).toBe(0);
   });
 });
