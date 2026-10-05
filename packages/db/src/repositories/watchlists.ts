@@ -1,6 +1,7 @@
-import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import type { Database } from '../client.js';
 import {
+  holdingEntries,
   instruments,
   watchlistItems,
   watchlistLayouts,
@@ -221,15 +222,22 @@ export async function listOwnerWatchedInstrumentIds(
 export async function listAllWatchedInstruments(
   db: Database,
 ): Promise<{ id: number; symbol: string; exchange: string; kind: string }[]> {
+  // Watchlist names plus every stock any user holds in their portfolio. Owner is
+  // deliberately absent from the result: the worker only needs which symbols to price.
   return db
-    .selectDistinct({
+    .select({
       id: instruments.id,
       symbol: instruments.symbol,
       exchange: instruments.exchange,
       kind: instruments.kind,
     })
-    .from(watchlistItems)
-    .innerJoin(instruments, eq(instruments.id, watchlistItems.instrumentId))
+    .from(instruments)
+    .where(
+      or(
+        inArray(instruments.id, db.select({ id: watchlistItems.instrumentId }).from(watchlistItems)),
+        inArray(instruments.id, db.select({ id: holdingEntries.instrumentId }).from(holdingEntries)),
+      ),
+    )
     .orderBy(instruments.symbol);
 }
 

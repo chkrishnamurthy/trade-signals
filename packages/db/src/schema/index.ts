@@ -77,6 +77,7 @@ export {
   paperStrategyAssignments,
   workerCheckpoints,
 } from './paper.js';
+export { holdingEntries } from './portfolio.js';
 export { latestQuotes } from './quotes.js';
 export {
   dividends,

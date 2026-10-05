@@ -85,6 +85,11 @@ Fyers API v3 for market data. No Redis. No Celery. No Python in the app.
    "Why this signal?" UI reads persisted evidence (`signal_factors` for daily
    signals; immutable `vwap_signals.evidence` for intraday); it never recomputes.
 
+9. **Portfolio data is private.** Every query is scoped by `owner_id` in the repository
+   layer. Holdings, shares and cost are never written to logs, the event log, error
+   reports or URLs. No admin screen shows them. Account deletion cascades. Uploaded
+   files are parsed and discarded; only the rows the user reviewed are stored.
+
 ## Production hosting (self-hosted VPS)
 
 The whole app — web app, worker, and database — runs on a single Hostinger VPS
@@ -136,7 +141,8 @@ operations — is **`docs/operations/deployment.md`**. Read it before touching i
   Fyers symbol, resolution, or field
 - Do not use floating point for money
 - **Do not build order execution of any kind** — no place/modify/cancel order, order
-  book, positions, funds, holdings, or broker portfolio. Not even read-only
+  book, funds, or broker portfolio. Nothing is ever fetched from a broker account.
+  Holdings the user types in or uploads themselves ARE allowed (see "My portfolio")
 - **BUY / SELL may label a signal's direction, and nothing else.** The direction
   badge on a trade signal reads BUY or SELL because that is the fastest thing to
   scan. Every other word stays technical: "Bullish setup", "Breakout candidate",
@@ -148,5 +154,9 @@ operations — is **`docs/operations/deployment.md`**. Read it before touching i
 - There is no order button, order ticket, or order-shaped affordance anywhere.
   A direction label describes price structure; it is not an instruction, and the
   UI must never imply the application could act on it
+- **Portfolio vocabulary.** On the portfolio page use "Added shares" / "Removed shares",
+  "Number of shares", "Holding", "Average cost". Never "Buy", "Sell", "Position",
+  "Quantity", "Order", "Rebalance", "Recommended". State facts about the user's own
+  numbers; never tell them what to do
 - Do not display a confidence number the factors cannot explain. Every score renders
   with its component breakdown or it does not render
