@@ -2,6 +2,7 @@ import type { MarketEventType } from '@equitywise/shared';
 import { and, asc, desc, eq, gte, inArray, isNull, lte, sql } from 'drizzle-orm';
 import type { Database } from '../client.js';
 import {
+  amfiCategories,
   corporateActions,
   dividends,
   fairMarketValues2018,
@@ -12,6 +13,7 @@ import {
   marketEvents,
   portfolioUsage,
 } from '../schema/index.js';
+import { hasTakenEffect } from './candles.js';
 
 /**
  * A user's own typed or uploaded share entries (`schema/portfolio.ts`).
@@ -251,6 +253,8 @@ export async function listShareChanges(
       and(
         inArray(corporateActions.instrumentId, [...instrumentIds]),
         inArray(corporateActions.kind, ['split', 'bonus', 'consolidation']),
+        // Announced ones are on record up to a month ahead; only those in effect restate shares.
+        hasTakenEffect,
       ),
     );
   return rows.map((r) => ({ ...r, ratio: Number(r.ratio) }));
@@ -424,11 +428,15 @@ export async function portfolioUsageSummary(db: Database): Promise<PortfolioUsag
   };
 }
 
+export type AmfiCategory = 'large' | 'mid' | 'small';
+
 export interface HoldingReference {
   /** NSE index industry, or null when NSE has not classified the stock. */
   readonly industry: string | null;
   /** Current index memberships, e.g. `nifty100`. */
   readonly indexKeys: readonly string[];
+  /** AMFI's Large / Mid / Small Cap category, or null when the stock is not on its list. */
+  readonly amfiCategory: AmfiCategory | null;
 }
 
 /** Industry and current index memberships for some instruments. Unknown ids get an empty entry. */
@@ -436,10 +444,14 @@ export async function holdingReference(
   db: Database,
   instrumentIds: readonly number[],
 ): Promise<Map<number, HoldingReference>> {
-  const out = new Map<number, { industry: string | null; indexKeys: string[] }>();
+  const out = new Map<
+    number,
+    { industry: string | null; indexKeys: string[]; amfiCategory: AmfiCategory | null }
+  >();
   if (instrumentIds.length === 0) return out;
-  for (const id of instrumentIds) out.set(id, { industry: null, indexKeys: [] });
-  const [refs, memberships] = await Promise.all([
+  for (const id of instrumentIds)
+    out.set(id, { industry: null, indexKeys: [], amfiCategory: null });
+  const [refs, memberships, categories] = await Promise.all([
     db
       .select({
         instrumentId: instrumentReference.instrumentId,
@@ -456,12 +468,25 @@ export async function holdingReference(
           isNull(indexMemberships.effectiveTo),
         ),
       ),
+    db
+      .select({ instrumentId: instruments.id, category: amfiCategories.category })
+      .from(instruments)
+      .innerJoin(amfiCategories, eq(amfiCategories.isin, instruments.isin))
+      .where(inArray(instruments.id, [...instrumentIds])),
   ]);
   for (const r of refs) {
     const cur = out.get(r.instrumentId);
     if (cur !== undefined) cur.industry = r.industry;
   }
   for (const m of memberships) out.get(m.instrumentId)?.indexKeys.push(m.indexKey);
+  for (const c of categories) {
+    const cur = out.get(c.instrumentId);
+    if (
+      cur !== undefined &&
+      (c.category === 'large' || c.category === 'mid' || c.category === 'small')
+    )
+      cur.amfiCategory = c.category;
+  }
   return out;
 }
 
@@ -806,4 +831,89 @@ export async function instrumentsByIsin(
       r.isin === null ? [] : [[r.isin, { id: r.id, symbol: r.symbol, name: r.name }]],
     ),
   );
+}
+
+/**
+ * For each wanted (instrument, date): that instrument's newest raw close on or
+ * before the date (IST session day), if it has one. Only the rows asked for are
+ * read, not a stock's whole history: used where a price is needed on a few known
+ * days (an opening balance valued on its own date). Result per instrument,
+ * oldest first, one entry per distinct close day.
+ */
+export async function closesOnOrBefore(
+  db: Database,
+  wanted: readonly { readonly instrumentId: number; readonly date: string }[],
+): Promise<Map<number, DailyClose[]>> {
+  const out = new Map<number, DailyClose[]>();
+  const pairs = [...new Set(wanted.map((w) => `${w.instrumentId}|${w.date}`))].map((key) => {
+    const [id, date] = key.split('|');
+    return { id: Number(id), date: date ?? '' };
+  });
+  if (pairs.length === 0) return out;
+  const result = await db.execute<{ instrument_id: number; day: string; close: number }>(sql`
+    select distinct on (v.instrument_id, c.day) v.instrument_id, c.day, c.close
+    from (values ${sql.join(
+      pairs.map((p) => sql`(${p.id}::int, ${p.date}::date)`),
+      sql`, `,
+    )}) as v(instrument_id, day)
+    cross join lateral (
+      select to_char(ts at time zone 'Asia/Kolkata', 'YYYY-MM-DD') as day, close
+      from daily_candles
+      where instrument_id = v.instrument_id
+        and ts < ((v.day + 1)::timestamp at time zone 'Asia/Kolkata')
+      order by ts desc
+      limit 1
+    ) c
+    order by v.instrument_id, c.day`);
+  for (const row of result.rows) {
+    const list = out.get(row.instrument_id) ?? [];
+    list.push({ date: row.day, closePaise: Number(row.close) });
+    out.set(row.instrument_id, list);
+  }
+  return out;
+}
+
+export interface AmfiRowInput {
+  readonly isin: string;
+  readonly nseSymbol: string | null;
+  readonly category: AmfiCategory;
+}
+
+/** The period end (YYYY-MM-DD) of the AMFI list on file, or null when none is loaded. */
+export async function latestAmfiPeriod(db: Database): Promise<string | null> {
+  const result = await db.execute<{ p: string | null }>(
+    sql`select max(period_end)::text as p from amfi_categories`,
+  );
+  return result.rows[0]?.p ?? null;
+}
+
+/**
+ * Loads one AMFI list: each ISIN takes the new category and period. Safe to run
+ * again; a stock that dropped off the list keeps its old row until it is on one.
+ */
+export async function upsertAmfiCategories(
+  db: Database,
+  rows: readonly AmfiRowInput[],
+  periodEnd: string,
+): Promise<number> {
+  let written = 0;
+  const chunk = 500;
+  for (let i = 0; i < rows.length; i += chunk) {
+    const part = rows.slice(i, i + chunk);
+    if (part.length === 0) continue;
+    const result = await db
+      .insert(amfiCategories)
+      .values(part.map((r) => ({ ...r, periodEnd })))
+      .onConflictDoUpdate({
+        target: amfiCategories.isin,
+        set: {
+          nseSymbol: sql`excluded.nse_symbol`,
+          category: sql`excluded.category`,
+          periodEnd: sql`excluded.period_end`,
+        },
+      })
+      .returning({ isin: amfiCategories.isin });
+    written += result.length;
+  }
+  return written;
 }

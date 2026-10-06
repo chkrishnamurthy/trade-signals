@@ -131,6 +131,7 @@ export function BenchmarkSection({
           ariaLabel="Growth of 100 in your holdings, Nifty 50 and Nifty 500"
           dates={benchmark.growth.map((g) => g.date)}
           format={(v) => v.toFixed(0)}
+          tableFormat={(v) => v.toFixed(1)}
           series={[
             {
               key: 'yours',

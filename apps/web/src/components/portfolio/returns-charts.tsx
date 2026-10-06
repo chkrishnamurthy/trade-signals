@@ -4,6 +4,8 @@ import { formatPaise } from '@equitywise/shared';
 import * as React from 'react';
 import { largeCurrency } from '@/lib/format';
 import type { ValuePointDto } from '@/lib/portfolio-types';
+import { ChartTable, HoverTip, Marker, TableToggle, useChartHover } from './chart-extras';
+import { longDate } from './portfolio-client';
 
 /** Width of an element, measured; null until the first measurement. */
 export function useWidth<T extends HTMLElement>(): [React.RefObject<T | null>, number | null] {
@@ -60,6 +62,9 @@ export function niceTicks(lo: number, hi: number, count = 4): number[] {
  * beyond a year). Stretches where a stock had no recent price are shaded and
  * labelled "partial".
  */
+const VALUE_LEFT = 64;
+const VALUE_RIGHT = 12;
+
 export function ValueChart({
   points,
   height = 260,
@@ -68,6 +73,18 @@ export function ValueChart({
   height?: number;
 }) {
   const [ref, width] = useWidth<HTMLDivElement>();
+  const [asTable, setAsTable] = React.useState(false);
+  // Point positions, for finding the one under the pointer (hooks come before any early return).
+  const xs = React.useMemo(() => {
+    if (width === null || points.length < 2) return [];
+    const times = points.map((p) => Date.parse(`${p.date}T00:00:00Z`));
+    const start = times[0] ?? 0;
+    const length = Math.max((times.at(-1) ?? start) - start, 1);
+    return times.map(
+      (time) => VALUE_LEFT + ((time - start) / length) * (width - VALUE_LEFT - VALUE_RIGHT),
+    );
+  }, [points, width]);
+  const hover = useChartHover(xs);
   if (points.length < 2) {
     return (
       <div ref={ref} className="text-sm text-muted-foreground">
@@ -84,8 +101,8 @@ export function ValueChart({
       />
     );
 
-  const left = 64;
-  const right = 12;
+  const left = VALUE_LEFT;
+  const right = VALUE_RIGHT;
   const top = 10;
   const bottom = 26;
   const values = points.flatMap((p) => [p.valuePaise, p.netInvestedPaise]);
@@ -120,84 +137,132 @@ export function ValueChart({
   });
   const first = points[0];
   const last = points[n - 1];
+  const money = (paise: number) => formatPaise(paise, { decimals: 0 });
+  const hovered = hover.index === null ? undefined : points[hover.index];
 
   return (
     <div ref={ref} className="w-full">
-      <svg
-        role="img"
-        aria-label={
-          first && last
-            ? `Value went from ${formatPaise(first.valuePaise, { decimals: 0 })} on ${first.date} to ${formatPaise(last.valuePaise, { decimals: 0 })} on ${last.date}; net money put in is ${formatPaise(last.netInvestedPaise, { decimals: 0 })}.`
-            : 'Value over time'
-        }
-        width="100%"
-        height={height}
-        viewBox={`0 0 ${width} ${height}`}
-        className="block"
-      >
-        {partialRuns.map(([a, b]) => (
-          <rect
-            key={`p${a}`}
-            x={x(a) - 2}
-            y={top}
-            width={Math.max(x(b) - x(a) + 4, 4)}
-            height={height - top - bottom}
-            style={{ fill: 'var(--surface-sunken)' }}
-          />
-        ))}
-        {niceTicks(yLo, yHi).map((v) => (
-          <g key={v}>
-            <line
-              x1={left}
-              x2={width - right}
-              y1={y(v)}
-              y2={y(v)}
-              style={{ stroke: 'var(--chart-grid)' }}
-            />
-            <text
-              x={left - 6}
-              y={y(v) + 4}
-              textAnchor="end"
-              className="fill-muted-foreground text-[11px] tabular-nums"
-            >
-              {largeCurrency(v)}
-            </text>
-          </g>
-        ))}
-        {xTicks.map((time, k) => (
-          <text
-            key={time}
-            x={xAt(time)}
-            y={height - 8}
-            textAnchor={k === 0 ? 'start' : k === xTicks.length - 1 ? 'end' : 'middle'}
-            className="fill-muted-foreground text-[11px]"
+      <TableToggle asTable={asTable} onToggle={() => setAsTable((v) => !v)} />
+      {asTable ? (
+        <ChartTable
+          caption="Value of your holdings and net money put in, by date"
+          columns={['Date', 'Your value', 'Net money put in', 'Note']}
+          rows={points.map((p) => [
+            longDate(p.date),
+            money(p.valuePaise),
+            money(p.netInvestedPaise),
+            p.partial ? 'Partial' : '',
+          ])}
+        />
+      ) : (
+        <div className="relative">
+          <svg
+            role="img"
+            aria-label={
+              first && last
+                ? `Value went from ${money(first.valuePaise)} on ${first.date} to ${money(last.valuePaise)} on ${last.date}; net money put in is ${money(last.netInvestedPaise)}. Choose "Show as a table" for every value.`
+                : 'Value over time'
+            }
+            width="100%"
+            height={height}
+            viewBox={`0 0 ${width} ${height}`}
+            className="block"
+            style={{ touchAction: 'pan-y' }}
+            {...hover.bind}
           >
-            {monthLabel(new Date(time).toISOString().slice(0, 10))}
-          </text>
-        ))}
-        <path
-          d={path('netInvestedPaise')}
-          fill="none"
-          strokeWidth={1.75}
-          strokeDasharray="5 4"
-          style={{ stroke: 'var(--chart-axis)' }}
-        />
-        <path
-          d={path('valuePaise')}
-          fill="none"
-          strokeWidth={2.25}
-          strokeLinejoin="round"
-          style={{ stroke: 'var(--chart-1)' }}
-        />
-        {last && (
-          <circle
-            cx={x(n - 1)}
-            cy={y(last.valuePaise)}
-            r={3.5}
-            style={{ fill: 'var(--chart-1)' }}
-          />
-        )}
-      </svg>
+            {partialRuns.map(([a, b]) => (
+              <rect
+                key={`p${a}`}
+                x={x(a) - 2}
+                y={top}
+                width={Math.max(x(b) - x(a) + 4, 4)}
+                height={height - top - bottom}
+                style={{ fill: 'var(--surface-sunken)' }}
+              />
+            ))}
+            {niceTicks(yLo, yHi).map((v) => (
+              <g key={v}>
+                <line
+                  x1={left}
+                  x2={width - right}
+                  y1={y(v)}
+                  y2={y(v)}
+                  style={{ stroke: 'var(--chart-grid)' }}
+                />
+                <text
+                  x={left - 6}
+                  y={y(v) + 4}
+                  textAnchor="end"
+                  className="fill-muted-foreground text-[11px] tabular-nums"
+                >
+                  {largeCurrency(v)}
+                </text>
+              </g>
+            ))}
+            {xTicks.map((time, k) => (
+              <text
+                key={time}
+                x={xAt(time)}
+                y={height - 8}
+                textAnchor={k === 0 ? 'start' : k === xTicks.length - 1 ? 'end' : 'middle'}
+                className="fill-muted-foreground text-[11px]"
+              >
+                {monthLabel(new Date(time).toISOString().slice(0, 10))}
+              </text>
+            ))}
+            <path
+              d={path('netInvestedPaise')}
+              fill="none"
+              strokeWidth={1.75}
+              strokeDasharray="5 4"
+              style={{ stroke: 'var(--chart-axis)' }}
+            />
+            <path
+              d={path('valuePaise')}
+              fill="none"
+              strokeWidth={2.25}
+              strokeLinejoin="round"
+              style={{ stroke: 'var(--chart-1)' }}
+            />
+            {last && hovered === undefined && (
+              <circle
+                cx={x(n - 1)}
+                cy={y(last.valuePaise)}
+                r={3.5}
+                style={{ fill: 'var(--chart-1)' }}
+              />
+            )}
+            {hovered !== undefined && hover.index !== null && (
+              <Marker
+                x={x(hover.index)}
+                top={top}
+                bottom={height - bottom}
+                dots={[
+                  { y: y(hovered.valuePaise), colour: 'var(--chart-1)' },
+                  { y: y(hovered.netInvestedPaise), colour: 'var(--chart-axis)' },
+                ]}
+              />
+            )}
+          </svg>
+          {hovered !== undefined && hover.index !== null && (
+            <HoverTip
+              x={x(hover.index)}
+              width={width}
+              title={longDate(hovered.date)}
+              lines={[
+                { label: 'Your value', value: money(hovered.valuePaise), colour: 'var(--chart-1)' },
+                {
+                  label: 'Net money put in',
+                  value: money(hovered.netInvestedPaise),
+                  colour: 'var(--chart-axis)',
+                  dash: '5 4',
+                },
+              ]}
+              {...(hovered.partial ? { note: 'Partial: a stock had no recent price' } : {})}
+            />
+          )}
+        </div>
+      )}
       <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
         <span className="inline-flex items-center gap-1.5">
           <svg width="22" height="6" aria-hidden>
@@ -274,6 +339,9 @@ export function QuarterBars({
   );
 }
 
+const LINES_LEFT = 48;
+const LINES_RIGHT = 12;
+
 export interface LineSeries {
   readonly key: string;
   readonly label: string;
@@ -290,16 +358,30 @@ export function LinesChart({
   dates,
   series,
   format,
+  tableFormat,
   ariaLabel,
   height = 240,
 }: {
   dates: readonly string[];
   series: readonly LineSeries[];
   format: (v: number) => string;
+  /** How a value reads in the hover box and the table (more precise than the axis); defaults to `format`. */
+  tableFormat?: (v: number) => string;
   ariaLabel: string;
   height?: number;
 }) {
   const [ref, width] = useWidth<HTMLDivElement>();
+  const [asTable, setAsTable] = React.useState(false);
+  const xs = React.useMemo(() => {
+    if (width === null || dates.length < 2) return [];
+    const times = dates.map((d) => Date.parse(`${d}T00:00:00Z`));
+    const start = times[0] ?? 0;
+    const length = Math.max((times.at(-1) ?? start) - start, 1);
+    return times.map(
+      (time) => LINES_LEFT + ((time - start) / length) * (width - LINES_LEFT - LINES_RIGHT),
+    );
+  }, [dates, width]);
+  const hover = useChartHover(xs);
   if (dates.length < 2) {
     return (
       <div ref={ref} className="text-sm text-muted-foreground">
@@ -315,8 +397,8 @@ export function LinesChart({
         style={{ height }}
       />
     );
-  const left = 48;
-  const right = 12;
+  const left = LINES_LEFT;
+  const right = LINES_RIGHT;
   const top = 10;
   const bottom = 26;
   const all = series.flatMap((s) => s.values.filter((v): v is number => v !== null));
@@ -347,58 +429,106 @@ export function LinesChart({
   const xTicks = Array.from({ length: xTickCount }, (_, k) => t0 + (k / (xTickCount - 1)) * span);
   const step = (yHi - yLo) / 4;
   const yTicks = [0, 1, 2, 3, 4].map((k) => yLo + step * k);
+  const detail = tableFormat ?? format;
+  const at = hover.index;
   return (
     <div ref={ref} className="w-full">
-      <svg
-        role="img"
-        aria-label={ariaLabel}
-        width="100%"
-        height={height}
-        viewBox={`0 0 ${width} ${height}`}
-        className="block"
-      >
-        {yTicks.map((v) => (
-          <g key={v}>
-            <line
-              x1={left}
-              x2={width - right}
-              y1={y(v)}
-              y2={y(v)}
-              style={{ stroke: 'var(--chart-grid)' }}
-            />
-            <text
-              x={left - 6}
-              y={y(v) + 4}
-              textAnchor="end"
-              className="fill-muted-foreground text-[11px] tabular-nums"
-            >
-              {format(v)}
-            </text>
-          </g>
-        ))}
-        {xTicks.map((time, k) => (
-          <text
-            key={time}
-            x={xAt(time)}
-            y={height - 8}
-            textAnchor={k === 0 ? 'start' : k === xTicks.length - 1 ? 'end' : 'middle'}
-            className="fill-muted-foreground text-[11px]"
+      <TableToggle asTable={asTable} onToggle={() => setAsTable((v) => !v)} />
+      {asTable ? (
+        <ChartTable
+          caption={`${ariaLabel}, by date`}
+          columns={['Date', ...series.map((s) => s.label)]}
+          rows={dates.map((d, i) => [
+            longDate(d),
+            ...series.map((s) => {
+              const v = s.values[i];
+              return v === null || v === undefined ? '—' : detail(v);
+            }),
+          ])}
+        />
+      ) : (
+        <div className="relative">
+          <svg
+            role="img"
+            aria-label={`${ariaLabel}. Choose "Show as a table" for every value.`}
+            width="100%"
+            height={height}
+            viewBox={`0 0 ${width} ${height}`}
+            className="block"
+            style={{ touchAction: 'pan-y' }}
+            {...hover.bind}
           >
-            {monthLabel(new Date(time).toISOString().slice(0, 10))}
-          </text>
-        ))}
-        {series.map((s) => (
-          <path
-            key={s.key}
-            d={path(s.values)}
-            fill="none"
-            strokeWidth={s.dash === undefined ? 2.25 : 1.75}
-            strokeDasharray={s.dash}
-            strokeLinejoin="round"
-            style={{ stroke: s.colour }}
-          />
-        ))}
-      </svg>
+            {yTicks.map((v) => (
+              <g key={v}>
+                <line
+                  x1={left}
+                  x2={width - right}
+                  y1={y(v)}
+                  y2={y(v)}
+                  style={{ stroke: 'var(--chart-grid)' }}
+                />
+                <text
+                  x={left - 6}
+                  y={y(v) + 4}
+                  textAnchor="end"
+                  className="fill-muted-foreground text-[11px] tabular-nums"
+                >
+                  {format(v)}
+                </text>
+              </g>
+            ))}
+            {xTicks.map((time, k) => (
+              <text
+                key={time}
+                x={xAt(time)}
+                y={height - 8}
+                textAnchor={k === 0 ? 'start' : k === xTicks.length - 1 ? 'end' : 'middle'}
+                className="fill-muted-foreground text-[11px]"
+              >
+                {monthLabel(new Date(time).toISOString().slice(0, 10))}
+              </text>
+            ))}
+            {series.map((s) => (
+              <path
+                key={s.key}
+                d={path(s.values)}
+                fill="none"
+                strokeWidth={s.dash === undefined ? 2.25 : 1.75}
+                strokeDasharray={s.dash}
+                strokeLinejoin="round"
+                style={{ stroke: s.colour }}
+              />
+            ))}
+            {at !== null && (
+              <Marker
+                x={xs[at] ?? 0}
+                top={top}
+                bottom={height - bottom}
+                dots={series.flatMap((s) => {
+                  const v = s.values[at];
+                  return v === null || v === undefined ? [] : [{ y: y(v), colour: s.colour }];
+                })}
+              />
+            )}
+          </svg>
+          {at !== null && dates[at] !== undefined && (
+            <HoverTip
+              x={xs[at] ?? 0}
+              width={width}
+              title={longDate(dates[at] ?? '')}
+              lines={series.map((s) => {
+                const v = s.values[at];
+                return {
+                  label: s.label,
+                  value: v === null || v === undefined ? '—' : detail(v),
+                  colour: s.colour,
+                  ...(s.dash === undefined ? {} : { dash: s.dash }),
+                };
+              })}
+            />
+          )}
+        </div>
+      )}
       <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
         {series.map((s) => (
           <span key={s.key} className="inline-flex items-center gap-1.5">

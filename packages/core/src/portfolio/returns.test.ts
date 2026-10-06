@@ -314,3 +314,37 @@ describe('dividendYieldOnCost', () => {
     expect(dividendYieldOnCost(d, 1, 0, '2026-10-05')).toBeNull();
   });
 });
+
+describe('openings counted at cost', () => {
+  it('counts an opening balance with no stored close on its date, and values one that has a close', () => {
+    const entries = [
+      {
+        id: 1,
+        instrumentId: 1,
+        kind: 'opening' as const,
+        tradeDate: '2025-01-01',
+        shares: 10,
+        amountPaise: 100_000,
+      },
+      {
+        id: 2,
+        instrumentId: 2,
+        kind: 'opening' as const,
+        tradeDate: '2025-01-01',
+        shares: 10,
+        amountPaise: 100_000,
+      },
+    ];
+    const summary = summariseReturns({
+      entries,
+      dividends: [],
+      valuePaise: 250_000,
+      today: '2025-06-01',
+      // Stock 1 has a close of ₹120 that day; stock 2 has none stored.
+      priceOn: (id) => (id === 1 ? 12_000 : null),
+    });
+    expect(summary.openingsAtCost).toBe(1);
+    // Stock 1 at market (10 × ₹120), stock 2 at what was paid (₹1,000).
+    expect(summary.investedPaise).toBe(120_000 + 100_000);
+  });
+});

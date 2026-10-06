@@ -341,3 +341,20 @@ export function purchaseHistory(
             : 0,
     );
 }
+
+/**
+ * Set when shares were entered on a date before the corporate-action record
+ * begins: a split or bonus between that date and the record's start is missing,
+ * so the share count may be off. The date that matters is the one the user's
+ * count is true on (the entry date), not the date the shares were first
+ * acquired: an opening balance typed today for shares bought in 2016 is already
+ * on today's basis, with nothing missing.
+ */
+export function historyGapBefore(
+  lots: readonly { readonly trackedFrom: string }[],
+  historyFrom: string | null,
+): string | null {
+  return historyFrom !== null && lots.some((lot) => lot.trackedFrom < historyFrom)
+    ? historyFrom
+    : null;
+}

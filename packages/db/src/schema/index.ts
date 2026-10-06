@@ -78,6 +78,7 @@ export {
   workerCheckpoints,
 } from './paper.js';
 export {
+  amfiCategories,
   fairMarketValues2018,
   HOLDING_NOTICE_KINDS,
   type HoldingNoticeKind,

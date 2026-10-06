@@ -188,3 +188,23 @@ export const holdingNoticeSettings = pgTable(
     ),
   ],
 );
+
+/**
+ * AMFI's half-yearly Large / Mid / Small Cap list (SEBI circular of 6 Oct 2017),
+ * one row per ISIN, from the six months ended `period_end`. Reference data, not
+ * price history: a new list replaces the old one row by row.
+ */
+export const amfiCategories = pgTable(
+  'amfi_categories',
+  {
+    isin: text().primaryKey(),
+    nseSymbol: text(),
+    category: text().notNull(),
+    periodEnd: date().notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('amfi_categories_period_idx').on(table.periodEnd),
+    check('amfi_categories_category_check', sql`${table.category} in ('large', 'mid', 'small')`),
+  ],
+);

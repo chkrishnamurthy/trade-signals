@@ -216,6 +216,9 @@ importers:
       dotenv:
         specifier: ^17.4.2
         version: 17.4.2
+      read-excel-file:
+        specifier: 9.3.10
+        version: 9.3.10
       unpdf:
         specifier: ^1.8.1
         version: 1.8.1

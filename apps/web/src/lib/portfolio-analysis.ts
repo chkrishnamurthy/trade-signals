@@ -1,6 +1,6 @@
 import {
   capGroups,
-  companySizeByIndex,
+  companySize,
   concentration,
   groupByWeight,
   topContributors,
@@ -18,6 +18,8 @@ import type { AnalysisHoldingDto, PortfolioAnalysisDto, PortfolioDto } from './p
 export interface HoldingRef {
   readonly industry: string | null;
   readonly indexKeys: readonly string[];
+  /** AMFI's Large / Mid / Small Cap category when the stock is on its list. */
+  readonly amfiCategory?: 'large' | 'mid' | 'small' | null;
 }
 
 /** How many holdings "What moved your gain" draws. */
@@ -30,10 +32,15 @@ export const CONTRIBUTOR_ROWS = 8;
 export function composeAnalysis(
   dto: PortfolioDto,
   reference: ReadonlyMap<number, HoldingRef>,
+  /** The period end of the AMFI list on file (YYYY-MM-DD), or null when none is loaded. */
+  amfiPeriod: string | null = null,
 ): PortfolioAnalysisDto {
   const priced = dto.holdings.filter((h) => h.valuePaise !== null && h.valuePaise > 0);
+  let indexCount = 0;
   const base = priced.map((h) => {
     const ref = reference.get(h.instrumentId);
+    const sized = companySize(ref?.amfiCategory ?? null, ref?.indexKeys ?? []);
+    if (sized.source === 'index') indexCount += 1;
     return {
       instrumentId: h.instrumentId,
       symbol: h.symbol,
@@ -44,7 +51,7 @@ export function composeAnalysis(
       gainPaise: h.gainPaise,
       gainRatio: h.gainRatio,
       sector: ref?.industry ?? UNCLASSIFIED_SECTOR,
-      size: companySizeByIndex(ref?.indexKeys ?? []),
+      size: sized.size,
     };
   });
 
@@ -86,6 +93,7 @@ export function composeAnalysis(
     holdings,
     sectors,
     sizes,
+    sizeBasis: { amfiPeriod, indexCount },
     concentration:
       conc === null || largest === undefined ? null : { ...conc, largestName: largest.name },
     contributors,

@@ -3,6 +3,7 @@ import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { resolveTestDatabaseUrl } from '../../../../test/db';
 import { createDatabase, type DatabaseHandle } from '../client.js';
+import { getDailyBars, getDailyBarsForInstruments } from '../repositories/candles.js';
 import { ensureInstruments } from '../repositories/instruments.js';
 import {
   corporateHistoryFrom,
@@ -334,9 +335,20 @@ suite('portfolio entries', () => {
     await handle.db.execute(sql`insert into index_memberships(index_key, instrument_id, effective_from, effective_to, source) values
       ('nifty100', ${a}, '2026-01-01', null, 'test'), ('niftymidcap150', ${a}, '2025-01-01', '2025-12-31', 'test')`);
     const ref = await holdingReference(handle.db, [a, b]);
-    expect(ref.get(a)).toEqual({ industry: 'Banks', indexKeys: ['nifty100'] });
-    expect(ref.get(b)).toEqual({ industry: null, indexKeys: [] });
+    expect(ref.get(a)).toEqual({ industry: 'Banks', indexKeys: ['nifty100'], amfiCategory: null });
+    expect(ref.get(b)).toEqual({ industry: null, indexKeys: [], amfiCategory: null });
     expect((await holdingReference(handle.db, [])).size).toBe(0);
+
+    // AMFI's official category, matched by ISIN once the stock is on its list.
+    const isin = `INE${tag.slice(0, 6)}01${tag.slice(0, 2)}1`.slice(0, 12).toUpperCase();
+    await handle.db.execute(sql`update instruments set isin = ${isin} where id = ${a}`);
+    await handle.db.execute(
+      sql`insert into amfi_categories(isin, nse_symbol, category, period_end) values (${isin}, ${symA}, 'mid', '2026-06-30')`,
+    );
+    const withList = await holdingReference(handle.db, [a, b]);
+    expect(withList.get(a)?.amfiCategory).toBe('mid');
+    expect(withList.get(b)?.amfiCategory).toBeNull();
+    await handle.db.execute(sql`delete from amfi_categories where isin = ${isin}`);
   });
 
   it('lists upcoming events for held stocks with dividend amounts, inside the window only', async () => {
@@ -363,6 +375,41 @@ suite('portfolio entries', () => {
       ['A', 'result', '2026-10-20', null],
       ['B', 'dividend', '2026-11-03', 500],
     ]);
+  });
+
+  it('applies a split or bonus only once its ex-date has arrived, in holdings and in charts', async () => {
+    const symC = `PFC${tag}`.toUpperCase();
+    const c = (
+      await ensureInstruments(handle.db, 'test', [
+        { symbol: symC, name: 'Portfolio C', kind: 'equity' },
+      ])
+    ).get(symC)!;
+    // One split already in effect and one announced for next month (the nightly sync
+    // records announced ones up to a month ahead).
+    await handle.db.execute(sql`
+      insert into corporate_actions(instrument_id, kind, ex_date, ratio, note) values
+        (${c}, 'split', current_date - 30, 0.5, 'in effect'),
+        (${c}, 'bonus', current_date + 20, 0.5, 'announced')`);
+    const changes = await listShareChanges(handle.db, [c]);
+    expect(changes.map((c) => c.kind)).toEqual(['split']);
+
+    // One bar before the in-effect split, one after it: only the split restates the old bar.
+    await handle.db.execute(sql`
+      insert into daily_candles(instrument_id, ts, open, high, low, close, volume, provider_id) values
+        (${c}, (current_date - 40)::timestamp at time zone 'UTC', 20000, 20000, 20000, 20000, 100, 'test'),
+        (${c}, (current_date - 5)::timestamp at time zone 'UTC', 10000, 10000, 10000, 10000, 200, 'test')`);
+    const bars = await getDailyBars(handle.db, {
+      instrumentId: c,
+      from: new Date(Date.now() - 60 * 86_400_000),
+      to: new Date(),
+    });
+    expect(bars.map((bar) => bar.close)).toEqual([10_000, 10_000]);
+    const many = await getDailyBarsForInstruments(handle.db, {
+      instrumentIds: [c],
+      to: new Date(),
+      limit: 10,
+    });
+    expect(many.get(c)?.map((bar) => bar.close)).toEqual([10_000, 10_000]);
   });
 
   it('cascades when the account is deleted', async () => {

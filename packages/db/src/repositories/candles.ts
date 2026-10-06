@@ -84,11 +84,19 @@ interface Adjustment {
   readonly ratio: number;
 }
 
+/**
+ * A corporate action counts only once its ex-date has arrived (IST). The nightly
+ * sync records announced splits and bonuses up to a month ahead; until the
+ * ex-date the stored prices and the market are still on the old basis, so a
+ * factor applied early would show every earlier bar restated too soon.
+ */
+export const hasTakenEffect = sql`${corporateActions.exDate} <= (now() at time zone 'Asia/Kolkata')::date`;
+
 async function adjustmentsFor(db: Database, instrumentId: number): Promise<Adjustment[]> {
   const rows = await db
     .select({ exDate: corporateActions.exDate, ratio: corporateActions.ratio })
     .from(corporateActions)
-    .where(eq(corporateActions.instrumentId, instrumentId))
+    .where(and(eq(corporateActions.instrumentId, instrumentId), hasTakenEffect))
     .orderBy(desc(corporateActions.exDate));
 
   return rows.map((row) => ({
@@ -111,7 +119,7 @@ async function adjustmentsForMany(
       ratio: corporateActions.ratio,
     })
     .from(corporateActions)
-    .where(inArray(corporateActions.instrumentId, [...instrumentIds]))
+    .where(and(inArray(corporateActions.instrumentId, [...instrumentIds]), hasTakenEffect))
     .orderBy(desc(corporateActions.exDate));
 
   const grouped = new Map<number, Adjustment[]>();

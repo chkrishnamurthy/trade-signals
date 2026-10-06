@@ -28,11 +28,13 @@ import type {
   UpcomingEventDto,
 } from '@/lib/portfolio-types';
 import { DonutWithLegend, GainBars, ShareBar, Treemap } from './portfolio-charts';
+import { longDate } from './portfolio-client';
 import { PortfolioNav } from './portfolio-nav';
 import { ReturnsTab } from './returns-view';
 import { RiskTab } from './risk-view';
 import { SummaryStrip } from './summary-strip';
 import { TaxTab } from './tax-view';
+import { useHashTab } from './use-hash-tab';
 
 /**
  * Portfolio analysis — one page, four tabs (Allocation, Returns, Risk, Tax), the
@@ -40,7 +42,6 @@ import { TaxTab } from './tax-view';
  * and what it needs. Describes the user's own numbers; never suggests what to do.
  */
 const TABS = ['allocation', 'returns', 'risk', 'tax'] as const;
-type TabKey = (typeof TABS)[number];
 
 export function AnalysisView({
   analysis,
@@ -56,27 +57,7 @@ export function AnalysisView({
   risk?: PortfolioRiskDto | null;
 }) {
   const empty = analysis.holdingCount === 0;
-  // The open tab follows the address (#returns), so a tab can be linked to and the
-  // back button behaves.
-  const [tab, setTab] = React.useState<TabKey>('allocation');
-  React.useEffect(() => {
-    const read = () => {
-      const hash = window.location.hash.slice(1);
-      setTab((TABS as readonly string[]).includes(hash) ? (hash as TabKey) : 'allocation');
-    };
-    read();
-    window.addEventListener('hashchange', read);
-    return () => window.removeEventListener('hashchange', read);
-  }, []);
-  const selectTab = (value: string) => {
-    if (!(TABS as readonly string[]).includes(value)) return;
-    setTab(value as TabKey);
-    window.history.replaceState(
-      null,
-      '',
-      value === 'allocation' ? window.location.pathname : `#${value}`,
-    );
-  };
+  const { tab, ready, select: selectTab } = useHashTab(TABS, 'allocation');
   return (
     <AppShell>
       <PageContainer>
@@ -126,13 +107,17 @@ export function AnalysisView({
                   {analysis.unpriced.count === 1 ? 'is' : 'are'} left out of this page.
                 </p>
               )}
-              <Tabs value={tab} onValueChange={selectTab}>
+              {/* Until the page has read the address's #fragment no tab is open, so a linked tab never shows the wrong one first. */}
+              <Tabs value={ready ? tab : ''} onValueChange={selectTab}>
                 <TabsList className="mb-3 flex w-full justify-start overflow-x-auto sm:w-auto">
                   <TabsTrigger value="allocation">Allocation</TabsTrigger>
                   <TabsTrigger value="returns">Returns</TabsTrigger>
                   <TabsTrigger value="risk">Risk</TabsTrigger>
                   <TabsTrigger value="tax">Tax</TabsTrigger>
                 </TabsList>
+                {!ready && (
+                  <div aria-hidden className="h-64 animate-pulse rounded-lg bg-surface-sunken" />
+                )}
                 <TabsContent value="allocation">
                   {analysis.holdings.length === 0 ? (
                     <section className="rounded-lg border border-border bg-surface p-6">
@@ -217,6 +202,18 @@ function Card({
   );
 }
 
+/** Where the size groups come from, in words. */
+function sizeHint(basis: PortfolioAnalysisDto['sizeBasis']): string {
+  if (basis.amfiPeriod === null)
+    return "AMFI's official list is not loaded yet, so size comes from NSE index membership: NIFTY 100 is large, Midcap 150 mid, and the rest small.";
+  const n = basis.indexCount;
+  const fallback =
+    n === 0
+      ? ''
+      : ` ${n} ${n === 1 ? 'holding is' : 'holdings are'} not on that list and ${n === 1 ? 'is' : 'are'} sized by index membership instead.`;
+  return `From AMFI's half-yearly list for the six months ended ${longDate(basis.amfiPeriod)}, under SEBI's rule: large cap is the 100 largest companies by market value, mid cap the next 150, small cap the rest.${fallback}`;
+}
+
 function Allocation({ analysis }: { analysis: PortfolioAnalysisDto }) {
   const [asTable, setAsTable] = React.useState(false);
   const sectorIndex = new Map(analysis.sectors.map((s, i) => [s.key, i]));
@@ -279,10 +276,7 @@ function Allocation({ analysis }: { analysis: PortfolioAnalysisDto }) {
               }))}
             />
           </Card>
-          <Card
-            title="By company size (by index)"
-            hint="Size from NSE index membership: NIFTY 100 is large, Midcap 150 mid, Smallcap 250 small, Microcap 250 micro. A stand-in for the official SEBI/AMFI list."
-          >
+          <Card title="By company size" hint={sizeHint(analysis.sizeBasis)}>
             <DonutWithLegend
               ariaLabel="Share of value by company size"
               centre="Size"

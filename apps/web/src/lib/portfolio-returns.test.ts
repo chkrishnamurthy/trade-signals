@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   composeReturns,
   fillQuarters,
+  historyGapBefore,
   lotsFor,
   priceLookup,
   purchaseHistory,
@@ -275,5 +276,15 @@ describe('purchaseHistory', () => {
         leftShares: 10,
       },
     ]);
+  });
+});
+
+describe('historyGapBefore', () => {
+  it('looks at the date the count was entered, not the date the shares were first bought', () => {
+    // Typed today for shares bought in 2016: already on today's basis, nothing missing.
+    expect(historyGapBefore([{ trackedFrom: '2026-10-05' }], '2024-10-05')).toBeNull();
+    // Entered in 2023, before the record begins: a split since then may be missing.
+    expect(historyGapBefore([{ trackedFrom: '2023-01-01' }], '2024-10-05')).toBe('2024-10-05');
+    expect(historyGapBefore([{ trackedFrom: '2023-01-01' }], null)).toBeNull();
   });
 });

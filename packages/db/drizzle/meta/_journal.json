@@ -309,6 +309,13 @@
       "when": 1791968400000,
       "tag": "0044_holding_notices",
       "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1792054800000,
+      "tag": "0045_amfi_categories",
+      "breakpoints": true
     }
   ]
 }

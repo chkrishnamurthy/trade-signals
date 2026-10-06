@@ -55,6 +55,10 @@ const FILES = [
   join(SRC, 'components/portfolio/statement-check-view.tsx'),
   join(SRC, 'components/portfolio/pdf-reader.ts'),
   join(SRC, 'server/portfolio-notices.ts'),
+  join(SRC, 'components/portfolio/chart-extras.tsx'),
+  join(SRC, 'components/portfolio/use-hash-tab.ts'),
+  join(SRC, 'lib/portfolio-prefs.ts'),
+  join(SRC, 'lib/portfolio-risk.ts'),
 ];
 
 const BANNED =

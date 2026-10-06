@@ -84,6 +84,29 @@ export function companySizeByIndex(indexKeys: readonly string[]): CompanySize {
   return 'other';
 }
 
+/** A size group as SEBI draws it: large and mid cap, and small cap for the rest. */
+export type SizeBucket = 'large' | 'mid' | 'small' | 'other';
+
+export interface CompanySizeResult {
+  readonly size: SizeBucket;
+  /** `amfi` when AMFI's list gave it; `index` when it came from index membership instead. */
+  readonly source: 'amfi' | 'index';
+}
+
+/**
+ * A company's size: AMFI's official category when the stock is on its list,
+ * otherwise from index membership as a stand-in. SEBI has no micro cap (small
+ * cap is the 251st company onwards), so an index-sized micro cap is small.
+ */
+export function companySize(
+  amfiCategory: 'large' | 'mid' | 'small' | null,
+  indexKeys: readonly string[],
+): CompanySizeResult {
+  if (amfiCategory !== null) return { size: amfiCategory, source: 'amfi' };
+  const bySize = companySizeByIndex(indexKeys);
+  return { size: bySize === 'micro' ? 'small' : bySize, source: 'index' };
+}
+
 export interface Contribution {
   readonly key: string;
   readonly gainPaise: number;

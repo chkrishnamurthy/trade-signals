@@ -12,6 +12,7 @@ import {
   yearBefore,
 } from '@equitywise/core';
 import {
+  closesOnOrBefore,
   corporateHistoryFrom,
   dailyClosesBetween,
   deleteAllHoldingEntries,
@@ -25,6 +26,7 @@ import {
   indexInstrumentIds,
   instrumentIsins,
   instrumentsByIsin,
+  latestAmfiPeriod,
   latestDailyCloses,
   latestIndicatorsForInstruments,
   latestQuotesForInstruments,
@@ -44,6 +46,7 @@ import { composeAnalysis, type HoldingRef } from '@/lib/portfolio-analysis';
 import {
   composeReturns,
   headlineReturn,
+  historyGapBefore,
   lotsFor,
   purchaseHistory,
   realisedCsv,
@@ -144,15 +147,9 @@ async function countUse(ownerId: number, event: PortfolioUsageEvent): Promise<vo
   await recordPortfolioUsage(getDatabase(), ownerId, event).catch(() => undefined);
 }
 
-/**
- * Splits, bonuses and consolidations that have taken effect. The nightly sync
- * records announced ones up to a month ahead; until the ex-date the shares and
- * the price are still on the old basis, so a future one must not apply yet.
- */
+/** Splits, bonuses and consolidations that have taken effect (the repository leaves announced ones out). */
 async function shareChangesFor(instrumentIds: readonly number[]): Promise<ShareChange[]> {
-  const today = todayInIndia();
-  const changes = await listShareChanges(getDatabase(), [...new Set(instrumentIds)]);
-  return changes.filter((c) => c.exDate <= today);
+  return listShareChanges(getDatabase(), [...new Set(instrumentIds)]);
 }
 
 /** A sentence for the first problem a ledger has, or null when it is consistent. */
@@ -257,11 +254,8 @@ async function buildPortfolio(ownerId: number): Promise<Built> {
           dayChangeRatio: h.dayChangeRatio,
           weight: h.weight,
           adjustments: [...h.adjustments],
-          // A purchase older than the split/bonus record could be missing an adjustment.
-          historyGapBefore:
-            historyFrom !== null && h.lots.some((lot) => lot.acquiredOn < historyFrom)
-              ? historyFrom
-              : null,
+          // An entry dated before the split/bonus record could be missing an adjustment.
+          historyGapBefore: historyGapBefore(h.lots, historyFrom),
         };
       }),
     entries: ledger.slice(0, 500).map(toEntryDto),
@@ -342,6 +336,33 @@ async function returnInputs(built: Built, reachBack?: string) {
   return { closes, dividendRecords, today };
 }
 
+/**
+ * What a figure about one or a few stocks needs, without the whole price
+ * history: their dividend records, and the close on the day of each opening
+ * balance (to value it). The overview's headline and one holding's page use
+ * this; only the Returns, Tax and Risk tabs need every daily close.
+ */
+async function lightInputs(built: Built, ids: readonly number[]) {
+  const db = getDatabase();
+  const mine = built.ledger.filter((entry) => ids.includes(entry.instrumentId));
+  const first = mine.reduce<string | null>(
+    (a, e) => (a === null || e.tradeDate < a ? e.tradeDate : a),
+    null,
+  );
+  const today = todayInIndia();
+  if (first === null) return { closes: new Map(), dividendRecords: [], today };
+  const [closes, dividendRecords] = await Promise.all([
+    closesOnOrBefore(
+      db,
+      mine
+        .filter((e) => e.kind === 'opening')
+        .map((e) => ({ instrumentId: e.instrumentId, date: e.tradeDate })),
+    ).catch(() => new Map()),
+    dividendsBetween(db, ids, first, today).catch(() => []),
+  ]);
+  return { closes, dividendRecords, today };
+}
+
 function namesOf(ledger: readonly HoldingEntryRow[]) {
   return new Map(
     ledger.map((entry) => [entry.instrumentId, { symbol: entry.symbol, name: entry.name }]),
@@ -353,7 +374,7 @@ export async function getPortfolio(): Promise<PortfolioDto> {
   const built = await buildPortfolio(ownerId);
   await countUse(ownerId, 'view');
   if (built.ledger.length === 0) return built.dto;
-  const inputs = await returnInputs(built);
+  const inputs = await lightInputs(built, [...new Set(built.ledger.map((e) => e.instrumentId))]);
   const returns = headlineReturn({
     entries: built.entries,
     changes: built.changes,
@@ -480,13 +501,14 @@ export async function getPortfolioAnalysis(): Promise<{
   const built = await buildPortfolio(ownerId);
   const { dto } = built;
   const pricedIds = dto.holdings.filter((h) => h.valuePaise !== null).map((h) => h.instrumentId);
-  const reference = await holdingReference(getDatabase(), pricedIds).catch(
-    () => new Map<number, HoldingRef>(),
-  );
+  const [reference, amfiPeriod] = await Promise.all([
+    holdingReference(getDatabase(), pricedIds).catch(() => new Map<number, HoldingRef>()),
+    latestAmfiPeriod(getDatabase()).catch(() => null),
+  ]);
   await countUse(ownerId, 'view');
   if (built.ledger.length === 0)
     return {
-      analysis: composeAnalysis(dto, reference),
+      analysis: composeAnalysis(dto, reference, amfiPeriod),
       returns: null,
       benchmark: null,
       tax: null,
@@ -509,34 +531,57 @@ export async function getPortfolioAnalysis(): Promise<{
     holdings: dto.holdings,
     today: inputs.today,
   });
-  return { analysis: composeAnalysis(dto, reference), returns, benchmark, tax, risk };
+  return { analysis: composeAnalysis(dto, reference, amfiPeriod), returns, benchmark, tax, risk };
 }
 
-/** One holding with every entry behind it, or null when the user holds none of that stock. */
+/**
+ * One stock with every entry behind it: held now, or (shares all removed) with
+ * its history; null when the user has no entry for that stock at all.
+ */
 export async function getHoldingDetail(symbol: string): Promise<HoldingDetailDto | null> {
   const ownerId = await requireOwnerId();
   const built = await buildPortfolio(ownerId);
   const { dto, ledger } = built;
   const wanted = symbol.toUpperCase();
-  const holding = dto.holdings.find((h) => h.symbol === wanted);
-  if (holding === undefined) return null;
-  const returns = returnsFor(built, await returnInputs(built));
-  const own = returns.perHolding.find((p) => p.symbol === holding.symbol);
-  const indicators = await latestIndicatorsForInstruments(getDatabase(), [
-    holding.instrumentId,
-  ]).catch(() => new Map());
-  const range = indicators.get(holding.instrumentId);
+  const entries = ledger.filter((entry) => entry.symbol === wanted);
+  const first = entries[0];
+  if (first === undefined) return null;
+  const id = first.instrumentId;
+  const holding = dto.holdings.find((h) => h.instrumentId === id) ?? null;
+
+  // Only this stock's numbers: its entries, lots, removals and dividends.
+  const inputs = await lightInputs(built, [id]);
+  const returns = composeReturns({
+    entries: built.entries.filter((e) => e.instrumentId === id),
+    names: namesOf(entries),
+    changes: built.changes.filter((c) => c.instrumentId === id),
+    derived: {
+      holdings: built.derived.holdings.filter((h) => h.instrumentId === id),
+      realisations: built.derived.realisations.filter((r) => r.instrumentId === id),
+      problems: [],
+    },
+    holdings: holding === null ? [] : [holding],
+    historyFrom: built.historyFrom,
+    ...inputs,
+  });
+  const own = returns.perHolding.find((p) => p.symbol === wanted);
+  const indicators =
+    holding === null
+      ? new Map()
+      : await latestIndicatorsForInstruments(getDatabase(), [id]).catch(() => new Map());
+  const range = indicators.get(id);
   return {
+    stock: { symbol: first.symbol, name: first.name },
     holding,
-    entries: ledger.filter((entry) => entry.instrumentId === holding.instrumentId).map(toEntryDto),
+    entries: entries.map(toEntryDto),
     low52wPaise: range?.low52w ?? null,
     high52wPaise: range?.high52w ?? null,
-    portfolioWeight: holding.weight,
+    portfolioWeight: holding?.weight ?? null,
     pricesStale: dto.pricesStale,
-    lots: lotsFor(built.derived, holding.instrumentId, todayInIndia()),
-    realised: returns.realisedRows.filter((r) => r.symbol === holding.symbol),
-    purchases: purchaseHistory(built.entries, built.changes, built.derived, holding.instrumentId),
-    dividends: returns.dividends.rows.filter((d) => d.symbol === holding.symbol),
+    lots: lotsFor(built.derived, id, todayInIndia()),
+    realised: returns.realisedRows,
+    purchases: purchaseHistory(built.entries, built.changes, built.derived, id),
+    dividends: returns.dividends.rows,
     totalReturnPaise: own?.totalPaise ?? null,
   };
 }

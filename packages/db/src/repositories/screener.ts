@@ -35,6 +35,7 @@ import {
   signals,
   userRatioLayouts,
 } from '../schema/index.js';
+import { hasTakenEffect } from './candles.js';
 
 /**
  * Screener persistence (docs/planning/screener-dhan-fyers-plan.md §5, §9).
@@ -1136,7 +1137,8 @@ export async function shareBasisChangesSince(db: Database, from: string) {
       ratio: corporateActions.ratio,
     })
     .from(corporateActions)
-    .where(gte(corporateActions.exDate, from));
+    // Announced ones are on record ahead of their ex-date; only those in effect restate anything.
+    .where(and(gte(corporateActions.exDate, from), hasTakenEffect));
   return rows.map((r) => ({ ...r, ratio: Number(r.ratio) }));
 }
 

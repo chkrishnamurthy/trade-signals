@@ -78,6 +78,36 @@ describe('composeAnalysis', () => {
     expect(a.holdings.map((h) => h.size)).toEqual(['large', 'other']);
   });
 
+  it('takes company size from the AMFI list, and from the index for a stock it lacks, saying how many', () => {
+    const ref = new Map<number, HoldingRef>([
+      // Large on AMFI's list although the index says nothing.
+      [1, { industry: null, indexKeys: [], amfiCategory: 'large' }],
+      // Not on the list: a micro-cap index membership counts as small, as SEBI has no micro cap.
+      [2, { industry: null, indexKeys: ['niftymicrocap250'], amfiCategory: null }],
+      // Not on the list and in no index.
+      [3, { industry: null, indexKeys: [] }],
+    ]);
+    const a = composeAnalysis(
+      dto([holding(1, 500, 400, 0.5), holding(2, 300, 400, 0.3), holding(3, 200, 400, 0.2)]),
+      ref,
+      '2026-06-30',
+    );
+    expect(a.holdings.map((h) => h.size)).toEqual(['large', 'small', 'other']);
+    expect(a.sizes.map((g) => [g.key, g.label])).toEqual([
+      ['large', 'Large cap'],
+      ['small', 'Small cap'],
+      ['other', 'Not categorised'],
+    ]);
+    expect(a.sizeBasis).toEqual({ amfiPeriod: '2026-06-30', indexCount: 2 });
+  });
+
+  it('says no AMFI list is loaded when none is on file', () => {
+    expect(composeAnalysis(dto([holding(1, 600, 500, 1)]), new Map()).sizeBasis).toEqual({
+      amfiPeriod: null,
+      indexCount: 1,
+    });
+  });
+
   it('folds sectors past the eighth into Other sectors and draws those holdings in it', () => {
     const many = Array.from({ length: 10 }, (_, i) => holding(i + 1, 1000 - i * 50, 500, null));
     const ref = new Map<number, HoldingRef>(

@@ -2,6 +2,8 @@
 
 import { formatPaise } from '@equitywise/shared';
 import { DownloadIcon } from 'lucide-react';
+import type { Route } from 'next';
+import Link from 'next/link';
 import * as React from 'react';
 import { MetricHint } from '@/components/data-display/metric-card';
 import { PercentChange, PriceChange } from '@/components/market/numeric';
@@ -11,6 +13,18 @@ import { cn } from '@/lib/utils';
 import { BenchmarkSection } from './benchmark-view';
 import { longDate } from './portfolio-client';
 import { filterRange, QuarterBars, type Range, ValueChart } from './returns-charts';
+
+/** A stock's name as a link to its own page, whether or not shares are still held. */
+function StockLink({ symbol }: { symbol: string }) {
+  return (
+    <Link
+      href={`/portfolio/${encodeURIComponent(symbol)}` as Route}
+      className="underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+    >
+      {symbol}
+    </Link>
+  );
+}
 
 /**
  * The Returns tab: what you have made, how (realised, unrealised, dividends),
@@ -144,6 +158,15 @@ export function ReturnsTab({
               {returns.unpricedAtCost}{' '}
               {returns.unpricedAtCost === 1 ? 'holding has' : 'holdings have'} no price yet and{' '}
               {returns.unpricedAtCost === 1 ? 'is' : 'are'} counted at what you paid.
+            </p>
+          )}
+          {summary.openingsAtCost > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {summary.openingsAtCost}{' '}
+              {summary.openingsAtCost === 1 ? 'opening balance has' : 'opening balances have'} no
+              stored price on {summary.openingsAtCost === 1 ? 'its' : 'their'} date, so{' '}
+              {summary.openingsAtCost === 1 ? 'it is' : 'they are'} counted at what you paid, not
+              that day&apos;s market value. The yearly return can differ slightly.
             </p>
           )}
         </Card>
@@ -357,7 +380,7 @@ export function ReturnsTab({
               {returns.perHolding.map((p) => (
                 <tr key={p.symbol}>
                   <th scope="row" className="py-1.5 pr-3 text-left font-medium">
-                    {p.symbol}
+                    <StockLink symbol={p.symbol} />
                     <span className="block text-xs font-normal text-muted-foreground">
                       {p.held ? p.name : `${p.name} · no longer held`}
                     </span>
@@ -389,7 +412,7 @@ export function ReturnsTab({
             <li key={p.symbol} className="py-2 text-sm">
               <div className="flex items-baseline justify-between gap-3">
                 <span className="font-medium">
-                  {p.symbol}
+                  <StockLink symbol={p.symbol} />
                   {p.held ? '' : ' · no longer held'}
                 </span>
                 <PriceChange paise={p.totalPaise} />

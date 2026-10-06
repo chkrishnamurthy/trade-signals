@@ -659,3 +659,19 @@ Owner decision: in-app only for now; email later.
 - **Contract note → import:** through the existing review step; stocks matched by ISIN (new `instrumentsByIsin` fallback, which also helps CSV files that carry an ISIN); trade numbers stop a second import of the same note.
 - **Also fixed:** "Done" after an import left the dialog showing the old result when reopened.
 - **Not yet proven:** the parsers were built from the published layouts and tested on synthetic files. A real NSDL or CDSL CAS and a real contract note (personal details removed) are needed to confirm them; password-protected opening is pdf.js's own and was not tested here with an encrypted file.
+
+## Review follow-ups (built 2026-10-06)
+
+The seven Phase 3 review fixes, the early-adjustment bug and the company-size list, all done:
+
+1. **History gap** now compares the date the count was entered, not the date the shares were first bought (a count typed today for 2016 shares is on today's basis, so nothing is missing).
+2. **Fully removed stocks** have their own page (`/portfolio/<symbol>`): total return, each removal matched to its purchase, purchase history, dividends and the entries (still editable). Stock names in the Returns table link to it.
+3. **Charts** (value over time, growth of 100, below the last high): the values under the pointer (mouse, pen or finger) and "Show as a table" with every figure.
+4. **Less data loaded:** the overview's headline and a holding page read only that stock's dividends and the close on each opening balance's date (`closesOnOrBefore`), not every daily close since the first entry. The Returns, Tax and Risk tabs still read the full history, once.
+5. **Openings counted at cost:** the Returns tab now says how many opening balances had no stored price on their date and were counted at what was paid.
+6. **No flash:** a linked tab (`#risk`) opens directly (read through `useSyncExternalStore`, a placeholder until the address is read); the one-time FIFO note is decided on the server from a cookie, so it neither pops in nor out.
+7. **Server loading code tested** against a real database (`apps/web/src/server/portfolio.db.test.ts`): overview, a held and a fully removed stock, isolation between users, the analysis tabs, the CSVs, the statement check, notice settings, and that an announced bonus is not applied early.
+8. **Announced splits and bonuses apply only from their ex-date** in holdings, in price-history adjustment (`getDailyBars`, `getDailyBarsForInstruments`, anchored closes) and in the screener's dividend restating. The nightly sync records them up to a month ahead; before this, every earlier bar was restated early.
+9. **Company size from AMFI's official list** (migration `0045`, worker job `load-amfi-categories`, Mondays 09:25 IST, only downloads when a newer half-yearly list is out). Large = top 100, mid = next 150, small = the rest (SEBI circular of 6 Oct 2017); a holding AMFI's list lacks is sized by index membership and the card says how many. The real file (six months ended 30 Jun 2026) parses to 5,427 companies: 100 large, 150 mid.
+
+Owner, after deploy: `node apps/worker/dist/index.js --once load-amfi-categories`.

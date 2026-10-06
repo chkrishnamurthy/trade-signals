@@ -258,6 +258,11 @@ export interface ReturnSummary {
   /** Yearly, money-weighted; only when status is 'ok'. */
   readonly xirr: number | null;
   readonly status: ReturnStatus;
+  /**
+   * Opening balances with no stored close on or before their date, counted at
+   * what the user paid instead of that day's market value.
+   */
+  readonly openingsAtCost: number;
 }
 
 /** Money-weighted history shorter than this gives no yearly figure. */
@@ -285,16 +290,20 @@ export function summariseReturns(input: {
       simpleReturn: null,
       xirr: null,
       status: 'empty',
+      openingsAtCost: 0,
     };
   }
   const flows: CashFlow[] = [];
   let invested = 0;
   let withdrawn = 0;
+  let openingsAtCost = 0;
   for (const e of ordered) {
     if (e.kind === 'remove') {
       withdrawn += e.amountPaise;
       flows.push({ date: e.tradeDate, amountPaise: e.amountPaise });
     } else {
+      if (e.kind === 'opening' && input.priceOn(e.instrumentId, e.tradeDate) === null)
+        openingsAtCost += 1;
       const amount = moneyIn(e, input.priceOn);
       invested += amount;
       flows.push({ date: e.tradeDate, amountPaise: -amount });
@@ -319,6 +328,7 @@ export function summariseReturns(input: {
     valuePaise: input.valuePaise,
     gainPaise: gain,
     simpleReturn: invested > 0 ? gain / invested : null,
+    openingsAtCost,
   };
   if (years < MIN_YEARS_FOR_XIRR) return { ...base, xirr: null, status: 'too_short' };
   const rate = xirr(flows);

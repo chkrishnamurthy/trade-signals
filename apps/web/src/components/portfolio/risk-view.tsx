@@ -4,6 +4,7 @@ import * as React from 'react';
 import { MetricHint } from '@/components/data-display/metric-card';
 import type { DeepestFallDto, PortfolioRiskDto, RiskFigureDto } from '@/lib/portfolio-types';
 import { cn } from '@/lib/utils';
+import { ChartTable, HoverTip, Marker, TableToggle, useChartHover } from './chart-extras';
 import { longDate } from './portfolio-client';
 import { useWidth } from './returns-charts';
 
@@ -103,6 +104,15 @@ function DrawdownChart({
   height?: number;
 }) {
   const [ref, width] = useWidth<HTMLDivElement>();
+  const [asTable, setAsTable] = React.useState(false);
+  const xs = React.useMemo(() => {
+    if (width === null || points.length < 2) return [];
+    const times = points.map((p) => Date.parse(`${p.date}T00:00:00Z`));
+    const start = times[0] ?? 0;
+    const length = Math.max((times.at(-1) ?? start) - start, 1);
+    return times.map((time) => 48 + ((time - start) / length) * (width - 48 - 12));
+  }, [points, width]);
+  const hover = useChartHover(xs);
   if (points.length < 2)
     return (
       <div ref={ref} className="text-sm text-muted-foreground">
@@ -139,81 +149,121 @@ function DrawdownChart({
     deepest !== null && deepest.depth < 0
       ? { time: Date.parse(`${deepest.troughOn}T00:00:00Z`), depth: deepest.depth }
       : null;
+  const at = hover.index;
+  const hovered = at === null ? undefined : points[at];
   return (
     <div ref={ref} className="w-full">
-      <svg
-        role="img"
-        aria-label="How far below its last high your holdings stood each day"
-        width="100%"
-        height={height}
-        viewBox={`0 0 ${width} ${height}`}
-        className="block"
-      >
-        {ticks.map((v) => (
-          <g key={v}>
-            <line
-              x1={left}
-              x2={width - right}
-              y1={y(v)}
-              y2={y(v)}
-              style={{ stroke: 'var(--chart-grid)' }}
-            />
-            <text
-              x={left - 6}
-              y={y(v) + 4}
-              textAnchor="end"
-              className="fill-muted-foreground text-[11px] tabular-nums"
-            >
-              {pct(v, 0)}
-            </text>
-          </g>
-        ))}
-        <path d={area} style={{ fill: 'color-mix(in srgb, var(--chart-1) 18%, transparent)' }} />
-        <path
-          d={line}
-          fill="none"
-          strokeWidth={1.75}
-          strokeLinejoin="round"
-          style={{ stroke: 'var(--chart-1)' }}
+      <TableToggle asTable={asTable} onToggle={() => setAsTable((v) => !v)} />
+      {asTable ? (
+        <ChartTable
+          caption="How far below its last high your holdings stood, by date"
+          columns={['Date', 'Below the last high']}
+          rows={points.map((p) => [longDate(p.date), pct(p.drawdown)])}
         />
-        {trough !== null && (
-          <g>
-            <line
-              x1={x(trough.time)}
-              x2={x(trough.time)}
-              y1={y(0)}
-              y2={y(trough.depth)}
-              strokeDasharray="3 3"
-              style={{ stroke: 'var(--chart-axis)' }}
-            />
-            <circle
-              cx={x(trough.time)}
-              cy={y(trough.depth)}
-              r={4}
-              style={{ fill: 'var(--surface)', stroke: 'var(--chart-1)', strokeWidth: 2 }}
-            />
-            <text
-              x={Math.min(Math.max(x(trough.time), left + 40), width - right - 40)}
-              y={Math.min(y(trough.depth) + 18, height - bottom - 4)}
-              textAnchor="middle"
-              className="fill-foreground text-[11px] font-medium tabular-nums"
-            >
-              Deepest {pct(trough.depth)}
-            </text>
-          </g>
-        )}
-        {xTicks.map((time, k) => (
-          <text
-            key={time}
-            x={x(time)}
-            y={height - 8}
-            textAnchor={k === 0 ? 'start' : k === xTicks.length - 1 ? 'end' : 'middle'}
-            className="fill-muted-foreground text-[11px]"
+      ) : (
+        <div className="relative">
+          <svg
+            role="img"
+            aria-label="How far below its last high your holdings stood each day. Choose &quot;Show as a table&quot; for every value."
+            width="100%"
+            height={height}
+            viewBox={`0 0 ${width} ${height}`}
+            className="block"
+            style={{ touchAction: 'pan-y' }}
+            {...hover.bind}
           >
-            {monthYear(new Date(time).toISOString().slice(0, 10))}
-          </text>
-        ))}
-      </svg>
+            {ticks.map((v) => (
+              <g key={v}>
+                <line
+                  x1={left}
+                  x2={width - right}
+                  y1={y(v)}
+                  y2={y(v)}
+                  style={{ stroke: 'var(--chart-grid)' }}
+                />
+                <text
+                  x={left - 6}
+                  y={y(v) + 4}
+                  textAnchor="end"
+                  className="fill-muted-foreground text-[11px] tabular-nums"
+                >
+                  {pct(v, 0)}
+                </text>
+              </g>
+            ))}
+            <path
+              d={area}
+              style={{ fill: 'color-mix(in srgb, var(--chart-1) 18%, transparent)' }}
+            />
+            <path
+              d={line}
+              fill="none"
+              strokeWidth={1.75}
+              strokeLinejoin="round"
+              style={{ stroke: 'var(--chart-1)' }}
+            />
+            {trough !== null && (
+              <g>
+                <line
+                  x1={x(trough.time)}
+                  x2={x(trough.time)}
+                  y1={y(0)}
+                  y2={y(trough.depth)}
+                  strokeDasharray="3 3"
+                  style={{ stroke: 'var(--chart-axis)' }}
+                />
+                <circle
+                  cx={x(trough.time)}
+                  cy={y(trough.depth)}
+                  r={4}
+                  style={{ fill: 'var(--surface)', stroke: 'var(--chart-1)', strokeWidth: 2 }}
+                />
+                <text
+                  x={Math.min(Math.max(x(trough.time), left + 40), width - right - 40)}
+                  y={Math.min(y(trough.depth) + 18, height - bottom - 4)}
+                  textAnchor="middle"
+                  className="fill-foreground text-[11px] font-medium tabular-nums"
+                >
+                  Deepest {pct(trough.depth)}
+                </text>
+              </g>
+            )}
+            {xTicks.map((time, k) => (
+              <text
+                key={time}
+                x={x(time)}
+                y={height - 8}
+                textAnchor={k === 0 ? 'start' : k === xTicks.length - 1 ? 'end' : 'middle'}
+                className="fill-muted-foreground text-[11px]"
+              >
+                {monthYear(new Date(time).toISOString().slice(0, 10))}
+              </text>
+            ))}
+            {hovered !== undefined && at !== null && (
+              <Marker
+                x={xs[at] ?? 0}
+                top={top}
+                bottom={height - bottom}
+                dots={[{ y: y(hovered.drawdown), colour: 'var(--chart-1)' }]}
+              />
+            )}
+          </svg>
+          {hovered !== undefined && at !== null && (
+            <HoverTip
+              x={xs[at] ?? 0}
+              width={width}
+              title={longDate(hovered.date)}
+              lines={[
+                {
+                  label: 'Below the last high',
+                  value: hovered.drawdown === 0 ? '0%' : pct(hovered.drawdown),
+                  colour: 'var(--chart-1)',
+                },
+              ]}
+            />
+          )}
+        </div>
+      )}
     </div>
   );
 }

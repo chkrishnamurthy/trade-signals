@@ -12,11 +12,11 @@ import type {
  */
 
 export const SIZE_LABEL: Record<CompanySizeKey, string> = {
-  large: 'Large (NIFTY 100)',
-  mid: 'Mid (Midcap 150)',
-  small: 'Small (Smallcap 250)',
-  micro: 'Micro (Microcap 250)',
-  other: 'Not in these indices',
+  large: 'Large cap',
+  mid: 'Mid cap',
+  small: 'Small cap',
+  micro: 'Micro cap',
+  other: 'Not categorised',
 };
 
 export const UNCLASSIFIED_SECTOR = 'Not classified';

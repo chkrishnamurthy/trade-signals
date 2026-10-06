@@ -78,7 +78,14 @@ import { StatementCheck } from './statement-check-view';
  * ("Added shares", "Removed shares", "Number of shares", "Average cost").
  */
 
-export function PortfolioView({ portfolio }: { portfolio: PortfolioDto }) {
+export function PortfolioView({
+  portfolio,
+  fifoNoteSeen = false,
+}: {
+  portfolio: PortfolioDto;
+  /** The one-time FIFO note was dismissed (read from a cookie on the server). */
+  fifoNoteSeen?: boolean;
+}) {
   const router = useRouter();
   const [addOpen, setAddOpen] = React.useState(false);
   const [importOpen, setImportOpen] = React.useState(false);
@@ -122,7 +129,7 @@ export function PortfolioView({ portfolio }: { portfolio: PortfolioDto }) {
           {empty ? (
             <Onboarding onAdd={() => setAddOpen(true)} onImport={() => setImportOpen(true)} />
           ) : (
-            <Overview portfolio={portfolio} />
+            <Overview portfolio={portfolio} fifoNoteSeen={fifoNoteSeen} />
           )}
           <p className="text-xs text-muted-foreground">
             This page describes the numbers you entered. It is not a recommendation, and EquityWise
@@ -189,7 +196,7 @@ function Onboarding({ onAdd, onImport }: { onAdd: () => void; onImport: () => vo
   );
 }
 
-function Overview({ portfolio }: { portfolio: PortfolioDto }) {
+function Overview({ portfolio, fifoNoteSeen }: { portfolio: PortfolioDto; fifoNoteSeen: boolean }) {
   const { totals } = portfolio;
   const facts = standOut(portfolio.holdings);
   return (
@@ -220,7 +227,7 @@ function Overview({ portfolio }: { portfolio: PortfolioDto }) {
         </p>
       ))}
 
-      {portfolio.hasRemovals && <FifoNote />}
+      {portfolio.hasRemovals && <FifoNote seen={fifoNoteSeen} />}
 
       <Section aria-label="Summary" className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <MetricCard
@@ -355,17 +362,30 @@ function YearlyReturn({ summary }: { summary: PortfolioDto['returns'] }) {
 }
 
 const FIFO_NOTE_KEY = 'ew-portfolio-fifo-note-dismissed';
+function rememberFifoNote(): void {
+  // The server sets the cookie, so the page's first paint can leave the note out next time.
+  void fetch('/api/portfolio/prefs/fifo-note', { method: 'POST' }).catch(() => undefined);
+}
 
-/** Shown once (per browser) after the first removal: average cost is FIFO. */
-function FifoNote() {
-  const [show, setShow] = React.useState(false);
+/**
+ * Shown once (per browser) after the first removal: average cost is FIFO.
+ * `seen` comes from the server (a cookie), so the note neither pops in nor out
+ * as the page loads. Someone who dismissed it before the cookie existed has it in
+ * local storage: hide it for them and move the choice to the cookie.
+ */
+function FifoNote({ seen }: { seen: boolean }) {
+  const [show, setShow] = React.useState(!seen);
   React.useEffect(() => {
+    if (seen) return;
     try {
-      setShow(window.localStorage.getItem(FIFO_NOTE_KEY) !== '1');
+      if (window.localStorage.getItem(FIFO_NOTE_KEY) === '1') {
+        rememberFifoNote();
+        setShow(false);
+      }
     } catch {
-      setShow(true);
+      // Storage blocked: the cookie alone decides.
     }
-  }, []);
+  }, [seen]);
   if (!show) return null;
   return (
     <div
@@ -383,11 +403,7 @@ function FifoNote() {
         variant="ghost"
         onClick={() => {
           setShow(false);
-          try {
-            window.localStorage.setItem(FIFO_NOTE_KEY, '1');
-          } catch {
-            // Private mode: the note simply comes back next time.
-          }
+          rememberFifoNote();
         }}
       >
         Got it

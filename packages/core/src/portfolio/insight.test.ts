@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   capGroups,
+  companySize,
   companySizeByIndex,
   concentration,
   groupByWeight,
@@ -106,5 +107,18 @@ describe('capGroups', () => {
   it('leaves a short list alone', () => {
     expect(capGroups(groups, 5, 'Other').groups).toHaveLength(5);
     expect(capGroups(groups, 5, 'Other').folded.size).toBe(0);
+  });
+});
+
+describe('companySize', () => {
+  it('takes the AMFI category when the stock is on its list, whatever the indices say', () => {
+    expect(companySize('small', ['nifty100'])).toEqual({ size: 'small', source: 'amfi' });
+    expect(companySize('large', [])).toEqual({ size: 'large', source: 'amfi' });
+  });
+  it('falls back to index membership, with a micro cap counted as small as SEBI does', () => {
+    expect(companySize(null, ['nifty100'])).toEqual({ size: 'large', source: 'index' });
+    expect(companySize(null, ['niftymidcap150'])).toEqual({ size: 'mid', source: 'index' });
+    expect(companySize(null, ['niftymicrocap250'])).toEqual({ size: 'small', source: 'index' });
+    expect(companySize(null, [])).toEqual({ size: 'other', source: 'index' });
   });
 });

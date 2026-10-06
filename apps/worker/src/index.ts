@@ -2,6 +2,7 @@ import { feedHealth, withRetry } from '@equitywise/db';
 import { config as loadEnv } from 'dotenv';
 import { createContext, type WorkerContext } from './context.js';
 import { createJobFailureRecorder } from './job-failures.js';
+import { loadAmfiCategories } from './jobs/amfi-categories.js';
 import { authMaintenance } from './jobs/auth-maintenance.js';
 import {
   calendarRefresh,
@@ -197,6 +198,8 @@ const SCHEDULES = {
   ingestIndexCloses: '20 19 * * 1-5',
   /** After each stock-analysis pass stores the day's closes; once-only, so twice is safe. */
   portfolioNotices: '50 19,21 * * 1-5',
+  /** AMFI publishes a new list twice a year; a weekly look loads it within days of release. */
+  amfiCategories: '25 9 * * 1',
 } as const;
 
 interface Jobs {
@@ -450,6 +453,13 @@ function buildScheduler(context: WorkerContext): Jobs {
         schedule: SCHEDULES.ingestIndexCloses,
         run: async () => {
           await ingestIndexCloses(context, log.child('ingest-index-closes'));
+        },
+      },
+      {
+        name: 'load-amfi-categories',
+        schedule: SCHEDULES.amfiCategories,
+        run: async () => {
+          await loadAmfiCategories(context, log.child('load-amfi-categories'));
         },
       },
       {
@@ -744,6 +754,7 @@ async function main(): Promise<void> {
           'backfill-corporate-history',
           'ingest-index-closes',
           'portfolio-notices',
+          'load-amfi-categories',
           'backfill-index-closes',
           'load-fair-market-values-2018',
           'backfill-ipo-rhp',

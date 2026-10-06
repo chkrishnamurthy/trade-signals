@@ -113,7 +113,10 @@ export interface AddEntryBody {
 }
 
 export interface HoldingDetailDto {
-  holding: PortfolioHoldingDto;
+  /** The stock, whether or not shares are still held. */
+  stock: { symbol: string; name: string };
+  /** The holding as it stands today; null for a stock whose shares were all removed. */
+  holding: PortfolioHoldingDto | null;
   /** Every entry the user made for this stock, newest first. */
   entries: PortfolioEntryDto[];
   low52wPaise: number | null;
@@ -191,6 +194,13 @@ export interface PortfolioAnalysisDto {
   holdings: AnalysisHoldingDto[];
   sectors: WeightGroupDto[];
   sizes: WeightGroupDto[];
+  /** Where the size groups come from: AMFI's list (and its period) or index membership. */
+  sizeBasis: {
+    /** Period end of the AMFI list on file; null when none is loaded. */
+    amfiPeriod: string | null;
+    /** Priced holdings sized by index membership because AMFI's list does not have them. */
+    indexCount: number;
+  };
   concentration: {
     holdings: number;
     largest: number;
@@ -227,6 +237,8 @@ export interface ReturnSummaryDto {
   dividendsPaise: number;
   valuePaise: number;
   gainPaise: number;
+  /** Opening balances with no stored price on their date, counted at what was paid. */
+  openingsAtCost: number;
 }
 
 export type TermKey = 'short' | 'long' | 'intraday';
