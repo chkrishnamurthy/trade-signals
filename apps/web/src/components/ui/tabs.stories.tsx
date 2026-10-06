@@ -32,6 +32,23 @@ export const Default: Story = {
   ),
 };
 
+export const Pill: Story = {
+  render: () => (
+    <Tabs defaultValue="a" className="w-80">
+      <TabsList variant="pill">
+        <TabsTrigger value="a">Search</TabsTrigger>
+        <TabsTrigger value="b">Paste or import</TabsTrigger>
+      </TabsList>
+      <TabsContent value="a">
+        <p className="text-sm text-muted-foreground">A small switch between close alternatives.</p>
+      </TabsContent>
+      <TabsContent value="b">
+        <p className="text-sm text-muted-foreground">Same component, compact look.</p>
+      </TabsContent>
+    </Tabs>
+  ),
+};
+
 export const WithDisabled: Story = {
   render: () => (
     <Tabs defaultValue="a" className="w-80">

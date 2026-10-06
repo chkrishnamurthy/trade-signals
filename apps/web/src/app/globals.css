@@ -144,6 +144,9 @@
   --chart-5: oklch(0.548 0.108 157);
   --chart-grid: oklch(0.922 0.006 253);
   --chart-axis: oklch(0.652 0.015 257);
+  /* A filled tile (treemap): how much of the series colour, and the text on it. */
+  --chart-fill: 46%;
+  --chart-fill-ink: var(--foreground);
   /* Institutional flow: one fixed hue per participant class, blue and orange
      so they separate under every colour-vision deficiency. Validated against
      the light and dark chart surfaces (lightness band, CVD ΔE ≥ 23, ≥ 3:1). */
@@ -240,6 +243,8 @@
   --chart-5: oklch(0.702 0.108 157);
   --chart-grid: oklch(0.278 0.013 259);
   --chart-axis: oklch(0.568 0.014 257);
+  --chart-fill: 84%;
+  --chart-fill-ink: oklch(0.16 0.012 257);
   --flow-fii: oklch(0.64 0.12 252);
   --flow-dii: oklch(0.665 0.14 62);
 

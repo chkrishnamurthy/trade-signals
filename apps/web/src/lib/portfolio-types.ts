@@ -306,6 +306,8 @@ export interface PortfolioReturnsDto {
     rows: DividendRowDto[];
   };
   series: ValuePointDto[];
+  /** The shares held now at the last twelve months' prices; the chart uses it while `series` is short. */
+  pastSeries: ValuePointDto[];
   perHolding: PerHoldingReturnDto[];
   /** How far back splits, bonuses and dividends are on record; null when unknown. */
   historyFrom: string | null;
@@ -365,6 +367,18 @@ export interface PortfolioBenchmarkDto {
   growth: GrowthPointDto[];
   /** True when at least one index has closes loaded. */
   available: boolean;
+  /** Today's shares at the last twelve months' prices, beside the indices; null with no prices. */
+  pastPrices: PastPricesDto | null;
+}
+
+export interface PastPricesDto {
+  /** First session of the comparison. */
+  from: string;
+  growth: GrowthPointDto[];
+  yours: Record<PeriodKeyDto, number | null>;
+  indices: { symbol: string; name: string; periods: Record<PeriodKeyDto, number | null> }[];
+  /** Held stocks with no price, left out. */
+  leftOut: number;
 }
 
 export interface TaxRowDto {
@@ -460,6 +474,13 @@ export interface DeepestFallDto {
 }
 
 export interface PortfolioRiskDto {
+  /**
+   * `own`: from your own entries (a year or more of them). `past_prices`: the shares
+   * you hold now at the last twelve months' prices, because your record is shorter.
+   */
+  basis: 'own' | 'past_prices';
+  /** First session the figures cover. */
+  basisFrom: string | null;
   /** Sessions with a daily return, all history. */
   sessions: number;
   /** Days left out because a price was stale. */

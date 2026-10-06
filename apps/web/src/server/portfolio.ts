@@ -434,6 +434,7 @@ function benchmarkFor(
     closes: inputs.closes,
     indexCloses,
     valuePaise: valueForReturns(built.dto.holdings).valuePaise,
+    holdings: built.dto.holdings,
     today: inputs.today,
   });
 }

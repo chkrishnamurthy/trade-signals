@@ -129,7 +129,7 @@ export function attentionFacts(input: {
   out.push(...events.slice(0, EVENTS_IN_FACTS));
   if (events.length > EVENTS_IN_FACTS) {
     const more = events.length - EVENTS_IN_FACTS;
-    out.push(`${more} more ${more === 1 ? 'event is' : 'events are'} in Coming up.`);
+    out.push(`${more} more ${more === 1 ? 'event is' : 'events are'} in Upcoming company events.`);
   }
   return out;
 }

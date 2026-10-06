@@ -88,7 +88,7 @@ describe('attentionFacts', () => {
     );
     const out = attentionFacts({ holdings, sectors: [], upcoming: many, unpriced: 0 });
     expect(out.filter((f) => f.includes('results on'))).toHaveLength(3);
-    expect(out.at(-1)).toBe('2 more events are in Coming up.');
+    expect(out.at(-1)).toBe('2 more events are in Upcoming company events.');
   });
 
   it('gives no dividend total when a bonus or split comes first', () => {

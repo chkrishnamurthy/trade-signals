@@ -21,13 +21,18 @@ const pct = (v: number, digits = 1) => `${v < 0 ? '−' : ''}${Math.abs(v * 100)
 /** Trading days in a month, for "needs about N more months". */
 const SESSIONS_A_MONTH = 21;
 
-function waiting(f: { sessions: number; needed: number }): string {
+function waiting(
+  f: { sessions: number; needed: number },
+  basis: PortfolioRiskDto['basis'],
+): string {
+  if (basis === 'past_prices')
+    return `Only ${f.sessions} trading days of prices exist for all your stocks together; this needs ${f.needed}.`;
   const months = Math.max(1, Math.ceil((f.needed - f.sessions) / SESSIONS_A_MONTH));
   return `Needs about ${months} more ${months === 1 ? 'month' : 'months'} of history (${f.sessions} of ${f.needed} trading days so far).`;
 }
 
-function fallSentence(f: DeepestFallDto): string {
-  if (f.depth === 0) return 'Your holdings have not fallen below a previous high.';
+function fallSentence(f: DeepestFallDto, subject = 'Your holdings'): string {
+  if (f.depth === 0) return `${subject} have not fallen below a previous high.`;
   const back =
     f.recoveredOn === null
       ? 'Not yet back at that high.'
@@ -42,7 +47,9 @@ function Tile<T>({
   value,
   sentence,
   footer,
+  basis,
 }: {
+  basis: PortfolioRiskDto['basis'];
   label: string;
   hint: string;
   figure: RiskFigureDto<T>;
@@ -67,7 +74,7 @@ function Tile<T>({
       ) : (
         <>
           <div className="text-2xl font-semibold text-muted-foreground">—</div>
-          <p className="text-sm text-muted-foreground">{waiting(figure)}</p>
+          <p className="text-sm text-muted-foreground">{waiting(figure, basis)}</p>
         </>
       )}
     </section>
@@ -223,6 +230,12 @@ function DrawdownChart({
                   y={Math.min(y(trough.depth) + 18, height - bottom - 4)}
                   textAnchor="middle"
                   className="fill-foreground text-[11px] font-medium tabular-nums"
+                  style={{
+                    paintOrder: 'stroke',
+                    stroke: 'var(--surface)',
+                    strokeWidth: 4,
+                    strokeLinejoin: 'round',
+                  }}
                 >
                   Deepest {pct(trough.depth)}
                 </text>
@@ -282,6 +295,15 @@ function cellStyle(v: number | null): React.CSSProperties {
 
 const corr = (v: number) => `${v < 0 ? '−' : ''}${Math.abs(v).toFixed(2)}`;
 
+/** A plain word for a correlation, so the number never has to be decoded. */
+export function togetherWord(v: number): string {
+  if (v >= 0.7) return 'very often on the same days';
+  if (v >= 0.4) return 'often on the same days';
+  if (v >= 0.2) return 'a little on the same days';
+  if (v > -0.2) return 'little relation';
+  return 'tend to go opposite ways';
+}
+
 function CorrelationGridView({ grid }: { grid: PortfolioRiskDto['correlation'] }) {
   const { symbols, cells } = grid;
   const pairs: { a: string; b: string; v: number }[] = [];
@@ -308,66 +330,74 @@ function CorrelationGridView({ grid }: { grid: PortfolioRiskDto['correlation'] }
         No pair of your stocks has 60 trading days of prices in common in the last year yet.
       </p>
     );
+  const average = pairs.reduce((sum, p) => sum + p.v, 0) / pairs.length;
   return (
-    <>
-      <div className="hidden overflow-x-auto md:block">
-        <table className="border-separate border-spacing-0.5 text-xs tabular-nums">
-          <caption className="sr-only">
-            Correlation of daily returns over the last year between your largest holdings, from −1
-            (opposite) to 1 (together). A dash means too few shared trading days.
-          </caption>
-          <thead>
-            <tr>
-              <td />
-              {symbols.map((s) => (
-                <th key={s} scope="col" className="px-1.5 py-1 text-center font-medium">
-                  <span className="block max-w-[5.5rem] truncate">{s}</span>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {symbols.map((row, i) => (
-              <tr key={row}>
-                <th scope="row" className="pr-2 text-left font-medium">
-                  {row}
-                </th>
-                {symbols.map((col, j) => {
-                  const v = cells[i]?.[j] ?? null;
-                  return (
-                    <td
-                      key={col}
-                      className={cn(
-                        'h-9 min-w-[3.25rem] rounded-sm px-1 text-center',
-                        v === null && 'text-muted-foreground',
-                      )}
-                      style={cellStyle(v)}
-                    >
-                      {v === null ? '—' : corr(v)}
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <p className="hidden items-center gap-3 text-xs text-muted-foreground md:flex">
-        <span className="inline-flex items-center gap-1.5">
-          <span aria-hidden className="size-3 rounded-sm" style={cellStyle(0.9)} />
-          Moved together
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <span aria-hidden className="size-3 rounded-sm" style={cellStyle(-0.9)} />
-          Moved opposite
-        </span>
-        <span>Paler is weaker; the number is in every cell.</span>
+    <div className="flex flex-col gap-4">
+      <p className="max-w-prose text-sm">
+        Each pair of your stocks is scored from −1 to 1 on how their daily price changes lined up
+        over the last year. Pairs that rise and fall on the same days move your total more together;
+        pairs that don&apos;t, less. On average your pairs score{' '}
+        <span className="font-semibold tabular-nums">{corr(average)}</span> ({togetherWord(average)}
+        ).
       </p>
-      <div className="grid gap-4 sm:grid-cols-2 md:hidden">
-        <PairList title="Moved most together" pairs={most} />
-        <PairList title="Moved least together" pairs={least} />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <PairList title="Moved most alike" pairs={most} />
+        <PairList title="Moved least alike" pairs={least} />
       </div>
-    </>
+      <details className="rounded-md border border-border">
+        <summary className="cursor-pointer px-3 py-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-ring">
+          See every pair
+        </summary>
+        <div className="flex flex-col gap-3 border-t border-border p-3">
+          <p className="text-xs text-muted-foreground">
+            Read across a row and down a column to a stock: the cell is how alike the two moved.
+            Deeper colour means more alike; a dash means fewer than 60 shared trading days.
+          </p>
+          <div className="overflow-x-auto">
+            <table className="border-separate border-spacing-0.5 text-xs tabular-nums">
+              <caption className="sr-only">
+                Correlation of daily returns over the last year between your largest holdings, from
+                −1 (opposite) to 1 (together). A dash means too few shared trading days.
+              </caption>
+              <thead>
+                <tr>
+                  <td />
+                  {symbols.map((sym) => (
+                    <th key={sym} scope="col" className="px-1.5 py-1 text-center font-medium">
+                      <span className="block max-w-[5.5rem] truncate">{sym}</span>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {symbols.map((row, i) => (
+                  <tr key={row}>
+                    <th scope="row" className="pr-2 text-left font-medium">
+                      {row}
+                    </th>
+                    {symbols.map((col, j) => {
+                      const v = cells[i]?.[j] ?? null;
+                      return (
+                        <td
+                          key={col}
+                          className={cn(
+                            'h-9 min-w-[3.25rem] rounded-sm px-1 text-center',
+                            v === null && 'text-muted-foreground',
+                          )}
+                          style={cellStyle(v)}
+                        >
+                          {v === null ? '—' : corr(v)}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </details>
+    </div>
   );
 }
 
@@ -392,7 +422,10 @@ function PairList({
               <span className="min-w-0 truncate">
                 {p.a} · {p.b}
               </span>
-              <span>{corr(p.v)}</span>
+              <span className="shrink-0 text-right">
+                <span className="font-medium">{corr(p.v)}</span>
+                <span className="block text-xs text-muted-foreground">{togetherWord(p.v)}</span>
+              </span>
             </li>
           ))}
         </ul>
@@ -548,8 +581,19 @@ function Section({
 export function RiskTab({ risk }: { risk: PortfolioRiskDto }) {
   const all = risk.volatility.all;
   const deepest = risk.deepestFall.status === 'ok' ? risk.deepestFall.value : null;
+  const past = risk.basis === 'past_prices';
+  const subject = past ? 'The shares you hold now' : 'Your holdings';
   return (
     <div className="flex flex-col gap-4">
+      {past && (
+        <p role="note" className="rounded-md border border-border bg-muted px-3 py-2 text-sm">
+          These figures use the{' '}
+          <strong>shares you hold now at the last twelve months&apos; prices</strong>
+          {risk.basisFrom !== null && <> (since {longDate(risk.basisFrom)})</>}, because your own
+          record is shorter than a year. They show how this set of shares behaved, not your own
+          history, and switch to your own record once it covers a year.
+        </p>
+      )}
       {risk.skippedDays > 0 && (
         <p role="status" className="rounded-md border border-border bg-muted px-3 py-2 text-sm">
           {risk.skippedDays} {risk.skippedDays === 1 ? 'day was' : 'days were'} left out because a
@@ -559,29 +603,34 @@ export function RiskTab({ risk }: { risk: PortfolioRiskDto }) {
 
       <div className="grid gap-3 md:grid-cols-3">
         <Tile
+          basis={risk.basis}
           label="Volatility"
           hint="How much your holdings' value moved up and down, as a yearly figure: the spread of daily returns × √252, over the last year, with money you added or took out removed. It describes the past, not what comes next."
           figure={risk.volatility.oneYear}
           value={(v) => pct(v)}
-          sentence={(v) => `In a typical year your value moved about ${pct(v)} up or down.`}
+          sentence={(v) =>
+            `In a typical year ${past ? 'their' : 'your'} value moved about ${pct(v)} up or down.`
+          }
           footer={() => (all.status === 'ok' ? `All history: ${pct(all.value)}` : 'Last year')}
         />
         <Tile
+          basis={risk.basis}
           label="Deepest fall"
           hint="The biggest drop from a high to the next low, since you started. Money you added or took out is removed, so only price moves count."
           figure={risk.deepestFall}
           value={(f) => (f.depth === 0 ? '0%' : pct(f.depth))}
-          sentence={fallSentence}
+          sentence={(f) => fallSentence(f, subject)}
         />
         <Tile
+          basis={risk.basis}
           label="Beta against Nifty 50"
           hint="How strongly your holdings moved with Nifty 50 over the last year, on days both had a price: covariance ÷ Nifty's variance. 1 means in step; below 1, smaller moves; above 1, bigger. Nifty 50 here is a price index."
           figure={risk.beta}
           value={(b) => b.beta.toFixed(2)}
           sentence={(b) =>
             b.beta >= 0
-              ? `When Nifty 50 moved 1%, your holdings moved about ${b.beta.toFixed(2)}% the same way, on average.`
-              : `When Nifty 50 moved 1%, your holdings moved about ${Math.abs(b.beta).toFixed(2)}% the other way, on average.`
+              ? `When Nifty 50 moved 1%, ${past ? 'these shares' : 'your holdings'} moved about ${b.beta.toFixed(2)}% the same way, on average.`
+              : `When Nifty 50 moved 1%, ${past ? 'these shares' : 'your holdings'} moved about ${Math.abs(b.beta).toFixed(2)}% the other way, on average.`
           }
           footer={(b) =>
             b.correlation === null ? null : `Correlation with Nifty 50: ${corr(b.correlation)}`
@@ -599,7 +648,7 @@ export function RiskTab({ risk }: { risk: PortfolioRiskDto }) {
           <>
             <DrawdownChart points={risk.drawdown} deepest={deepest} />
             {deepest !== null && (
-              <p className="text-sm text-muted-foreground">{fallSentence(deepest)}</p>
+              <p className="text-sm text-muted-foreground">{fallSentence(deepest, subject)}</p>
             )}
           </>
         )}
@@ -617,8 +666,8 @@ export function RiskTab({ risk }: { risk: PortfolioRiskDto }) {
       </Section>
 
       <Section
-        title="How your stocks moved together"
-        hint="Correlation of daily returns over the last year, from −1 (opposite days) through 0 (unrelated) to 1 (the same days). Your largest holdings, up to 15. A dash means fewer than 60 shared trading days."
+        title="Do your stocks move alike?"
+        hint="Correlation of daily returns over the last year: −1 means opposite days, 0 unrelated, 1 the same days. Your largest holdings, up to 15. Needs 60 shared trading days for a pair."
       >
         <CorrelationGridView grid={risk.correlation} />
       </Section>
@@ -647,8 +696,9 @@ export function RiskTab({ risk }: { risk: PortfolioRiskDto }) {
             bonuses taken out, whenever you added it.
           </li>
           <li>
-            Figures appear after about six months ({risk.minSessions} trading days). They describe
-            what happened, not what will.
+            Figures need about six months of prices ({risk.minSessions} trading days). Until your
+            own record is a year long, they use the shares you hold now at the last twelve
+            months&apos; prices. They describe what happened, not what will.
           </li>
         </ul>
       </details>

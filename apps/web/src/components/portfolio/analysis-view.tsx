@@ -109,7 +109,7 @@ export function AnalysisView({
               )}
               {/* Until the page has read the address's #fragment no tab is open, so a linked tab never shows the wrong one first. */}
               <Tabs value={ready ? tab : ''} onValueChange={selectTab}>
-                <TabsList className="mb-3 flex w-full justify-start overflow-x-auto sm:w-auto">
+                <TabsList>
                   <TabsTrigger value="allocation">Allocation</TabsTrigger>
                   <TabsTrigger value="returns">Returns</TabsTrigger>
                   <TabsTrigger value="risk">Risk</TabsTrigger>
@@ -254,7 +254,9 @@ function Allocation({ analysis }: { analysis: PortfolioAnalysisDto }) {
                   title: `${h.name}: ${pctText(h.weight)} of value, ${formatPaise(h.valuePaise, { decimals: 0 })}, ${h.sector}`,
                 }))}
               />
-              <p className="text-xs text-muted-foreground">Colours match the sector list beside.</p>
+              <p className="text-xs text-muted-foreground">
+                Each colour is a sector (a stock with no sector gets its own colour).
+              </p>
             </>
           )}
         </Card>
@@ -361,8 +363,8 @@ function Allocation({ analysis }: { analysis: PortfolioAnalysisDto }) {
           </p>
         </Card>
         <Card
-          title="Coming up"
-          hint="Results, dividends, bonuses, splits, rights issues and buybacks in the next 60 days for the stocks you hold, from the exchange calendar."
+          title="Upcoming company events"
+          hint="Results dates, board meetings, dividends, bonuses, splits, rights issues and buybacks in the next 60 days for the stocks you hold, from the exchange's calendar. It is refreshed every weekday."
         >
           <UpcomingList events={analysis.upcoming} />
         </Card>
@@ -424,7 +426,9 @@ export function UpcomingList({ events }: { events: readonly UpcomingEventDto[] }
   if (events.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
-        Nothing on the calendar for your holdings in the next 60 days.
+        None of your stocks has a results date, board meeting, dividend, split, bonus, rights issue
+        or buyback on the exchange&apos;s calendar for the next 60 days. Companies usually announce
+        these only a few weeks ahead, so this fills in as they do.
       </p>
     );
   }

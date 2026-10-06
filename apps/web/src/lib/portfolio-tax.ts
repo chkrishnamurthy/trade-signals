@@ -21,6 +21,7 @@ import {
   valueOpenLots,
   valueSeries,
 } from '@equitywise/core';
+import { pastOfHoldings } from './portfolio-past';
 import { priceLookup } from './portfolio-returns';
 import type {
   BenchmarkIndexDto,
@@ -47,6 +48,8 @@ export function composeBenchmark(input: {
   readonly indexCloses: ReadonlyMap<string, readonly DailyCloseInput[]>;
   /** Today's value of what is held (as the Returns tab counts it). */
   readonly valuePaise: number;
+  /** Today's holdings, for the past-prices comparison. */
+  readonly holdings: readonly PortfolioHoldingDto[];
   readonly today: string;
 }): PortfolioBenchmarkDto {
   const priceOn = priceLookup(input.closes);
@@ -125,6 +128,59 @@ export function composeBenchmark(input: {
     nifty500: n500(p.date),
   }));
 
+  const past = pastOfHoldings({
+    holdings: input.holdings,
+    changes: input.changes,
+    closes: input.closes,
+    today: input.today,
+  });
+  const pastGrowth = timeWeightedGrowth(past.points);
+  const pastFrom = pastGrowth[0]?.date ?? null;
+  const pastIndex = new Map<string, ReturnType<typeof indexGrowth>>(
+    BENCHMARKS.map((b) => [
+      b.symbol,
+      pastFrom === null
+        ? []
+        : indexGrowth(input.indexCloses.get(b.symbol) ?? [], pastFrom, input.today),
+    ]),
+  );
+  const carriedPast = (symbol: string) => {
+    const series = pastIndex.get(symbol) ?? [];
+    let i = 0;
+    let last: number | null = null;
+    return (date: string) => {
+      while (i < series.length && (series[i]?.date ?? '') <= date) {
+        last = series[i]?.value ?? last;
+        i++;
+      }
+      return last;
+    };
+  };
+  const p50 = carriedPast('NIFTY50');
+  const p500 = carriedPast('NIFTY500');
+  const pastPrices =
+    pastFrom === null
+      ? null
+      : {
+          from: pastFrom,
+          growth: samplePoints(
+            pastGrowth.map((p) => ({
+              date: p.date,
+              yours: p.value,
+              nifty50: p50(p.date),
+              nifty500: p500(p.date),
+            })),
+            input.today,
+          ),
+          yours: periodReturns(pastGrowth, input.today),
+          indices: BENCHMARKS.map((b) => ({
+            symbol: b.symbol,
+            name: b.name,
+            periods: periodReturns(pastIndex.get(b.symbol) ?? [], input.today),
+          })),
+          leftOut: past.leftOut,
+        };
+
   // Dividends left out, as a price index leaves them out.
   const priceOnly = summariseReturns({
     entries: input.entries,
@@ -144,6 +200,7 @@ export function composeBenchmark(input: {
     periods: periodReturns(yours, input.today),
     growth: samplePoints(growth, input.today),
     available: indices.some((i) => i.replay !== null),
+    pastPrices,
   };
 }
 

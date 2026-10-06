@@ -16,6 +16,7 @@ import {
   termOf,
   valueSeries,
 } from '@equitywise/core';
+import { pastOfHoldings } from './portfolio-past';
 import type {
   DividendRowDto,
   LotDto,
@@ -197,6 +198,13 @@ export function composeReturns(input: ReturnsInput): PortfolioReturnsDto {
     input.today,
   );
 
+  const past = pastOfHoldings({
+    holdings: input.holdings,
+    changes: input.changes,
+    closes: input.closes,
+    today: input.today,
+  });
+
   return {
     summary,
     realised: {
@@ -224,6 +232,7 @@ export function composeReturns(input: ReturnsInput): PortfolioReturnsDto {
       rows: dividendRows,
     },
     series,
+    pastSeries: samplePoints(past.points, input.today),
     perHolding,
     historyFrom: input.historyFrom,
     unpricedAtCost: unpriced,

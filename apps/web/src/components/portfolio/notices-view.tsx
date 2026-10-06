@@ -127,12 +127,8 @@ function Settings({ initial }: { initial: NoticeSettingsDto }) {
     }
   };
   return (
-    <form
-      onSubmit={save}
-      aria-labelledby="notice-settings-h"
-      className="flex flex-col rounded-lg border border-border bg-surface p-4 shadow-subtle"
-    >
-      <h2 id="notice-settings-h" className="text-sm font-semibold">
+    <form onSubmit={save} aria-labelledby="notice-settings-h" className="flex flex-col p-4">
+      <h2 id="notice-settings-h" className="sr-only">
         Which notices you get
       </h2>
       <p className="text-xs text-muted-foreground">
@@ -141,29 +137,29 @@ function Settings({ initial }: { initial: NoticeSettingsDto }) {
       <div className="mt-2 divide-y divide-border">
         <SettingRow
           id="n-events"
-          label="Coming up"
-          hint="A dividend ex-date, bonus, split, results or board meeting within 3 days."
+          label="Dates coming up"
+          hint="A dividend, split, bonus, results date or board meeting in the next 3 days."
           checked={s.events}
           onChange={(v) => set('events', v)}
         />
         <SettingRow
           id="n-changes"
-          label="Split or bonus applied"
-          hint="When a split, bonus or consolidation takes effect, with your new share count."
+          label="Your share count changed"
+          hint="A split, bonus or consolidation took effect. Shows your new number of shares."
           checked={s.shareChanges}
           onChange={(v) => set('shareChanges', v)}
         />
         <SettingRow
           id="n-stock"
-          label="Large move in a stock"
-          hint="A stock you hold closed up or down by at least this much in a day."
+          label="A stock moved a lot in a day"
+          hint="One stock you hold closed up or down by at least this much."
           checked={s.stockMoves}
           onChange={(v) => set('stockMoves', v)}
         >
           <NumberField
             id="n-stock-pct"
             label="At least"
-            context="Large move in a stock"
+            context="A stock moved a lot in a day"
             value={s.stockMovePercent}
             suffix="%"
             onChange={(v) => set('stockMovePercent', v)}
@@ -171,15 +167,15 @@ function Settings({ initial }: { initial: NoticeSettingsDto }) {
         </SettingRow>
         <SettingRow
           id="n-portfolio"
-          label="Large move in your holdings"
-          hint="All your holdings together closed up or down by at least this much in a day."
+          label="All your holdings moved a lot in a day"
+          hint="Your whole list together closed up or down by at least this much."
           checked={s.portfolioMoves}
           onChange={(v) => set('portfolioMoves', v)}
         >
           <NumberField
             id="n-portfolio-pct"
             label="At least"
-            context="Large move in your holdings"
+            context="All your holdings moved a lot in a day"
             value={s.portfolioMovePercent}
             suffix="%"
             onChange={(v) => set('portfolioMovePercent', v)}
@@ -187,15 +183,15 @@ function Settings({ initial }: { initial: NoticeSettingsDto }) {
         </SettingRow>
         <SettingRow
           id="n-long"
-          label="Turning long term"
-          hint="Shares you hold pass 12 months, for information."
+          label="A purchase is about to pass 12 months"
+          hint="So you know before it counts as long term. Information only."
           checked={s.longTerm}
           onChange={(v) => set('longTerm', v)}
         >
           <NumberField
             id="n-long-days"
-            label="Tell me"
-            context="Turning long term"
+            label="Notice me"
+            context="A purchase is about to pass 12 months"
             value={s.longTermDays}
             suffix="days ahead"
             onChange={(v) => set('longTermDays', v)}
@@ -249,7 +245,14 @@ export function NoticesView({ data }: { data: PortfolioNoticesDto }) {
         </PageHeader>
         <PageContent>
           <PortfolioNav current="notices" />
-          <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
+          {data.notices.length > 0 && (
+            <p className="max-w-prose text-sm text-muted-foreground">
+              Short messages about your own stocks: dates coming up, a change to your number of
+              shares, and big moves. They are checked every weekday evening after the market closes.
+              {fresh.size > 0 ? ` ${fresh.size} new.` : ''}
+            </p>
+          )}
+          <div className="flex flex-col gap-4">
             <section
               aria-labelledby="notices-h"
               className="flex min-w-0 flex-col rounded-lg border border-border bg-surface shadow-subtle"
@@ -265,45 +268,56 @@ export function NoticesView({ data }: { data: PortfolioNoticesDto }) {
                 />
               ) : (
                 <ol className="divide-y divide-border">
-                  {data.notices.map((n) => {
-                    const t = noticeText(n);
-                    const isNew = fresh.has(n.id);
-                    return (
-                      <li key={n.id} className="flex gap-3 px-4 py-3">
-                        <span
-                          aria-hidden
-                          className={cn(
-                            'mt-1.5 size-2 shrink-0 rounded-full',
-                            isNew ? 'bg-primary' : 'bg-transparent',
-                          )}
-                        />
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                            <h3 className={cn('text-sm', isNew ? 'font-semibold' : 'font-medium')}>
-                              {t.title}
-                            </h3>
-                            {isNew && <Badge variant="neutral">New</Badge>}
-                          </div>
-                          <p className="mt-0.5 text-sm text-muted-foreground">{t.body}</p>
-                          <div className="mt-1 flex flex-wrap gap-x-3 text-xs text-muted-foreground">
-                            <span>Noted {longDate(n.createdAt.slice(0, 10))}</span>
-                            {t.symbol !== null && (
-                              <Link
-                                href={`/portfolio/${encodeURIComponent(t.symbol)}` as Route}
-                                className="underline-offset-2 hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-ring"
-                              >
-                                Your {t.symbol} holding
-                              </Link>
+                  {[...data.notices]
+                    .sort((a, b) => Number(fresh.has(b.id)) - Number(fresh.has(a.id)))
+                    .map((n) => {
+                      const t = noticeText(n);
+                      const isNew = fresh.has(n.id);
+                      return (
+                        <li key={n.id} className="flex gap-3 px-4 py-3">
+                          <span
+                            aria-hidden
+                            className={cn(
+                              'mt-1.5 size-2 shrink-0 rounded-full',
+                              isNew ? 'bg-primary' : 'bg-transparent',
                             )}
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                              <h3
+                                className={cn('text-sm', isNew ? 'font-semibold' : 'font-medium')}
+                              >
+                                {t.title}
+                              </h3>
+                              {isNew && <Badge variant="neutral">New</Badge>}
+                            </div>
+                            <p className="mt-0.5 text-sm text-muted-foreground">{t.body}</p>
+                            <div className="mt-1 flex flex-wrap gap-x-3 text-xs text-muted-foreground">
+                              <span>Noted {longDate(n.createdAt.slice(0, 10))}</span>
+                              {t.symbol !== null && (
+                                <Link
+                                  href={`/portfolio/${encodeURIComponent(t.symbol)}` as Route}
+                                  className="underline-offset-2 hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+                                >
+                                  Your {t.symbol} holding
+                                </Link>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      </li>
-                    );
-                  })}
+                        </li>
+                      );
+                    })}
                 </ol>
               )}
             </section>
-            <Settings initial={data.settings} />
+            <details className="rounded-lg border border-border bg-surface shadow-subtle">
+              <summary className="cursor-pointer px-4 py-3 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-ring">
+                Choose which notices you get
+              </summary>
+              <div className="border-t border-border">
+                <Settings initial={data.settings} />
+              </div>
+            </details>
           </div>
           <p className="text-xs text-muted-foreground">
             Notices describe your own numbers and the exchange&apos;s records. They are not a

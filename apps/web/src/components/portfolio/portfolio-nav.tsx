@@ -36,17 +36,21 @@ export function PortfolioNav({ current }: { current: 'overview' | 'analysis' | '
     { key: 'notices', href: '/portfolio/notices', label: 'Notices' },
   ] as const;
   return (
-    <nav aria-label="Portfolio sections" className="flex gap-1">
+    <nav
+      aria-label="Portfolio sections"
+      className="flex w-full items-end gap-1 overflow-x-auto border-b border-border [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+    >
       {items.map((item) => (
         <Link
           key={item.key}
           href={item.href as Route}
           aria-current={current === item.key ? 'page' : undefined}
           className={cn(
-            'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-ring',
+            'relative inline-flex h-11 shrink-0 items-center gap-1.5 px-3.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-ring',
+            'after:absolute after:inset-x-2 after:-bottom-px after:h-0.5 after:rounded-full after:bg-transparent after:transition-colors',
             current === item.key
-              ? 'bg-primary/10 font-semibold text-primary'
-              : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+              ? 'font-semibold text-foreground after:bg-primary'
+              : 'text-muted-foreground hover:text-foreground',
           )}
         >
           {item.label}

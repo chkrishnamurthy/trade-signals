@@ -78,3 +78,49 @@ describe('composeRisk', () => {
     expect(risk.correlation.cells[0]?.[1]).toBeCloseTo(1, 6);
   });
 });
+
+describe('composeRisk on past prices', () => {
+  const series = closes(131);
+  const today = series.at(-1)?.date ?? '';
+  // A record that began a week ago: far too short to speak for itself.
+  const entries: PortfolioEntry[] = [
+    { id: 1, instrumentId: 1, kind: 'opening', tradeDate: today, shares: 10, amountPaise: 100_000 },
+  ];
+  const risk = composeRisk({
+    entries,
+    changes: [],
+    closes: new Map([[1, series]]),
+    indexCloses: series,
+    holdings: [holding({ instrumentId: 1, shares: 10, valuePaise: 100_000 })],
+    today,
+  });
+
+  it('uses the shares held now at the past twelve months of prices', () => {
+    expect(risk.basis).toBe('past_prices');
+    expect(risk.basisFrom).toBe('2026-03-02');
+    expect(risk.sessions).toBe(130);
+    expect(risk.volatility.oneYear.status).toBe('ok');
+    expect(risk.deepestFall.status).toBe('ok');
+  });
+
+  it('keeps the own record once it covers a year', () => {
+    const long = composeRisk({
+      entries: [
+        {
+          id: 1,
+          instrumentId: 1,
+          kind: 'opening',
+          tradeDate: '2026-03-02',
+          shares: 10,
+          amountPaise: 100_000,
+        },
+      ],
+      changes: [],
+      closes: new Map([[1, series]]),
+      indexCloses: series,
+      holdings: [holding({ instrumentId: 1, shares: 10, valuePaise: 100_000 })],
+      today: '2027-03-05',
+    });
+    expect(long.basis).toBe('own');
+  });
+});

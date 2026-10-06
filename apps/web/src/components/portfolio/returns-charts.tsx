@@ -68,9 +68,12 @@ const VALUE_RIGHT = 12;
 export function ValueChart({
   points,
   height = 260,
+  invested = true,
 }: {
   points: readonly ValuePointDto[];
   height?: number;
+  /** False for past prices of today's shares, which have no money put in. */
+  invested?: boolean;
 }) {
   const [ref, width] = useWidth<HTMLDivElement>();
   const [asTable, setAsTable] = React.useState(false);
@@ -105,7 +108,9 @@ export function ValueChart({
   const right = VALUE_RIGHT;
   const top = 10;
   const bottom = 26;
-  const values = points.flatMap((p) => [p.valuePaise, p.netInvestedPaise]);
+  const values = points.flatMap((p) =>
+    invested ? [p.valuePaise, p.netInvestedPaise] : [p.valuePaise],
+  );
   const lo = Math.min(...values);
   const hi = Math.max(...values);
   const pad = (hi - lo) * 0.06 || hi * 0.05 || 1;
@@ -145,14 +150,26 @@ export function ValueChart({
       <TableToggle asTable={asTable} onToggle={() => setAsTable((v) => !v)} />
       {asTable ? (
         <ChartTable
-          caption="Value of your holdings and net money put in, by date"
-          columns={['Date', 'Your value', 'Net money put in', 'Note']}
-          rows={points.map((p) => [
-            longDate(p.date),
-            money(p.valuePaise),
-            money(p.netInvestedPaise),
-            p.partial ? 'Partial' : '',
-          ])}
+          caption={
+            invested
+              ? 'Value of your holdings and net money put in, by date'
+              : 'Value of the shares you hold now, at past prices, by date'
+          }
+          columns={
+            invested
+              ? ['Date', 'Your value', 'Net money put in', 'Note']
+              : ['Date', 'Value', 'Note']
+          }
+          rows={points.map((p) =>
+            invested
+              ? [
+                  longDate(p.date),
+                  money(p.valuePaise),
+                  money(p.netInvestedPaise),
+                  p.partial ? 'Partial' : '',
+                ]
+              : [longDate(p.date), money(p.valuePaise), p.partial ? 'Partial' : ''],
+          )}
         />
       ) : (
         <div className="relative">
@@ -210,13 +227,15 @@ export function ValueChart({
                 {monthLabel(new Date(time).toISOString().slice(0, 10))}
               </text>
             ))}
-            <path
-              d={path('netInvestedPaise')}
-              fill="none"
-              strokeWidth={1.75}
-              strokeDasharray="5 4"
-              style={{ stroke: 'var(--chart-axis)' }}
-            />
+            {invested && (
+              <path
+                d={path('netInvestedPaise')}
+                fill="none"
+                strokeWidth={1.75}
+                strokeDasharray="5 4"
+                style={{ stroke: 'var(--chart-axis)' }}
+              />
+            )}
             <path
               d={path('valuePaise')}
               fill="none"
@@ -239,7 +258,9 @@ export function ValueChart({
                 bottom={height - bottom}
                 dots={[
                   { y: y(hovered.valuePaise), colour: 'var(--chart-1)' },
-                  { y: y(hovered.netInvestedPaise), colour: 'var(--chart-axis)' },
+                  ...(invested
+                    ? [{ y: y(hovered.netInvestedPaise), colour: 'var(--chart-axis)' }]
+                    : []),
                 ]}
               />
             )}
@@ -250,13 +271,21 @@ export function ValueChart({
               width={width}
               title={longDate(hovered.date)}
               lines={[
-                { label: 'Your value', value: money(hovered.valuePaise), colour: 'var(--chart-1)' },
                 {
-                  label: 'Net money put in',
-                  value: money(hovered.netInvestedPaise),
-                  colour: 'var(--chart-axis)',
-                  dash: '5 4',
+                  label: invested ? 'Your value' : 'Value',
+                  value: money(hovered.valuePaise),
+                  colour: 'var(--chart-1)',
                 },
+                ...(invested
+                  ? [
+                      {
+                        label: 'Net money put in',
+                        value: money(hovered.netInvestedPaise),
+                        colour: 'var(--chart-axis)',
+                        dash: '5 4',
+                      },
+                    ]
+                  : []),
               ]}
               {...(hovered.partial ? { note: 'Partial: a stock had no recent price' } : {})}
             />
@@ -275,22 +304,24 @@ export function ValueChart({
               style={{ stroke: 'var(--chart-1)' }}
             />
           </svg>
-          Your value
+          {invested ? 'Your value' : 'Value'}
         </span>
-        <span className="inline-flex items-center gap-1.5">
-          <svg width="22" height="6" aria-hidden>
-            <line
-              x1="0"
-              x2="22"
-              y1="3"
-              y2="3"
-              strokeWidth="2"
-              strokeDasharray="5 4"
-              style={{ stroke: 'var(--chart-axis)' }}
-            />
-          </svg>
-          Net money put in
-        </span>
+        {invested && (
+          <span className="inline-flex items-center gap-1.5">
+            <svg width="22" height="6" aria-hidden>
+              <line
+                x1="0"
+                x2="22"
+                y1="3"
+                y2="3"
+                strokeWidth="2"
+                strokeDasharray="5 4"
+                style={{ stroke: 'var(--chart-axis)' }}
+              />
+            </svg>
+            Net money put in
+          </span>
+        )}
         {partialRuns.length > 0 && (
           <span className="inline-flex items-center gap-1.5">
             <span

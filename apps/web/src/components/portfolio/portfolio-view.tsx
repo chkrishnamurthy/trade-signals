@@ -321,7 +321,7 @@ function Overview({ portfolio, fifoNoteSeen }: { portfolio: PortfolioDto; fifoNo
         >
           <div className="mb-1 flex items-center justify-between gap-2">
             <h2 id="coming-up" className="text-sm font-semibold">
-              Coming up for your holdings
+              Upcoming events for your stocks
             </h2>
             <Link
               href={'/portfolio/analysis' as Route}

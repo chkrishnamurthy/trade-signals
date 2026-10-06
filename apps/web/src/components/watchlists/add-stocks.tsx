@@ -212,7 +212,7 @@ export function AddStocks({
           value={mode}
           onValueChange={(value) => setMode(value === 'import' ? 'import' : 'search')}
         >
-          <TabsList className="mb-3">
+          <TabsList variant="pill" className="mb-3">
             <TabsTrigger value="search">Search</TabsTrigger>
             <TabsTrigger value="import">Paste or import</TabsTrigger>
           </TabsList>

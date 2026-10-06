@@ -675,3 +675,18 @@ The seven Phase 3 review fixes, the early-adjustment bug and the company-size li
 9. **Company size from AMFI's official list** (migration `0045`, worker job `load-amfi-categories`, Mondays 09:25 IST, only downloads when a newer half-yearly list is out). Large = top 100, mid = next 150, small = the rest (SEBI circular of 6 Oct 2017); a holding AMFI's list lacks is sized by index membership and the card says how many. The real file (six months ended 30 Jun 2026) parses to 5,427 companies: 100 large, 150 mid.
 
 Owner, after deploy: `node apps/worker/dist/index.js --once load-amfi-categories`.
+
+## Day-one history and design pass (built 2026-10-06)
+
+Found while the owner checked the live site: a portfolio typed in today has no history of its own, so Risk, Value over time and the Nifty comparison showed only dashes for months. Fixed without inventing history:
+
+1. **Past prices of today's shares** (`packages/core/src/portfolio/past.ts`, `pastSeries`): the shares held now, valued at each of the last twelve months' closes, with no money flows. Share counts at a past date are today's count with every later split, bonus or consolidation undone, so a raw close and its share count are always on the same basis. The series starts on the first day every held stock has a price (a recent listing causes no jump).
+2. **Where it shows, always labelled as past prices and never as the user's own record:**
+   - Risk: used when the user's own record is shorter than a year (`basis: 'past_prices'`, with a banner); switches to the own record once it covers a year.
+   - Returns › Compared with the market: a "Past year / Since you started" switch (default past year until the own record is about six months), with the two indices over the same days.
+   - Returns › Value over time: the same switch; the past view has no "money put in" line.
+3. **Plainer wording:** "Coming up" is now "Upcoming company events" with an empty message that says what was checked; the correlation grid leads with "moved most / least alike" pairs in words, the grid itself folded under "See every pair"; Notices is one list with the unread first and the settings folded away, with plainer labels.
+4. **Tabs:** one new look in `components/ui/tabs.tsx` (`line`: text on a rule, active underlined, scrolls on a phone; `pill`: the small raised switch for choosing a view or range). The portfolio section nav matches. Setup lists and add-stocks keep `pill`.
+5. **Chart colours:** treemap tiles use the series colour at `--chart-fill` strength with `--chart-fill-ink` text (new tokens, set for light and dark); one group of stocks no longer paints every tile alike; the drawdown label has a halo.
+
+Not changed: nothing about the own-record figures (XIRR, tax, realised). The past-prices view describes how the same shares behaved; it is not a claim about what the user earned.

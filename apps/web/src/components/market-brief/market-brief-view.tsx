@@ -618,7 +618,7 @@ function SetupsSection({
       <Card>
         <CardContent className="py-4">
           <Tabs defaultValue={firstTab.id}>
-            <TabsList className="flex-wrap">
+            <TabsList variant="pill" className="flex-wrap">
               {available.map((tab) => (
                 <TabsTrigger key={tab.id} value={tab.id}>
                   {tab.label}

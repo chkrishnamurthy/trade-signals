@@ -8,6 +8,7 @@ import * as React from 'react';
 import { MetricHint } from '@/components/data-display/metric-card';
 import { PercentChange, PriceChange } from '@/components/market/numeric';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { PortfolioBenchmarkDto, PortfolioReturnsDto, TermKey } from '@/lib/portfolio-types';
 import { cn } from '@/lib/utils';
 import { BenchmarkSection } from './benchmark-view';
@@ -174,33 +175,7 @@ export function ReturnsTab({
 
       <BenchmarkSection benchmark={benchmark} summary={summary} />
 
-      <Card
-        title="Value over time"
-        hint="What your holdings were worth each day (each week before the last year) against the money you had put in, less money taken out."
-      >
-        <div className="flex justify-end">
-          <fieldset className="inline-flex gap-0.5 rounded-md border-0 bg-muted p-0.5">
-            <legend className="sr-only">Range</legend>
-            {(['1Y', '3Y', 'All'] as const).map((r) => (
-              <button
-                key={r}
-                type="button"
-                aria-pressed={range === r}
-                onClick={() => setRange(r)}
-                className={cn(
-                  'rounded-sm px-2.5 py-1 text-xs font-medium focus-visible:outline-2 focus-visible:outline-ring',
-                  range === r
-                    ? 'bg-surface text-foreground shadow-subtle'
-                    : 'text-muted-foreground hover:text-foreground',
-                )}
-              >
-                {r}
-              </button>
-            ))}
-          </fieldset>
-        </div>
-        <ValueChart points={filterRange(returns.series, range, today)} />
-      </Card>
+      <ValueOverTime returns={returns} range={range} setRange={setRange} today={today} />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card
@@ -476,5 +451,87 @@ export function ReturnsTab({
         </ul>
       </details>
     </div>
+  );
+}
+
+const daysBetween = (from: string, to: string) =>
+  Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
+
+/**
+ * What your holdings were worth each day. With a record shorter than about six
+ * months it also offers the shares you hold now at the last twelve months'
+ * prices, plainly labelled, so a new portfolio still shows something real.
+ */
+function ValueOverTime({
+  returns,
+  range,
+  setRange,
+  today,
+}: {
+  returns: PortfolioReturnsDto;
+  range: Range;
+  setRange: (r: Range) => void;
+  today: string;
+}) {
+  const own = returns.series;
+  const past = returns.pastSeries;
+  const ownSpan =
+    own.length >= 2 ? daysBetween(own[0]?.date ?? today, own.at(-1)?.date ?? today) : 0;
+  const pastOk = past.length >= 2;
+  const [view, setView] = React.useState<'own' | 'past'>(
+    ownSpan >= 180 || !pastOk ? 'own' : 'past',
+  );
+  if (own.length < 2 && !pastOk) return null;
+  const showPast = view === 'past' && pastOk;
+  return (
+    <Card
+      title="Value over time"
+      hint="What your holdings were worth each day (each week before the last year) against the money you had put in, less money taken out. The past-year view shows the shares you hold now at past prices instead."
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        {pastOk && own.length >= 2 ? (
+          <Tabs value={view} onValueChange={(v) => setView(v === 'past' ? 'past' : 'own')}>
+            <TabsList variant="pill" aria-label="What to show">
+              <TabsTrigger value="past">Past year</TabsTrigger>
+              <TabsTrigger value="own">Since you started</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        ) : (
+          <span />
+        )}
+        {!showPast && (
+          <fieldset className="inline-flex gap-0.5 rounded-md border-0 bg-muted p-0.5">
+            <legend className="sr-only">Range</legend>
+            {(['1Y', '3Y', 'All'] as const).map((r) => (
+              <button
+                key={r}
+                type="button"
+                aria-pressed={range === r}
+                onClick={() => setRange(r)}
+                className={cn(
+                  'rounded-sm px-2.5 py-1 text-xs font-medium focus-visible:outline-2 focus-visible:outline-ring',
+                  range === r
+                    ? 'bg-surface text-foreground shadow-subtle'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {r}
+              </button>
+            ))}
+          </fieldset>
+        )}
+      </div>
+      {showPast ? (
+        <>
+          <ValueChart points={past} invested={false} />
+          <p className="text-xs text-muted-foreground">
+            The shares you hold now, valued at each past day&apos;s closing price. Not your own
+            record, which starts on the day you entered them.
+          </p>
+        </>
+      ) : (
+        <ValueChart points={filterRange(own, range, today)} />
+      )}
+    </Card>
   );
 }

@@ -17,9 +17,11 @@ const PALETTE = ['--chart-1', '--chart-2', '--chart-3', '--chart-4', '--chart-5'
 /** Colour for the n-th group. After five, the hues repeat at a lighter strength. */
 export function groupColour(index: number): { fill: string; solid: string } {
   const token = PALETTE[index % PALETTE.length] ?? '--chart-1';
-  const strength = index < PALETTE.length ? 30 : 16;
   return {
-    fill: `color-mix(in srgb, var(${token}) ${strength}%, var(--surface))`,
+    fill:
+      index < PALETTE.length
+        ? `color-mix(in srgb, var(${token}) var(--chart-fill), var(--surface))`
+        : `color-mix(in srgb, var(${token}) calc(var(--chart-fill) * 0.6), var(--surface))`,
     // Repeated hues are drawn lighter so a sixth group never matches the first.
     solid:
       index < PALETTE.length
@@ -69,6 +71,8 @@ export function Treemap({
         style={{ height }}
       />
     );
+  // One group (say, every stock unclassified) would paint every tile alike: tell them apart instead.
+  const oneGroup = new Set(items.map((i) => i.colourIndex)).size === 1 && items.length > 1;
   const cells = treemapLayout(items, width, h);
   return (
     <div ref={ref} className="w-full">
@@ -81,7 +85,9 @@ export function Treemap({
         className="block"
       >
         {cells.map((cell) => {
-          const colour = groupColour(cell.item.colourIndex);
+          const colour = groupColour(
+            oneGroup ? cells.findIndex((c) => c.item.key === cell.item.key) : cell.item.colourIndex,
+          );
           const showName = cell.w > cell.item.label.length * 7.2 + 14 && cell.h > 26;
           const showCaption = cell.w > cell.item.caption.length * 6.3 + 16 && cell.h > 48;
           return (
@@ -99,7 +105,8 @@ export function Treemap({
                 <text
                   x={cell.x + 9}
                   y={cell.y + 20}
-                  className="fill-foreground text-[12px] font-semibold"
+                  className="text-[12px] font-semibold"
+                  style={{ fill: 'var(--chart-fill-ink)' }}
                 >
                   {cell.item.label}
                 </text>
@@ -108,7 +115,8 @@ export function Treemap({
                 <text
                   x={cell.x + 9}
                   y={cell.y + 36}
-                  className="fill-foreground text-[11px] tabular-nums"
+                  className="text-[11px] tabular-nums"
+                  style={{ fill: 'var(--chart-fill-ink)' }}
                 >
                   {cell.item.caption}
                 </text>

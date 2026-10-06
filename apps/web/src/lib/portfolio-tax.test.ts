@@ -121,7 +121,11 @@ describe('composeBenchmark', () => {
     closes,
     indexCloses: new Map([['NIFTY50', index]]),
     valuePaise: 12_100,
+    holdings: [],
     today: '2025-01-03',
+  });
+  it('has no past-prices comparison without held shares', () => {
+    expect(b.pastPrices).toBeNull();
   });
   it('replays the money into the loaded index and leaves the other out', () => {
     expect(b.available).toBe(true);
@@ -149,5 +153,75 @@ describe('composeBenchmark', () => {
   it('gives your return without dividends for a like-for-like comparison', () => {
     expect(b.yoursPriceOnly.simpleReturn).toBeCloseTo(0.21, 10);
     expect(b.from).toBe('2025-01-01');
+  });
+});
+
+describe('composeBenchmark on past prices', () => {
+  const closes = new Map([
+    [
+      1,
+      [
+        { date: '2025-01-01', closePaise: 1_000 },
+        { date: '2025-01-02', closePaise: 1_100 },
+        { date: '2025-01-03', closePaise: 1_210 },
+      ],
+    ],
+  ]);
+  const index = [
+    { date: '2025-01-01', closePaise: 10_000 },
+    { date: '2025-01-02', closePaise: 10_500 },
+    { date: '2025-01-03', closePaise: 11_000 },
+  ];
+  const b = composeBenchmark({
+    // Entered on the last day: no history of its own.
+    entries: [e(1, 'opening', '2025-01-03', 10, 12_100)],
+    changes: [],
+    closes,
+    indexCloses: new Map([['NIFTY50', index]]),
+    valuePaise: 12_100,
+    holdings: [{ instrumentId: 1, shares: 10, valuePaise: 12_100 } as PortfolioHoldingDto],
+    today: '2025-01-03',
+  });
+  it('compares the shares held now with the index over the same past days', () => {
+    expect(b.pastPrices?.from).toBe('2025-01-01');
+    expect(b.pastPrices?.yours.all).toBeCloseTo(0.21, 10);
+    const nifty = b.pastPrices?.indices.find((i) => i.symbol === 'NIFTY50');
+    expect(nifty?.periods.all).toBeCloseTo(0.1, 10);
+    expect(b.pastPrices?.growth.map((g) => Math.round(g.yours))).toEqual([100, 110, 121]);
+  });
+});
+
+describe('composeBenchmark on past prices', () => {
+  const closes = new Map([
+    [
+      1,
+      [
+        { date: '2025-01-01', closePaise: 1_000 },
+        { date: '2025-01-02', closePaise: 1_100 },
+        { date: '2025-01-03', closePaise: 1_210 },
+      ],
+    ],
+  ]);
+  const index = [
+    { date: '2025-01-01', closePaise: 10_000 },
+    { date: '2025-01-02', closePaise: 10_500 },
+    { date: '2025-01-03', closePaise: 11_000 },
+  ];
+  const b = composeBenchmark({
+    // Entered on the last day: no history of its own.
+    entries: [e(1, 'opening', '2025-01-03', 10, 12_100)],
+    changes: [],
+    closes,
+    indexCloses: new Map([['NIFTY50', index]]),
+    valuePaise: 12_100,
+    holdings: [{ instrumentId: 1, shares: 10, valuePaise: 12_100 } as PortfolioHoldingDto],
+    today: '2025-01-03',
+  });
+  it('compares the shares held now with the index over the same past days', () => {
+    expect(b.pastPrices?.from).toBe('2025-01-01');
+    expect(b.pastPrices?.yours.all).toBeCloseTo(0.21, 10);
+    const nifty = b.pastPrices?.indices.find((i) => i.symbol === 'NIFTY50');
+    expect(nifty?.periods.all).toBeCloseTo(0.1, 10);
+    expect(b.pastPrices?.growth.map((g) => Math.round(g.yours))).toEqual([100, 110, 121]);
   });
 });
