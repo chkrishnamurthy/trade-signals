@@ -79,6 +79,13 @@ export function AppShell({
   return (
     <TooltipProvider>
       <div className={cn('flex min-h-dvh flex-col bg-background', className)}>
+        {/* First stop for keyboard users: past the bar's links to the page. */}
+        <a
+          href="#main-content"
+          className="sr-only rounded-md bg-foreground font-medium text-background text-sm focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:px-3 focus:py-2 focus:outline-2 focus:outline-solid focus:outline-offset-2 focus:outline-ring"
+        >
+          Skip to content
+        </a>
         <header className="sticky top-0 z-40 border-border border-b bg-surface/85 backdrop-blur supports-[backdrop-filter]:bg-surface/75">
           <div className="mx-auto flex h-14 max-w-[1800px] items-center gap-2 px-4 sm:gap-4 sm:px-6">
             <Button
@@ -158,7 +165,9 @@ export function AppShell({
 
         <IndexStrip />
 
-        <main className="min-w-0 flex-1">{children}</main>
+        <main id="main-content" tabIndex={-1} className="min-w-0 flex-1 outline-none">
+          {children}
+        </main>
       </div>
     </TooltipProvider>
   );
@@ -239,7 +248,7 @@ function FoldedNavMenu({ items, label }: { items: readonly ReadyNavItem[]; label
       <DropdownMenuTrigger
         className={cn(
           'flex items-center gap-1 whitespace-nowrap rounded-md px-2 py-1.5 font-medium text-sm transition-colors min-[1680px]:hidden',
-          'focus-visible:outline-2 focus-visible:outline-ring',
+          'focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-ring',
           active
             ? 'bg-primary/10 text-primary'
             : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground',

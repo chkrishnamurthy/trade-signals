@@ -73,6 +73,9 @@
      hue for "trust" the way the old ink-blue was. */
   --primary: oklch(0.56 0.16 166);
   --primary-foreground: oklch(0.99 0.005 166);
+  /* Filled controls that carry white text. `primary` measures 4.1:1 against
+     white, under AA's 4.5:1 for body-size text; this measures 5.3:1. */
+  --primary-strong: oklch(0.5 0.15 166);
   --secondary: oklch(0.953 0.007 253);
   --secondary-foreground: oklch(0.278 0.022 258);
   --accent: oklch(0.947 0.009 253);
@@ -198,6 +201,8 @@
      comment for why. */
   --primary: oklch(0.68 0.15 166);
   --primary-foreground: oklch(0.16 0.03 166);
+  /* Dark text on the brighter dark-theme primary already clears AA. */
+  --primary-strong: var(--primary);
   --secondary: oklch(0.262 0.014 259);
   --secondary-foreground: oklch(0.941 0.006 253);
   --accent: oklch(0.282 0.015 259);
@@ -289,6 +294,7 @@
 
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-primary-strong: var(--primary-strong);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-accent: var(--accent);

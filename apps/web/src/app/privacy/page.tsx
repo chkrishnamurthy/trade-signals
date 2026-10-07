@@ -37,7 +37,7 @@ export default async function PrivacyPage() {
       <JsonLd schema={breadcrumbSchema} />
       <PublicHeader signedIn={user !== null} />
 
-      <main className="flex-1 pb-16">
+      <main id="main-content" tabIndex={-1} className="flex-1 pb-16 outline-none">
         <div className="border-b border-border/50 bg-surface/30">
           <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6 lg:px-8">
             <nav

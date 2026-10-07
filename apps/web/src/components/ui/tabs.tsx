@@ -53,7 +53,7 @@ function TabsTrigger({ className, ...props }: React.ComponentProps<typeof TabsPr
       data-slot="tabs-trigger"
       className={cn(
         'inline-flex items-center justify-center gap-1.5 whitespace-nowrap font-medium transition-colors',
-        'disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-ring',
+        'disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-ring',
         '[&_svg:not([class*=size-])]:size-3.5 [&_svg]:pointer-events-none',
         variant === 'line'
           ? [
@@ -76,7 +76,10 @@ function TabsContent({ className, ...props }: React.ComponentProps<typeof TabsPr
   return (
     <TabsPrimitive.Content
       data-slot="tabs-content"
-      className={cn('flex-1 outline-none', className)}
+      className={cn(
+        'flex-1 rounded-sm outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring',
+        className,
+      )}
       {...props}
     />
   );

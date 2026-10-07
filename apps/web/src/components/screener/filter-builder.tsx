@@ -320,7 +320,7 @@ function NumberField({
                 : n,
           );
         }}
-        className="figure w-20 bg-transparent font-semibold text-sm outline-none"
+        className="figure w-20 rounded-sm bg-transparent font-semibold text-sm outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring"
       />
       {!isMoney && hint !== '' && <span className="text-muted-foreground text-xs">{hint}</span>}
     </label>

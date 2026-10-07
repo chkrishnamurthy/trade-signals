@@ -297,7 +297,7 @@ export function NoticesView({ data }: { data: PortfolioNoticesDto }) {
                               {t.symbol !== null && (
                                 <Link
                                   href={`/portfolio/${encodeURIComponent(t.symbol)}` as Route}
-                                  className="underline-offset-2 hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+                                  className="underline-offset-2 hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-ring"
                                 >
                                   Your {t.symbol} holding
                                 </Link>
@@ -311,7 +311,7 @@ export function NoticesView({ data }: { data: PortfolioNoticesDto }) {
               )}
             </section>
             <details className="rounded-lg border border-border bg-surface shadow-subtle">
-              <summary className="cursor-pointer px-4 py-3 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-ring">
+              <summary className="cursor-pointer px-4 py-3 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-ring">
                 Choose which notices you get
               </summary>
               <div className="border-t border-border">

@@ -119,7 +119,7 @@ export function CashActivityCard({ history }: { history: readonly FiiDiiDayDto[]
             type="button"
             onClick={() => setShowAll((v) => !v)}
             aria-expanded={showAll}
-            className="mx-4 mt-1 mb-4 rounded-sm font-medium text-foreground text-sm underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring sm:mx-5"
+            className="mx-4 mt-1 mb-4 rounded-sm font-medium text-foreground text-sm underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-ring sm:mx-5"
           >
             {showAll ? 'Show fewer sessions' : `Show all ${bars.length} sessions ›`}
           </button>

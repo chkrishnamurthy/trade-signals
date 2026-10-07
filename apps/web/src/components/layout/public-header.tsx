@@ -15,6 +15,12 @@ export function PublicHeader({ signedIn = false }: { signedIn?: boolean }) {
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+      <a
+        href="#main-content"
+        className="sr-only rounded-md bg-foreground font-medium text-background text-sm focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:px-3 focus:py-2 focus:outline-2 focus:outline-solid focus:outline-offset-2 focus:outline-ring"
+      >
+        Skip to content
+      </a>
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-6">
           <Brand href="/" showWordmark={true} />

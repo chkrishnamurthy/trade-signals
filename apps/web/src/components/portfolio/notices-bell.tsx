@@ -16,7 +16,7 @@ export function NoticesBell() {
     <Link
       href={'/portfolio/notices' as Route}
       aria-label={`${unread} new ${unread === 1 ? 'notice' : 'notices'} about your holdings`}
-      className="relative inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+      className="relative inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-ring"
     >
       <BellIcon className="size-4" aria-hidden />
       <span

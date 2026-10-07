@@ -345,7 +345,7 @@ function CorrelationGridView({ grid }: { grid: PortfolioRiskDto['correlation'] }
         <PairList title="Moved least alike" pairs={least} />
       </div>
       <details className="rounded-md border border-border">
-        <summary className="cursor-pointer px-3 py-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-ring">
+        <summary className="cursor-pointer px-3 py-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-ring">
           See every pair
         </summary>
         <div className="flex flex-col gap-3 border-t border-border p-3">
@@ -502,7 +502,7 @@ function StockTable({ stocks }: { stocks: PortfolioRiskDto['stocks'] }) {
                     onClick={() =>
                       setSort((s) => ({ key: c.key, desc: s.key === c.key ? !s.desc : true }))
                     }
-                    className="inline-flex items-center gap-1 uppercase tracking-wide hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+                    className="inline-flex items-center gap-1 uppercase tracking-wide hover:text-foreground focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-ring"
                   >
                     {c.label}
                     <span aria-hidden className={cn(sort.key !== c.key && 'invisible')}>

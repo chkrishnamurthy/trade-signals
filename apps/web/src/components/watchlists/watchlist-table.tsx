@@ -374,7 +374,7 @@ function DragHandle({
         onDragStart();
       }}
       onDragEnd={onDragEnd}
-      className="flex size-7 cursor-grab items-center justify-center rounded-sm text-subtle-foreground transition-colors outline-none hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring active:cursor-grabbing"
+      className="flex size-7 cursor-grab items-center justify-center rounded-sm text-subtle-foreground transition-colors outline-none hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-ring active:cursor-grabbing"
     >
       <GripVerticalIcon className="size-4" aria-hidden />
     </button>

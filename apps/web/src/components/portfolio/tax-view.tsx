@@ -86,7 +86,7 @@ export function TaxTab({ tax }: { tax: PortfolioTaxDto }) {
               aria-pressed={fy === year}
               onClick={() => setYear(fy)}
               className={cn(
-                'rounded-sm px-2.5 py-1 text-xs font-medium focus-visible:outline-2 focus-visible:outline-ring',
+                'rounded-sm px-2.5 py-1 text-xs font-medium focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-ring',
                 fy === year
                   ? 'bg-surface text-foreground shadow-subtle'
                   : 'text-muted-foreground hover:text-foreground',

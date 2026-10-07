@@ -158,7 +158,7 @@ export function StageRail({ data }: { data: IpoDashboardDto }) {
                   href={s.href}
                   className={cn(
                     box,
-                    'w-full transition-colors hover:border-border-strong hover:bg-accent/40 focus-visible:outline-2 focus-visible:outline-ring',
+                    'w-full transition-colors hover:border-border-strong hover:bg-accent/40 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-ring',
                   )}
                 >
                   {body}

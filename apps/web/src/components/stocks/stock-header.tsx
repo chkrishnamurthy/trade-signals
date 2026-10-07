@@ -347,7 +347,7 @@ export function StockHeader({
 }
 
 const CHIP =
-  'inline-flex h-8 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-surface px-3 text-xs hover:border-border-strong hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring';
+  'inline-flex h-8 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-surface px-3 text-xs hover:border-border-strong hover:bg-accent focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-ring';
 
 /** The last three months of closes as one line; colour follows the period's sign. */
 function Sparkline({ closes }: { closes: readonly number[] }) {

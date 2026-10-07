@@ -455,7 +455,7 @@ function EventItem({ event }: { event: MarketEventDto }) {
           <button
             type="button"
             className={cn(
-              'group block w-full rounded-lg border border-border bg-surface p-3 text-left shadow-subtle transition-colors hover:border-border-strong hover:bg-accent/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:p-3.5',
+              'group block w-full rounded-lg border border-border bg-surface p-3 text-left shadow-subtle transition-colors hover:border-border-strong hover:bg-accent/30 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring sm:p-3.5',
               event.onWatchlist && 'border-primary/40 bg-primary/5 hover:border-primary/60',
             )}
           >

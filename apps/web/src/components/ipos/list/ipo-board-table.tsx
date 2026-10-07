@@ -156,7 +156,7 @@ function SortHeader({
       href={hrefFor(column.sort) as Route}
       scroll={false}
       className={cn(
-        'inline-flex items-center gap-1 rounded-sm transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring',
+        'inline-flex items-center gap-1 rounded-sm transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-ring',
         active && 'text-foreground',
         column.numeric && 'flex-row-reverse',
       )}
@@ -362,7 +362,7 @@ export function IpoBoardTable({
                 const key = event.target.value as IpoListSortKey;
                 router.push(defaultSortHrefs[key] as Route, { scroll: false });
               }}
-              className="h-10 rounded-md border border-input bg-surface px-2 text-foreground text-sm shadow-subtle focus-visible:outline-2 focus-visible:outline-ring"
+              className="h-10 rounded-md border border-input bg-surface px-2 text-foreground text-sm shadow-subtle focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-ring"
             >
               {sortOptions.map((k) => (
                 <option key={k} value={k}>
@@ -476,7 +476,7 @@ export function IpoBoardTable({
                     <Link
                       href={issueHref(row.slug)}
                       aria-label={`Open ${row.companyName}`}
-                      className="grid size-8 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+                      className="grid size-8 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-ring"
                     >
                       <ChevronRightIcon aria-hidden className="size-4" />
                     </Link>

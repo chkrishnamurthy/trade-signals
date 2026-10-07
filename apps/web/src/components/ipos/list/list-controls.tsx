@@ -59,7 +59,7 @@ export function ListControls({
             const v = event.target.value;
             setParams({ year: v === String(currentYear) ? null : v });
           }}
-          className="h-10 w-full rounded-md border border-input bg-surface px-2 text-foreground text-sm shadow-subtle focus-visible:outline-2 focus-visible:outline-ring sm:h-9 sm:w-auto"
+          className="h-10 w-full rounded-md border border-input bg-surface px-2 text-foreground text-sm shadow-subtle focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-ring sm:h-9 sm:w-auto"
         >
           {years.map((y) => (
             <option key={y} value={y}>

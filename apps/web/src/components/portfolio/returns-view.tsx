@@ -20,7 +20,7 @@ function StockLink({ symbol }: { symbol: string }) {
   return (
     <Link
       href={`/portfolio/${encodeURIComponent(symbol)}` as Route}
-      className="underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+      className="underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-ring"
     >
       {symbol}
     </Link>
@@ -509,7 +509,7 @@ function ValueOverTime({
                 aria-pressed={range === r}
                 onClick={() => setRange(r)}
                 className={cn(
-                  'rounded-sm px-2.5 py-1 text-xs font-medium focus-visible:outline-2 focus-visible:outline-ring',
+                  'rounded-sm px-2.5 py-1 text-xs font-medium focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-ring',
                   range === r
                     ? 'bg-surface text-foreground shadow-subtle'
                     : 'text-muted-foreground hover:text-foreground',

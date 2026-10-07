@@ -46,7 +46,7 @@ export function PortfolioNav({ current }: { current: 'overview' | 'analysis' | '
           href={item.href as Route}
           aria-current={current === item.key ? 'page' : undefined}
           className={cn(
-            'relative inline-flex h-11 shrink-0 items-center gap-1.5 px-3.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-ring',
+            'relative inline-flex h-11 shrink-0 items-center gap-1.5 px-3.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-ring',
             'after:absolute after:inset-x-2 after:-bottom-px after:h-0.5 after:rounded-full after:bg-transparent after:transition-colors',
             current === item.key
               ? 'font-semibold text-foreground after:bg-primary'

@@ -37,7 +37,7 @@ export default async function HomePage() {
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
       <PublicHeader signedIn={signedIn} />
 
-      <main className="flex-1">
+      <main id="main-content" tabIndex={-1} className="flex-1 outline-none">
         <Hero signedIn={signedIn} />
         <Features signedIn={signedIn} />
         <Integrity />

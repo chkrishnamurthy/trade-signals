@@ -92,7 +92,7 @@ export function SectionDirectory({ data }: { data: IpoDashboardDto }) {
             <Link
               href={sectionHref(e.id, data.board) as Route}
               className={cn(
-                'flex w-full flex-col gap-2 rounded-lg border bg-surface p-4 shadow-subtle transition-colors hover:border-border-strong hover:bg-accent/40 focus-visible:outline-2 focus-visible:outline-ring',
+                'flex w-full flex-col gap-2 rounded-lg border bg-surface p-4 shadow-subtle transition-colors hover:border-border-strong hover:bg-accent/40 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-ring',
                 e.unofficial ? 'border-warning-line' : 'border-border',
               )}
             >

@@ -47,7 +47,7 @@ export function MetricPicker({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
       <PopoverContent align={align} className="w-[min(92vw,34rem)] p-0">
-        <label className="flex items-center gap-2 border-border border-b px-3 py-2">
+        <label className="flex items-center gap-2 border-border border-b px-3 py-2 focus-within:bg-accent/40">
           <SearchIcon aria-hidden className="size-4 text-muted-foreground" />
           <span className="sr-only">Search metrics</span>
           <input

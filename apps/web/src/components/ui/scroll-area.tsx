@@ -25,7 +25,7 @@ function ScrollArea({ className, children, viewportClassName, ...props }: Scroll
       <ScrollAreaPrimitive.Viewport
         data-slot="scroll-area-viewport"
         className={cn(
-          'size-full max-h-[inherit] rounded-[inherit] outline-none',
+          'size-full max-h-[inherit] rounded-[inherit] outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring',
           viewportClassName,
         )}
       >
