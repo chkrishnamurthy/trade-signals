@@ -48,9 +48,9 @@ export function PublicFooter() {
             <strong className="font-semibold text-foreground">
               EquityWise is not a broker and never places orders.
             </strong>{' '}
-            Everything here is technical decision-support and educational information — not
-            investment advice, and not a recommendation to buy or sell. Markets carry risk; do your
-            own research.
+            It is a research tool that shows market data and technical readings — not investment
+            advice, and not a recommendation to buy, sell or hold. Markets carry risk; do your own
+            research.
           </p>
         </div>
 
@@ -59,13 +59,9 @@ export function PublicFooter() {
           <div className="col-span-2 space-y-4">
             <Brand href="/" showWordmark={true} />
             <p className="max-w-xs text-sm leading-relaxed text-muted-foreground">
-              Clear technical reads on NSE equities — watchlists, signals, corporate filings and
-              money-flow, recomputed at every market close with zero lookahead bias.
+              Plain-English research on every NSE-listed stock — watchlists, a screener, corporate
+              filings and institutional flows, recomputed after every market close.
             </p>
-            <div className="flex items-center gap-2 text-xs text-subtle-foreground">
-              <span className="size-1.5 rounded-full bg-bullish" aria-hidden />
-              Data synced daily at market close · 15:30 IST
-            </div>
           </div>
 
           {COLUMNS.map((column) => (
@@ -90,17 +86,17 @@ export function PublicFooter() {
         <div className="mt-12 border-t border-border/80 pt-6">
           <p className="text-2xs leading-normal text-muted-foreground/80">
             <strong className="font-semibold text-foreground/90">Regulatory disclaimer:</strong>{' '}
-            EquityWise is a technical data screening and analytical decision-support tool. It is not
-            an investment adviser, portfolio manager, or research analyst as defined by SEBI.
-            EquityWise does not offer execution, brokerage, or order placement services. Content and
-            calculated indicators provided on this platform are for informational and educational
-            purposes only and must not be construed as investment, legal, or financial advice. All
-            investments in equity securities are subject to market risks. Read all related scheme
-            and company documents carefully before investing.
+            EquityWise is a research tool that shows market data and technical readings about
+            NSE-listed securities. It is not a stockbroker, and it is not registered with SEBI as an
+            investment adviser, portfolio manager or research analyst. It does not offer execution,
+            brokerage or order placement. Content and calculated indicators are for information only
+            and must not be construed as investment, legal or financial advice, or as a
+            recommendation to buy, sell or hold any security. All investments in equity securities
+            are subject to market risks. Read all related scheme and company documents carefully
+            before investing.
           </p>
           <div className="mt-4 flex flex-col items-center justify-between gap-2 text-3xs text-subtle-foreground sm:flex-row">
-            <div>&copy; {currentYear} EquityWise. Built for Indian equity markets. 🇮🇳</div>
-            <div>Prices in integer paise. UTC timestamps converted to IST at presentation.</div>
+            <div>&copy; {currentYear} EquityWise. Built for Indian equity markets.</div>
           </div>
         </div>
       </div>

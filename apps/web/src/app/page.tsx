@@ -1,5 +1,6 @@
 import {
   ArrowRightIcon,
+  FileSearchIcon,
   GaugeIcon,
   LandmarkIcon,
   LayersIcon,
@@ -10,19 +11,19 @@ import {
 } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { WhyPanel } from '@/components/landing/why-panel';
 import { PublicFooter } from '@/components/layout/public-footer';
 import { PublicHeader } from '@/components/layout/public-header';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { getSessionUser } from '@/server/auth/require-user';
-import { getHeadlineIndices } from '@/server/indices';
 
 export const revalidate = 60; // ISR 1 minute
 
 export const metadata: Metadata = {
   title: 'EquityWise — Know Why an NSE Stock Deserves Your Attention',
   description:
-    'Watchlists, technical signals and corporate filings for every NSE equity — each read explained in plain English with the exact factors behind it. Recomputed at every market close with zero lookahead bias. Decision support, never an order.',
+    'Watchlists, a stock screener and plain-English facts about every NSE-listed stock, each with the number behind it. Recomputed after every market close. Free to use. A research tool, not a broker and not investment advice.',
   alternates: {
     canonical: '/',
   },
@@ -30,7 +31,6 @@ export const metadata: Metadata = {
 
 export default async function HomePage() {
   const user = await getSessionUser();
-  const headlineIndices = await getHeadlineIndices().catch(() => []);
   const signedIn = user !== null;
 
   return (
@@ -38,10 +38,9 @@ export default async function HomePage() {
       <PublicHeader signedIn={signedIn} />
 
       <main className="flex-1">
-        <Hero signedIn={signedIn} headlineIndices={headlineIndices} />
+        <Hero signedIn={signedIn} />
         <Features signedIn={signedIn} />
         <Integrity />
-        <Testimonials />
         <ClosingCta signedIn={signedIn} />
       </main>
 
@@ -50,13 +49,7 @@ export default async function HomePage() {
   );
 }
 
-function Hero({
-  signedIn,
-  headlineIndices,
-}: {
-  signedIn: boolean;
-  headlineIndices: Awaited<ReturnType<typeof getHeadlineIndices>>;
-}) {
+function Hero({ signedIn }: { signedIn: boolean }) {
   return (
     <section className="relative overflow-hidden border-b border-border/50 py-16 sm:py-24">
       {/* A soft emerald wash behind the headline — atmosphere, not a gradient hero. */}
@@ -73,7 +66,7 @@ function Hero({
             <span className="size-1.5 rounded-full bg-bullish" />
             {signedIn
               ? 'Welcome back — your latest session brief is ready'
-              : 'Live NSE data · recomputed every market close'}
+              : 'Every NSE-listed stock · recomputed after each close'}
           </Badge>
 
           <h1 className="font-display font-extrabold text-4xl tracking-tight text-foreground text-balance sm:text-6xl sm:leading-[1.05]">
@@ -81,8 +74,8 @@ function Hero({
           </h1>
 
           <p className="mx-auto mt-5 max-w-xl text-pretty text-base text-muted-foreground sm:text-lg">
-            Watchlists, technical signals and corporate filings for every NSE name — each read
-            explained in plain English, with the exact factors behind it. Decision support, never an
+            Watchlists, a stock screener and plain-English facts about every NSE-listed stock — each
+            fact with the number behind it. You make the decisions; EquityWise never places an
             order.
           </p>
 
@@ -103,7 +96,7 @@ function Hero({
               <>
                 <Button asChild size="lg" className="gap-2">
                   <Link href="/signup">
-                    Start free — no card needed
+                    Create free account
                     <ArrowRightIcon className="size-4" />
                   </Link>
                 </Button>
@@ -115,94 +108,15 @@ function Hero({
           </div>
 
           <div className="mt-5 flex flex-wrap items-center justify-center gap-x-5 gap-y-1.5 text-xs text-subtle-foreground">
-            <span>✓ Free forever plan</span>
-            <span>✓ No brokerage link needed</span>
-            <span>✓ Zero lookahead bias</span>
+            <span>✓ Free to use, no card needed</span>
+            <span>✓ Never asks for your broker login</span>
+            <span>✓ No tips, targets or order buttons</span>
           </div>
         </div>
 
-        <ExampleSignalCard />
-
-        {headlineIndices.length > 0 && (
-          <div className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {/* The first four of the strip's indices; the tiles are a 2×2 / 1×4 grid. */}
-            {headlineIndices.slice(0, 4).map((idx) => (
-              <div
-                key={idx.symbol}
-                className="flex flex-col justify-between rounded-lg border border-border/70 bg-surface/50 p-4 transition-colors hover:border-border"
-              >
-                <span className="font-semibold text-muted-foreground text-xs">{idx.name}</span>
-                <span className="mt-1 font-mono font-semibold text-foreground text-lg tracking-tight">
-                  {idx.symbol}
-                </span>
-                <span className="mt-1 text-2xs uppercase tracking-wider text-subtle-foreground">
-                  Benchmark index
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
+        <WhyPanel className="mx-auto mt-14 max-w-2xl" />
       </div>
     </section>
-  );
-}
-
-/**
- * An illustrative "why this signal" card. Labelled an EXAMPLE on the card
- * itself — it demonstrates the product's factor-breakdown UI without implying
- * the numbers are a live quote or a recommendation.
- */
-function ExampleSignalCard() {
-  const factors: ReadonlyArray<[string, number]> = [
-    ['Price above 20 / 50 / 200 EMA stack', 92],
-    ['Volume 1.7× 20-day average', 78],
-    ['RSI 61 · rising, not overbought', 66],
-    ['Broke three-week consolidation high', 84],
-  ];
-  return (
-    <div className="mx-auto mt-14 max-w-3xl overflow-hidden rounded-xl border border-border bg-surface text-left shadow-lg">
-      <div className="flex flex-wrap items-center gap-2 border-border/70 border-b bg-surface-sunken/60 px-4 py-3">
-        <Badge className="bg-bullish-soft text-bullish-strong">Bullish setup</Badge>
-        <span className="font-semibold text-sm">Example stock</span>
-        <span className="ml-auto text-2xs uppercase tracking-wider text-subtle-foreground">
-          Illustrative — not a live quote or recommendation
-        </span>
-      </div>
-      <div className="grid gap-0 sm:grid-cols-[1.4fr_1fr]">
-        <div className="border-border/70 p-5 sm:border-r">
-          <p className="mb-3 text-xs uppercase tracking-wider text-subtle-foreground">
-            Why this signal — factor breakdown
-          </p>
-          <div className="flex flex-col gap-3">
-            {factors.map(([label, value]) => (
-              <div key={label}>
-                <div className="mb-1 flex items-center justify-between text-xs">
-                  <span className="text-foreground">{label}</span>
-                  <span className="font-mono font-semibold text-primary">{value}</span>
-                </div>
-                <div className="h-1.5 overflow-hidden rounded-full bg-surface-sunken">
-                  <div className="h-full rounded-full bg-primary" style={{ width: `${value}%` }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="flex flex-col gap-3 p-5">
-          <div>
-            <p className="text-xs text-subtle-foreground">Technical entry zone</p>
-            <p className="font-mono font-semibold text-lg">₹2,960 – ₹2,988</p>
-          </div>
-          <div>
-            <p className="text-xs text-subtle-foreground">Invalidation level</p>
-            <p className="font-mono font-semibold text-bearish-strong text-lg">₹2,902</p>
-          </div>
-          <p className="mt-auto border-border/70 border-t pt-3 text-2xs leading-relaxed text-subtle-foreground">
-            These are technical price levels, not order instructions. You place any trade yourself,
-            on a separate platform.
-          </p>
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -210,32 +124,32 @@ const FEATURES = [
   {
     icon: GaugeIcon,
     title: 'Watchlists that read themselves',
-    body: 'Add a name and each column — RSI, 20/50/200 EMAs, ATR, 52-week extremes, period returns — fills in after the next NSE close. No spreadsheets, no manual maths.',
+    body: 'Add a stock and each column — RSI, moving averages, ATR, 52-week range, period returns — fills in after the next NSE close. No spreadsheets, no manual maths.',
   },
   {
-    icon: TrendingUpIcon,
-    title: 'Signals with the reasoning shown',
-    body: 'Breakouts, EMA stacks, volume anomalies — every setup arrives with the factor breakdown behind it, so you see why it fired, not just that it did.',
+    icon: FileSearchIcon,
+    title: 'What stands out, with the evidence',
+    body: 'Every stock page lists the facts worth knowing — a new 52-week high, unusual delivery, an upcoming result — each with its number and a link to the data behind it.',
   },
   {
     icon: SparklesIcon,
     title: 'A plain-English market brief',
-    body: 'Each morning, a technical read on the session that just closed — breadth, movers you follow, and fresh setups — in language you actually understand.',
+    body: 'A read on the session that just closed — how many stocks rose and fell, and what moved in your watchlists — in language you actually understand.',
   },
   {
     icon: MegaphoneIcon,
-    title: 'Corporate filings, the moment they land',
-    body: 'Buybacks, dividends, order wins and board meetings pulled live from BSE & NSE, auto-summarised, always linked back to the original filing.',
+    title: 'Corporate announcements, sorted',
+    body: 'Exchange filings, checked several times a day and sorted by type — results, dividends, buybacks, order wins, board meetings — each linked to the original filing.',
   },
   {
     icon: LandmarkIcon,
     title: 'Follow the institutional money',
-    body: 'FII and DII net flows and sector activity at a glance — the "where did the money go today" view, without digging through PDFs.',
+    body: 'Where the big money went — cash flows, futures positioning, delivery and large deals — without digging through exchange files.',
   },
   {
     icon: ShieldCheckIcon,
     title: 'Honest by design',
-    body: 'Not a broker, no order buttons, no "hot tips". Just clean technical reads and the confidence levels the factors can actually explain.',
+    body: 'Not a broker, no order buttons, no "hot tips", no recommendations. Facts and readings you can check, and the decision stays yours.',
   },
 ] as const;
 
@@ -248,7 +162,7 @@ function Features({ signedIn }: { signedIn: boolean }) {
             Everything you need to read the market with reasons
           </h2>
           <p className="mt-3 text-muted-foreground">
-            Five surfaces, one idea: never show a number you cannot explain.
+            One idea throughout: never show a number we cannot explain.
           </p>
         </div>
 
@@ -286,8 +200,8 @@ function Features({ signedIn }: { signedIn: boolean }) {
 const INTEGRITY = [
   {
     icon: ShieldCheckIcon,
-    title: 'Zero lookahead bias',
-    body: 'Indicators and signals compute exclusively on closed session bars. A tradeable trigger assumes execution on the next candle open — never a price the engine could not have seen.',
+    title: 'Completed sessions only',
+    body: 'Indicators are computed on finished trading days, never the bar still forming — so a reading never depends on a price that was not yet known, and never changes after you have seen it.',
   },
   {
     icon: LayersIcon,
@@ -337,83 +251,6 @@ function Integrity() {
   );
 }
 
-/**
- * ⚠️ SAMPLE TESTIMONIALS — REPLACE BEFORE LAUNCH.
- *
- * These are placeholder quotes to show the section design. Do NOT ship them as
- * real customer reviews: publishing fabricated testimonials is deceptive (and
- * disallowed). Swap in genuine, consented quotes — or set this to an empty
- * array to hide the section entirely until you have real ones.
- */
-const TESTIMONIALS: ReadonlyArray<{ quote: string; name: string; role: string }> = [
-  {
-    quote:
-      'Every signal tells me the why — the EMA stack, the volume, the breakout level. I stopped chasing tips blindly.',
-    name: 'Rahul A.',
-    role: 'Swing trader · Bengaluru',
-  },
-  {
-    quote:
-      'The announcements feed flagged a buyback the same morning it hit. That edge used to cost me hours.',
-    name: 'Priya N.',
-    role: 'Long-term investor · Pune',
-  },
-  {
-    quote:
-      'It is refreshingly honest that it is not a broker — just clean technical reads I actually trust.',
-    name: 'Sundar V.',
-    role: 'F&O part-timer · Chennai',
-  },
-];
-
-function Testimonials() {
-  if (TESTIMONIALS.length === 0) return null;
-  return (
-    <section className="border-y border-border/50 py-16 sm:py-20">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-2xl text-center">
-          <p className="mb-2 font-semibold text-primary text-xs uppercase tracking-widest">
-            What investors say
-          </p>
-          <h2 className="font-display font-bold text-3xl tracking-tight text-balance">
-            Trusted for the reasoning, not just the ticker
-          </h2>
-        </div>
-
-        <div className="mt-12 grid grid-cols-1 gap-5 md:grid-cols-3">
-          {TESTIMONIALS.map((testimonial) => (
-            <figure
-              key={testimonial.quote}
-              className="flex flex-col gap-4 rounded-xl border border-border bg-surface p-6"
-            >
-              <div
-                className="text-sm tracking-widest"
-                style={{ color: '#d99a2b' }}
-                role="img"
-                aria-label="Rated five out of five"
-              >
-                <span aria-hidden>★★★★★</span>
-              </div>
-              <blockquote className="text-pretty text-sm leading-relaxed text-foreground">
-                “{testimonial.quote}”
-              </blockquote>
-              <figcaption className="mt-auto flex items-center gap-3">
-                <span className="flex size-9 items-center justify-center rounded-full bg-primary/10 font-semibold text-primary text-sm">
-                  {testimonial.name.slice(0, 1)}
-                </span>
-                <span>
-                  <span className="block font-semibold text-sm">{testimonial.name}</span>
-                  <span className="text-muted-foreground text-xs">{testimonial.role}</span>
-                </span>
-              </figcaption>
-            </figure>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function ClosingCta({ signedIn }: { signedIn: boolean }) {
   return (
     <section className="py-20">
@@ -422,7 +259,7 @@ function ClosingCta({ signedIn }: { signedIn: boolean }) {
           Start reading the market with reasons, not rumours
         </h2>
         <p className="mx-auto mt-4 max-w-xl text-muted-foreground sm:text-lg">
-          Free forever for your first watchlist. Upgrade only when you want the full signal engine.
+          Free to use. No card, no broker login — just the facts behind every NSE-listed stock.
         </p>
         <div className="mt-8 flex flex-wrap justify-center gap-3">
           {signedIn ? (

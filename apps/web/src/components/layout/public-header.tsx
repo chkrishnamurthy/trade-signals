@@ -8,6 +8,7 @@ import { Brand } from '@/components/layout/brand';
 import { StockSearch } from '@/components/market/stock-search';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
+import { stockHref } from '@/lib/screener-format';
 
 export function PublicHeader({ signedIn = false }: { signedIn?: boolean }) {
   const router = useRouter();
@@ -20,13 +21,17 @@ export function PublicHeader({ signedIn = false }: { signedIn?: boolean }) {
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="w-40 sm:w-60 lg:w-72">
-            <StockSearch
-              onSelect={(symbol) => {
-                router.push(`/watchlists?symbol=${encodeURIComponent(symbol)}` as Route);
-              }}
-            />
-          </div>
+          {/* Signed out, every search result would end at the sign-in page (no
+              stock page is public yet), so the box is offered to members only. */}
+          {signedIn && (
+            <div className="hidden w-60 sm:block lg:w-72">
+              <StockSearch
+                onSelect={(symbol) => {
+                  router.push(stockHref(symbol) as Route);
+                }}
+              />
+            </div>
+          )}
 
           <ThemeToggle />
 
@@ -40,10 +45,10 @@ export function PublicHeader({ signedIn = false }: { signedIn?: boolean }) {
           ) : (
             <div className="flex items-center gap-2">
               <Button asChild size="sm" variant="ghost">
-                <Link href="/login">Sign In</Link>
+                <Link href="/login">Sign in</Link>
               </Button>
               <Button asChild size="sm" variant="default" className="hidden sm:inline-flex">
-                <Link href="/signup">Get Started</Link>
+                <Link href="/signup">Create free account</Link>
               </Button>
             </div>
           )}
