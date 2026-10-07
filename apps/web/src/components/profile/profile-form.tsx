@@ -188,7 +188,8 @@ export function ProfileForm({
 
       {/* Sticky save bar — only present while there are unsaved changes. */}
       {dirty ? (
-        <div className="sticky bottom-3 z-10 flex items-center justify-end gap-2 rounded-lg border border-border bg-surface-raised/95 px-3 py-2 shadow-elevated backdrop-blur">
+        // Clears the phone tab bar (--bottom-chrome) so Save is never hidden behind it.
+        <div className="sticky bottom-[calc(var(--bottom-chrome)+0.75rem)] z-10 flex items-center justify-end gap-2 rounded-lg border border-border bg-surface-raised/95 px-3 py-2 shadow-elevated backdrop-blur">
           <span className="mr-auto text-muted-foreground text-xs">Unsaved changes</span>
           <Button variant="ghost" size="sm" disabled={busy} onClick={() => setValues(saved)}>
             Discard

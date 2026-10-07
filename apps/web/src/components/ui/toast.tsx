@@ -135,7 +135,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={value}>
       {children}
       <div
-        className="pointer-events-none fixed inset-x-4 bottom-4 z-[100] flex flex-col gap-2 sm:inset-x-auto sm:right-4 sm:w-full sm:max-w-sm"
+        // Lifted above the phone tab bar where there is one (--bottom-chrome).
+        className="pointer-events-none fixed inset-x-4 bottom-[calc(var(--bottom-chrome)+1rem)] z-[100] flex flex-col gap-2 sm:inset-x-auto sm:right-4 sm:w-full sm:max-w-sm"
         aria-live="polite"
       >
         {toasts.map((entry) => {

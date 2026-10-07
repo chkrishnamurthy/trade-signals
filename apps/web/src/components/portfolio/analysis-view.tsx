@@ -80,7 +80,7 @@ export function AnalysisView({
                 description="Add the shares you hold, by hand or from your broker's file, and this page shows how the money is spread."
                 action={
                   <Button asChild>
-                    <Link href={'/portfolio' as Route}>Go to My portfolio</Link>
+                    <Link href={'/portfolio' as Route}>Go to Portfolio</Link>
                   </Button>
                 }
               />

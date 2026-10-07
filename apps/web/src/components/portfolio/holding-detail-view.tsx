@@ -45,7 +45,7 @@ export function HoldingDetailView({ detail }: { detail: HoldingDetailDto }) {
               href={'/portfolio' as Route}
               className="mb-1 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
             >
-              <ArrowLeftIcon className="size-4" /> My portfolio
+              <ArrowLeftIcon className="size-4" /> Portfolio
             </Link>
             <PageTitle>{stock.name}</PageTitle>
             <PageDescription>

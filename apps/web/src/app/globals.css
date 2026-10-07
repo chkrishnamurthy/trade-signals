@@ -417,12 +417,24 @@
  *   --nav-strip-height   the sticky market indices strip under it.
  *   --nav-bottom-height  the fixed bottom tab bar below `lg` (MobileNav),
  *                        before the device's safe-area inset.
+ *   --bottom-chrome      how much of the screen's bottom edge app chrome
+ *                        covers: the tab bar plus safe area on pages that
+ *                        show it (phones/tablets inside AppShell), else 0.
+ *                        Anything pinned to the bottom — toasts, sticky save
+ *                        bars — offsets by it so the tab bar never hides it.
  * -------------------------------------------------------------------------*/
 @layer base {
   :root {
     --nav-bar-height: 3.5rem;
     --nav-strip-height: 2.25rem;
     --nav-bottom-height: 3.5rem;
+    --bottom-chrome: 0px;
+  }
+
+  @media (width < 64rem) {
+    :root:has([data-mobile-nav]) {
+      --bottom-chrome: calc(var(--nav-bottom-height) + env(safe-area-inset-bottom));
+    }
   }
 }
 

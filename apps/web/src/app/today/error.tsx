@@ -24,7 +24,7 @@ export default function TodayError({ reset }: { error: Error; reset: () => void 
       <PageContainer>
         <PageHeader>
           <PageHeading>
-            <PageTitle>Daily Market Brief</PageTitle>
+            <PageTitle>Market brief</PageTitle>
           </PageHeading>
         </PageHeader>
         <PageContent>

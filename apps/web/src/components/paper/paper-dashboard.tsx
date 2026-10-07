@@ -147,7 +147,7 @@ export function PaperDashboard() {
       <PageContainer>
         <PageHeader className="flex-col sm:flex-row">
           <PageHeading className="w-full sm:w-auto">
-            <PageTitle>Paper Trading</PageTitle>
+            <PageTitle>Paper trading</PageTitle>
             <PageDescription>
               Your strategies, simulated automatically on virtual capital. Watch what they would
               have done — nothing here can place an order.

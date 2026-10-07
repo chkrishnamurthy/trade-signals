@@ -150,17 +150,18 @@ export function PageDescription({ className, ...props }: React.ComponentProps<'p
 }
 
 /**
- * The standing disclaimer, at the foot of every page.
- *
- * One sentence, one place. It used to be a clause tacked onto four different
- * header descriptions, which both cost a wrapped line at the top of the densest
- * screens and left the dashboard, stocks and watchlists pages with no footer
- * statement at all. Pages with something more specific to say pass it as
- * children, appended to the standing line.
+ * The standing disclaimer sentence. Every signed-in page shows it once, in the
+ * app footer (`AppFooter`), and the phone "More" sheet repeats it.
  */
 export const DISCLAIMER =
   'Technical-analysis decision support, not investment advice. Orders, if any, are placed elsewhere.';
 
+/**
+ * A page's own note about its data — sources, timing, what is not adjusted —
+ * at the foot of the page. The generic "not investment advice" line is no
+ * longer repeated here: the app footer carries it on every page, and saying it
+ * twice a screen apart read as boilerplate.
+ */
 export function PageDisclaimer({
   children,
   className,
@@ -168,10 +169,10 @@ export function PageDisclaimer({
   children?: React.ReactNode | undefined;
   className?: string | undefined;
 }) {
+  if (children === undefined || children === null || children === '') return null;
   return (
-    <p data-slot="page-disclaimer" className={cn('text-subtle-foreground text-xs', className)}>
-      {DISCLAIMER}
-      {children === undefined ? null : <> {children}</>}
+    <p data-slot="page-disclaimer" className={cn('text-muted-foreground text-xs', className)}>
+      {children}
     </p>
   );
 }

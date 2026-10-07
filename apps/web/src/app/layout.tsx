@@ -10,6 +10,8 @@ import {
   SITE_URL,
 } from '@/lib/seo/schema';
 import { THEME_INIT_SCRIPT } from '@/lib/theme';
+import { SessionProvider, type SessionState } from '@/lib/use-session';
+import { getNavigationSession } from '@/server/auth/session-payload';
 import './globals.css';
 
 /**
@@ -97,8 +99,25 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+/**
+ * The session as this request sees it, handed to the client so the navigation
+ * paints the right account control (and an admin's Lab menu) on the first
+ * frame. Every page already checks the session server-side; the lookup is
+ * memoised per request, so this adds one profile read. A failure here must
+ * never take a page down: it degrades to "unknown" and the browser asks.
+ */
+async function initialSession(): Promise<SessionState | null> {
+  try {
+    const user = await getNavigationSession();
+    return user === null ? { status: 'signed-out' } : { status: 'signed-in', user };
+  } catch {
+    return null;
+  }
+}
+
+export default async function RootLayout({ children }: { children: ReactNode }) {
   const globalSchema = generateOrganizationAndWebsiteSchema();
+  const session = await initialSession();
 
   return (
     // The theme script writes to <html> before React sees the
@@ -118,10 +137,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
       <body className="min-h-dvh bg-background text-foreground" suppressHydrationWarning>
-        {/* No auth gate at present — every route is open. A future login system
-            wraps {children} here for client context, and adds
-            apps/web/src/middleware.ts (Next.js convention) to gate routes. */}
-        <ToastProvider>{children}</ToastProvider>
+        {/* Routes are gated in middleware.ts; this only shares what the server
+            already knows about the visitor with client components. */}
+        <SessionProvider initial={session}>
+          <ToastProvider>{children}</ToastProvider>
+        </SessionProvider>
       </body>
     </html>
   );

@@ -19,7 +19,7 @@ export default function TodayLoading() {
       <PageContainer>
         <PageHeader>
           <PageHeading>
-            <PageTitle>Daily Market Brief</PageTitle>
+            <PageTitle>Market brief</PageTitle>
             <PageDescription>
               Technical summary of the latest completed NSE session.
             </PageDescription>

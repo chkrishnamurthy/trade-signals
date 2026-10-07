@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import type * as React from 'react';
+import { createContext, createElement, useContext, useEffect, useState } from 'react';
 import { API_ROUTES } from '@/lib/api-routes';
 
 export interface SessionUser {
@@ -19,6 +20,23 @@ export type SessionState =
   | { readonly status: 'signed-in'; readonly user: SessionUser }
   | { readonly status: 'signed-out' }
   | { readonly status: 'error' };
+
+/**
+ * The session as the server saw it while rendering the page (root layout).
+ * `null` = the server could not tell (its lookup failed); the hook then waits
+ * for the browser's own request, as before.
+ */
+const ServerSession = createContext<SessionState | null>(null);
+
+export function SessionProvider({
+  initial,
+  children,
+}: {
+  initial: SessionState | null;
+  children: React.ReactNode;
+}) {
+  return createElement(ServerSession.Provider, { value: initial }, children);
+}
 
 /**
  * One request per page load, however many components ask. The navigation
@@ -47,17 +65,28 @@ function loadSession(): Promise<SessionState> {
   return pending;
 }
 
+/**
+ * The current session. Starts from the server's answer, so the first paint
+ * already shows the right account control and (for admins) the Lab menu; the
+ * browser still confirms it once per page load, which also catches a sign-in
+ * or sign-out that happened after the layout rendered (layouts persist across
+ * client-side navigation).
+ */
 export function useSession(): SessionState {
-  const [state, setState] = useState<SessionState>({ status: 'loading' });
+  const initial = useContext(ServerSession);
+  const [state, setState] = useState<SessionState>(initial ?? { status: 'loading' });
   useEffect(() => {
     let cancelled = false;
     void loadSession().then((next) => {
-      if (!cancelled) setState(next);
+      if (cancelled) return;
+      // A failed confirmation does not throw away a good server answer.
+      if (next.status === 'error' && initial !== null && initial.status !== 'loading') return;
+      setState(next);
     });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [initial]);
   return state;
 }
 

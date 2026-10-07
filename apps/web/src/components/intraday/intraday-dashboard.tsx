@@ -78,7 +78,7 @@ export function IntradayDashboard() {
       <PageContainer>
         <PageHeader className="flex-col sm:flex-row">
           <PageHeading className="w-full sm:w-auto">
-            <PageTitle>Intraday Strategies</PageTitle>
+            <PageTitle>Intraday strategies</PageTitle>
             <PageDescription>
               One rule-based strategy, clean signals, fixed targets.
             </PageDescription>

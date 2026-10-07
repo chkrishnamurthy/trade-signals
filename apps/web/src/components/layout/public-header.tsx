@@ -32,6 +32,7 @@ export function PublicHeader({ signedIn = false }: { signedIn?: boolean }) {
           {signedIn && (
             <div className="hidden w-60 sm:block lg:w-72">
               <StockSearch
+                stocksOnly
                 onSelect={(symbol) => {
                   router.push(stockHref(symbol) as Route);
                 }}

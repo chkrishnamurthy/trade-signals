@@ -14,7 +14,7 @@ export default function FlowsLoading() {
       <PageContainer>
         <PageHeader>
           <PageHeading>
-            <PageTitle>Institutional Flow</PageTitle>
+            <PageTitle>Institutional flow</PageTitle>
           </PageHeading>
         </PageHeader>
         <PageContent>

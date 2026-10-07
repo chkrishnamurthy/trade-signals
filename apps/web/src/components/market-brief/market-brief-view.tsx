@@ -114,8 +114,9 @@ export function MarketBriefView({
   );
 }
 
-/** A warm, time-aware header. The greeting resolves after mount so the server
- *  and client markup never disagree about the viewer's local hour. */
+/** The page is titled what the tab says ("Market brief"); the time-aware
+ *  greeting opens the description. It resolves after mount so the server and
+ *  client markup never disagree about the viewer's local hour. */
 function GreetingHeader({ session }: { session: DailyMarketBrief['session'] }) {
   const [greeting, setGreeting] = useState('Welcome back');
   useEffect(() => {
@@ -126,9 +127,9 @@ function GreetingHeader({ session }: { session: DailyMarketBrief['session'] }) {
   return (
     <PageHeader>
       <PageHeading>
-        <PageTitle>{greeting} 👋</PageTitle>
+        <PageTitle>Market brief</PageTitle>
         <PageDescription>
-          Here&rsquo;s your read on the session that just closed —{' '}
+          {greeting}. Here&rsquo;s your read on the session that just closed —{' '}
           <span className="font-medium text-foreground">
             {formatSessionDate(session.sessionDate)}
           </span>

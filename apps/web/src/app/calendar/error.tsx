@@ -16,7 +16,7 @@ export default function MarketCalendarError({ reset }: { error: Error; reset: ()
       <PageContainer>
         <PageHeader>
           <PageHeading>
-            <PageTitle>Market Calendar</PageTitle>
+            <PageTitle>Market calendar</PageTitle>
           </PageHeading>
         </PageHeader>
         <PageContent>

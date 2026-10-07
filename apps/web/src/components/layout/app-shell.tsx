@@ -77,7 +77,7 @@ export function AppShell({
         </main>
 
         {/* Clears the fixed tab bar below lg so it never covers the footer. */}
-        <AppFooter className="pb-[calc(var(--nav-bottom-height)+env(safe-area-inset-bottom))] lg:pb-0" />
+        <AppFooter className="pb-(--bottom-chrome)" />
         <MobileNav isAdmin={isAdmin} />
       </div>
     </TooltipProvider>

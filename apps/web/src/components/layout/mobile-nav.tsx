@@ -56,6 +56,7 @@ export function MobileNav({
     <>
       <nav
         aria-label="Primary"
+        data-mobile-nav
         className={cn(
           'fixed inset-x-0 bottom-0 z-40 border-border border-t bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur supports-[backdrop-filter]:bg-surface/85 lg:hidden',
           className,

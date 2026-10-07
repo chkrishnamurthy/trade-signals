@@ -192,7 +192,7 @@ export const LAB_GROUP: NavMenuGroup = {
       id: 'intraday',
       status: 'ready',
       href: '/intraday',
-      label: 'Intraday signals',
+      label: 'Intraday strategies',
       icon: ActivityIcon,
       description: 'One rule-based intraday strategy, its signals and paper trades',
     },

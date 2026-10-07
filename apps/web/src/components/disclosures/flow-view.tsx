@@ -57,7 +57,7 @@ export function FlowView({ data }: { data: InstitutionalFlowDto }) {
       <PageContainer>
         <PageHeader>
           <PageHeading>
-            <PageTitle>Institutional Flow</PageTitle>
+            <PageTitle>Institutional flow</PageTitle>
             <PageDescription>
               Where the big money went — cash flows, futures positioning, delivery and large deals.
             </PageDescription>

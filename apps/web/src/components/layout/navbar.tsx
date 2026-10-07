@@ -65,6 +65,7 @@ export function Navbar({
           <StockSearch
             onSelect={onSearchSelect}
             shortcut
+            stocksOnly
             className="min-w-0 flex-1 sm:max-w-sm lg:w-44 lg:flex-none xl:w-64"
           />
           <MarketStatusPill

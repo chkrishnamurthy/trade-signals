@@ -11,7 +11,6 @@ import {
   PageContainer,
   PageContent,
   PageDescription,
-  PageDisclaimer,
   PageHeader,
   PageHeading,
   PageTitle,
@@ -191,7 +190,7 @@ export function WatchlistsPage() {
         <PageContainer width="narrow">
           <PageHeader>
             <PageHeading>
-              <PageTitle>My watchlists</PageTitle>
+              <PageTitle>Watchlists</PageTitle>
               <PageDescription>
                 Live prices and daily technical readings for the names you follow.
               </PageDescription>
@@ -225,10 +224,8 @@ export function WatchlistsPage() {
             which section they are in, which is exactly what it is for. */}
         <PageHeader>
           <PageHeading>
-            {hasList && (
-              <PageBreadcrumb trail={[{ label: 'My watchlists', href: '/watchlists' }]} />
-            )}
-            <PageTitle>{hasList ? data.watchlist.name : 'My watchlists'}</PageTitle>
+            {hasList && <PageBreadcrumb trail={[{ label: 'Watchlists', href: '/watchlists' }]} />}
+            <PageTitle>{hasList ? data.watchlist.name : 'Watchlists'}</PageTitle>
             <PageDescription>
               {hasList
                 ? 'Live prices and daily technical readings for the names on this list.'
@@ -480,8 +477,6 @@ export function WatchlistsPage() {
               </Card>
             </>
           )}
-
-          <PageDisclaimer />
         </PageContent>
       </PageContainer>
 

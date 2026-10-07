@@ -18,7 +18,7 @@ export default function MarketCalendarLoading() {
       <PageContainer>
         <PageHeader>
           <PageHeading>
-            <PageTitle>Market Calendar</PageTitle>
+            <PageTitle>Market calendar</PageTitle>
             <PageDescription>
               Track results, corporate actions, holidays, and events that may affect your watchlist.
             </PageDescription>

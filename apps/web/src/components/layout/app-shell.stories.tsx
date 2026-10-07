@@ -20,7 +20,7 @@ const meta = {
     children: (
       <PageHeader className="px-4 py-4 sm:px-6">
         <PageHeading>
-          <PageTitle>My watchlists</PageTitle>
+          <PageTitle>Watchlists</PageTitle>
           <PageDescription>
             Live prices and daily technical readings for the names on this list.
           </PageDescription>

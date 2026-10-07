@@ -16,7 +16,7 @@ export default function PortfolioError({ reset }: { error: Error; reset: () => v
       <PageContainer>
         <PageHeader>
           <PageHeading>
-            <PageTitle>My portfolio</PageTitle>
+            <PageTitle>Portfolio</PageTitle>
           </PageHeading>
         </PageHeader>
         <PageContent>

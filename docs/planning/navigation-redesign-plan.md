@@ -11,7 +11,8 @@ owner: krishna
 
 # Navigation redesign — audit, system and spec
 
-> **Status:** implemented in the working tree (uncommitted). Code: `apps/web/src/lib/navigation.ts`,
+> **Status:** live on `main` — Phase 2 (`b28ce45`, 2026-10-07) plus the Phase 2.1 fixes in §14.
+> Code: `apps/web/src/lib/navigation.ts`,
 > `apps/web/src/components/layout/{app-shell,navbar,nav-item,nav-menu,mobile-nav,market-status-pill,app-footer}.tsx`,
 > `components/auth/user-menu.tsx`, `components/market/stock-search.tsx`.
 
@@ -326,16 +327,11 @@ script, the navigation-rail CSS, and `data-nav-label` in `brand.tsx`.
 
 ## 12. Not done here (follow-ups)
 
-1. **Remaining invisible focus rings** — same Tailwind v4 pattern in `ui/tabs.tsx`, `ui/checkbox.tsx`,
-   `ui/switch.tsx`, `disclosures/cash-activity-card.tsx`, `ipos/list/ipo-board-table.tsx`,
-   `watchlists/watchlist-table.tsx`, `market/index-cell.tsx`. Fix: add `focus-visible:outline-solid`.
-   The text `Input` only changes border colour on focus.
-2. **A16** dark pre-open `MarketStatus` badge (1.31:1): use `text-warning` in dark.
-3. Rename page `<h1>`s to match the shorter labels if wanted ("My watchlists" → "Watchlists"); Market brief's
-   greeting `<h1>` could gain a visually-hidden "Market brief".
-4. `PageDisclaimer` on individual pages now repeats the footer line; retire it page by page if preferred.
-5. A search hit of kind `index` goes to `/stocks/[symbol]`, as it already did from the stock and screener
-   pages; confirm that page handles index symbols.
+1. ~~Remaining invisible focus rings~~ — fixed app-wide in Phase 1 (`fce3431`), inputs included.
+2. **A16** dark pre-open `MarketStatus` badge (1.31:1): use `text-warning` in dark. (Phase 4.)
+3. ~~Page titles vs nav labels~~ — fixed in Phase 2.1 (§14).
+4. ~~`PageDisclaimer` repeating the footer line~~ — fixed in Phase 2.1 (§14).
+5. ~~Index search hits opening `/stocks/[symbol]`~~ — fixed in Phase 2.1 (§14).
 6. One notification centre (alerts triggered + portfolio notices) behind the bell needs an API; the bell is
    portfolio-only today and says so.
 
@@ -346,3 +342,17 @@ script, the navigation-rail CSS, and `data-nav-label` in `brand.tsx`.
 - Storybook `Layout/AppShell` Desktop/Tablet/Mobile/InsideMarketsMenu rendered with mocked APIs at
   375/768/1024/1280/1440 in light and dark: no horizontal overflow at any width; Markets menu, More drawer,
   `/` shortcut and keyboard focus checked.
+
+## 14. Phase 2.1 — gaps found after release, fixed
+
+| # | Gap | Fix |
+|---|---|---|
+| 1 | Profile's sticky "Save" bar sat behind the phone tab bar | New `--bottom-chrome` token (tab bar + safe area on pages that show it, else 0, via `:root:has([data-mobile-nav])` below `lg`); the bar offsets by it |
+| 2 | Toasts covered the phone tab bar | Toast stack offsets by `--bottom-chrome`; the app footer pads by it too |
+| 3 | Header search offered indices but always opened `/stocks/[symbol]` | `StockSearch stocksOnly` in the app and public headers ("Search stocks"); indices stay one tap away in the strip, whose drawer charts them |
+| 4 | Root 404 and error pages had no navigation; "Return home" went to the marketing page | `not-found.tsx` renders inside AppShell when signed in (public frame otherwise); `error.tsx` keeps a minimal frame (it must not re-render a failing shell) with a home link that matches the visitor |
+| 5 | This doc said "uncommitted"; the ledger did not list the navigation | Updated here and in `pending-features.md` |
+| 6 | An admin's Lab menu appeared a moment after load | Root layout sends the session with the page (`SessionProvider`, `getNavigationSession`); the browser still confirms it. `getSessionAuthContext` is memoised per request, so layout + page share one lookup |
+| 7 | Market pill detail was a hover tooltip — unreachable by tap on tablets | Popover: opens on tap, click or Enter |
+| 8 | "Not investment advice" printed twice per page (page + footer) | `PageDisclaimer` now carries only a page's own data note; the standing line lives in `AppFooter` |
+| 9 | Page titles did not match nav labels ("My watchlists", "Market Calendar", a greeting as Market brief's title…) | Titles, loading and error states now read Watchlists, Portfolio, Market calendar, Institutional flow, Announcements, Market brief (greeting moved into the description); Lab item renamed "Intraday strategies" to match its page |

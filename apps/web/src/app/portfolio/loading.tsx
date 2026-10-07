@@ -17,7 +17,7 @@ export default function PortfolioLoading() {
       <PageContainer>
         <PageHeader>
           <PageHeading>
-            <PageTitle>My portfolio</PageTitle>
+            <PageTitle>Portfolio</PageTitle>
           </PageHeading>
         </PageHeader>
         <PageContent>

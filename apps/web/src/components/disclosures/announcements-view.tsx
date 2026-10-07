@@ -59,7 +59,7 @@ export function AnnouncementsView({
       <PageContainer>
         <PageHeader>
           <PageHeading>
-            <PageTitle>Corporate Announcements</PageTitle>
+            <PageTitle>Announcements</PageTitle>
             <PageDescription>
               Company disclosures, with facts, context and unknowns.
             </PageDescription>

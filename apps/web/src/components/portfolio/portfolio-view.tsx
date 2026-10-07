@@ -98,7 +98,7 @@ export function PortfolioView({
       <PageContainer>
         <PageHeader>
           <PageHeading>
-            <PageTitle>My portfolio</PageTitle>
+            <PageTitle>Portfolio</PageTitle>
             <PageDescription>
               The shares you hold, valued at the latest price we have. You type them in or upload a
               file. EquityWise never connects to your broker, and nothing here places an order.

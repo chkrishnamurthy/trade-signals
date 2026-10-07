@@ -1,6 +1,6 @@
 'use client';
 
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { istDate, istTime } from '@/lib/format';
 import type { MarketPhase } from '@/lib/market-types';
 import type { IndexStripState } from '@/lib/use-index-strip';
@@ -19,8 +19,9 @@ import type { LiveSourceState } from '@/lib/watchlist-types';
  * the old tinted badge measured 4.5:1 (open, light) and 1.3:1 (pre-open, dark),
  * and the words already say what the colour says.
  *
- * The trigger is a button so keyboard users can reach the tooltip that holds
- * the freshness detail (as-of time, delayed reason).
+ * The pill is a button that opens a small panel with the freshness detail
+ * (as-of time, delayed reason). A popover rather than a hover tooltip, so it
+ * opens on a tap — tablets show the pill and have no hover.
  */
 const LABEL: Record<MarketPhase, string> = {
   pre_open: 'Pre-open',
@@ -64,12 +65,12 @@ export function MarketStatusPill({
   const streaming = phase === 'open' && liveState === 'streaming' && !stale;
 
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
+    <Popover>
+      <PopoverTrigger asChild>
         <button
           type="button"
           className={cn(
-            'inline-flex h-7 shrink-0 items-center gap-2 rounded-full border border-border bg-surface px-2.5 font-medium text-foreground text-xs',
+            'inline-flex h-7 shrink-0 cursor-pointer items-center gap-2 rounded-full border border-border bg-surface px-2.5 font-medium text-foreground text-xs transition-colors hover:bg-accent/60 data-[state=open]:bg-accent',
             'outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring',
             className,
           )}
@@ -92,12 +93,12 @@ export function MarketStatusPill({
             </span>
           )}
         </button>
-      </TooltipTrigger>
-      <TooltipContent side="bottom" align="end" className="max-w-64">
-        <span className="block font-medium">NSE · {LABEL[phase]}</span>
-        <span className="block text-muted-foreground">{detail(state, streaming)}</span>
-      </TooltipContent>
-    </Tooltip>
+      </PopoverTrigger>
+      <PopoverContent side="bottom" align="end" className="w-72 text-sm">
+        <p className="m-0 font-semibold">NSE · {LABEL[phase]}</p>
+        <p className="m-0 mt-1 text-muted-foreground">{detail(state, streaming)}</p>
+      </PopoverContent>
+    </Popover>
   );
 }
 

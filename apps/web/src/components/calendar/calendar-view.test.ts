@@ -63,7 +63,7 @@ describe('market calendar presentation', () => {
     const html = renderToStaticMarkup(
       createElement(CalendarView, { data: response, range: 'month' }),
     );
-    expect(html).toContain('Market Calendar');
+    expect(html).toContain('Market calendar');
     expect(html).toContain('Today&#x27;s events');
     expect(html).toContain('This week&#x27;s result events');
     expect(html).toContain('Upcoming corporate actions');

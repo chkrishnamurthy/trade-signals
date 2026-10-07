@@ -37,9 +37,16 @@ interface SearchHit {
 export function StockSearch({
   onSelect,
   shortcut = false,
+  stocksOnly = false,
   className,
 }: {
   onSelect: (symbol: string) => void;
+  /**
+   * Offer equities only. The header search opens the stock page, which is not
+   * built for an index — indices are one tap away in the indices strip, whose
+   * drawer charts them.
+   */
+  stocksOnly?: boolean | undefined;
   /** Register the global `/` and Ctrl/⌘ K shortcuts. Only one instance should. */
   shortcut?: boolean | undefined;
   className?: string | undefined;
@@ -72,7 +79,8 @@ export function StockSearch({
         });
         if (!response.ok) return;
         const payload = (await response.json()) as { results?: SearchHit[] };
-        setResults(payload.results ?? []);
+        const hits = payload.results ?? [];
+        setResults(stocksOnly ? hits.filter((hit) => hit.kind === 'equity') : hits);
         setActive(-1);
       } catch {
         // Aborted or offline — leave the previous results in place.
@@ -82,7 +90,7 @@ export function StockSearch({
     }, 250);
 
     return () => clearTimeout(timer);
-  }, [query]);
+  }, [query, stocksOnly]);
 
   useEffect(() => {
     if (!shortcut) return;
@@ -147,9 +155,9 @@ export function StockSearch({
                 else input.current?.blur();
               }
             }}
-            placeholder="Search stocks & indices"
+            placeholder={stocksOnly ? 'Search stocks' : 'Search stocks & indices'}
             role="combobox"
-            aria-label="Search stocks and indices"
+            aria-label={stocksOnly ? 'Search stocks' : 'Search stocks and indices'}
             aria-autocomplete="list"
             aria-expanded={showPanel}
             aria-controls={listId}
