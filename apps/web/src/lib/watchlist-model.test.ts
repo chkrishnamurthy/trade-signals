@@ -8,6 +8,7 @@ import {
   reorderColumnIds,
   resolveColumns,
   toStoredColumnIds,
+  visibleColumnIds,
   WATCHLIST_COLUMNS,
 } from './watchlist-columns';
 import {
@@ -19,7 +20,7 @@ import {
 } from './watchlist-filters';
 import { exchangesIn, sectorsIn, sortRows, summarise, toggleSort } from './watchlist-summary';
 import type { WatchlistRowDto } from './watchlist-types';
-import { QUICK_VIEWS } from './watchlist-views';
+import { getQuickView, QUICK_VIEWS, quickViewsFor } from './watchlist-views';
 
 /**
  * The watchlist model.
@@ -116,15 +117,17 @@ describe('column registry', () => {
   });
 
   it('groups every column under a group the panel actually lists', () => {
-    const listed = new Set(groupedColumns().flatMap((group) => group.columns.map((c) => c.id)));
+    const listed = new Set(
+      groupedColumns('', { showSignals: true }).flatMap((group) => group.columns.map((c) => c.id)),
+    );
     for (const column of WATCHLIST_COLUMNS) {
       if (column.pinned === true) continue;
       expect(listed.has(column.id), `${column.id} is in no listed group`).toBe(true);
     }
   });
 
-  it('offers each of the seven advertised groups', () => {
-    const labels = groupedColumns().map((group) => group.label);
+  it('offers each of the seven advertised groups to an admin', () => {
+    const labels = groupedColumns('', { showSignals: true }).map((group) => group.label);
     expect(labels).toEqual([
       'Price',
       'Performance',
@@ -134,6 +137,27 @@ describe('column registry', () => {
       'Trading Signals',
       'Market Information',
     ]);
+  });
+
+  it('never offers signal columns to a non-admin (signals are admin-only)', () => {
+    const labels = groupedColumns().map((group) => group.label);
+    expect(labels).not.toContain('Trading Signals');
+    const ids = groupedColumns().flatMap((group) => group.columns.map((c) => c.id));
+    for (const id of ['signal', 'signalStrength', 'signalSetups']) expect(ids).not.toContain(id);
+    expect(ids).toContain('trend');
+    expect(DEFAULT_COLUMN_IDS).not.toContain('signal');
+    expect(resolveColumns(['ltp', 'signal', 'signalStrength']).map((c) => c.id)).toEqual([
+      'symbol',
+      'ltp',
+    ]);
+    expect(visibleColumnIds(['signal', 'rsi14'])).toEqual(['rsi14']);
+    expect(visibleColumnIds(['signal', 'rsi14'], { showSignals: true })).toEqual([
+      'signal',
+      'rsi14',
+    ]);
+    expect(getQuickView('daily_signals')).toBeNull();
+    expect(getQuickView('daily_signals', { showSignals: true })).not.toBeNull();
+    expect(quickViewsFor().some((view) => view.id === 'daily_signals')).toBe(false);
   });
 
   it('forces the pinned column to the front even when a stored layout omits it', () => {

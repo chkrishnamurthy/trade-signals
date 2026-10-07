@@ -1,148 +1,137 @@
-import { ChevronRightIcon } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { PublicFooter } from '@/components/layout/public-footer';
-import { PublicHeader } from '@/components/layout/public-header';
-import { JsonLd } from '@/components/seo/json-ld';
-import { Badge } from '@/components/ui/badge';
-import { generateBreadcrumbSchema, SITE_URL } from '@/lib/seo/schema';
-import { getSessionUser } from '@/server/auth/require-user';
+import { PublicArticle, PublicList, PublicSection } from '@/components/layout/public-page';
+import { GRIEVANCE_EMAIL } from '@/lib/legal';
+import { SHARE_IMAGE, SITE_URL } from '@/lib/seo/schema';
+
+const DESCRIPTION =
+  'What EquityWise stores about you, why, who else handles it, how long it is kept, and how to delete it.';
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy | EquityWise',
-  description:
-    'Privacy policy detailing how EquityWise protects, stores, and handles your account data.',
-  alternates: {
-    canonical: '/privacy',
-  },
+  title: 'Privacy policy',
+  description: DESCRIPTION,
+  alternates: { canonical: '/privacy' },
   openGraph: {
-    title: 'Privacy Policy — EquityWise',
-    description:
-      'Privacy policy detailing data storage, account security, and user rights on EquityWise.',
+    title: 'Privacy policy — EquityWise',
+    description: DESCRIPTION,
     url: `${SITE_URL}/privacy`,
+    images: [SHARE_IMAGE],
   },
 };
 
-export default async function PrivacyPage() {
-  const user = await getSessionUser();
+const STRONG = 'font-semibold text-foreground';
+const LINK = 'font-semibold text-foreground underline underline-offset-4';
 
-  const breadcrumbs = [
-    { name: 'Home', path: '/' },
-    { name: 'Privacy Policy', path: '/privacy' },
-  ];
-  const breadcrumbSchema = generateBreadcrumbSchema(breadcrumbs);
-
+export default function PrivacyPage() {
   return (
-    <div className="flex min-h-dvh flex-col bg-background text-foreground">
-      <JsonLd schema={breadcrumbSchema} />
-      <PublicHeader signedIn={user !== null} />
+    <PublicArticle
+      path="/privacy"
+      crumb="Privacy policy"
+      title="Privacy policy"
+      intro="EquityWise keeps only what it needs to run your account, and never sells or shares it for advertising."
+      updated="October 2026"
+    >
+      <PublicSection title="What we store">
+        <PublicList>
+          <li>
+            <strong className={STRONG}>Your account:</strong> your email address and, if you set
+            one, a hash of your password (Argon2id — the password itself is never stored). If you
+            sign in with Google we receive your Google account identifier, name, email address and
+            profile picture. Any profile details or photo you add.
+          </li>
+          <li>
+            <strong className={STRONG}>What you create:</strong> watchlists, notes on stocks, saved
+            screens and table layouts, and the alert rules you set.
+          </li>
+          <li>
+            <strong className={STRONG}>Your portfolio, if you use it:</strong> the shares, dates and
+            amounts you type in or approve from an uploaded file. The file itself is read and
+            discarded; only the rows you confirm are saved. Only you can see these entries — no
+            staff screen shows them. Each weekday evening we check them to write notices for you
+            (such as a dividend coming up or a large move); notices are deleted after six months. We
+            count how often you open the page, upload a file or add an entry, without recording any
+            of the contents.
+          </li>
+          <li>
+            <strong className={STRONG}>Security records:</strong> each sign-in session and security
+            event (a sign-in, a password change, a failed attempt) records the IP address and
+            browser details it came from, so that misuse can be detected and investigated.
+          </li>
+        </PublicList>
+      </PublicSection>
 
-      <main id="main-content" tabIndex={-1} className="flex-1 pb-16 outline-none">
-        <div className="border-b border-border/50 bg-surface/30">
-          <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6 lg:px-8">
-            <nav
-              aria-label="Breadcrumb"
-              className="flex items-center gap-1.5 text-xs text-muted-foreground"
-            >
-              <Link href="/" className="hover:text-foreground">
-                Home
-              </Link>
-              <ChevronRightIcon className="size-3.5 text-subtle-foreground" />
-              <span className="font-medium text-foreground">Privacy Policy</span>
-            </nav>
-          </div>
-        </div>
+      <PublicSection title="Where it is kept, and who else handles it">
+        <p className="m-0">
+          Account data is stored on our own server, hosted by Hostinger, and we do not sell, rent or
+          share it with advertisers or data brokers. Two other services handle a small part of it:
+        </p>
+        <PublicList>
+          <li>
+            <strong className={STRONG}>Email delivery (Resend):</strong> your email address and the
+            message, to send sign-in emails, password resets and the alert emails you ask for.
+          </li>
+          <li>
+            <strong className={STRONG}>Google:</strong> only if you choose to sign in with Google.
+          </li>
+        </PublicList>
+        <p className="m-0">
+          Market-data providers are asked for prices only; they are never told who you are or what
+          you hold.
+        </p>
+      </PublicSection>
 
-        <header className="border-b border-border/50 bg-surface/20 py-10">
-          <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-            <Badge variant="outline" className="mb-3 text-2xs uppercase">
-              Data Protection
-            </Badge>
-            <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-              Privacy Policy
-            </h1>
-            <p className="mt-2 text-xs text-muted-foreground">Last updated: October 2026</p>
-          </div>
-        </header>
+      <PublicSection title="Cookies and browser storage">
+        <p className="m-0">
+          One cookie keeps you signed in (HTTP-only, so page scripts cannot read it), and a
+          short-lived one protects a Google sign-in while it is in progress. Your browser&rsquo;s
+          local storage holds display preferences, such as light or dark theme. There are no
+          advertising cookies, tracking pixels or third-party analytics.
+        </p>
+      </PublicSection>
 
-        <article className="mx-auto max-w-4xl px-4 pt-10 sm:px-6 lg:px-8 space-y-8 text-sm leading-relaxed text-muted-foreground">
-          <section className="space-y-3">
-            <h2 className="text-base font-semibold text-foreground">
-              1. Data Minimization Commitment
-            </h2>
-            <p>
-              EquityWise is built on strict data minimization principles. We collect and store only
-              the data strictly necessary to provide your analytical account services: your email
-              address, a cryptographic hash of your password (via Argon2id), authenticated session
-              tokens, and your customized watchlist preferences, including any private notes you
-              attach to a stock and the alert rules you set. If you use My portfolio we also store
-              the shares, dates and amounts you type in or approve from an uploaded file; the file
-              itself is read and discarded, only you can see these entries, no staff screen shows
-              them, and you can delete them all from that page at any time. Each weekday evening we
-              check those holdings to write notices about them (such as a dividend coming up or a
-              large move), shown only to you and deleted after six months. We also count how often
-              you open that page, upload a file or add an entry, without recording any of its
-              contents. If you sign in with Google we receive your Google account identifier, name,
-              email address and profile picture. Each session and security event also records the IP
-              address and browser details it came from, so that we can detect and investigate
-              misuse. If you add a profile photo or details, we store those too.
-            </p>
-          </section>
+      <PublicSection title="How long it is kept">
+        <PublicList>
+          <li>Account data and what you create: until you delete it or delete your account.</li>
+          <li>Portfolio notices: six months.</li>
+          <li>Expired sessions and sign-in links: removed automatically.</li>
+          <li>
+            Security records: kept after an account is deleted — with the account&rsquo;s internal
+            number, IP address and browser details, but not its email address — so that misuse can
+            still be investigated.
+          </li>
+          <li>
+            Backups: the database is backed up nightly and the last 14 backups are kept, so deleted
+            data can remain in a backup for up to about two weeks (and in the hosting
+            provider&rsquo;s weekly server backup) before it is overwritten.
+          </li>
+        </PublicList>
+      </PublicSection>
 
-          <section className="space-y-3">
-            <h2 className="text-base font-semibold text-foreground">2. Where Your Data Lives</h2>
-            <p>
-              Your personal account records live exclusively on encrypted, self-hosted
-              infrastructure. We never sell, lease, monetize, or share your personal information
-              with data brokers, ad networks, or behavioral trackers.
-            </p>
-          </section>
-
-          <section className="space-y-3">
-            <h2 className="text-base font-semibold text-foreground">
-              3. Third-Party Service Processors
-            </h2>
-            <p>
-              We engage only minimal, vetted technical subprocessors for operational necessities:
-            </p>
-            <ul className="list-disc pl-5 space-y-1">
-              <li>
-                <strong>Transactional Email Delivery:</strong> Handled through secure API delivery
-                (e.g. Resend) solely to send account emails: verification links, password resets and
-                the alert emails you choose to receive.
-              </li>
-              <li>
-                <strong>Market Data Feeds:</strong> Handled via secure server-to-server market data
-                APIs without exposing user identity.
-              </li>
-            </ul>
-          </section>
-
-          <section className="space-y-3">
-            <h2 className="text-base font-semibold text-foreground">4. Cookies & Client Storage</h2>
-            <p>
-              We do not utilize third-party advertising cookies or cross-site tracking pixels.
-              Cookies are restricted to essential operational tokens: secure HTTP-only session
-              cookies and local storage tokens for visual preferences (such as dark/light UI theme
-              and navigation rail state).
-            </p>
-          </section>
-
-          <section className="space-y-3">
-            <h2 className="text-base font-semibold text-foreground">
-              5. Your Data Rights & Deletion
-            </h2>
-            <p>
-              You maintain the absolute right to access, export, or permanently delete your account,
-              saved watchlists, and personal data at any time. Permanent deletion requests can be
-              initiated directly within your account profile settings or by emailing
-              compliance@equitywise.io.
-            </p>
-          </section>
-        </article>
-      </main>
-
-      <PublicFooter />
-    </div>
+      <PublicSection title="Your choices">
+        <PublicList>
+          <li>
+            <strong className={STRONG}>Correct or delete</strong> your profile, watchlists, alerts
+            and portfolio entries at any time in the app.
+          </li>
+          <li>
+            <strong className={STRONG}>Delete your account</strong> from your profile&rsquo;s
+            security settings. This permanently deletes your account and everything you created —
+            watchlists, notes, alerts, saved screens and portfolio.
+          </li>
+          <li>
+            <strong className={STRONG}>Ask for a copy</strong> of the data we hold about you, or for
+            help with any of the above, by writing to{' '}
+            <a href={`mailto:${GRIEVANCE_EMAIL}`} className={LINK}>
+              {GRIEVANCE_EMAIL}
+            </a>
+            . See{' '}
+            <Link href="/contact" className={LINK}>
+              Contact &amp; grievances
+            </Link>{' '}
+            for how we handle a request.
+          </li>
+        </PublicList>
+      </PublicSection>
+    </PublicArticle>
   );
 }

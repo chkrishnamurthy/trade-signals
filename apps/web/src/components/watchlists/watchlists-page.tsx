@@ -32,7 +32,7 @@ import { Text } from '@/components/ui/typography';
 import { StockDetailDrawer } from '@/components/watchlists/stock-drawer';
 import type { MoverDto } from '@/lib/dashboard-types';
 import { useWatchlists } from '@/lib/use-watchlists';
-import { DEFAULT_COLUMN_IDS } from '@/lib/watchlist-columns';
+import { DEFAULT_COLUMN_IDS, visibleColumnIds } from '@/lib/watchlist-columns';
 import {
   activeFilterChips,
   applyWatchlistFilters,
@@ -118,8 +118,19 @@ export function WatchlistsPage() {
   const data = detail.status === 'ready' ? detail.data : null;
   const layout = data?.layout ?? { columns: [], sort: [], filters: {}, quickView: null };
 
+  // Signals are admin-only; the server decides and sends no signal data otherwise.
+  const showSignals = data?.showSignals ?? false;
+
   // An empty stored layout means "the registry default", not "no columns".
-  const columnIds = layout.columns.length > 0 ? layout.columns : DEFAULT_COLUMN_IDS.slice(1);
+  // Columns this viewer may not see are dropped — a layout saved while a
+  // column was offered must not keep showing it.
+  const columnIds = useMemo(
+    () =>
+      visibleColumnIds(layout.columns.length > 0 ? layout.columns : DEFAULT_COLUMN_IDS.slice(1), {
+        showSignals,
+      }),
+    [layout.columns, showSignals],
+  );
 
   const allRows = data?.rows ?? [];
   const filtered = useMemo(
@@ -151,7 +162,7 @@ export function WatchlistsPage() {
 
   const applyQuickView = useCallback(
     (viewId: string) => {
-      const view = getQuickView(viewId);
+      const view = getQuickView(viewId, { showSignals });
       if (view === null) return;
       setLayout({
         columns: [...view.columns],
@@ -160,7 +171,7 @@ export function WatchlistsPage() {
         quickView: view.id,
       });
     },
-    [setLayout],
+    [setLayout, showSignals],
   );
 
   const applySavedView = useCallback(
@@ -361,6 +372,7 @@ export function WatchlistsPage() {
               )}
 
               <QuickViews
+                showSignals={showSignals}
                 activeId={layout.quickView}
                 savedViews={data.savedViews}
                 layout={layout}
@@ -397,6 +409,7 @@ export function WatchlistsPage() {
                       onClear={() => setFilters({})}
                     />
                     <ColumnPanel
+                      showSignals={showSignals}
                       columnIds={columnIds}
                       onChange={(columns) =>
                         setLayout({ ...layout, columns: [...columns], quickView: null })

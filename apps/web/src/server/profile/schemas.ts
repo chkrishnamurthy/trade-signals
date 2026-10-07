@@ -50,9 +50,16 @@ export const changeEmailSchema = z.object({
 /** Confirm an email change from the signed link. */
 export const confirmEmailSchema = z.object({ token: z.string().min(1).max(2048) });
 
-/** Delete the account: re-authenticate, and require typing the exact confirmation. */
+/**
+ * Delete the account: re-authenticate, and require typing the exact confirmation.
+ *
+ * `password` is required when the account has one. An account created with
+ * Google has no password to re-enter; it confirms by typing its own email
+ * address instead (checked against the session's account in the route).
+ */
 export const deleteAccountSchema = z.object({
-  password: z.string().min(1).max(MAX_PASSWORD_LENGTH),
+  password: z.string().min(1).max(MAX_PASSWORD_LENGTH).optional(),
+  email: z.string().trim().min(1).max(320).optional(),
   confirm: z.literal('DELETE'),
 });
 

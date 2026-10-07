@@ -65,8 +65,10 @@ historical intent; that intraday code no longer exists in the tree.
 > comes from the bhavcopy (split/bonus-adjusted via `corporate_actions`); the worker
 > builds a nightly `screener_snapshots` row per stock (~95 technical, delivery, F&O,
 > ownership and event metrics; catalogue in `packages/core/src/screener/catalogue.ts`).
-> **No fundamentals** (P/E, ROE, market cap…) — those need a new source. Signals inside
-> these pages stay admin-only. Plan: `docs/planning/screener-dhan-fyers-plan.md`.
+> **No fundamentals** (P/E, ROE, market cap…) — those need a new source. **Signals are
+> admin-only everywhere** (decided 2026-10-07): the stock page, screener, watchlists (Signal /
+> Signal Strength / Setups columns and the "Daily signals" view) and the Market brief (setup
+> counts and setup lists) read them for admins only; nobody else is sent them. Plan: `docs/planning/screener-dhan-fyers-plan.md`.
 > The stock page header (2026-10-04) adds a per-user ratio board (`user_ratio_layouts`),
 > computed "What stands out" facts and a 12-month dividend yield from NSE corporate actions
 > (`dividends` table — never applied to prices). Plan: `docs/planning/stock-header-redesign-plan.md`.

@@ -52,7 +52,8 @@ export function headlineSentence(input: {
   directionCovered: number;
   above20: number | null;
   above20Total: number | null;
-  newBullishSetups: number;
+  /** Null when the viewer is not shown signals: the clause is left out. */
+  newBullishSetups: number | null;
 }): string {
   const lead = conditionPhrase(input.label);
   if (input.label === 'insufficient_data' || input.directionCovered === 0) {
@@ -66,11 +67,13 @@ export function headlineSentence(input: {
   }
 
   const setups = input.newBullishSetups;
-  clauses.push(
-    setups === 1
-      ? '1 new bullish setup was detected'
-      : `${setups} new bullish setups were detected`,
-  );
+  if (setups !== null) {
+    clauses.push(
+      setups === 1
+        ? '1 new bullish setup was detected'
+        : `${setups} new bullish setups were detected`,
+    );
+  }
 
   return `${lead}. ${joinClauses(clauses)}.`;
 }

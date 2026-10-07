@@ -121,6 +121,13 @@ export interface MarketBriefInput {
   /** Stored signals for the previous session. */
   readonly previousSignals: ReadonlyMap<number, SessionSignalFacts>;
 
+  /**
+   * Whether the viewer may see the daily engine's signals (admins only,
+   * CLAUDE.md). When false the signal maps are empty and every signal-derived
+   * figure — setup counts, the setups factor, the headline clause — is left
+   * out rather than shown as zero.
+   */
+  readonly includeSignals: boolean;
   /** Which of the user's watchlists hold each instrument. */
   readonly watchlistMembership: ReadonlyMap<number, readonly BriefWatchlistRef[]>;
   /** True when the user has at least one watchlist. */
@@ -273,4 +280,6 @@ export interface DailyMarketBrief {
   readonly watchlists: WatchlistBriefDto;
   readonly setups: SetupListsDto;
   readonly disclaimer: string;
+  /** False for non-admins: the page hides setup counts and setup lists. */
+  readonly signalsIncluded: boolean;
 }

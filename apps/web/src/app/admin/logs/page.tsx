@@ -17,7 +17,7 @@ import { eventLogQuerySchema, getEventLogPage } from '@/server/event-log';
 
 export const dynamic = 'force-dynamic';
 export const metadata = {
-  title: 'Event log — EquityWise',
+  title: 'Event log',
   robots: { index: false, follow: false },
 };
 

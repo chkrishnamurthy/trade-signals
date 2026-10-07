@@ -13,8 +13,9 @@ owner: krishna
 
 > **Status:** delivery is phased. Done on `main`: Phase 0 (unsupported claims removed, `3f9682e`),
 > Phase 1 (app-wide focus rings, skip links, `primary-strong`, `fce3431`), Phase 2 (signed-in navigation,
-> `b28ce45`) and 2.1 (post-release fixes). Next: Phase 3 — public header, footer and the new landing page
-> (§4–§6). Phase B of §3 (public research pages) waits on data-display rights.
+> `b28ce45`), 2.1 (post-release fixes, `b779e39`) and Phase 3 (public header, footer, landing page and
+> public pages — §8). Phase B of §3 (public research pages) waits on data-display rights, which now
+> also covers showing provider data to signed-in users (§8.4).
 > Companion to `navigation-redesign-plan.md` (the signed-in app shell).
 
 ## 0. Recommendation in one paragraph
@@ -197,6 +198,47 @@ darker `#007a4d` (white text 5.4:1 — today's `primary` fill measures 4.1:1, un
 3. Final wording of the data-sources line and the SEBI status sentence (counsel).
 4. Grievance/contact email to publish in the footer.
 
+## 8. Phase 3 — as built (2026-10-07)
+
+### 8.1 Decisions taken while building
+
+| Topic | Decision | Why |
+|---|---|---|
+| Header (§4.1) | Four landing-section links (Features · See it in action · How it works · Trust & safety) + a **Learn** menu (Methodology, Data sources, About, Disclaimer, Contact) — not the Product/Learn/About mega-menus | Nothing behind "Product" is public yet; section links say exactly where they go. Learn reuses the app's `NavMenu` (`LEARN_GROUP` in `lib/navigation.ts`) |
+| Signed in on a public page (§4.2) | Learn menu, stock search, **Open Market brief**, account menu; no section links | `/` redirects members to `/today`, so `/#…` links would not land where they say |
+| Height | `--nav-bar-height` (56px), same as the app bar | §4.4 "same height in all states" |
+| Signals | **Admin-only everywhere**, including watchlists and the Market brief (CLAUDE.md updated) | SEBI RA FAQ 2025: technical analysis on named securities is research; the landing promises "no tips" |
+| FAQ structured data (§5 row 8) | **Dropped** | Google stopped showing FAQ rich results on 7 May 2026; the visible FAQ stays |
+| Sign-up switched off | Every "Create free account" becomes "Sign in" when `AUTH_ALLOW_SIGNUP=false` (`useSignupOpen()`) | `/signup` answers 404 then |
+| Phone sticky CTA (§5) | Built: appears once the hero's button scrolls away; steps aside over other sign-up buttons and the footer | Plan §5; never covers footer links |
+| Share card | `app/opengraph-image.tsx` (+ `twitter-image`), `app/icon.png`; pages with their own `openGraph` list `SHARE_IMAGE` | A page's `openGraph` replaces the layout's, image included |
+
+### 8.2 Claims corrected against the code
+
+"Every NSE-listed stock" → NSE mainboard, EQ/BE/BZ series · "a reading never changes" → readings are
+restated when a split, bonus or correction is recorded · "PDF holdings statement" → CSV/Excel holdings
+file or a broker contract note · watchlist indicators are columns you add · the brief covers the Nifty 50
+universe · stock-page evidence is a tab, not a link · freshness wording matches what each page shows.
+
+### 8.3 Public pages rewritten
+
+About, Methodology (ATR added; the removed backtester no longer mentioned), Data sources (NSE files,
+BSE announcements, AMFI, providers, InvestorGain GMP), Disclaimer ("research tool", no "educational"),
+Terms (no "licensed feeds" claim), Privacy (Hostinger, Resend, retention incl. 14 nightly backups and
+the security log that outlives an account; export is on request, not a button), Contact (mailto links;
+the unverified `engineering@` address removed). All share `components/layout/public-page.tsx`.
+
+Account deletion now works for Google-only accounts (they re-type their email instead of a password).
+
+### 8.4 Still open (owner)
+
+1. **Data licence.** Fyers' API terms allow apps for other users only with exchange approvals and FYERS
+   consent, and restrict use of exchange data for "charting, technical tools…". This applies to the
+   signed-in multi-user product today, not just to phase B. Get written confirmation (Fyers, Dhan, NSE)
+   or counsel's view before promoting the site.
+2. Grievance Officer name and postal address (`lib/legal.ts`) — shown once filled in.
+3. Analytics for §6.5 measures: none exists; adding any needs the privacy page updated first.
+
 ## Sources
 
 - [Screener.in](https://www.screener.in/), [Tickertape](https://www.tickertape.in/), [Trendlyne](https://trendlyne.com/),
@@ -205,3 +247,5 @@ darker `#007a4d` (white text 5.4:1 — today's `primary` fill measures 4.1:1, un
 - [SEBI restricts finfluencers from using live market data for educational content — exchange4media](https://www.exchange4media.com/influence-zone-news/sebi-restricts-finfluencers-from-using-live-stock-market-data-educational-content-140505.html)
 - [Key clarifications under the SEBI-issued FAQs 2025 (research analysts) — Lakshmikumaran & Sridharan](https://www.lkslaw.com/insights/articles/key-clarifications-under-the-sebi-issued-faqs-2025)
 - [NSE Data Sharing & Usage Policy](https://www.nseindia.com/static/market-data/nse-data-policy)
+- [FYERS — Terms & Conditions for API Usage](https://fyers.in/terms-and-conditions-api/)
+- [Search Engine Journal — Google drops FAQ rich results](https://www.searchenginejournal.com/google-drops-faq-rich-results-from-search/574429/)

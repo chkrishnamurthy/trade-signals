@@ -3,7 +3,7 @@ import { AnnouncementsView } from '@/components/disclosures/announcements-view';
 import { getAnnouncementsPage } from '@/server/disclosures';
 
 export const metadata: Metadata = {
-  title: 'Announcements — EquityWise',
+  title: 'Announcements',
   description: 'Official corporate filings published by the NSE and BSE.',
   robots: { index: false, follow: false },
 };

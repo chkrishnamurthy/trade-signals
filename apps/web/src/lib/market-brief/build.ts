@@ -44,6 +44,8 @@ import type {
 
 const DISCLAIMER =
   'Technical observations based on completed market data. Setup strength is not a probability of profit or investment advice.';
+const DISCLAIMER_NO_SIGNALS =
+  'Technical observations based on completed market data. Not investment advice.';
 
 /** After this IST minute the day's end-of-day pass is expected to have run. */
 const SESSION_COMPLETE_MINUTE = 17 * 60;
@@ -138,7 +140,7 @@ export function buildMarketBrief(
     directionCovered: breadth.directionCovered,
     above20: breadth.above20,
     above20Total: breadth.sma20Total,
-    newBullishSetups: setupCounts.bullish,
+    newBullishSetups: input.includeSignals ? setupCounts.bullish : null,
   });
 
   const attention = rankAttention(input, events, thresholds);
@@ -170,7 +172,8 @@ export function buildMarketBrief(
     attention,
     watchlists,
     setups,
-    disclaimer: DISCLAIMER,
+    disclaimer: input.includeSignals ? DISCLAIMER : DISCLAIMER_NO_SIGNALS,
+    signalsIncluded: input.includeSignals,
   };
 }
 
@@ -301,7 +304,10 @@ function classifyMarket(args: {
     });
   }
 
-  const factors = buildConditionFactors(breadth, signalCategories);
+  const factors = buildConditionFactors(
+    breadth,
+    signalCategories.total > 0 ? signalCategories : null,
+  );
 
   if (coverage < thresholds.coverageFloor || components.length < thresholds.minComponents) {
     return {
@@ -373,7 +379,8 @@ function decideLabel(args: {
 
 function buildConditionFactors(
   breadth: Breadth,
-  signalCategories: { bullish: number; bearish: number; total: number },
+  /** Null when no signals were read (a non-admin viewer, or none stored). */
+  signalCategories: { bullish: number; bearish: number; total: number } | null,
 ): MarketConditionFactor[] {
   const factors: MarketConditionFactor[] = [];
   const advTotal = breadth.advances + breadth.declines;
@@ -403,13 +410,15 @@ function buildConditionFactors(
       totalCount: breadth.sma50Total,
     });
   }
-  factors.push({
-    id: 'setups',
-    label: 'Bullish vs bearish setups',
-    value: `${signalCategories.bullish} / ${signalCategories.bearish}`,
-    availableCount: signalCategories.bullish + signalCategories.bearish,
-    totalCount: signalCategories.total,
-  });
+  if (signalCategories !== null) {
+    factors.push({
+      id: 'setups',
+      label: 'Bullish vs bearish setups',
+      value: `${signalCategories.bullish} / ${signalCategories.bearish}`,
+      availableCount: signalCategories.bullish + signalCategories.bearish,
+      totalCount: signalCategories.total,
+    });
+  }
 
   return factors;
 }

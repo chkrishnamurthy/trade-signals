@@ -3,7 +3,7 @@ import { MarketBriefView } from '@/components/market-brief/market-brief-view';
 import { getMarketBrief } from '@/server/market-brief';
 
 export const metadata: Metadata = {
-  title: 'Daily Market Brief — EquityWise',
+  title: 'Market brief',
   description: 'A technical summary of the latest completed NSE session.',
   robots: { index: false, follow: false },
 };

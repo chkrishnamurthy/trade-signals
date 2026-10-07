@@ -27,6 +27,8 @@ export interface QuickView {
   readonly columns: readonly string[];
   readonly sort: readonly SortRuleDto[];
   readonly filters: WatchlistFilterStateDto;
+  /** Built on the daily engine's signals — offered to admins only. */
+  readonly adminOnly?: true;
 }
 
 const PRICE_CORE = ['ltp', 'change', 'changePercent'] as const;
@@ -36,16 +38,7 @@ const VIEWS: readonly QuickView[] = [
     id: 'overview',
     label: 'Overview',
     description: 'The default balance of price, volume and trend',
-    columns: [
-      'ltp',
-      'changePercent',
-      'dayRange',
-      'volume',
-      'averageVolume',
-      'range52w',
-      'rsi14',
-      'signal',
-    ],
+    columns: ['ltp', 'changePercent', 'dayRange', 'volume', 'averageVolume', 'range52w', 'rsi14'],
     sort: [],
     filters: {},
   },
@@ -146,6 +139,7 @@ const VIEWS: readonly QuickView[] = [
     columns: ['ltp', 'changePercent', 'signal', 'signalStrength', 'signalSetups', 'trend', 'rsi14'],
     sort: [{ columnId: 'signalStrength', direction: 'desc' }],
     filters: {},
+    adminOnly: true,
   },
 ];
 
@@ -153,6 +147,16 @@ export const QUICK_VIEWS = VIEWS;
 
 const BY_ID = new Map(VIEWS.map((view) => [view.id, view]));
 
-export function getQuickView(id: string): QuickView | null {
-  return BY_ID.get(id) ?? null;
+export function getQuickView(
+  id: string,
+  options: { showSignals?: boolean } = {},
+): QuickView | null {
+  const view = BY_ID.get(id) ?? null;
+  if (view?.adminOnly === true && options.showSignals !== true) return null;
+  return view;
+}
+
+/** The quick views this viewer is offered. */
+export function quickViewsFor(options: { showSignals?: boolean } = {}): readonly QuickView[] {
+  return VIEWS.filter((view) => view.adminOnly !== true || options.showSignals === true);
 }

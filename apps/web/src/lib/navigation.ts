@@ -10,6 +10,7 @@ import {
   FlaskConicalIcon,
   GaugeIcon,
   HistoryIcon,
+  InfoIcon,
   LandmarkIcon,
   LayoutGridIcon,
   LifeBuoyIcon,
@@ -260,6 +261,46 @@ export const HELP_LINKS: readonly ReadyNavItem[] = [
     icon: LifeBuoyIcon,
     description: 'Report a problem or ask a question',
   },
+];
+
+// ---------------------------------------------------------------------------
+// Public pages (signed out, and signed-in visitors to About, Methodology…)
+// ---------------------------------------------------------------------------
+
+const ABOUT: ReadyNavItem = {
+  id: 'about',
+  status: 'ready',
+  href: '/about',
+  label: 'About EquityWise',
+  icon: InfoIcon,
+  description: 'What it is, what it is not, and the rules it keeps',
+};
+
+/**
+ * The public "Learn" menu: the pages that let a visitor check the product
+ * before trusting it. Same entries as the account menu's help links plus
+ * About, so the words do not change across the sign-in boundary.
+ */
+export const LEARN_GROUP: NavMenuGroup = {
+  id: 'learn',
+  label: 'Learn',
+  icon: BookOpenIcon,
+  items: [
+    ...HELP_LINKS.filter((link) => link.id === 'methodology' || link.id === 'data-sources'),
+    ABOUT,
+    ...HELP_LINKS.filter((link) => link.id === 'disclaimer' || link.id === 'contact'),
+  ],
+};
+
+/**
+ * The landing page's own sections, linked from the signed-out header and the
+ * footer. Absolute (`/#…`) so they work from any public page.
+ */
+export const LANDING_SECTIONS: ReadonlyArray<{ readonly id: string; readonly label: string }> = [
+  { id: 'features', label: 'Features' },
+  { id: 'tour', label: 'See it in action' },
+  { id: 'how-it-works', label: 'How it works' },
+  { id: 'trust', label: 'Trust & safety' },
 ];
 
 // ---------------------------------------------------------------------------

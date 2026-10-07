@@ -7,7 +7,7 @@ import { ipoDashboardQuerySchema, searchParamsObject } from '@/server/ipo-schema
 import { getIpoDashboard } from '@/server/ipos';
 
 export const metadata: Metadata = {
-  title: 'IPOs — EquityWise',
+  title: 'IPOs',
   description:
     'Indian mainboard and SME IPOs: open issues, what opens next, allotment, listing performance and offer documents.',
   // Signed-in only (owner decision D3): never indexed.

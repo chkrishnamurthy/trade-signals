@@ -77,6 +77,10 @@ const OPEN_QUOTE_STALE_MS = 2 * 60_000;
  * rejected here, the authoritative check.
  */
 async function requireOwnerId(): Promise<number> {
+  return (await requireOwner()).id;
+}
+
+async function requireOwner(): Promise<{ id: number; isAdmin: boolean }> {
   const user = await getSessionUser();
   if (user === null) {
     throw new MarketDataError('Not signed in.', {
@@ -85,7 +89,7 @@ async function requireOwnerId(): Promise<number> {
       remedy: 'Sign in and try again.',
     });
   }
-  return user.id;
+  return { id: user.id, isAdmin: user.role === 'admin' };
 }
 
 export async function getWatchlists(): Promise<WatchlistSummaryDto[]> {
@@ -135,7 +139,9 @@ function defaultLayout(): WatchlistLayoutDto {
  */
 export async function getWatchlistDetail(id: number): Promise<WatchlistDetailDto | null> {
   const db = getDatabase();
-  const ownerId = await requireOwnerId();
+  const { id: ownerId, isAdmin } = await requireOwner();
+  // Signals are admin-only (CLAUDE.md); nobody else is sent them at all.
+  const showSignals = isAdmin;
 
   const summaries = await getWatchlists();
   const watchlist = summaries.find((entry) => entry.id === id);
@@ -186,7 +192,11 @@ export async function getWatchlistDetail(id: number): Promise<WatchlistDetailDto
   // an empty map rather than taking a working watchlist down with it.
   const [indicators, signals, returnCloses, quoteResult] = await Promise.all([
     latestIndicatorsForInstruments(db, instrumentIds),
-    latestSignalsForInstruments(db, instrumentIds).catch(() => new Map<number, InstrumentSignal>()),
+    showSignals
+      ? latestSignalsForInstruments(db, instrumentIds).catch(
+          () => new Map<number, InstrumentSignal>(),
+        )
+      : Promise.resolve(new Map<number, InstrumentSignal>()),
     closesAsOf(db, { instrumentIds, anchors: returnAnchors(now) }).catch(
       () => new Map<number, Map<string, number>>(),
     ),
@@ -267,6 +277,7 @@ export async function getWatchlistDetail(id: number): Promise<WatchlistDetailDto
     missingQuotes,
     quotesStale,
     refreshAfterSeconds: market?.isOpen === true ? REFRESH_OPEN_SECONDS : REFRESH_CLOSED_SECONDS,
+    showSignals,
   };
 }
 

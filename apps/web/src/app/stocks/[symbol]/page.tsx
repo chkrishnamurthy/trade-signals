@@ -17,7 +17,7 @@ function one(value: string | string[] | undefined): string | undefined {
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const symbol = decodeURIComponent((await params).symbol).toUpperCase();
   return {
-    title: `${symbol} — EquityWise`,
+    title: symbol,
     // Signed-in only until data-display rights are settled (plan §12): never indexed.
     robots: { index: false, follow: false },
   };

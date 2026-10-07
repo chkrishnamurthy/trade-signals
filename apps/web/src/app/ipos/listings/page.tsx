@@ -5,7 +5,7 @@ import { ipoListingsQuerySchema, searchParamsObject } from '@/server/ipo-schemas
 import { getIpoListingsPage } from '@/server/ipos';
 
 export const metadata: Metadata = {
-  title: 'IPO listings — EquityWise',
+  title: 'IPO listings',
   description: 'How Indian IPOs listed against their issue price, month by month.',
   // Signed-in only (owner decision D3): never indexed.
   robots: { index: false, follow: false },

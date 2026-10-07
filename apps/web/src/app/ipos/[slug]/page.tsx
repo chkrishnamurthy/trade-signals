@@ -7,7 +7,7 @@ import { ipoSlugSchema } from '@/server/ipo-schemas';
 import { getIpoDetail } from '@/server/ipos';
 
 export const metadata: Metadata = {
-  title: 'IPO — EquityWise',
+  title: 'IPO',
   // Signed-in only (owner decision D3): never indexed.
   robots: { index: false, follow: false },
 };

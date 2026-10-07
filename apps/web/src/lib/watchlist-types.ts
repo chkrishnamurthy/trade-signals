@@ -209,4 +209,9 @@ export interface WatchlistDetailDto {
    */
   readonly quotesStale: boolean;
   readonly refreshAfterSeconds: number;
+  /**
+   * Whether this viewer may see the daily engine's signals (admins only). When
+   * false the rows carry no signal data and the signal columns are not offered.
+   */
+  readonly showSignals: boolean;
 }

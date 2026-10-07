@@ -173,3 +173,18 @@ describe('eventExplanation', () => {
     );
   });
 });
+
+describe('headlineSentence without signals', () => {
+  it('drops the setups clause when the viewer is not shown signals', () => {
+    const sentence = headlineSentence({
+      label: 'mixed',
+      advances: 29,
+      directionCovered: 50,
+      above20: 32,
+      above20Total: 50,
+      newBullishSetups: null,
+    });
+    expect(sentence).not.toMatch(/setup/);
+    expect(sentence).toContain('32 held above their 20-day average');
+  });
+});

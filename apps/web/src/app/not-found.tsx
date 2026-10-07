@@ -2,14 +2,13 @@ import { CompassIcon } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { AppShell } from '@/components/layout/app-shell';
-import { PublicFooter } from '@/components/layout/public-footer';
-import { PublicHeader } from '@/components/layout/public-header';
+import { PublicFrame } from '@/components/layout/public-page';
 import { Button } from '@/components/ui/button';
 import { HOME_HREF } from '@/lib/navigation';
 import { getSessionUser } from '@/server/auth/require-user';
 
 export const metadata: Metadata = {
-  title: 'Page Not Found (404) — EquityWise',
+  title: 'Page not found',
   description: 'The requested page or stock could not be found on EquityWise.',
   robots: {
     index: false,
@@ -60,13 +59,5 @@ export default async function NotFound() {
 
   if (signedIn) return <AppShell>{body}</AppShell>;
 
-  return (
-    <div className="flex min-h-dvh flex-col bg-background text-foreground">
-      <PublicHeader signedIn={false} />
-      <main id="main-content" tabIndex={-1} className="flex-1 outline-none">
-        {body}
-      </main>
-      <PublicFooter />
-    </div>
-  );
+  return <PublicFrame>{body}</PublicFrame>;
 }

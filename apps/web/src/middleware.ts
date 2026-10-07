@@ -31,8 +31,10 @@ function isPublic(pathname: string): boolean {
     pathname === '/disclaimer' ||
     pathname === '/contact' ||
     pathname.startsWith('/api/auth/') ||
-    pathname.startsWith('/api/og/') ||
     pathname === '/api/search' ||
+    // Share-card images: crawlers (WhatsApp, LinkedIn, X) fetch them signed out.
+    pathname.startsWith('/opengraph-image') ||
+    pathname.startsWith('/twitter-image') ||
     pathname === '/robots.txt' ||
     pathname === '/sitemap.xml'
   );

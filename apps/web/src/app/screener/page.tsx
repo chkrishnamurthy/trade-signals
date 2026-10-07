@@ -12,7 +12,7 @@ import {
 import { decodeFilterParam, sortSchema, universeSchema } from '@/server/screener-schemas';
 
 export const metadata: Metadata = {
-  title: 'Screener — EquityWise',
+  title: 'Screener',
   description:
     'Multi-condition technical, delivery, F&O and ownership filters across every NSE stock.',
   // Signed-in only (plan §12): never indexed.

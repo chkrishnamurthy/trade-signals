@@ -5,7 +5,7 @@ import { MarketDataError } from '@/server/errors';
 import { getPortfolioAnalysis } from '@/server/portfolio';
 
 export const metadata: Metadata = {
-  title: 'Portfolio analysis — EquityWise',
+  title: 'Portfolio analysis',
   robots: { index: false, follow: false },
 };
 

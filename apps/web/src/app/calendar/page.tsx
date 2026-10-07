@@ -10,7 +10,7 @@ import { CalendarView } from '@/components/calendar/calendar-view';
 import { getMarketCalendar } from '@/server/market-calendar';
 
 export const metadata: Metadata = {
-  title: 'Market Calendar — EquityWise',
+  title: 'Market calendar',
   description: 'NSE market holidays, results, corporate actions, and watchlist events.',
   robots: { index: false, follow: false },
 };

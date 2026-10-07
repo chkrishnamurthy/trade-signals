@@ -92,6 +92,7 @@ function scenario(opts: ScenarioOpts): MarketBriefInput {
     previous: new Map(),
     currentSignals,
     previousSignals: new Map(),
+    includeSignals: true,
     watchlistMembership: new Map(),
     hasWatchlists: false,
     indexReturnPercent: null,
@@ -556,6 +557,7 @@ describe('freshness helpers', () => {
       previous: new Map(),
       currentSignals: new Map(),
       previousSignals: new Map(),
+      includeSignals: true,
       watchlistMembership: new Map(),
       hasWatchlists: false,
       indexReturnPercent: null,
@@ -581,3 +583,28 @@ function scenarioForStale(): MarketBriefInput {
   // Latest completed session is old relative to "now".
   return { ...base, sessionDate: '2026-08-28', now: new Date('2026-09-14T13:00:00Z') };
 }
+
+describe('buildMarketBrief without signals (non-admin viewer)', () => {
+  it('leaves out every signal-derived figure instead of showing zeros', () => {
+    const brief = buildMarketBrief({
+      sessionDate: '2026-09-11',
+      previousSessionDate: null,
+      completedAt: '2026-09-11T11:00:00Z',
+      now: FRIDAY_EVENING,
+      expectedInstruments: 1,
+      current: new Map(),
+      previous: new Map(),
+      currentSignals: new Map(),
+      previousSignals: new Map(),
+      includeSignals: false,
+      watchlistMembership: new Map(),
+      hasWatchlists: false,
+      indexReturnPercent: null,
+      indexName: null,
+    });
+    expect(brief.signalsIncluded).toBe(false);
+    expect(brief.headline).not.toMatch(/setup/i);
+    expect(brief.disclaimer).not.toMatch(/setup strength/i);
+    expect(brief.marketCondition.factors.some((f) => f.id === 'setups')).toBe(false);
+  });
+});

@@ -4,7 +4,7 @@ import { getSessionUser } from '@/server/auth/require-user';
 
 export const dynamic = 'force-dynamic';
 export const metadata = {
-  title: 'Confirm email change — EquityWise',
+  title: 'Confirm email change',
   robots: { index: false, follow: false },
 };
 

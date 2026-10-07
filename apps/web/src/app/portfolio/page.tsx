@@ -7,7 +7,7 @@ import { MarketDataError } from '@/server/errors';
 import { getPortfolio } from '@/server/portfolio';
 
 export const metadata: Metadata = {
-  title: 'Portfolio — EquityWise',
+  title: 'Portfolio',
   description:
     'The shares you hold, valued at the latest price. You type them in or upload a file.',
   robots: { index: false, follow: false },

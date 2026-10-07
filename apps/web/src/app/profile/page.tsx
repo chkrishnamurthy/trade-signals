@@ -15,7 +15,7 @@ import { getDatabase } from '@/server/db';
 
 export const dynamic = 'force-dynamic';
 export const metadata = {
-  title: 'Your profile — EquityWise',
+  title: 'Your profile',
   robots: { index: false, follow: false },
 };
 

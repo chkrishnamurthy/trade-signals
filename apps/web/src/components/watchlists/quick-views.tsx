@@ -24,7 +24,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/typography';
 import type { SavedViewDto, WatchlistLayoutDto } from '@/lib/watchlist-types';
-import { QUICK_VIEWS } from '@/lib/watchlist-views';
+import { quickViewsFor } from '@/lib/watchlist-views';
 
 /**
  * Quick views, and the user's own saved configurations beside them.
@@ -41,7 +41,10 @@ export function QuickViews({
   onApplySaved,
   onSave,
   onDeleteSaved,
+  showSignals = false,
 }: {
+  /** Offer the admin-only signal views. */
+  showSignals?: boolean;
   activeId: string | null;
   savedViews: readonly SavedViewDto[];
   layout: WatchlistLayoutDto;
@@ -75,7 +78,7 @@ export function QuickViews({
   return (
     <div className="flex min-w-0 items-center gap-1.5">
       <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto pb-0.5">
-        {QUICK_VIEWS.map((view) => (
+        {quickViewsFor({ showSignals }).map((view) => (
           <Button
             key={view.id}
             variant={activeId === view.id ? 'default' : 'ghost'}

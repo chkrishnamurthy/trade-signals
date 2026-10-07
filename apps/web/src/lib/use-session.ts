@@ -28,14 +28,32 @@ export type SessionState =
  */
 const ServerSession = createContext<SessionState | null>(null);
 
+/**
+ * Whether self-service sign-up is open (`AUTH_ALLOW_SIGNUP`). Read on the
+ * server; when it is closed `/signup` answers 404, so no page may offer a
+ * "Create free account" button that leads there.
+ */
+const SignupOpen = createContext<boolean>(true);
+
 export function SessionProvider({
   initial,
+  signupOpen = true,
   children,
 }: {
   initial: SessionState | null;
+  signupOpen?: boolean;
   children: React.ReactNode;
 }) {
-  return createElement(ServerSession.Provider, { value: initial }, children);
+  return createElement(
+    ServerSession.Provider,
+    { value: initial },
+    createElement(SignupOpen.Provider, { value: signupOpen }, children),
+  );
+}
+
+/** True when the "Create free account" route is open. */
+export function useSignupOpen(): boolean {
+  return useContext(SignupOpen);
 }
 
 /**

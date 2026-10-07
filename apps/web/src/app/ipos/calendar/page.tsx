@@ -5,7 +5,7 @@ import { ipoCalendarPageQuerySchema, searchParamsObject } from '@/server/ipo-sch
 import { getIpoCalendarPage } from '@/server/ipos';
 
 export const metadata: Metadata = {
-  title: 'IPO calendar — EquityWise',
+  title: 'IPO calendar',
   description: 'Bidding windows, allotment and listing days of Indian IPOs on one timeline.',
   // Signed-in only (owner decision D3): never indexed.
   robots: { index: false, follow: false },

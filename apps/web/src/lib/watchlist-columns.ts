@@ -543,7 +543,7 @@ const COLUMNS: readonly WatchlistColumn[] = [
     id: 'trend',
     label: 'Trend',
     description: 'How many of the 20, 50 and 200 EMAs the price is above',
-    group: 'signals',
+    group: 'technical',
     source: 'derived',
     numeric: true,
     hideBelow: 'lg',
@@ -618,9 +618,32 @@ export function getColumn(id: string): WatchlistColumn | null {
 export const PINNED_COLUMN_ID = 'symbol';
 
 /**
+ * Who may see a column. The daily engine's signals are admin-only (CLAUDE.md:
+ * "Signals inside these pages stay admin-only"); the server sends no signal
+ * data to anyone else, and these columns are not offered to them either — a
+ * column that can only ever show a dash is noise, and a "Signal" heading on a
+ * user's table would contradict what the product says it is.
+ */
+export interface ColumnAccess {
+  readonly showSignals?: boolean;
+}
+
+export function isColumnVisible(column: WatchlistColumn, options: ColumnAccess = {}): boolean {
+  return column.source !== 'signals' || options.showSignals === true;
+}
+
+/** Drops ids the viewer may not see, keeping order. */
+export function visibleColumnIds(ids: readonly string[], options: ColumnAccess = {}): string[] {
+  return ids.filter((id) => {
+    const column = BY_ID.get(id);
+    return column !== undefined && isColumnVisible(column, options);
+  });
+}
+
+/**
  * The default view: dense enough to be useful, short enough to scan.
  *
- * Nine columns rather than the forty available. A default that shows everything
+ * Eight columns rather than the forty available. A default that shows everything
  * is not a more powerful product, it is one where the user's first action is
  * always to turn things off.
  */
@@ -633,7 +656,6 @@ export const DEFAULT_COLUMN_IDS: readonly string[] = [
   'averageVolume',
   'range52w',
   'rsi14',
-  'signal',
 ];
 
 /**
@@ -644,7 +666,10 @@ export const DEFAULT_COLUMN_IDS: readonly string[] = [
  * The pinned column is forced to the front whether or not it was stored, so a
  * layout saved before it was pinned still renders a ticker.
  */
-export function resolveColumns(ids: readonly string[]): WatchlistColumn[] {
+export function resolveColumns(
+  ids: readonly string[],
+  options: ColumnAccess = {},
+): WatchlistColumn[] {
   const pinned = BY_ID.get(PINNED_COLUMN_ID);
   const resolved: WatchlistColumn[] = pinned === undefined ? [] : [pinned];
   const seen = new Set<string>([PINNED_COLUMN_ID]);
@@ -652,7 +677,7 @@ export function resolveColumns(ids: readonly string[]): WatchlistColumn[] {
   for (const id of ids) {
     if (seen.has(id)) continue;
     const column = BY_ID.get(id);
-    if (column === undefined) continue;
+    if (column === undefined || !isColumnVisible(column, options)) continue;
     seen.add(id);
     resolved.push(column);
   }
@@ -679,7 +704,7 @@ export interface ColumnGroupListing {
  * dropped — a search that matches nothing in Valuation should not render an
  * empty Valuation heading.
  */
-export function groupedColumns(query = ''): ColumnGroupListing[] {
+export function groupedColumns(query = '', options: ColumnAccess = {}): ColumnGroupListing[] {
   const q = query.trim().toLowerCase();
 
   const matches = (column: WatchlistColumn): boolean => {
@@ -692,7 +717,11 @@ export function groupedColumns(query = ''): ColumnGroupListing[] {
   const listings: ColumnGroupListing[] = [];
   for (const group of COLUMN_GROUP_ORDER) {
     const columns = COLUMNS.filter(
-      (column) => column.group === group && column.pinned !== true && matches(column),
+      (column) =>
+        column.group === group &&
+        column.pinned !== true &&
+        isColumnVisible(column, options) &&
+        matches(column),
     );
     if (columns.length === 0) continue;
     listings.push({ group, label: COLUMN_GROUP_LABEL[group], columns });

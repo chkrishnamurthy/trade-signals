@@ -63,7 +63,7 @@ export interface MarketBriefResponse {
   readonly defaultWatchlistId: number | null;
 }
 
-async function requireOwnerId(): Promise<number> {
+async function requireOwner(): Promise<{ id: number; isAdmin: boolean }> {
   const user = await getSessionUser();
   if (user === null) {
     throw new MarketDataError('Not signed in.', {
@@ -72,7 +72,7 @@ async function requireOwnerId(): Promise<number> {
       remedy: 'Sign in and try again.',
     });
   }
-  return user.id;
+  return { id: user.id, isAdmin: user.role === 'admin' };
 }
 
 interface UniverseEntry {
@@ -132,7 +132,7 @@ async function indexReturn(): Promise<{ name: string | null; returnPercent: numb
 }
 
 export async function getMarketBrief(now: Date = new Date()): Promise<MarketBriefResponse> {
-  const ownerId = await requireOwnerId();
+  const { id: ownerId, isAdmin } = await requireOwner();
   const db = getDatabase();
 
   const universe = await loadUniverse();
@@ -164,6 +164,7 @@ export async function getMarketBrief(now: Date = new Date()): Promise<MarketBrie
       previous: new Map(),
       currentSignals: new Map(),
       previousSignals: new Map(),
+      includeSignals: isAdmin,
       watchlistMembership: new Map(),
       hasWatchlists,
       indexReturnPercent: null,
@@ -186,8 +187,10 @@ export async function getMarketBrief(now: Date = new Date()): Promise<MarketBrie
     previous === undefined
       ? emptyIndicators
       : indicatorsForInstrumentsOnDate(db, instrumentIds, previous.tradingDate),
-    signalsForInstrumentsOnDate(db, instrumentIds, latest.tradingDate),
-    previous === undefined
+    // Signals are admin-only (CLAUDE.md): nobody else's brief reads them, so
+    // no signal badge, strength or setup can reach a user's screen.
+    isAdmin ? signalsForInstrumentsOnDate(db, instrumentIds, latest.tradingDate) : emptySignals,
+    !isAdmin || previous === undefined
       ? emptySignals
       : signalsForInstrumentsOnDate(db, instrumentIds, previous.tradingDate),
     watchlistMembershipForOwner(db, ownerId, instrumentIds),
@@ -261,6 +264,7 @@ export async function getMarketBrief(now: Date = new Date()): Promise<MarketBrie
     previous: toFacts(previousIndicators),
     currentSignals: toSignals(currentSignalRows, true),
     previousSignals: toSignals(previousSignalRows, false),
+    includeSignals: isAdmin,
     watchlistMembership: membershipRefs,
     hasWatchlists,
     indexReturnPercent: index.returnPercent,

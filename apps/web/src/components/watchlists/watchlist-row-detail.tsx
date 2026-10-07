@@ -90,8 +90,13 @@ export function WatchlistRowDetail({
             <DefinitionRow label="Volume" value={cellFor('volume')(row)} />
             <DefinitionRow label="52W range" value={cellFor('range52w')(row)} />
             <DefinitionRow label="RSI (14)" value={cellFor('rsi14')(row)} />
-            <DefinitionRow label="Signal" value={cellFor('signal')(row)} />
-            <DefinitionRow label="Signal strength" value={cellFor('signalStrength')(row)} />
+            {/* Admin-only: the server sends signal data to admins alone. */}
+            {row.signal !== null && (
+              <>
+                <DefinitionRow label="Signal" value={cellFor('signal')(row)} />
+                <DefinitionRow label="Signal strength" value={cellFor('signalStrength')(row)} />
+              </>
+            )}
           </DefinitionGrid>
           <Button size="sm" className="mt-3 w-full" onClick={() => onViewChart(row)}>
             <BarChart3Icon />

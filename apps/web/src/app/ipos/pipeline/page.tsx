@@ -5,7 +5,7 @@ import { ipoDashboardQuerySchema, searchParamsObject } from '@/server/ipo-schema
 import { getIpoPipelinePage } from '@/server/ipos';
 
 export const metadata: Metadata = {
-  title: 'IPO pipeline — EquityWise',
+  title: 'IPO pipeline',
   description:
     'Draft prospectuses filed with SEBI and the offer documents of Indian IPOs still ahead.',
   // Signed-in only (owner decision D3): never indexed.

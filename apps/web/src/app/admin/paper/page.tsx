@@ -17,7 +17,7 @@ import { paperHealthReport } from '@/server/paper';
 
 export const dynamic = 'force-dynamic';
 export const metadata = {
-  title: 'Paper trading health — EquityWise',
+  title: 'Paper trading health',
   robots: { index: false, follow: false },
 };
 

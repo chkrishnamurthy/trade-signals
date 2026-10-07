@@ -5,7 +5,7 @@ import { getAlertsOverview } from '@/server/alerts';
 import { MarketDataError } from '@/server/errors';
 
 export const metadata: Metadata = {
-  title: 'Alerts — EquityWise',
+  title: 'Alerts',
   description: 'Be told when a stock crosses a price or RSI level on a completed session.',
   robots: { index: false, follow: false },
 };

@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { BoardListRoute } from '@/components/ipos/list/board-list-route';
 
 export const metadata: Metadata = {
-  title: 'All IPOs — EquityWise',
+  title: 'All IPOs',
   description:
     'Every mainboard and SME IPO in one table: dates, price band, minimum investment, size, demand and listing.',
   // Signed-in only (owner decision D3): never indexed.

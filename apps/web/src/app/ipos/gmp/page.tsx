@@ -5,7 +5,7 @@ import { ipoDashboardQuerySchema, searchParamsObject } from '@/server/ipo-schema
 import { getIpoGmpPage } from '@/server/ipos';
 
 export const metadata: Metadata = {
-  title: 'Grey market — EquityWise',
+  title: 'Grey market',
   description:
     'The unofficial grey-market premium of unlisted Indian IPOs and how it compared with listings.',
   // Signed-in only (owner decision D3): never indexed.

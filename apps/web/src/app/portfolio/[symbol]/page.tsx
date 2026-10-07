@@ -5,7 +5,7 @@ import { MarketDataError } from '@/server/errors';
 import { getHoldingDetail } from '@/server/portfolio';
 
 export const metadata: Metadata = {
-  title: 'Holding — EquityWise',
+  title: 'Holding',
   robots: { index: false, follow: false },
 };
 

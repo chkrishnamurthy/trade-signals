@@ -17,7 +17,7 @@ import { getIpoAdminHealth } from '@/server/ipos';
 
 export const dynamic = 'force-dynamic';
 export const metadata = {
-  title: 'IPO data health — EquityWise',
+  title: 'IPO data health',
   robots: { index: false, follow: false },
 };
 

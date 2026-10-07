@@ -5,7 +5,7 @@ import { MarketDataError } from '@/server/errors';
 import { getMarketBreadth } from '@/server/market-breadth';
 
 export const metadata: Metadata = {
-  title: 'Market breadth — EquityWise',
+  title: 'Market breadth',
   description:
     'Advances and declines, stocks above key averages, new highs and lows, and industry rotation.',
   robots: { index: false, follow: false },

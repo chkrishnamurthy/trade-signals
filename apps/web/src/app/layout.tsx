@@ -11,6 +11,7 @@ import {
 } from '@/lib/seo/schema';
 import { THEME_INIT_SCRIPT } from '@/lib/theme';
 import { SessionProvider, type SessionState } from '@/lib/use-session';
+import { signupEnabled } from '@/server/auth/env';
 import { getNavigationSession } from '@/server/auth/session-payload';
 import './globals.css';
 
@@ -139,7 +140,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       <body className="min-h-dvh bg-background text-foreground" suppressHydrationWarning>
         {/* Routes are gated in middleware.ts; this only shares what the server
             already knows about the visitor with client components. */}
-        <SessionProvider initial={session}>
+        <SessionProvider initial={session} signupOpen={signupEnabled()}>
           <ToastProvider>{children}</ToastProvider>
         </SessionProvider>
       </body>

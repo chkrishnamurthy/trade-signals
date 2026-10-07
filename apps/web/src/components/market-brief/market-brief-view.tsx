@@ -103,7 +103,11 @@ export function MarketBriefView({
                 attention={brief.attention}
                 defaultWatchlistId={defaultWatchlistId}
               />
-              <SetupsSection setups={brief.setups} defaultWatchlistId={defaultWatchlistId} />
+              <SetupsSection
+                setups={brief.setups}
+                signalsIncluded={brief.signalsIncluded}
+                defaultWatchlistId={defaultWatchlistId}
+              />
             </>
           )}
 
@@ -166,7 +170,15 @@ function HeroStats({ brief }: { brief: DailyMarketBrief }) {
       />
       <HeroStatCard label="Advancing" tone="bullish" value={overview.advances} />
       <HeroStatCard label="Declining" tone="bearish" value={overview.declines} />
-      <HeroStatCard label="New bullish setups" tone="bullish" value={overview.newBullishSetups} />
+      {brief.signalsIncluded ? (
+        <HeroStatCard label="New bullish setups" tone="bullish" value={overview.newBullishSetups} />
+      ) : (
+        <HeroStatCard
+          label="Above 20-day average"
+          tone="neutral"
+          value={<Fraction count={overview.above20DayAverage} total={overview.above20DayTotal} />}
+        />
+      )}
     </div>
   );
 }
@@ -221,7 +233,11 @@ function TechnicalReadCard({ brief }: { brief: DailyMarketBrief }) {
         <dl className="grid grid-cols-3 gap-2 border-border border-t pt-4">
           <MiniStat label="Advances" value={overview.advances} tone="bullish" />
           <MiniStat label="Declines" value={overview.declines} tone="bearish" />
-          <MiniStat label="New bullish" value={overview.newBullishSetups} tone="bullish" />
+          {brief.signalsIncluded ? (
+            <MiniStat label="New bullish" value={overview.newBullishSetups} tone="bullish" />
+          ) : (
+            <MiniStat label="Unchanged" value={overview.unchanged} tone="muted" />
+          )}
         </dl>
       </CardContent>
     </Card>
@@ -235,7 +251,7 @@ function MiniStat({
 }: {
   label: string;
   value: number;
-  tone: 'bullish' | 'bearish';
+  tone: 'bullish' | 'bearish' | 'muted';
 }) {
   return (
     <div className="rounded-md bg-surface-sunken px-3 py-2">
@@ -243,7 +259,11 @@ function MiniStat({
       <dd
         className={cn(
           'figure font-semibold text-lg',
-          tone === 'bullish' ? 'text-bullish-strong' : 'text-bearish-strong',
+          tone === 'bullish'
+            ? 'text-bullish-strong'
+            : tone === 'bearish'
+              ? 'text-bearish-strong'
+              : 'text-foreground',
         )}
       >
         {value}
@@ -402,14 +422,18 @@ function OverviewSection({ brief }: { brief: DailyMarketBrief }) {
           label="Above 50-day avg"
           value={<Fraction count={overview.above50DayAverage} total={overview.above50DayTotal} />}
         />
-        <StatTile
-          label="New bullish setups"
-          value={<CountValue value={overview.newBullishSetups} tone="bullish" />}
-        />
-        <StatTile
-          label="New bearish setups"
-          value={<CountValue value={overview.newBearishSetups} tone="bearish" />}
-        />
+        {brief.signalsIncluded && (
+          <>
+            <StatTile
+              label="New bullish setups"
+              value={<CountValue value={overview.newBullishSetups} tone="bullish" />}
+            />
+            <StatTile
+              label="New bearish setups"
+              value={<CountValue value={overview.newBearishSetups} tone="bearish" />}
+            />
+          </>
+        )}
       </div>
     </Section>
   );
@@ -600,12 +624,18 @@ const SETUP_TABS = [
 
 function SetupsSection({
   setups,
+  signalsIncluded,
   defaultWatchlistId,
 }: {
   setups: DailyMarketBrief['setups'];
+  signalsIncluded: boolean;
   defaultWatchlistId: number | null;
 }) {
-  const available = SETUP_TABS.filter((tab) => setups[tab.id].length > 0);
+  // Without signals (non-admins) only the volume list is a plain fact; the
+  // setup lists are the engine's verdicts and stay admin-only.
+  const available = SETUP_TABS.filter(
+    (tab) => setups[tab.id].length > 0 && (signalsIncluded || tab.id === 'unusualVolume'),
+  );
   if (available.length === 0) return null;
 
   const firstTab = available[0];
@@ -614,7 +644,9 @@ function SetupsSection({
   return (
     <Section aria-labelledby="setups-heading">
       <SectionHeader>
-        <SectionTitle id="setups-heading">Setup lists</SectionTitle>
+        <SectionTitle id="setups-heading">
+          {signalsIncluded ? 'Setup lists' : 'Unusual volume'}
+        </SectionTitle>
       </SectionHeader>
       <Card>
         <CardContent className="py-4">
