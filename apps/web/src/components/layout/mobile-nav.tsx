@@ -87,7 +87,10 @@ export function MobileNav({
                   : 'font-medium text-muted-foreground hover:text-foreground',
               )}
             >
-              <EllipsisIcon className={cn('size-5', moreActive && 'text-primary')} aria-hidden />
+              <EllipsisIcon
+                className={cn('size-5', moreActive && 'text-primary-strong')}
+                aria-hidden
+              />
               <span aria-hidden>More</span>
             </button>
           </li>

@@ -293,7 +293,7 @@ export function IpoCalendarView({ data }: { data: IpoCalendarPageDto }) {
                         className={cn(
                           'figure font-semibold text-xs',
                           !d.trading && 'text-muted-foreground line-through',
-                          d.date === data.today && 'text-primary',
+                          d.date === data.today && 'text-primary-strong',
                         )}
                       >
                         {label.slice(4).replace(` ${label.slice(-3)}`, '')}
@@ -326,7 +326,7 @@ export function IpoCalendarView({ data }: { data: IpoCalendarPageDto }) {
       <AllotmentModule data={data} />
       <p className="text-2xs text-muted-foreground">
         The same events appear on the{' '}
-        <Link href={'/calendar' as Route} className="text-primary hover:underline">
+        <Link href={'/calendar' as Route} className="text-primary-strong hover:underline">
           Market Calendar
         </Link>{' '}
         beside results and corporate actions. {data.coverageNote}

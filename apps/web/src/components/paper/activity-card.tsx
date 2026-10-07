@@ -1,5 +1,7 @@
 'use client';
+
 import { type PaperActivity, type PaperDecisionDto, paperActivitySchema } from '@equitywise/shared';
+import { Fragment } from 'react';
 import { usePolledResource } from '@/components/intraday/use-polled-resource';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -94,8 +96,9 @@ export function ActivityList({ data }: { data: PaperActivity }) {
     return <p className="text-sm text-muted-foreground">Nothing decided yet for this session.</p>;
   return (
     <ol className="divide-y divide-border" aria-live="polite">
+      {/* Each node is already an <li>; a wrapping <div> made the list invalid. */}
       {items.map((i) => (
-        <div key={i.key}>{i.node}</div>
+        <Fragment key={i.key}>{i.node}</Fragment>
       ))}
     </ol>
   );

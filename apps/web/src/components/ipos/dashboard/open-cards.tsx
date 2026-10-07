@@ -184,7 +184,7 @@ function OpenCard({
         </p>
       )}
 
-      <span className="mt-auto inline-flex items-center gap-1 font-medium text-primary text-sm">
+      <span className="mt-auto inline-flex items-center gap-1 font-medium text-primary-strong text-sm">
         View issue
         <ArrowRightIcon aria-hidden className="size-3.5" />
       </span>
@@ -216,7 +216,7 @@ export function OpenCards({ data }: { data: IpoDashboardDto }) {
         {data.open.length > 0 && (
           <Link
             href={tableHref(data.board, { status: 'open' })}
-            className="inline-flex min-h-11 items-center font-medium text-primary text-sm underline-offset-4 hover:underline sm:min-h-0 sm:text-xs"
+            className="inline-flex min-h-11 items-center font-medium text-primary-strong text-sm underline-offset-4 hover:underline sm:min-h-0 sm:text-xs"
           >
             {more > 0 ? `All ${data.open.length} in the table →` : 'Compare in the table →'}
           </Link>

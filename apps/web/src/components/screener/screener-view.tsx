@@ -320,7 +320,7 @@ export function ScreenerView({
                 className={cn(
                   'inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs',
                   result.stale
-                    ? 'border-warning-line bg-warning-soft text-warning-foreground'
+                    ? 'border-warning-line bg-warning-soft text-warning-strong'
                     : 'border-border text-muted-foreground',
                 )}
               >
@@ -383,7 +383,7 @@ export function ScreenerView({
             </p>
           )}
           {result.stale && result.tradingDate !== null && (
-            <p className="flex items-center gap-2 rounded-lg border border-warning-line bg-warning-soft px-3 py-2 text-sm text-warning-foreground">
+            <p className="flex items-center gap-2 rounded-lg border border-warning-line bg-warning-soft px-3 py-2 text-sm text-warning-strong">
               <TriangleAlertIcon aria-hidden className="size-4" />
               These values are from {shortDate(result.tradingDate)} — the nightly snapshot has not
               run since.

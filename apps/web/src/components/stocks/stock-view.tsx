@@ -91,7 +91,8 @@ export function StockView({ data, backHref }: { data: StockPageDto; backHref: st
   const tabsRef = useRef<HTMLElement>(null);
   const openTab = (next: Tab) => {
     setTab(next);
-    tabsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    tabsRef.current?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
   };
 
   const [ratio, setRatio] = useState<{ keys: readonly string[]; saved: boolean }>({
@@ -497,7 +498,7 @@ function Technicals({ values, metrics }: { values: Values | null; metrics: reado
         </section>
       ))}
       {raw('dataIssue') !== null && (
-        <p className="text-warning-foreground text-xs md:col-span-2">
+        <p className="text-warning-strong text-xs md:col-span-2">
           History-dependent readings are withheld: the stored series has an overnight jump with no
           recorded split or bonus.
         </p>

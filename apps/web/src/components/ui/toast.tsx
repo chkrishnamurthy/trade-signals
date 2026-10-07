@@ -61,7 +61,7 @@ const toastVariants = cva(
       variant: {
         default: 'border-border bg-surface text-foreground [&>svg]:text-info',
         success: 'border-bullish-line bg-bullish-soft text-foreground [&>svg]:text-bullish',
-        warning: 'border-warning-line bg-warning-soft text-warning-foreground [&>svg]:text-warning',
+        warning: 'border-warning-line bg-warning-soft text-warning-strong [&>svg]:text-warning',
         destructive:
           'border-destructive-line bg-destructive-soft text-destructive [&>svg]:text-destructive',
       },

@@ -241,7 +241,7 @@ export function PriceChart({
         {view.marks.map((m) => (
           <span
             key={`${m.left}-${m.label}`}
-            className="pointer-events-none absolute bottom-[19%] -translate-x-1/2 rounded bg-warning-soft px-1 text-2xs text-warning-foreground"
+            className="pointer-events-none absolute bottom-[19%] -translate-x-1/2 rounded bg-warning-soft px-1 text-2xs text-warning-strong"
             style={{ left: `calc((100% - 3.5rem) * ${m.left / 100})` }}
           >
             {m.label}

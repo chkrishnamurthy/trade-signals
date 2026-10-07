@@ -16,7 +16,7 @@ import { ExternalLink, IssueLink, ModuleCard, ModuleTable } from '../module-card
 
 const KIND_TEXT: Readonly<Record<AgendaEventKind, string>> = {
   opens: 'text-bullish-strong',
-  closes: 'text-warning-foreground dark:text-warning',
+  closes: 'text-warning-strong',
   allotment: 'text-info-strong',
   refunds: 'text-muted-foreground',
   demat_credit: 'text-muted-foreground',
@@ -28,7 +28,7 @@ function DayLabel({ date, today }: { date: string; today: string }) {
   const short = shortDate(date);
   return (
     <span className="flex items-baseline gap-1.5 sm:flex-col sm:gap-0">
-      <span className={cn('font-semibold text-sm', date === today && 'text-primary')}>
+      <span className={cn('font-semibold text-sm', date === today && 'text-primary-strong')}>
         {date === today ? 'Today' : short.slice(0, 3)}
       </span>
       <span className="text-muted-foreground text-xs">{short.slice(4)}</span>
@@ -296,7 +296,7 @@ export function DocumentsModule({
                 {d.sectionsQuoted > 0 && (
                   <Link
                     href={`${issueHref(d.slug)}#company` as Route}
-                    className="text-primary underline-offset-4 hover:underline"
+                    className="text-primary-strong underline-offset-4 hover:underline"
                   >
                     {d.sectionsQuoted} section{d.sectionsQuoted === 1 ? '' : 's'} quoted
                   </Link>

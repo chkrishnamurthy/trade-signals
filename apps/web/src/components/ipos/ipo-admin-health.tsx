@@ -69,9 +69,7 @@ export function IpoAdminHealth({ health }: { health: IpoAdminHealthDto }) {
                       <div className="font-mono text-2xs text-muted-foreground">{feed.id}</div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={STATE[feed.status].tone} className="dark:text-warning">
-                        {STATE[feed.status].label}
-                      </Badge>
+                      <Badge variant={STATE[feed.status].tone}>{STATE[feed.status].label}</Badge>
                     </TableCell>
                     <TableCell className="text-xs">{istDayTime(feed.lastSuccessAt)}</TableCell>
                     <TableCell className="text-xs">{istDayTime(feed.lastAttemptAt)}</TableCell>

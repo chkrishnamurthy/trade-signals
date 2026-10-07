@@ -99,7 +99,7 @@ export function BreadthView({ data }: { data: MarketBreadthDto }) {
               <span
                 className={cn(
                   'text-2xs',
-                  data.stale ? 'text-warning-foreground' : 'text-muted-foreground',
+                  data.stale ? 'text-warning-strong' : 'text-muted-foreground',
                 )}
               >
                 Session {sessionLabel(data.session)}

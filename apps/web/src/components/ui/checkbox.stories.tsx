@@ -7,6 +7,8 @@ const meta = {
   component: Checkbox,
   tags: ['autodocs'],
   parameters: { layout: 'centered' },
+  // A bare control needs a name; real forms pair it with a <Label>.
+  args: { 'aria-label': 'Example option' },
 } satisfies Meta<typeof Checkbox>;
 
 export default meta;

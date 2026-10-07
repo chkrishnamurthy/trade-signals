@@ -92,7 +92,11 @@ export function WatchlistTabs({
       >
         <ul className="flex min-w-0 flex-1 items-center gap-4 overflow-x-auto">
           {loading &&
-            [0, 1, 2].map((key) => <Skeleton key={key} className="mb-2 h-5 w-20 shrink-0" />)}
+            [0, 1, 2].map((key) => (
+              <li key={key} aria-hidden>
+                <Skeleton className="mb-2 h-5 w-20 shrink-0" />
+              </li>
+            ))}
 
           {!loading &&
             lists.map((list, index) => {
@@ -127,7 +131,7 @@ export function WatchlistTabs({
                     <span className="max-w-36 truncate">{list.name}</span>
                     {list.isDefault && (
                       <StarIcon
-                        className="size-3 shrink-0 fill-current text-primary"
+                        className="size-3 shrink-0 fill-current text-primary-strong"
                         aria-label="Default watchlist"
                       />
                     )}
@@ -196,7 +200,7 @@ export function WatchlistTabs({
           type="button"
           variant="ghost"
           size="sm"
-          className="-mb-px shrink-0 gap-1 rounded-none border-b-2 border-transparent px-0.5 font-semibold text-primary hover:bg-transparent hover:text-primary"
+          className="-mb-px shrink-0 gap-1 rounded-none border-b-2 border-transparent px-0.5 font-semibold text-primary-strong hover:bg-transparent hover:text-primary-strong"
           onClick={() => setDialog({ kind: 'create' })}
         >
           <PlusIcon className="size-3.5" />

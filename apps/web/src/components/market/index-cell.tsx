@@ -57,6 +57,9 @@ export function IndexCell({
   return (
     <Root
       data-slot="index-cell"
+      // Delayed values are not dimmed (that cut text below AA); the strip's
+      // status says "Delayed", and the attribute lets a test or style find them.
+      data-stale={stale ? '' : undefined}
       title={hint}
       {...(onSelect === undefined
         ? {}
@@ -69,7 +72,6 @@ export function IndexCell({
         'flex shrink-0 items-baseline gap-2 whitespace-nowrap border-border border-r px-3 first:pl-0 last:border-r-0 last:pr-0 2xl:px-4',
         onSelect !== undefined &&
           'cursor-pointer rounded-sm outline-none transition-colors hover:bg-accent/60 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-ring',
-        stale && 'opacity-70',
         className,
       )}
     >

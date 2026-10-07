@@ -34,7 +34,7 @@ const TONE_STYLE: Readonly<Record<KeyPointDto['tone'], string>> = {
   bearish: 'bg-bearish-soft text-bearish-strong',
   neutral: 'bg-neutral-soft text-neutral-strong',
   info: 'bg-info-soft text-info-strong',
-  warning: 'bg-warning-soft text-warning-foreground',
+  warning: 'bg-warning-soft text-warning-strong',
 };
 
 const VISIBLE = 4;
@@ -91,7 +91,7 @@ export function StandsOut({
                 </span>
                 <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <span className="text-sm leading-snug">{p.text}</span>
-                  <span className="inline-flex items-center gap-0.5 text-2xs text-muted-foreground group-hover:text-primary">
+                  <span className="inline-flex items-center gap-0.5 text-2xs text-muted-foreground group-hover:text-primary-strong">
                     See {TAB_NAMES[p.tab]}
                     <ChevronRightIcon aria-hidden className="size-3" />
                   </span>

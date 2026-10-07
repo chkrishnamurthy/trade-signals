@@ -14,13 +14,13 @@ const badgeVariants = cva(
   {
     variants: {
       variant: {
-        default: 'bg-primary text-primary-foreground ring-transparent',
+        default: 'bg-primary-strong text-primary-foreground ring-transparent',
         secondary: 'bg-secondary text-secondary-foreground ring-border',
         outline: 'bg-transparent text-foreground ring-border',
         bullish: 'bg-bullish-soft text-bullish-strong ring-bullish-line',
         bearish: 'bg-bearish-soft text-bearish-strong ring-bearish-line',
         neutral: 'bg-neutral-soft text-neutral-strong ring-neutral-line',
-        warning: 'bg-warning-soft text-warning-foreground ring-warning-line',
+        warning: 'bg-warning-soft text-warning-strong ring-warning-line',
         destructive: 'bg-destructive-soft text-destructive ring-destructive-line',
       },
       size: {

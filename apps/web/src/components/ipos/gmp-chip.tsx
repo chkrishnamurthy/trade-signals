@@ -32,7 +32,7 @@ export function GmpChip({
             className,
           )}
         >
-          <Badge variant="warning" size="sm" className="dark:text-warning">
+          <Badge variant="warning" size="sm">
             Unofficial
           </Badge>
           <span className="figure truncate">

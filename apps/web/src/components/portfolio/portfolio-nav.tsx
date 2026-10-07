@@ -55,7 +55,7 @@ export function PortfolioNav({ current }: { current: 'overview' | 'analysis' | '
         >
           {item.label}
           {item.key === 'notices' && unread > 0 && current !== 'notices' && (
-            <span className="rounded-full bg-primary px-1.5 text-xs font-semibold tabular-nums text-primary-foreground">
+            <span className="rounded-full bg-primary-strong px-1.5 text-xs font-semibold tabular-nums text-primary-foreground">
               {unread}
               <span className="sr-only"> new</span>
             </span>

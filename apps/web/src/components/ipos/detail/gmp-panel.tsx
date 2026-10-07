@@ -169,7 +169,7 @@ export function GmpPanel({
         </p>
       )}
       <details className="group border-border border-t">
-        <summary className="flex min-h-10 items-center px-4 py-2 font-medium text-primary text-xs">
+        <summary className="flex min-h-10 items-center px-4 py-2 font-medium text-primary-strong text-xs">
           What is GMP?
         </summary>
         <div className="px-4 pb-3">
@@ -177,7 +177,7 @@ export function GmpPanel({
         </div>
       </details>
       <details className="group border-border border-t">
-        <summary className="flex min-h-10 items-center px-4 py-2 font-medium text-primary text-xs">
+        <summary className="flex min-h-10 items-center px-4 py-2 font-medium text-primary-strong text-xs">
           How GMP has compared with listings
         </summary>
         <div className="px-4 pb-3">

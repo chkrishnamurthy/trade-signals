@@ -412,7 +412,7 @@ export function TrustAndSafety() {
             const Icon = block.icon;
             return (
               <div key={block.title} className="flex flex-col gap-4">
-                <Icon className="size-6 text-bullish-line dark:text-primary" aria-hidden />
+                <Icon className="size-6 text-bullish-line dark:text-primary-strong" aria-hidden />
                 <h3 className="m-0 font-bold text-lg">{block.title}</h3>
                 <ul className="m-0 flex list-none flex-col gap-3 p-0 text-[0.95rem] leading-relaxed opacity-85">
                   {block.points.map((point) => (
@@ -421,7 +421,7 @@ export function TrustAndSafety() {
                 </ul>
                 <Link
                   href={block.link.href}
-                  className="mt-auto w-fit font-semibold text-bullish-line underline-offset-4 dark:text-primary hover:underline focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-ring"
+                  className="mt-auto w-fit font-semibold text-bullish-line underline-offset-4 dark:text-primary-strong hover:underline focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-ring"
                 >
                   {block.link.label}
                 </Link>
@@ -433,7 +433,7 @@ export function TrustAndSafety() {
           {NOT.map((line) => (
             <li key={line} className="flex items-start gap-3">
               <XIcon
-                className="mt-0.5 size-5 shrink-0 text-bullish-line dark:text-primary"
+                className="mt-0.5 size-5 shrink-0 text-bullish-line dark:text-primary-strong"
                 aria-hidden
               />
               <span className="font-medium">{line}</span>

@@ -29,9 +29,7 @@ export function FactSource({
           type="button"
           className={cn(
             'ml-1.5 rounded-sm text-2xs underline decoration-dotted underline-offset-2',
-            source.basis === 'conflict'
-              ? 'text-warning-foreground dark:text-warning'
-              : 'text-subtle-foreground',
+            source.basis === 'conflict' ? 'text-warning-strong' : 'text-subtle-foreground',
             className,
           )}
         >

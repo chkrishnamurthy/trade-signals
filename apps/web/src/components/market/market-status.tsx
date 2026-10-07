@@ -49,7 +49,7 @@ const statusVariants = cva(
     variants: {
       state: {
         open: 'bg-bullish-soft text-bullish-strong ring-bullish-line',
-        pre: 'bg-warning-soft text-warning-foreground ring-warning-line',
+        pre: 'bg-warning-soft text-warning-strong ring-warning-line',
         closed: 'bg-neutral-soft text-neutral-strong ring-neutral-line',
         /* Deliberately not grey: "we do not know" must not look like "closed". */
         unknown: 'bg-warning-soft text-market-unknown ring-warning-line',
@@ -166,7 +166,7 @@ export function LastUpdated({
         <span
           className={cn(
             'figure inline-flex items-center gap-1 font-mono text-xs tabular-nums',
-            stale ? 'text-warning' : 'text-muted-foreground',
+            stale ? 'text-warning-strong' : 'text-muted-foreground',
             className,
           )}
         >
@@ -207,7 +207,7 @@ export function DataFreshness({
   const tone = {
     live: 'text-bullish-strong',
     cached: 'text-muted-foreground',
-    stale: 'text-warning',
+    stale: 'text-warning-strong',
     error: 'text-destructive',
   }[state];
 

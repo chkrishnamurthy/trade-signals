@@ -13,8 +13,8 @@ owner: krishna
 
 > **Status:** delivery is phased. Done on `main`: Phase 0 (unsupported claims removed, `3f9682e`),
 > Phase 1 (app-wide focus rings, skip links, `primary-strong`, `fce3431`), Phase 2 (signed-in navigation,
-> `b28ce45`), 2.1 (post-release fixes, `b779e39`) and Phase 3 (public header, footer, landing page and
-> public pages — §8). Phase B of §3 (public research pages) waits on data-display rights, which now
+> `b28ce45`), 2.1 (post-release fixes, `b779e39`), Phase 3 (public header, footer, landing page and
+> public pages, `187f8c7` — §8) and Phase 4 (polish and accessibility — §9). Phase B of §3 (public research pages) waits on data-display rights, which now
 > also covers showing provider data to signed-in users (§8.4).
 > Companion to `navigation-redesign-plan.md` (the signed-in app shell).
 
@@ -238,6 +238,24 @@ Account deletion now works for Google-only accounts (they re-type their email in
    or counsel's view before promoting the site.
 2. Grievance Officer name and postal address (`lib/legal.ts`) — shown once filled in.
 3. Analytics for §6.5 measures: none exists; adding any needs the privacy page updated first.
+
+## 9. Phase 4 — polish and accessibility (2026-10-07)
+
+| Item | Change |
+|---|---|
+| Warning text | New `--warning-strong` token. `--warning-foreground` is for text on the solid `warning` fill and is near-black in dark mode; 17 components used it on `warning-soft`, so pre-open badges, warning alerts, toasts and IPO chips were unreadable in dark mode. All switched; the `dark:text-warning` patches removed |
+| Green text and fills | Default `Button`, `Badge`, counters and selected pills use `primary-strong` (white text 5.3:1, was 4.1:1); `text-primary` text uses `text-primary-strong` (22 files) |
+| Low-emphasis text | `--subtle-foreground` 0.617→0.53 (light) and 0.572→0.65 (dark) to clear 4.5:1; `--bullish-strong` light 0.5→0.48; `--market-unknown` light 0.638→0.55; `--destructive` dark 0.652→0.69 |
+| Faded text | Alert descriptions no longer at 90% opacity; delayed index values no longer at 70% opacity (the strip already says "Delayed") |
+| Notifications | The bell opens a panel: latest six notices, unread first and announced as "New", "Mark all as read", link to all notices and settings. Opening it marks nothing read |
+| Reduced motion | Global `prefers-reduced-motion` rule (spinners exempt); the stock page's tab jump no longer glides |
+| Markup | Chart legend and watchlist-tab skeletons are valid lists; scroll areas and the paper-trades table are keyboard-scrollable; bare primitive stories have accessible names |
+
+Verification: axe-core (WCAG 2.0/2.1 A + AA) over all 193 Storybook stories in light and dark — 125
+findings before, none after (re-checked in isolation; the only remaining report is Radix's open-by-default
+dropdown story hiding the page behind it, which is the intended modal behaviour); all public pages on the
+production build, both themes, phone and desktop; navigation keyboard suite 92/92; notifications panel
+10/10.
 
 ## Sources
 

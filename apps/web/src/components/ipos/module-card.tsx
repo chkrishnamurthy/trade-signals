@@ -63,7 +63,7 @@ export function ModuleCard({
             <Link
               href={link.href}
               className={cn(
-                'flex min-h-11 items-center justify-center px-4 font-medium text-primary text-sm underline-offset-4 hover:underline sm:min-h-0 sm:shrink-0 sm:p-0 sm:text-xs',
+                'flex min-h-11 items-center justify-center px-4 font-medium text-primary-strong text-sm underline-offset-4 hover:underline sm:min-h-0 sm:shrink-0 sm:p-0 sm:text-xs',
                 footer !== undefined && 'border-border border-t sm:border-0',
               )}
             >
@@ -251,7 +251,7 @@ export function ExternalLink({
       target="_blank"
       rel="noopener noreferrer"
       className={cn(
-        'inline-flex items-center gap-1 text-primary underline-offset-4 hover:underline',
+        'inline-flex items-center gap-1 text-primary-strong underline-offset-4 hover:underline',
         className,
       )}
     >

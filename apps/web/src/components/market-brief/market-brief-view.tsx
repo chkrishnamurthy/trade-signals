@@ -286,7 +286,7 @@ function MoversCard({ brief }: { brief: DailyMarketBrief }) {
           <SectionTitle className="text-base">Movers you follow</SectionTitle>
           <Link
             href="/watchlists"
-            className="inline-flex items-center gap-0.5 font-medium text-primary text-xs hover:underline"
+            className="inline-flex items-center gap-0.5 font-medium text-primary-strong text-xs hover:underline"
           >
             Watchlists <ArrowRightIcon className="size-3.5" />
           </Link>
@@ -299,7 +299,7 @@ function MoversCard({ brief }: { brief: DailyMarketBrief }) {
             action={
               <Link
                 href="/watchlists"
-                className="text-primary text-sm underline underline-offset-4"
+                className="text-primary-strong text-sm underline underline-offset-4"
               >
                 Create a watchlist
               </Link>

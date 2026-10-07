@@ -463,7 +463,7 @@ function EventItem({ event }: { event: MarketEventDto }) {
               <span
                 className={cn(
                   'flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-muted text-muted-foreground',
-                  event.onWatchlist && 'border-primary/30 bg-primary/10 text-primary',
+                  event.onWatchlist && 'border-primary/30 bg-primary/10 text-primary-strong',
                 )}
               >
                 <Icon className="size-4" aria-hidden />
@@ -475,7 +475,7 @@ function EventItem({ event }: { event: MarketEventDto }) {
                   </Badge>
                   {event.importance === 'high' && <Badge variant="warning">High importance</Badge>}
                   {event.onWatchlist && (
-                    <Badge variant="outline" className="text-primary">
+                    <Badge variant="outline" className="text-primary-strong">
                       <StarIcon className="fill-current" aria-hidden />
                       On your watchlist
                     </Badge>
@@ -543,7 +543,7 @@ export function EventDetailContent({ event }: { event: MarketEventDto }) {
           </Badge>
         )}
         {event.onWatchlist && (
-          <Badge variant="outline" className="text-primary">
+          <Badge variant="outline" className="text-primary-strong">
             <StarIcon className="fill-current" aria-hidden />
             On your watchlist
           </Badge>

@@ -15,11 +15,13 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: 'bg-primary text-primary-foreground shadow-subtle hover:bg-primary/90',
+        default:
+          // primary-strong: white text on plain `primary` is 4.1:1 in light, under AA.
+          'bg-primary-strong text-primary-foreground shadow-subtle hover:bg-primary-strong/90',
         secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
         outline: 'border border-border bg-surface hover:bg-accent hover:text-accent-foreground',
         ghost: 'hover:bg-accent hover:text-accent-foreground',
-        link: 'text-primary underline-offset-4 hover:underline',
+        link: 'text-primary-strong underline-offset-4 hover:underline',
         destructive:
           'bg-destructive text-destructive-foreground shadow-subtle hover:bg-destructive/90',
       },

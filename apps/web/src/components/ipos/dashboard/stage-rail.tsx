@@ -138,7 +138,7 @@ export function StageRail({ data }: { data: IpoDashboardDto }) {
               </span>
               <span className="text-muted-foreground text-xs">{s.hint}</span>
               {s.href !== null && (
-                <span className="mt-auto inline-flex items-center gap-1 pt-1 font-medium text-primary text-xs">
+                <span className="mt-auto inline-flex items-center gap-1 pt-1 font-medium text-primary-strong text-xs">
                   {s.go}
                   <ArrowRightIcon aria-hidden className="size-3" />
                 </span>

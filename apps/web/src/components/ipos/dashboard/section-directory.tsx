@@ -101,7 +101,7 @@ export function SectionDirectory({ data }: { data: IpoDashboardDto }) {
                   aria-hidden
                   className={cn(
                     'grid size-8 place-items-center rounded-md',
-                    e.unofficial ? 'bg-warning-soft text-warning-foreground' : 'bg-muted',
+                    e.unofficial ? 'bg-warning-soft text-warning-strong' : 'bg-muted',
                   )}
                 >
                   <e.icon className="size-4" />

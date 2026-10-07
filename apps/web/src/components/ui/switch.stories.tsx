@@ -7,6 +7,8 @@ const meta = {
   component: Switch,
   tags: ['autodocs'],
   parameters: { layout: 'centered' },
+  // A bare control needs a name; real forms pair it with a <Label>.
+  args: { 'aria-label': 'Example setting' },
 } satisfies Meta<typeof Switch>;
 
 export default meta;

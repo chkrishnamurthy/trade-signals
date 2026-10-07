@@ -65,7 +65,13 @@ export const Status: Story = {
       <SwatchGrid title="Success" vars={[['--success'], ['--success-foreground']]} />
       <SwatchGrid
         title="Warning"
-        vars={[['--warning'], ['--warning-foreground'], ['--warning-soft'], ['--warning-line']]}
+        vars={[
+          ['--warning'],
+          ['--warning-foreground'],
+          ['--warning-strong'],
+          ['--warning-soft'],
+          ['--warning-line'],
+        ]}
       />
       <SwatchGrid title="Info" vars={[['--info'], ['--info-foreground']]} />
     </Ground>

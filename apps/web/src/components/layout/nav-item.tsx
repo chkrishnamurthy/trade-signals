@@ -112,7 +112,7 @@ export function NavItem({
           className,
         )}
       >
-        <Icon className={cn('size-5 shrink-0', active && 'text-primary')} aria-hidden />
+        <Icon className={cn('size-5 shrink-0', active && 'text-primary-strong')} aria-hidden />
         <span className="max-w-full truncate">{item.shortLabel ?? item.label}</span>
       </Link>
     );
@@ -130,7 +130,7 @@ export function NavItem({
         className,
       )}
     >
-      <Icon className={cn('mt-0.5 size-4 shrink-0', active && 'text-primary')} aria-hidden />
+      <Icon className={cn('mt-0.5 size-4 shrink-0', active && 'text-primary-strong')} aria-hidden />
       <span className="flex min-w-0 flex-col">
         <span className={cn('text-sm', active ? 'font-semibold' : 'font-medium text-foreground')}>
           {item.label}

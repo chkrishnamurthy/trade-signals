@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 /** Chip colours per state. Amber needs its lifted hue on dark, like every warning surface. */
 const TONE_CHIP: Readonly<Record<IpoTone, string>> = {
   open: 'bg-bullish-soft text-bullish-strong ring-bullish-line',
-  waiting: 'bg-warning-soft text-warning-foreground ring-warning-line dark:text-warning',
+  waiting: 'bg-warning-soft text-warning-strong ring-warning-line',
   info: 'bg-info-soft text-info-strong ring-info-line',
   listed: 'bg-neutral-soft text-neutral-strong ring-neutral-line',
   inactive: 'bg-muted text-muted-foreground ring-border',
@@ -69,7 +69,7 @@ export function UnofficialTag({ className }: { className?: string | undefined })
   return (
     <span
       className={cn(
-        'inline-flex shrink-0 items-center rounded-full bg-warning-soft px-2 py-0.5 font-medium text-2xs text-warning-foreground ring-1 ring-warning-line ring-inset dark:text-warning',
+        'inline-flex shrink-0 items-center rounded-full bg-warning-soft px-2 py-0.5 font-medium text-2xs text-warning-strong ring-1 ring-warning-line ring-inset',
         className,
       )}
     >

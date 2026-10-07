@@ -63,7 +63,13 @@ export function TradesTable({
   if (trades.length === 0) return <p className="text-sm text-muted-foreground">{emptyText}</p>;
   return (
     <>
-      <TableContainer className="hidden md:block">
+      <TableContainer
+        className="hidden md:block"
+        // Scrolls sideways on narrow screens; keyboard users need a tab stop to do so.
+        tabIndex={0}
+        role="region"
+        aria-label="Open paper trades"
+      >
         <Table>
           <TableHeader>
             <TableRow>

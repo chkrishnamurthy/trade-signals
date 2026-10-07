@@ -273,7 +273,7 @@ function Overview({ portfolio, fifoNoteSeen }: { portfolio: PortfolioDto; fifoNo
           footer={
             <Link
               href={'/portfolio/analysis#returns' as Route}
-              className="text-primary hover:underline"
+              className="text-primary-strong hover:underline"
             >
               See returns
             </Link>
@@ -325,7 +325,7 @@ function Overview({ portfolio, fifoNoteSeen }: { portfolio: PortfolioDto; fifoNo
             </h2>
             <Link
               href={'/portfolio/analysis' as Route}
-              className="text-sm text-primary hover:underline"
+              className="text-sm text-primary-strong hover:underline"
             >
               See the analysis
             </Link>

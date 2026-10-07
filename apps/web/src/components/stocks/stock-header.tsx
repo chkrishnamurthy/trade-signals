@@ -112,7 +112,7 @@ export function StockHeader({
           <div className="flex min-w-0 items-center gap-3 sm:gap-4">
             <span
               aria-hidden
-              className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 font-display font-semibold text-lg text-primary ring-1 ring-primary/20 sm:size-14 sm:text-xl"
+              className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 font-display font-semibold text-lg text-primary-strong ring-1 ring-primary/20 sm:size-14 sm:text-xl"
             >
               {initials(data.name, data.symbol)}
             </span>
@@ -192,7 +192,7 @@ export function StockHeader({
                       CHIP,
                       'cursor-help',
                       data.series !== 'EQ' &&
-                        'border-warning-line bg-warning-soft text-warning-foreground',
+                        'border-warning-line bg-warning-soft text-warning-strong',
                     )}
                   >
                     Series {data.series}
@@ -337,7 +337,7 @@ export function StockHeader({
       </div>
 
       {data.stale && data.session !== null && (
-        <p className="flex items-center gap-2 border-warning-line border-t bg-warning-soft px-4 py-2 text-sm text-warning-foreground sm:px-5">
+        <p className="flex items-center gap-2 border-warning-line border-t bg-warning-soft px-4 py-2 text-sm text-warning-strong sm:px-5">
           <TriangleAlertIcon aria-hidden className="size-4 shrink-0" />
           These figures are from {sessionLabel(data.session)}; this stock has no newer session.
         </p>

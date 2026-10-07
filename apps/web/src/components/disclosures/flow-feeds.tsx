@@ -22,7 +22,7 @@ const STYLE: Readonly<
   },
   stale: {
     icon: ClockIcon,
-    className: 'text-warning-foreground ring-warning-line bg-warning-soft',
+    className: 'text-warning-strong ring-warning-line bg-warning-soft',
     word: 'Older',
   },
   failed: {

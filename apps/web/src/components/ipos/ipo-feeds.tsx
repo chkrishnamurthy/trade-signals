@@ -53,7 +53,7 @@ export function IpoFeeds({
         </Text>
       )}
       {problems.length > 0 && (
-        <Alert variant="warning" className="dark:text-warning">
+        <Alert variant="warning">
           <AlertTriangleIcon aria-hidden />
           <AlertTitle>Some IPO data may be out of date</AlertTitle>
           <AlertDescription>

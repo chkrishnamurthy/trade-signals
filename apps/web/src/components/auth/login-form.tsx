@@ -83,7 +83,7 @@ export function LoginForm({
       footer={
         <span className="flex items-center justify-between gap-3">
           New here?
-          <Link href="/signup" className="font-medium text-primary hover:underline">
+          <Link href="/signup" className="font-medium text-primary-strong hover:underline">
             Create account
           </Link>
         </span>
@@ -122,7 +122,7 @@ export function LoginForm({
         <FormField>
           <div className="flex items-center justify-between gap-3">
             <FormLabel>Password</FormLabel>
-            <Link href="/reset" className="font-medium text-primary text-xs hover:underline">
+            <Link href="/reset" className="font-medium text-primary-strong text-xs hover:underline">
               Reset password
             </Link>
           </div>
@@ -156,7 +156,7 @@ export function LoginForm({
         </Button>
 
         <div className="flex gap-3 rounded-md border border-border bg-surface-sunken p-3 text-muted-foreground text-xs leading-5">
-          <LockKeyholeIcon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+          <LockKeyholeIcon className="mt-0.5 size-4 shrink-0 text-primary-strong" aria-hidden />
           <p>
             <span className="font-medium text-foreground">Private by default.</span> Your watchlists
             are account-scoped. EquityWise is for market analysis and does not place trades.

@@ -189,7 +189,7 @@ export function ControlsCard({
             })}
           </ul>
           {enabledStrategies.length === 0 ? (
-            <p className="mt-2 text-xs text-warning-foreground">
+            <p className="mt-2 text-xs text-warning-strong">
               No strategy is enabled, so nothing will be traded even with paper trading on.
             </p>
           ) : null}

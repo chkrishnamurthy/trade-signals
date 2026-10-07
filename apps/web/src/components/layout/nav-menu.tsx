@@ -107,7 +107,7 @@ export function NavMenu({
             <DropdownMenuItem
               key={item.id}
               asChild
-              className={cn('items-start', here && 'bg-accent [&_svg]:text-primary')}
+              className={cn('items-start', here && 'bg-accent [&_svg]:text-primary-strong')}
             >
               <Link href={item.href} aria-current={here ? 'page' : undefined}>
                 {body}

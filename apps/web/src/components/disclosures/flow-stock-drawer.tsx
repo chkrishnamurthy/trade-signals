@@ -273,7 +273,7 @@ function DrawerBody({ detail }: { detail: StockFlowDetailDto }) {
       <div className="flex flex-wrap gap-3 border-t border-border pt-4 text-xs">
         <Link
           href={`/announcements?symbol=${encodeURIComponent(detail.symbol)}`}
-          className="text-primary hover:underline"
+          className="text-primary-strong hover:underline"
         >
           Announcements for {detail.symbol}
         </Link>

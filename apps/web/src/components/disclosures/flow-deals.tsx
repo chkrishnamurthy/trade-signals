@@ -208,7 +208,7 @@ export function DealsSection({
                     <button
                       type="button"
                       onClick={() => setLimit((n) => n + PAGE)}
-                      className="text-primary text-xs hover:underline"
+                      className="text-primary-strong text-xs hover:underline"
                     >
                       Show {Math.min(PAGE, filtered.length - limit)} more of {filtered.length}
                     </button>

@@ -220,7 +220,7 @@ export function StocksSection({
                   <button
                     type="button"
                     onClick={() => setLimit((n) => n + 50)}
-                    className="text-primary text-xs hover:underline"
+                    className="text-primary-strong text-xs hover:underline"
                   >
                     Show {Math.min(50, visible.length - shown.length)} more of {visible.length}
                   </button>

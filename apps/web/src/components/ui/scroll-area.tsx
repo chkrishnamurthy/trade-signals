@@ -24,6 +24,8 @@ function ScrollArea({ className, children, viewportClassName, ...props }: Scroll
           viewport still overrides via `viewportClassName`. */}
       <ScrollAreaPrimitive.Viewport
         data-slot="scroll-area-viewport"
+        // Keyboard users must be able to scroll it (WCAG 2.1.1).
+        tabIndex={0}
         className={cn(
           'size-full max-h-[inherit] rounded-[inherit] outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring',
           viewportClassName,
