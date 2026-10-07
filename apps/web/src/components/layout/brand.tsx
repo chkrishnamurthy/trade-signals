@@ -37,12 +37,8 @@ export function Brand({
         className="size-7 shrink-0"
         aria-hidden
       />
-      {/* Inside the navigation rail this fades with the rest of the labels;
-          everywhere else the attribute is inert. See `globals.css`. */}
       {showWordmark && (
-        <span data-nav-label className="font-display text-lg font-extrabold tracking-tight">
-          EquityWise
-        </span>
+        <span className="font-display text-lg font-extrabold tracking-tight">EquityWise</span>
       )}
       <span className="sr-only">EquityWise — NSE market analysis, home</span>
     </Link>

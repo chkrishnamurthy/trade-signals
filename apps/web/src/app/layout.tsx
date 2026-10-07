@@ -3,7 +3,6 @@ import { Bricolage_Grotesque, Inter, JetBrains_Mono } from 'next/font/google';
 import type { ReactNode } from 'react';
 import { JsonLd } from '@/components/seo/json-ld';
 import { ToastProvider } from '@/components/ui/toast';
-import { NAV_INIT_SCRIPT } from '@/lib/nav-rail';
 import {
   generateOrganizationAndWebsiteSchema,
   SITE_DESCRIPTION,
@@ -102,7 +101,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   const globalSchema = generateOrganizationAndWebsiteSchema();
 
   return (
-    // The theme and navigation scripts write to <html> before React sees the
+    // The theme script writes to <html> before React sees the
     // document, so the server markup and the hydrated markup differ here by
     // design.
     <html
@@ -117,10 +116,6 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             inline script is the only way to set the theme before first paint;
             the content is a module constant, never user input. */}
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
-        {/* biome-ignore lint/security/noDangerouslySetInnerHtml: same reason —
-            the navigation rail's width has to be right on the first frame, or
-            every page load shows the panel snapping shut after hydration. */}
-        <script dangerouslySetInnerHTML={{ __html: NAV_INIT_SCRIPT }} />
       </head>
       <body className="min-h-dvh bg-background text-foreground" suppressHydrationWarning>
         {/* No auth gate at present — every route is open. A future login system

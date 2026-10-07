@@ -39,10 +39,10 @@ historical intent; that intraday code no longer exists in the tree.
 > per-user paper trading (`/paper-trading`) have since been built — see
 > `docs/planning/intraday-strategy-dhan-plan.md` and `docs/planning/paper-trading-plan.md`.
 > **Both are admin-only:** the pages redirect a non-admin, their APIs answer 403, and
-> they are not in the primary navigation. Do not expose them to users without a decision.
+> they appear only in the admin-only "Lab" menu. Do not expose them to users without a decision.
 
 > **Update (2026-10-02):** `/ipos` — Indian mainboard and SME IPOs — is built for **every
-> signed-in user** (in the "Market record" navigation). Since 2026-10-04 it is one section
+> signed-in user** (in the "Markets" navigation menu). Since 2026-10-04 it is one section
 > with a shared header (board scope All boards/Mainboard/SME, section tabs): `/ipos` is the
 > Overview hub, `/ipos/all` the master table (`/ipos/mainboard`, `/ipos/sme` redirect there),
 > `/ipos/calendar`, `/ipos/listings`, `/ipos/gmp` (unofficial) and `/ipos/pipeline` are its
@@ -60,7 +60,7 @@ historical intent; that intraday code no longer exists in the tree.
 > `docs/planning/holdings-plan.md`. Phase 1 (MVP) first; later phases are gated on data.
 
 > **Update (2026-10-03):** stock analysis — `/screener`, `/stocks/[symbol]` and
-> `/markets/breadth` (the "Discover" navigation) — is built for **every signed-in user**
+> `/markets/breadth` (the "Screener" tab and the "Markets" menu) — is built for **every signed-in user**
 > from Dhan, Fyers and data EquityWise already collects. The whole NSE EQ/BE/BZ universe
 > comes from the bhavcopy (split/bonus-adjusted via `corporate_actions`); the worker
 > builds a nightly `screener_snapshots` row per stock (~95 technical, delivery, F&O,

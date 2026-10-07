@@ -1,181 +1,325 @@
 import type { LucideIcon } from 'lucide-react';
 import {
   ActivityIcon,
-  BellIcon,
+  BellRingIcon,
+  BookOpenIcon,
   BriefcaseIcon,
   CalendarDaysIcon,
   CalendarRangeIcon,
+  DatabaseIcon,
   FlaskConicalIcon,
   GaugeIcon,
+  HistoryIcon,
   LandmarkIcon,
+  LayoutGridIcon,
+  LifeBuoyIcon,
   ListIcon,
   MegaphoneIcon,
+  ScaleIcon,
+  ShieldIcon,
   SlidersHorizontalIcon,
   SunriseIcon,
-  UserIcon,
 } from 'lucide-react';
 import type { Route } from 'next';
 
 /**
- * Navigation model.
+ * Navigation model — the single source for the top bar, the bottom tab bar,
+ * the "More" drawer and the account menu (`docs/planning/navigation-redesign-plan.md`).
  *
- * One list drives the sidebar, the mobile drawer and the breadcrumb. Sections
- * that are designed but not built are declared here as `planned` rather than
- * omitted: the shape of the product should be visible, and a dead link is
- * worse than a disabled one.
+ * Shape, in one sentence: at most six primary destinations, one of which is a
+ * menu ("Markets"), plus an admin-only "Lab" menu. Trading platforms people
+ * already trust (Kite, Groww, TradingView) all hold the primary row to about
+ * five or six names; the old bar showed ten and had to fold half of them away
+ * on ordinary laptops.
  *
- * `label` is the page's title, verbatim. They drifted apart once — the nav said
- * "Signal accuracy", the tab said "Signal accuracy" and the heading said
- * "Signal performance", three names for one screen — so the rule now is that
- * clicking a nav row lands you on a page whose `<h1>` reads exactly what you
- * clicked.
- *
- * `href` is only present on `ready` entries — `typedRoutes` will not accept a
- * link to a route that does not exist, which is exactly the guard we want.
+ * Rules that keep it honest:
+ * - `label` is the noun the page is about. A nav row lands on a page whose
+ *   heading says the same thing ("My watchlists" for "Watchlists" is fine;
+ *   "Signal performance" for "Signal accuracy" is not).
+ * - `href` exists only on `ready` entries, so `typedRoutes` refuses a link to a
+ *   route that does not exist. Designed-but-unbuilt sections are `planned`:
+ *   visible and disabled, never a dead link.
+ * - `matches` lists the other path prefixes that belong to the section, so a
+ *   page reached from it (a stock page, an IPO in full) still lights it.
  */
-export interface NavItem {
+export interface NavItemBase {
+  readonly id: string;
   readonly label: string;
   readonly icon: LucideIcon;
+  /** One line, shown in tooltips and menus. */
   readonly description: string;
 }
 
-export interface ReadyNavItem extends NavItem {
+export interface ReadyNavItem extends NavItemBase {
   readonly status: 'ready';
   readonly href: Route;
+  /** Extra path prefixes that count as being inside this destination. */
+  readonly matches?: readonly string[] | undefined;
+  /** Shorter label for the bottom tab bar, where ~70px is all a tab gets. */
+  readonly shortLabel?: string | undefined;
 }
 
-export interface PlannedNavItem extends NavItem {
+export interface PlannedNavItem extends NavItemBase {
   readonly status: 'planned';
 }
 
-export type NavEntry = ReadyNavItem | PlannedNavItem;
+export type NavItem = ReadyNavItem | PlannedNavItem;
 
-export interface NavGroup {
+/** A primary-bar entry that opens a menu instead of navigating. */
+export interface NavMenuGroup {
+  readonly id: string;
   readonly label: string;
-  readonly items: readonly NavEntry[];
+  readonly icon: LucideIcon;
+  readonly items: readonly NavItem[];
 }
 
-export const NAVIGATION: readonly NavGroup[] = [
+export type PrimaryEntry =
+  | { readonly kind: 'link'; readonly item: ReadyNavItem }
+  | { readonly kind: 'menu'; readonly group: NavMenuGroup };
+
+// ---------------------------------------------------------------------------
+// Destinations
+// ---------------------------------------------------------------------------
+
+const MARKET_BRIEF: ReadyNavItem = {
+  id: 'brief',
+  status: 'ready',
+  href: '/today',
+  label: 'Market brief',
+  shortLabel: 'Brief',
+  icon: SunriseIcon,
+  description: 'A technical summary of the latest completed session',
+};
+
+const WATCHLISTS: ReadyNavItem = {
+  id: 'watchlists',
+  status: 'ready',
+  href: '/watchlists',
+  label: 'Watchlists',
+  icon: ListIcon,
+  description: 'The stocks you have chosen to follow',
+};
+
+const PORTFOLIO: ReadyNavItem = {
+  id: 'portfolio',
+  status: 'ready',
+  href: '/portfolio',
+  label: 'Portfolio',
+  icon: BriefcaseIcon,
+  description: 'The shares you hold, typed in or uploaded by you, valued at the latest price',
+};
+
+const SCREENER: ReadyNavItem = {
+  id: 'screener',
+  status: 'ready',
+  href: '/screener',
+  label: 'Screener',
+  icon: SlidersHorizontalIcon,
+  // A stock page is where a screen leads, and where a search lands.
+  matches: ['/stocks'],
+  description: 'Filter every NSE stock by technical, delivery, F&O and ownership conditions',
+};
+
+const ALERTS: ReadyNavItem = {
+  id: 'alerts',
+  status: 'ready',
+  href: '/alerts',
+  label: 'Alerts',
+  icon: BellRingIcon,
+  description: 'Be told when a stock crosses a price or RSI level at the close',
+};
+
+/** The "Markets" menu — what the whole market did, not one stock. */
+export const MARKETS_GROUP: NavMenuGroup = {
+  id: 'markets',
+  label: 'Markets',
+  icon: LayoutGridIcon,
+  items: [
+    {
+      id: 'breadth',
+      status: 'ready',
+      href: '/markets/breadth',
+      label: 'Market breadth',
+      icon: GaugeIcon,
+      description: 'Advances, declines, highs vs lows and industry rotation',
+    },
+    {
+      id: 'flows',
+      status: 'ready',
+      href: '/flows',
+      label: 'Institutional flow',
+      icon: LandmarkIcon,
+      description: 'FII/DII activity, bulk and block deals, and shareholding',
+    },
+    {
+      id: 'announcements',
+      status: 'ready',
+      href: '/announcements',
+      label: 'Announcements',
+      icon: MegaphoneIcon,
+      description: 'Official corporate filings from the exchanges',
+    },
+    {
+      id: 'calendar',
+      status: 'ready',
+      href: '/calendar',
+      label: 'Market calendar',
+      icon: CalendarDaysIcon,
+      description: 'Results, corporate actions, holidays and watchlist events',
+    },
+    {
+      id: 'ipos',
+      status: 'ready',
+      href: '/ipos',
+      label: 'IPOs',
+      icon: CalendarRangeIcon,
+      description: 'Mainboard and SME public issues: dates, demand and listing',
+    },
+  ],
+};
+
+/**
+ * The admin-only "Lab": strategies under evaluation. Their pages redirect a
+ * non-admin and their APIs answer 403 (CLAUDE.md) — hiding the menu is a
+ * courtesy, not the guard.
+ */
+export const LAB_GROUP: NavMenuGroup = {
+  id: 'lab',
+  label: 'Lab',
+  icon: FlaskConicalIcon,
+  items: [
+    {
+      id: 'intraday',
+      status: 'ready',
+      href: '/intraday',
+      label: 'Intraday signals',
+      icon: ActivityIcon,
+      description: 'One rule-based intraday strategy, its signals and paper trades',
+    },
+    {
+      id: 'paper',
+      status: 'ready',
+      href: '/paper-trading',
+      label: 'Paper trading',
+      icon: FlaskConicalIcon,
+      description: 'Strategies simulated automatically on virtual capital',
+    },
+    {
+      id: 'backtests',
+      status: 'planned',
+      label: 'Backtests',
+      icon: HistoryIcon,
+      description: 'Replay a strategy version over past sessions',
+    },
+    {
+      id: 'admin',
+      status: 'ready',
+      href: '/admin',
+      label: 'Admin console',
+      icon: ShieldIcon,
+      description: 'Data health, IPO pipeline and the event log',
+    },
+  ],
+};
+
+/**
+ * Trust links: always one click away, in the footer of every signed-in page
+ * and in the account menu. "Not investment advice" is the product's position,
+ * so it is never further away than this.
+ */
+export const HELP_LINKS: readonly ReadyNavItem[] = [
   {
-    label: 'Tracking',
-    items: [
-      {
-        status: 'ready',
-        href: '/today',
-        label: 'Market Brief',
-        icon: SunriseIcon,
-        description: 'A technical summary of the latest completed session',
-      },
-      {
-        status: 'ready',
-        href: '/watchlists',
-        label: 'My watchlists',
-        icon: ListIcon,
-        description: 'The names you have chosen to follow',
-      },
-      {
-        status: 'ready',
-        href: '/portfolio',
-        label: 'My portfolio',
-        icon: BriefcaseIcon,
-        description: 'The shares you hold, typed in or uploaded by you, valued at the latest price',
-      },
-      {
-        status: 'ready',
-        href: '/alerts',
-        label: 'Alerts',
-        icon: BellIcon,
-        description: 'Be told when a stock crosses a price or RSI level at the close',
-      },
-    ],
+    id: 'disclaimer',
+    status: 'ready',
+    href: '/disclaimer',
+    label: 'Disclaimer',
+    icon: ScaleIcon,
+    description: 'A research tool, not investment advice',
   },
   {
-    label: 'Discover',
-    items: [
-      {
-        status: 'ready',
-        href: '/screener',
-        label: 'Screener',
-        icon: SlidersHorizontalIcon,
-        description:
-          'Multi-condition technical, delivery, F&O and ownership filters across every NSE stock',
-      },
-      {
-        status: 'ready',
-        href: '/markets/breadth',
-        label: 'Market breadth',
-        icon: GaugeIcon,
-        description:
-          'Advances, declines, stocks above key averages, highs vs lows and industry rotation',
-      },
-    ],
+    id: 'methodology',
+    status: 'ready',
+    href: '/methodology',
+    label: 'Methodology',
+    icon: BookOpenIcon,
+    description: 'How every indicator and reading is computed',
   },
   {
-    label: 'Market record',
-    items: [
-      {
-        status: 'ready',
-        href: '/announcements',
-        label: 'Announcements',
-        icon: MegaphoneIcon,
-        description: 'Official corporate filings from the exchanges',
-      },
-      {
-        status: 'ready',
-        href: '/calendar',
-        label: 'Market Calendar',
-        icon: CalendarDaysIcon,
-        description: 'Results, corporate actions, holidays, and watchlist events',
-      },
-      {
-        status: 'ready',
-        href: '/flows',
-        label: 'Institutional Flow',
-        icon: LandmarkIcon,
-        description: 'FII/DII activity, bulk & block deals, and shareholding',
-      },
-      {
-        status: 'ready',
-        href: '/ipos',
-        label: 'IPOs',
-        icon: CalendarRangeIcon,
-        description: 'Mainboard and SME public issues: dates, demand and listing',
-      },
-    ],
+    id: 'data-sources',
+    status: 'ready',
+    href: '/data-sources',
+    label: 'Data sources',
+    icon: DatabaseIcon,
+    description: 'Where the prices and filings come from, and how fresh they are',
   },
   {
-    label: 'Account',
-    items: [
-      {
-        status: 'ready',
-        href: '/profile',
-        label: 'Your profile',
-        icon: UserIcon,
-        description: 'Your details, preferences and account security',
-      },
-    ],
+    id: 'contact',
+    status: 'ready',
+    href: '/contact',
+    label: 'Contact & support',
+    icon: LifeBuoyIcon,
+    description: 'Report a problem or ask a question',
   },
+];
+
+// ---------------------------------------------------------------------------
+// Arrangements
+// ---------------------------------------------------------------------------
+
+/** The desktop bar, left to right. Lab is appended for admins at render time. */
+export const PRIMARY_NAV: readonly PrimaryEntry[] = [
+  { kind: 'link', item: MARKET_BRIEF },
+  { kind: 'link', item: WATCHLISTS },
+  { kind: 'link', item: PORTFOLIO },
+  { kind: 'link', item: SCREENER },
+  { kind: 'menu', group: MARKETS_GROUP },
+  { kind: 'link', item: ALERTS },
 ];
 
 /**
- * Admin-only destinations. `/intraday` and `/paper-trading` are under
- * evaluation and are not offered to users: their pages redirect a non-admin to
- * `/watchlists` and their APIs answer 403. They are reached from the user menu
- * and `/admin`, never from the primary bar or the footer.
+ * The bottom tab bar (below `lg`). Four destinations plus "More", which opens
+ * the drawer holding everything else. Five is the most a 360px phone can show
+ * with a readable label under each icon.
  */
-export const ADMIN_NAVIGATION: readonly ReadyNavItem[] = [
-  {
-    status: 'ready',
-    href: '/intraday',
-    label: 'Intraday',
-    icon: ActivityIcon,
-    description: 'One rule-based intraday strategy, its signals and paper trades',
-  },
-  {
-    status: 'ready',
-    href: '/paper-trading',
-    label: 'Paper Trading',
-    icon: FlaskConicalIcon,
-    description: 'Strategies simulated automatically on virtual capital',
-  },
+export const MOBILE_TABS: readonly ReadyNavItem[] = [MARKET_BRIEF, WATCHLISTS, PORTFOLIO, SCREENER];
+
+/** What the "More" drawer lists, in order. Lab is appended for admins. */
+export const DRAWER_SECTIONS: readonly NavMenuGroup[] = [
+  MARKETS_GROUP,
+  { id: 'tools', label: 'Tools', icon: BellRingIcon, items: [ALERTS] },
 ];
+
+/** The URL a home link goes to — the brand mark, and "back to the app". */
+export const HOME_HREF: Route = MARKET_BRIEF.href;
+
+// ---------------------------------------------------------------------------
+// Matching
+// ---------------------------------------------------------------------------
+
+/** True when `pathname` is `prefix` or sits beneath it (`/ipos` matches `/ipos/x`, not `/iposx`). */
+function underPrefix(pathname: string, prefix: string): boolean {
+  return pathname === prefix || pathname.startsWith(`${prefix}/`);
+}
+
+/** Whether this destination is the one the user is in. */
+export function isItemActive(item: NavItem, pathname: string): boolean {
+  if (item.status !== 'ready') return false;
+  return [item.href, ...(item.matches ?? [])].some((prefix) => underPrefix(pathname, prefix));
+}
+
+/** Whether any destination in the menu is the current one — lights the menu's trigger. */
+export function isGroupActive(group: NavMenuGroup, pathname: string): boolean {
+  return group.items.some((item) => isItemActive(item, pathname));
+}
+
+/** Every ready destination, flattened — for tests and for anything that needs a lookup. */
+export function allReadyItems(includeAdmin: boolean): readonly ReadyNavItem[] {
+  const groups: readonly NavMenuGroup[] = includeAdmin
+    ? [MARKETS_GROUP, LAB_GROUP]
+    : [MARKETS_GROUP];
+  const items: NavItem[] = [
+    ...PRIMARY_NAV.flatMap((entry) => (entry.kind === 'link' ? [entry.item] : [])),
+    ...groups.flatMap((group) => group.items),
+  ];
+  return items.filter((item): item is ReadyNavItem => item.status === 'ready');
+}

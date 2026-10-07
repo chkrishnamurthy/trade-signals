@@ -28,20 +28,26 @@ const ICONS: Record<ThemePreference, typeof SunIcon> = {
 };
 
 /**
- * Light / System / Dark switch.
+ * The stored theme preference and a setter that persists and applies it.
  *
- * The rendered markup cannot depend on `localStorage` during SSR, so no segment
- * is marked active until after mount — otherwise the server's guess and the
- * client's reality disagree and React throws a hydration error. The class on
- * <html> is already correct by then, set by the blocking script in the layout,
- * so nothing visibly flashes.
+ * Shared by the toggle below and the account menu's Theme choice, so both stay
+ * in step with the OS (on `system`) and with other tabs.
+ *
+ * The rendered markup cannot depend on `localStorage` during SSR, so
+ * `preference` is `null` until after mount — otherwise the server's guess and
+ * the client's reality disagree and React throws a hydration error. The class
+ * on <html> is already correct by then, set by the blocking script in the
+ * layout, so nothing visibly flashes.
  */
-export function ThemeToggle() {
-  const [preference, setPreference] = useState<ThemePreference>('system');
+export function useThemePreference(): {
+  readonly preference: ThemePreference | null;
+  readonly setPreference: (next: string) => void;
+} {
+  const [preference, setPreferenceState] = useState<ThemePreference>('system');
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setPreference(readStoredPreference());
+    setPreferenceState(readStoredPreference());
     setMounted(true);
   }, []);
 
@@ -55,30 +61,40 @@ export function ThemeToggle() {
     return () => query.removeEventListener('change', onChange);
   }, [preference]);
 
-  // A second tab is the same single user; a theme change there applies here.
+  // A second tab is the same user; a theme change there applies here.
   useEffect(() => {
     const onStorage = (event: StorageEvent) => {
       if (event.key !== THEME_STORAGE_KEY) return;
       const next = isThemePreference(event.newValue) ? event.newValue : 'system';
-      setPreference(next);
+      setPreferenceState(next);
       applyTheme(resolveTheme(next));
     };
     window.addEventListener('storage', onStorage);
     return () => window.removeEventListener('storage', onStorage);
   }, []);
 
-  const select = useCallback((next: string) => {
+  const setPreference = useCallback((next: string) => {
     if (!isThemePreference(next)) return;
-    setPreference(next);
+    setPreferenceState(next);
     writeStoredPreference(next);
     applyTheme(resolveTheme(next));
   }, []);
 
+  return { preference: mounted ? preference : null, setPreference };
+}
+
+export const THEME_LABELS = LABELS;
+export const THEME_ICONS = ICONS;
+
+/** Light / System / Dark switch. */
+export function ThemeToggle() {
+  const { preference, setPreference } = useThemePreference();
+
   return (
     <ToggleGroup
       type="single"
-      value={mounted ? preference : ''}
-      onValueChange={select}
+      value={preference ?? ''}
+      onValueChange={setPreference}
       aria-label="Colour theme"
     >
       {THEME_PREFERENCES.map((option) => {

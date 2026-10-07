@@ -1,52 +1,33 @@
 'use client';
 
-import { ChevronDownIcon, MenuIcon } from 'lucide-react';
-import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import type { Route } from 'next';
+import { useRouter } from 'next/navigation';
 import type * as React from 'react';
-import { useCallback, useState } from 'react';
-import { UserMenu } from '@/components/auth/user-menu';
-import { IndexStrip } from '@/components/market/index-strip';
-import { StockSearch } from '@/components/market/stock-search';
-import { NoticesBell } from '@/components/portfolio/notices-bell';
-import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet';
-import { ThemeToggle } from '@/components/ui/theme-toggle';
+import { useCallback } from 'react';
+import { IndexStripView } from '@/components/market/index-strip';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { NAVIGATION, type ReadyNavItem } from '@/lib/navigation';
+import { stockHref } from '@/lib/screener-format';
+import { useIndexStrip } from '@/lib/use-index-strip';
+import { useSession } from '@/lib/use-session';
 import { cn } from '@/lib/utils';
-import { Brand } from './brand';
+import { AppFooter } from './app-footer';
+import { MobileNav } from './mobile-nav';
+import { Navbar } from './navbar';
 
 /**
- * The application frame.
+ * The application frame for every signed-in route
+ * (`docs/planning/navigation-redesign-plan.md`).
  *
- * A single horizontal command bar sits on top of every signed-in route, with a
- * main region beneath it. This replaced the collapsing icon rail: the product
- * is a place people come to read the market, not an operator's console, so the
- * chrome reads like a consumer app — a wordmark, a row of named destinations, a
- * search box and the account — rather than a dashboard sidebar.
+ *   skip link
+ *   Navbar          sticky, 56px — brand, destinations (≥ lg), search, status, account
+ *   indices strip   sticky, 36px — rendered once, here (docs/reference/market-indices-strip.md)
+ *   main            the page; its own header scrolls away with it
+ *   AppFooter       not-advice line + help & legal links
+ *   MobileNav       fixed bottom tab bar + "More" drawer (< lg)
  *
- * Every route renders inside this, so a new page inherits navigation, session
- * state and theming without wiring anything. On `lg` and up the destinations
- * live in the bar; below that they move into a Sheet, which brings a focus trap
- * and Escape-to-close for free.
- *
- * Directly under the bar sits the market indices strip — sticky like the bar,
- * rendered here exactly once so it cannot sit in a different place on two
- * pages (`docs/reference/market-indices-strip.md`). A page's own header comes
- * after it, inside `main`, and scrolls away like content.
+ * It owns the single `useIndexStrip()` subscription and hands the snapshot to
+ * both the strip and the bar's market-status pill, so they cannot disagree.
+ * It owns the session too, for the admin-only "Lab" menu.
  */
 export function AppShell({
   children,
@@ -55,15 +36,17 @@ export function AppShell({
 }: {
   children: React.ReactNode;
   /**
-   * Where a header search hit goes. Defaults to the watchlists page; a page
-   * with its own detail surface passes a handler so searching does not bounce
-   * the user off the screen they are on.
+   * Where a header search hit goes. Defaults to the stock page — the same
+   * place on every route. A page that can show the stock in place passes a
+   * handler so searching does not bounce the user off the screen they are on.
    */
   onSearchSelect?: ((symbol: string) => void) | undefined;
   className?: string | undefined;
 }) {
   const router = useRouter();
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const strip = useIndexStrip();
+  const session = useSession();
+  const isAdmin = session.status === 'signed-in' && session.user.role === 'admin';
 
   const handleSearchSelect = useCallback(
     (symbol: string) => {
@@ -71,7 +54,7 @@ export function AppShell({
         onSearchSelect(symbol);
         return;
       }
-      router.push(`/watchlists?symbol=${encodeURIComponent(symbol)}`);
+      router.push(stockHref(symbol) as Route);
     },
     [onSearchSelect, router],
   );
@@ -79,198 +62,24 @@ export function AppShell({
   return (
     <TooltipProvider>
       <div className={cn('flex min-h-dvh flex-col bg-background', className)}>
-        {/* First stop for keyboard users: past the bar's links to the page. */}
         <a
           href="#main-content"
-          className="sr-only rounded-md bg-foreground font-medium text-background text-sm focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:px-3 focus:py-2 focus:outline-2 focus:outline-solid focus:outline-offset-2 focus:outline-ring"
+          className="sr-only rounded-md bg-foreground font-medium text-background text-sm focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:px-3 focus:py-2 focus:outline-2 focus:outline-ring focus:outline-solid focus:outline-offset-2"
         >
           Skip to content
         </a>
-        <header className="sticky top-0 z-40 border-border border-b bg-surface/85 backdrop-blur supports-[backdrop-filter]:bg-surface/75">
-          <div className="mx-auto flex h-14 max-w-[1800px] items-center gap-2 px-4 sm:gap-4 sm:px-6">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setDrawerOpen(true)}
-              className="shrink-0 xl:hidden"
-              aria-label="Open navigation"
-            >
-              <MenuIcon />
-            </Button>
 
-            {/* Phone widths get the mark alone: the wordmark, a fixed-width
-                search box and the theme toggle together outrun a 390px
-                viewport, and a header that cannot shrink widens the whole
-                document — the page then scrolls sideways under the user. */}
-            <Brand
-              href="/today"
-              className="shrink-0 sm:hidden xl:flex 2xl:hidden"
-              showWordmark={false}
-            />
-            <Brand href="/today" className="hidden shrink-0 sm:flex xl:hidden 2xl:flex" />
-
-            {/* Primary destinations. A single row of names — the whole point of
-                the redesign — so the app announces where you can go instead of
-                hiding it behind icons. Eight names, the search box and the theme
-                toggle need 1280px with the brand reduced to its mark and the Market record
-                pages folded into one menu (all inline from 1680px); below that the
-                menu button opens them. */}
-            <nav aria-label="Primary" className="hidden items-center gap-0.5 xl:flex">
-              {BAR_NAV.map((item) => (
-                <NavLink key={item.href} item={item} />
-              ))}
-              {/* The "Market record" pages sit inline only when there is room for
-                  every name; between 1280 and 1680px they fold into one menu so
-                  the bar never pushes the page sideways. */}
-              {FOLDED_NAV.map((item) => (
-                <NavLink key={item.href} item={item} className="hidden min-[1680px]:flex" />
-              ))}
-              <FoldedNavMenu items={FOLDED_NAV} label={FOLDED_GROUP} />
-            </nav>
-
-            <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-2 sm:flex-none sm:gap-3">
-              {/* Fills whatever the phone header has left; fixed only from `sm` up. */}
-              <div className="min-w-0 flex-1 sm:w-52 sm:flex-none xl:w-36 2xl:w-56">
-                <StockSearch onSelect={handleSearchSelect} />
-              </div>
-              <ThemeToggle />
-              <NoticesBell />
-              <UserMenu />
-            </div>
-          </div>
-        </header>
-
-        <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
-          <SheetContent side="left" className="w-72 p-0">
-            <SheetHeader className="h-14 items-start justify-center border-border border-b px-4 py-0">
-              <SheetTitle className="text-sm">
-                <Brand href="/today" />
-              </SheetTitle>
-              <SheetDescription className="sr-only">
-                Sections of the EquityWise application
-              </SheetDescription>
-            </SheetHeader>
-            <nav aria-label="Primary" className="flex flex-col gap-1 p-3">
-              {PRIMARY_NAV.map((item) => (
-                <NavLink
-                  key={item.href}
-                  item={item}
-                  variant="drawer"
-                  onNavigate={() => setDrawerOpen(false)}
-                />
-              ))}
-            </nav>
-          </SheetContent>
-        </Sheet>
-
-        <IndexStrip />
+        <Navbar onSearchSelect={handleSearchSelect} strip={strip} isAdmin={isAdmin} />
+        <IndexStripView state={strip.state} liveState={strip.liveState} />
 
         <main id="main-content" tabIndex={-1} className="min-w-0 flex-1 outline-none">
           {children}
         </main>
+
+        {/* Clears the fixed tab bar below lg so it never covers the footer. */}
+        <AppFooter className="pb-[calc(var(--nav-bottom-height)+env(safe-area-inset-bottom))] lg:pb-0" />
+        <MobileNav isAdmin={isAdmin} />
       </div>
     </TooltipProvider>
-  );
-}
-
-/**
- * A single destination in the bar (or the mobile drawer).
- *
- * A route is active when the current path is it or sits beneath it, so a stock
- * detail opened from the watchlist still lights the Watchlists tab.
- */
-function NavLink({
-  item,
-  variant = 'bar',
-  onNavigate,
-  className,
-}: {
-  item: ReadyNavItem;
-  variant?: 'bar' | 'drawer';
-  onNavigate?: (() => void) | undefined;
-  className?: string | undefined;
-}) {
-  const pathname = usePathname();
-  const Icon = item.icon;
-  const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
-
-  return (
-    <Link
-      href={item.href}
-      {...(onNavigate === undefined ? {} : { onClick: onNavigate })}
-      aria-current={active ? 'page' : undefined}
-      className={cn(
-        'flex items-center gap-2 rounded-md font-medium transition-colors',
-        // In the bar the row is tight: labels stay on one line and carry no
-        // icon at any width, so all eight fit with the account menu on screen.
-        variant === 'drawer'
-          ? 'px-3 py-2.5 text-sm'
-          : 'whitespace-nowrap px-2 py-1.5 text-sm 2xl:px-2.5',
-        active
-          ? 'bg-primary/10 text-primary'
-          : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground',
-        className,
-      )}
-    >
-      <Icon className={cn('size-4 shrink-0', variant === 'bar' && 'hidden')} aria-hidden />
-      {item.label}
-    </Link>
-  );
-}
-
-/**
- * The bar's destinations, flattened from the navigation model. The Account
- * group is excluded — the profile lives in the user menu, not the primary bar.
- */
-const PRIMARY_NAV: readonly ReadyNavItem[] = NAVIGATION.flatMap((group) =>
-  group.label === 'Account' ? [] : group.items,
-).filter((item): item is ReadyNavItem => item.status === 'ready');
-
-/** The group that folds into one menu on narrower desktop bars. */
-const FOLDED_GROUP = 'Market record';
-const isReady = (item: { status: string }): item is ReadyNavItem => item.status === 'ready';
-const FOLDED_NAV: readonly ReadyNavItem[] = (
-  NAVIGATION.find((group) => group.label === FOLDED_GROUP)?.items ?? []
-).filter(isReady);
-const BAR_NAV: readonly ReadyNavItem[] = PRIMARY_NAV.filter(
-  (item) => !FOLDED_NAV.some((folded) => folded.href === item.href),
-);
-
-/** The folded group as one menu button, shown only below 1680px. */
-function FoldedNavMenu({ items, label }: { items: readonly ReadyNavItem[]; label: string }) {
-  const pathname = usePathname();
-  const active = items.some(
-    (item) => pathname === item.href || pathname.startsWith(`${item.href}/`),
-  );
-  if (items.length === 0) return null;
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        className={cn(
-          'flex items-center gap-1 whitespace-nowrap rounded-md px-2 py-1.5 font-medium text-sm transition-colors min-[1680px]:hidden',
-          'focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-ring',
-          active
-            ? 'bg-primary/10 text-primary'
-            : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground',
-        )}
-      >
-        {label}
-        <ChevronDownIcon className="size-3.5" aria-hidden />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start">
-        {items.map((item) => {
-          const Icon = item.icon;
-          const current = pathname === item.href || pathname.startsWith(`${item.href}/`);
-          return (
-            <DropdownMenuItem key={item.href} asChild>
-              <Link href={item.href} aria-current={current ? 'page' : undefined}>
-                <Icon className="size-4" aria-hidden />
-                {item.label}
-              </Link>
-            </DropdownMenuItem>
-          );
-        })}
-      </DropdownMenuContent>
-    </DropdownMenu>
   );
 }
