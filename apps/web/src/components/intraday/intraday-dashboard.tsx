@@ -17,8 +17,8 @@ import { PaperStatusCard } from '@/components/paper/paper-status-card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
 import { API_ROUTES } from '@/lib/api-routes';
+import { IntradaySkeleton } from './intraday-skeleton';
 import { OverviewCard } from './overview-card';
 import { RulesCard } from './rules-card';
 import { SignalsCard } from './signals-card';
@@ -140,11 +140,7 @@ export function IntradayDashboard() {
               <RulesCard rules={data.rules} />
             </>
           ) : error ? null : (
-            <div className="space-y-4" aria-busy role="status">
-              <Skeleton className="h-40 w-full" />
-              <Skeleton className="h-64 w-full" />
-              <Skeleton className="h-40 w-full" />
-            </div>
+            <IntradaySkeleton />
           )}
           <PageDisclaimer>
             Signals are generated using predefined technical rules for educational and research

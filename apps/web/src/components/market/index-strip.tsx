@@ -79,22 +79,32 @@ export function IndexStripView({
           <>
             <div
               ref={scroller}
+              aria-busy={state.status === 'loading' || undefined}
               className={cn(
                 'flex min-w-0 flex-1 snap-x snap-mandatory items-baseline overflow-x-auto scrollbar-none',
                 overflowing && EDGE_FADE,
               )}
             >
-              {state.status === 'loading'
-                ? SKELETON_SLOTS.map((slot) => <IndexCellSkeleton key={slot} />)
-                : state.data.indices.map((index) => (
-                    <IndexCell
-                      key={index.symbol}
-                      index={index}
-                      stale={state.data.stale !== undefined}
-                      onSelect={(picked) => setSelectedSymbol(picked.symbol)}
-                      className="snap-start"
-                    />
+              {state.status === 'loading' ? (
+                <>
+                  <span role="status" className="sr-only">
+                    Loading market indices
+                  </span>
+                  {SKELETON_SLOTS.map((slot) => (
+                    <IndexCellSkeleton key={slot} />
                   ))}
+                </>
+              ) : (
+                state.data.indices.map((index) => (
+                  <IndexCell
+                    key={index.symbol}
+                    index={index}
+                    stale={state.data.stale !== undefined}
+                    onSelect={(picked) => setSelectedSymbol(picked.symbol)}
+                    className="snap-start"
+                  />
+                ))
+              )}
             </div>
             {state.status === 'ready' && (
               <StripStatus data={state.data} liveState={liveState} className="shrink-0" />

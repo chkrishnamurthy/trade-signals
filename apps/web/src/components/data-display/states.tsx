@@ -7,7 +7,6 @@ import {
 } from 'lucide-react';
 import type * as React from 'react';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
 
@@ -200,63 +199,4 @@ export function InlineError({
   );
 }
 
-/* ---------------------------------------------------------------------------
- * Loading
- *
- * Skeletons rather than spinners: a skeleton holds the layout it is about to
- * become, so the page does not jump when data lands.
- * -------------------------------------------------------------------------*/
-
-export function SkeletonRows({
-  rows = 5,
-  className,
-}: {
-  rows?: number | undefined;
-  className?: string | undefined;
-}) {
-  return (
-    <div className={cn('space-y-2', className)} aria-busy="true">
-      {Array.from({ length: rows }, (_, i) => (
-        // biome-ignore lint/suspicious/noArrayIndexKey: fixed-length skeleton, never reordered
-        <Skeleton key={i} className="h-8" />
-      ))}
-      <span className="sr-only">Loading</span>
-    </div>
-  );
-}
-
-export function CardSkeleton({ className }: { className?: string | undefined }) {
-  return <Skeleton className={cn('h-32 rounded-lg', className)} aria-busy="true" />;
-}
-
-export function ChartSkeleton({ className }: { className?: string | undefined }) {
-  return <Skeleton className={cn('h-80 rounded-lg', className)} aria-busy="true" />;
-}
-
-export function TableSkeleton({
-  rows = 8,
-  columns = 5,
-  className,
-}: {
-  rows?: number | undefined;
-  columns?: number | undefined;
-  className?: string | undefined;
-}) {
-  return (
-    <div className={cn('w-full', className)} aria-busy="true">
-      {Array.from({ length: rows }, (_, r) => (
-        <div
-          // biome-ignore lint/suspicious/noArrayIndexKey: fixed-length skeleton, never reordered
-          key={r}
-          className="flex items-center gap-3 border-b border-border px-3 py-2.5 last:border-0"
-        >
-          {Array.from({ length: columns }, (_, c) => (
-            // biome-ignore lint/suspicious/noArrayIndexKey: fixed-length skeleton, never reordered
-            <Skeleton key={c} className={cn('h-3.5', c === 0 ? 'w-28' : 'flex-1')} />
-          ))}
-        </div>
-      ))}
-      <span className="sr-only">Loading table data</span>
-    </div>
-  );
-}
+export { CardSkeleton, ChartSkeleton, SkeletonRows, TableSkeleton } from './loading';

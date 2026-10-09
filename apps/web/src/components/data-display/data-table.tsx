@@ -305,7 +305,7 @@ export function DataTable<Row>({
     selection.onChange(next);
   }, [selection, rows, allSelected, getRowId]);
 
-  if (status === 'loading') {
+  if (status === 'loading' && data.length === 0) {
     return (
       <TableSkeleton
         rows={pageSize ?? 8}
@@ -338,7 +338,11 @@ export function DataTable<Row>({
   }
 
   return (
-    <div ref={rootRef} className={cn('flex min-w-0 flex-col', className)}>
+    <div
+      ref={rootRef}
+      aria-busy={status === 'loading' || undefined}
+      className={cn('flex min-w-0 flex-col', className)}
+    >
       {columnVisibility && (
         <div className="flex justify-end px-3 py-1.5">
           <ColumnVisibilityMenu columns={columns} hidden={hidden} onChange={setHidden} />

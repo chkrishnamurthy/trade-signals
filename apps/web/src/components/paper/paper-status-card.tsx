@@ -1,6 +1,7 @@
 'use client';
 import { type PaperOverview, paperOverviewSchema } from '@equitywise/shared';
 import Link from 'next/link';
+import { CardSkeleton } from '@/components/data-display/loading';
 import { usePolledResource } from '@/components/intraday/use-polled-resource';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,7 +13,6 @@ import {
   CardHeading,
   CardTitle,
 } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
 import { API_ROUTES } from '@/lib/api-routes';
 import { price, signed } from './format';
 
@@ -65,5 +65,5 @@ export function PaperStatusCard() {
   const { data, error } = usePolledResource(API_ROUTES.paperOverview, paperOverviewSchema);
   if (data) return <PaperStatus data={data} />;
   if (error) return null;
-  return <Skeleton className="h-32 w-full" />;
+  return <CardSkeleton />;
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { SkeletonChart } from '@/components/data-display/loading';
 import { MetricHint } from '@/components/data-display/metric-card';
 import type { DeepestFallDto, PortfolioRiskDto, RiskFigureDto } from '@/lib/portfolio-types';
 import { cn } from '@/lib/utils';
@@ -128,11 +129,9 @@ function DrawdownChart({
     );
   if (width === null)
     return (
-      <div
-        ref={ref}
-        className="w-full animate-pulse rounded-md bg-surface-sunken"
-        style={{ height }}
-      />
+      <div ref={ref} className="w-full" style={{ height }}>
+        <SkeletonChart className="h-full border-0 p-0 shadow-none" />
+      </div>
     );
   const left = 48;
   const right = 12;

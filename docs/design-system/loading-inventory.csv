@@ -1,0 +1,267 @@
+file,surface,async evidence (line:code),loading policy
+apps/web/src/components/admin/event-log-view.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/alerts/alerts-view.tsx,component,"70:const response = await fetch(url, init);","Mutation on explicit action; retain form/dialog/content, pending control and existing error feedback"
+apps/web/src/components/auth/admin-users.tsx,component,"27:const res = await fetch(API_ROUTES.adminUser(id), {","Mutation on explicit action; retain form/dialog/content, pending control and existing error feedback"
+apps/web/src/components/auth/auth-card.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/auth/auth-loading.tsx,component,,Reusable skeleton composition or primitive; no data requests
+apps/web/src/components/auth/login-form.tsx,component,"45:const res = await fetch(API_ROUTES.authSignIn, {","Mutation on explicit action; retain form/dialog/content, pending control and existing error feedback"
+apps/web/src/components/auth/mfa-challenge.tsx,component,"19:const response = await fetch(API_ROUTES.authMfaVerify, {","Mutation on explicit action; retain form/dialog/content, pending control and existing error feedback"
+apps/web/src/components/auth/reset-form.tsx,component,"31:const res = await fetch(API_ROUTES.authResetRequest, { | 121:const res = await fetch(API_ROUTES.authResetConfirm, {","Mutation on explicit action; retain form/dialog/content, pending control and existing error feedback"
+apps/web/src/components/auth/signup-form.tsx,component,"32:const res = await fetch(API_ROUTES.authSignUp, {","Mutation on explicit action; retain form/dialog/content, pending control and existing error feedback"
+apps/web/src/components/auth/social-login.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/auth/user-menu.tsx,component,"33:fetch(API_ROUTES.authSession) | 68:await fetch(API_ROUTES.authSignOut({ all }), { method: 'POST' });",Account avatar slot; no blocking header
+apps/web/src/components/auth/verify-client.tsx,component,"21:const res = await fetch(API_ROUTES.authVerify, {",Announced verification status in persistent auth/card layout
+apps/web/src/components/calendar/calendar-view.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/charts/chart-container.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/data-display/data-table.tsx,component,,Initial table skeleton; populated refresh retains rows and headers
+apps/web/src/components/data-display/loading.tsx,component,,Reusable skeleton composition or primitive; no data requests
+apps/web/src/components/data-display/metric-card.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/data-display/states.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/disclosures/announcement-interpretation.tsx,component,"34:const result = await fetch(`/api/announcements/${row.id}`, { | 153:void fetch(`/api/announcements/${id}?attempt=${attempt}`, {",Version-history rows; existing interpretation retained on refresh
+apps/web/src/components/disclosures/announcements-view.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/disclosures/cash-activity-card.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/disclosures/flow-deals.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/disclosures/flow-feeds.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/disclosures/flow-mini-charts.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/disclosures/flow-shareholding.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/disclosures/flow-stock-drawer.tsx,component,"53:const response = await fetch(`/api/flows/${encodeURIComponent(symbol)}`, {","Metrics, rows and table inside existing sheet"
+apps/web/src/components/disclosures/flow-stock-table.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/disclosures/flow-tape.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/disclosures/flow-view.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/disclosures/parts.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/forms/filter-bar.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/forms/form-field.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/intraday/intraday-dashboard.tsx,component,"71:const { data, error, refreshing, refresh } = usePolledResource(",IntradaySkeleton on initial read; retained view on refresh
+apps/web/src/components/intraday/intraday-skeleton.tsx,component,,Reusable skeleton composition or primitive; no data requests
+apps/web/src/components/intraday/overview-card.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/intraday/rules-card.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/intraday/signals-card.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ipos/active-tab-into-view.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ipos/calendar/ipo-calendar-view.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ipos/card-note.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ipos/dashboard/calendar-modules.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ipos/dashboard/ipo-dashboard-view.tsx,component,1:import { Suspense } from 'react'; | 41:<Suspense fallback={null}> | 45:</Suspense>,Null fallback wraps URL/scroll bookkeeping only; server-provided content remains visible
+apps/web/src/components/ipos/dashboard/issue-modules.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ipos/dashboard/open-cards.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ipos/dashboard/section-directory.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ipos/dashboard/stage-rail.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ipos/dashboard/upcoming-module.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ipos/detail/fact-source.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ipos/detail/gmp-panel.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ipos/detail/ipo-detail-view.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ipos/detail/ipo-documents.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ipos/detail/ipo-key-facts.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ipos/detail/ipo-key-figures.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ipos/detail/ipo-limits.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ipos/detail/ipo-listing.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ipos/detail/ipo-participants.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ipos/detail/ipo-rhp.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ipos/detail/ipo-sources.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ipos/detail/ipo-stage-stepper.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ipos/detail/ipo-subscription.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ipos/detail/ipo-timeline.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ipos/gmp/ipo-gmp-view.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ipos/gmp-chip.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ipos/ipo-admin-health.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ipos/ipo-cells.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ipos/ipo-chip.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ipos/ipo-feeds.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ipos/ipo-figures.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ipos/ipo-gmp-note.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ipos/ipo-loading-patterns.tsx,component,,Reusable skeleton composition or primitive; no data requests
+apps/web/src/components/ipos/ipo-return.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ipos/ipo-section-header.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ipos/ipo-section-loading.tsx,component,,Reusable skeleton composition or primitive; no data requests
+apps/web/src/components/ipos/ipo-section-page.tsx,component,3:import { Suspense } from 'react'; | 43:<Suspense fallback={null}> | 45:</Suspense>,Null fallback wraps URL/scroll bookkeeping only; server-provided content remains visible
+apps/web/src/components/ipos/list/board-list-route.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ipos/list/ipo-board-table.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ipos/list/ipo-list-loading.tsx,component,,Reusable skeleton composition or primitive; no data requests
+apps/web/src/components/ipos/list/ipo-list-view.tsx,component,5:import { Suspense } from 'react'; | 113:<Suspense fallback={null}> | 117:</Suspense>,Null fallback wraps URL/scroll bookkeeping only; server-provided content remains visible
+apps/web/src/components/ipos/list/list-controls.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ipos/listings/ipo-listings-view.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ipos/module-card.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ipos/pipeline/ipo-pipeline-view.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ipos/scope-switch.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/layout/app-shell.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/layout/brand.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/layout/grid.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/layout/page-skeletons.tsx,component,,Reusable skeleton composition or primitive; no data requests
+apps/web/src/components/layout/page.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/layout/public-footer.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/layout/public-header.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/market/flash-on-change.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/market/index-cell.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/market/index-drawer.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/market/index-strip.tsx,component,,Fixed index cells; retained snapshots during polling
+apps/web/src/components/market/market-status.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/market/numeric.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/market/signal.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/market/sparkline.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/market/stock-identity.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/market/stock-search.tsx,component,"55:const response = await fetch(API_ROUTES.search(query), {",Search rows; debounce pending; preserve previous results; error on failure
+apps/web/src/components/market-brief/factor-breakdown.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/market-brief/market-brief-view.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/market-brief/parts.tsx,component,"254:const response = await fetch(`/api/watchlists/${defaultWatchlistId}/items`, {","Mutation on explicit action; retain form/dialog/content, pending control and existing error feedback"
+apps/web/src/components/markets/breadth-view.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/paper/activity-card.tsx,component,"105:const { data, error } = usePolledResource(",Activity rows within existing card
+apps/web/src/components/paper/controls-card.tsx,component,,"Mutation on explicit action; retain form/dialog/content, pending control and existing error feedback"
+apps/web/src/components/paper/history-card.tsx,component,"55:fetch(query(filter), { cache: 'no-store' })",Initial table rows; retain history on pagination
+apps/web/src/components/paper/open-trades-card.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/paper/paper-dashboard.tsx,component,"132:const { data, error, refreshing, refresh } = usePolledResource(",PaperSkeleton on initial read; retained view on refresh
+apps/web/src/components/paper/paper-health.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/paper/paper-skeleton.tsx,component,,Reusable skeleton composition or primitive; no data requests
+apps/web/src/components/paper/paper-status-card.tsx,component,"65:const { data, error } = usePolledResource(API_ROUTES.paperOverview, paperOverviewSchema);",Structured card on first read
+apps/web/src/components/paper/performance-card.tsx,component,"260:fetch(API_ROUTES.paperPerformance(range), { cache: 'no-store' })",Initial chart; retain report on range change
+apps/web/src/components/paper/summary-cards.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/paper/trades-table.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/portfolio/analysis-view.tsx,component,"119:{!ready && <ChartSkeleton className=""h-64"" />}",Server-provided content; neutral chart grid while measuring or resolving hash tab
+apps/web/src/components/portfolio/benchmark-view.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/portfolio/chart-extras.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/portfolio/entry-edit.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/portfolio/holding-detail-view.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/portfolio/notices-bell.tsx,component,,Optional unread indicator; no blocking placeholder
+apps/web/src/components/portfolio/notices-view.tsx,component,"112:const res = await fetch('/api/portfolio/notices/settings', { | 225:fetch('/api/portfolio/notices/read', {","Mutation on explicit action; retain form/dialog/content, pending control and existing error feedback"
+apps/web/src/components/portfolio/portfolio-charts.tsx,component,67:if (width === null),Server-provided content; neutral chart grid while measuring or resolving hash tab
+apps/web/src/components/portfolio/portfolio-nav.tsx,component,14:fetch('/api/portfolio/notices/count'),Keep known navigation; count badge arrives independently
+apps/web/src/components/portfolio/portfolio-view.tsx,component,"368:void fetch('/api/portfolio/prefs/fifo-note', { method: 'POST' }).catch(() => undefined); | 662:void fetch(API_ROUTES.search(query.trim()), { signal: controller.signal, cache: 'no-store' })",Initial route composition; search rows; file-preview rows; retain form on save
+apps/web/src/components/portfolio/returns-charts.tsx,component,83:if (width === null || points.length < 2) return []; | 99:if (width === null) | 406:if (width === null || dates.length < 2) return []; | 422:if (width === null),Server-provided content; neutral chart grid while measuring or resolving hash tab
+apps/web/src/components/portfolio/returns-view.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/portfolio/risk-view.tsx,component,117:if (width === null || points.length < 2) return []; | 130:if (width === null),Server-provided content; neutral chart grid while measuring or resolving hash tab
+apps/web/src/components/portfolio/statement-check-view.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/portfolio/summary-strip.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/portfolio/tax-lots-view.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/portfolio/tax-view.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/profile/avatar-uploader.tsx,component,"49:const res = await fetch(API_ROUTES.profileAvatar, { method: 'POST', body: form }); | 70:const res = await fetch(API_ROUTES.profileAvatar, { method: 'DELETE' });","Mutation on explicit action; retain form/dialog/content, pending control and existing error feedback"
+apps/web/src/components/profile/change-email.tsx,component,,"Mutation on explicit action; retain form/dialog/content, pending control and existing error feedback"
+apps/web/src/components/profile/change-password.tsx,component,,"Mutation on explicit action; retain form/dialog/content, pending control and existing error feedback"
+apps/web/src/components/profile/connected-methods.tsx,component,"50:const response = await fetch(API_ROUTES.accountIdentity(id), {","Mutation on explicit action; retain form/dialog/content, pending control and existing error feedback"
+apps/web/src/components/profile/danger-zone.tsx,component,,"Mutation on explicit action; retain form/dialog/content, pending control and existing error feedback"
+apps/web/src/components/profile/email-verification.tsx,component,,"Mutation on explicit action; retain form/dialog/content, pending control and existing error feedback"
+apps/web/src/components/profile/profile-form.tsx,component,,"Mutation on explicit action; retain form/dialog/content, pending control and existing error feedback"
+apps/web/src/components/profile/profile-tabs.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/profile/security-tab.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/profile/sessions-list.tsx,component,77:fetch(API_ROUTES.accountSessions),Session rows; distinct error and retry
+apps/web/src/components/profile/two-factor.tsx,component,"31:const response = await fetch(API_ROUTES.accountMfa, { method: 'POST' }); | 44:const response = await fetch(API_ROUTES.accountMfa, {","Mutation on explicit action; retain form/dialog/content, pending control and existing error feedback"
+apps/web/src/components/profile/verify-email-client.tsx,component,,Announced verification status in persistent auth/card layout
+apps/web/src/components/screener/column-picker.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/screener/filter-builder.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/screener/metric-picker.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/screener/results-table.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/screener/screener-view.tsx,component,"78:const response = await fetch(url, { | 264:const response = await fetch(`${API_ROUTES.watchlist(id)}/items`, { | 346:const r = await fetch(API_ROUTES.screenerScreen(id), { method: 'DELETE' });","Mutation on explicit action; retain form/dialog/content, pending control and existing error feedback"
+apps/web/src/components/seo/json-ld.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/stocks/add-to-watchlist.tsx,component,"19:const r = await fetch(API_ROUTES.watchlists); | 64:const r = await fetch(`${API_ROUTES.watchlist(w.id)}/items`, {",Popover rows; distinct error and retry
+apps/web/src/components/stocks/company-file.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/stocks/price-chart.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/stocks/ratio-board.tsx,component,"71:const r = await fetch(API_ROUTES.stockRatioLayout, { | 92:const r = await fetch(`${API_ROUTES.stockRatioLayout}${fnoEligible ? '?fno=1' : ''}`, {","Mutation on explicit action; retain form/dialog/content, pending control and existing error feedback"
+apps/web/src/components/stocks/stands-out.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/stocks/stock-header.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/stocks/stock-view.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ui/alert.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ui/badge.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ui/button.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ui/card.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ui/checkbox.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ui/dialog.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ui/dropdown-menu.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ui/input.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ui/label.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ui/popover.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ui/scroll-area.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ui/select.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ui/separator.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ui/sheet.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ui/skeleton.tsx,component,,Reusable skeleton composition or primitive; no data requests
+apps/web/src/components/ui/switch.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ui/table.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ui/tabs.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ui/textarea.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ui/theme-toggle.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ui/toast.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ui/toggle-group.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ui/tooltip.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/ui/typography.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/watchlists/add-stocks.tsx,component,"105:const response = await fetch(API_ROUTES.search(q), {",Search rows in open dialog; staged selections retained
+apps/web/src/components/watchlists/chart.tsx,component,"219:const response = await fetch(API_ROUTES.history(symbol, { tf: timeframe }), {",Chart skeleton on symbol/timeframe change; toolbar visible
+apps/web/src/components/watchlists/column-panel.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/watchlists/filter-panel.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/watchlists/import-stocks.tsx,component,"99:const response = await fetch(API_ROUTES.searchResolve, {","Mutation on explicit action; retain form/dialog/content, pending control and existing error feedback"
+apps/web/src/components/watchlists/quick-views.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/watchlists/starter-lists.tsx,component,"44:const response = await fetch(API_ROUTES.watchlistTemplates, {",Template rows; absent templates omitted
+apps/web/src/components/watchlists/stock-drawer.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/watchlists/summary-bar.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/watchlists/watchlist-cells.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/watchlists/watchlist-row-detail.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/watchlists/watchlist-table.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/watchlists/watchlist-tabs.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/watchlists/watchlists-page.tsx,component,96:} = useWatchlists();,Summary and table; navigation retained; polling retains data
+apps/web/src/components/intraday/fixture.ts,component,,Static development fixture; no loading state
+apps/web/src/components/intraday/format.ts,component,,Pure formatting helper; no loading state
+apps/web/src/components/intraday/use-polled-resource.ts,component,"30:const response = await fetch(url, { cache: 'no-store', signal: controller.signal });",Shared request owner; consumers provide initial skeletons and retain data during refresh
+apps/web/src/components/ipos/list/ipo-list-columns.ts,component,,Pure table-column definitions; parent list owns loading
+apps/web/src/components/ipos/section-route.ts,component,11:return await read();,Server read helper; route loading.tsx owns pending UI
+apps/web/src/components/landing/cta.tsx,component,19:const signupOpen = useSignupOpen();,Session-provider state; header and CTA reserve stable control dimensions
+apps/web/src/components/landing/mobile-cta-bar.tsx,component,,Local viewport behavior only; no data loading state
+apps/web/src/components/landing/previews.tsx,component,,Static product preview; no data loading state
+apps/web/src/components/landing/product-tour.tsx,component,,Static product tour; no data loading state
+apps/web/src/components/landing/sections.tsx,component,,Static landing sections; no data loading state
+apps/web/src/components/layout/app-footer.tsx,component,,Static application footer; no loading state
+apps/web/src/components/layout/market-status-pill.tsx,component,,Receives shared index state; index strip owns its fixed-cell skeleton
+apps/web/src/components/layout/mobile-nav.tsx,component,,Local navigation state; no data loading state
+apps/web/src/components/layout/nav-item.tsx,component,,Local pathname state; no data loading state
+apps/web/src/components/layout/nav-menu.tsx,component,,Local pathname state; no data loading state
+apps/web/src/components/layout/navbar.tsx,component,,Persistent navigation shell; child session and index reads own scoped placeholders
+apps/web/src/components/layout/public-page.tsx,component,,Persistent public frame; session provider keeps header dimensions stable
+apps/web/src/components/paper/fixture.ts,component,,Static development fixture; no loading state
+apps/web/src/components/paper/format.ts,component,,Pure formatting helper; no loading state
+apps/web/src/components/paper/use-paper-mutation.ts,component,"24:const response = await fetch(url, {",Mutation helper; calling control remains visible and exposes busy state
+apps/web/src/components/portfolio/notice-text.ts,component,,Pure notice formatting helper; no loading state
+apps/web/src/components/portfolio/pdf-reader.ts,component,"47:const { getDocumentProxy } = await import('unpdf');",Lazy parser used after file selection; import workflow retains its review shell and action progress
+apps/web/src/components/portfolio/portfolio-client.ts,component,"15:const response = await fetch(url, init);",Request helper; caller owns form or result loading treatment
+apps/web/src/components/portfolio/portfolio-format.ts,component,,Pure formatting helper; no loading state
+apps/web/src/components/portfolio/spreadsheet.ts,component,"52:const { default: readXlsxFile } = await import('read-excel-file/browser');",Lazy parser used after file selection; import workflow retains its review shell and action progress
+apps/web/src/components/portfolio/use-hash-tab.ts,component,,Synchronous external-store navigation state; no data skeleton
+apps/web/src/components/profile/request.ts,component,"16:const res = await fetch(url, init);",Request helper; profile forms retain known values and use control-level progress
+apps/web/src/components/screener/filter-edit.ts,component,,Pure filter-state helper; no loading state
+apps/web/src/app/(auth)/login/page.tsx,/login,20:const params = await searchParams; | 22:if ((await getSessionUser()) !== null) redirect(next);,apps/web/src/app/(auth)/login/loading.tsx
+apps/web/src/app/(auth)/reset/page.tsx,/reset,10:const raw = (await searchParams).token;,apps/web/src/app/(auth)/reset/loading.tsx
+apps/web/src/app/(auth)/signup/page.tsx,/signup,10:if ((await getSessionUser()) !== null) redirect('/watchlists');,apps/web/src/app/(auth)/signup/loading.tsx
+apps/web/src/app/(auth)/verify/page.tsx,/verify,10:const raw = (await searchParams).token;,apps/web/src/app/(auth)/verify/loading.tsx
+apps/web/src/app/about/page.tsx,/about,,Static content immediately; persistent PublicHeader reserves account-control space through session-provider loading
+apps/web/src/app/account/verify-email/page.tsx,/account/verify-email,21:const user = await getSessionUser(); | 22:const { token } = await searchParams;,apps/web/src/app/account/verify-email/loading.tsx
+apps/web/src/app/admin/ipos/page.tsx,/admin/ipos,26:await requireAdminPage(); | 27:const health = await getIpoAdminHealth();,apps/web/src/app/admin/ipos/loading.tsx
+apps/web/src/app/admin/logs/page.tsx,/admin/logs,28:await requireAdminPage(); | 29:const raw = await searchParams; | 38:const data = await getEventLogPage(query);,apps/web/src/app/admin/logs/loading.tsx
+apps/web/src/app/admin/page.tsx,/admin,"25:const admin = await requireAdminPage(); | 27:const [users, usage] = await Promise.all([",apps/web/src/app/admin/loading.tsx
+apps/web/src/app/admin/paper/page.tsx,/admin/paper,26:await requireAdminPage(); | 27:const health = await paperHealthReport(Date.now());,apps/web/src/app/admin/paper/loading.tsx
+apps/web/src/app/alerts/page.tsx,/alerts,18:return <AlertsView overview={await getAlertsOverview()} />;,apps/web/src/app/alerts/loading.tsx
+apps/web/src/app/announcements/page.tsx,/announcements,26:const sp = await searchParams; | 30:const data = await getAnnouncementsPage({,apps/web/src/app/announcements/loading.tsx
+apps/web/src/app/calendar/page.tsx,/calendar,40:const params = await searchParams; | 46:const data = await getMarketCalendar(,apps/web/src/app/calendar/loading.tsx
+apps/web/src/app/contact/page.tsx,/contact,,Static content immediately; persistent PublicHeader reserves account-control space through session-provider loading
+apps/web/src/app/data-sources/page.tsx,/data-sources,,Static content immediately; persistent PublicHeader reserves account-control space through session-provider loading
+apps/web/src/app/disclaimer/page.tsx,/disclaimer,,Static content immediately; persistent PublicHeader reserves account-control space through session-provider loading
+apps/web/src/app/flows/page.tsx,/flows,18:const sp = await searchParams; | 19:const data = await getInstitutionalFlow({ watchlistOnly: sp.watchlist === '1' });,apps/web/src/app/flows/loading.tsx
+apps/web/src/app/intraday/page.tsx,/intraday,13:await requireAdminPage();,apps/web/src/app/intraday/loading.tsx
+apps/web/src/app/ipos/[slug]/page.tsx,/ipos/[slug],"19:const { slug } = await params; | 24:const ipo = await getIpoDetail(parsed.data, now);",apps/web/src/app/ipos/[slug]/loading.tsx
+apps/web/src/app/ipos/all/page.tsx,/ipos/all,,apps/web/src/app/ipos/all/loading.tsx
+apps/web/src/app/ipos/calendar/page.tsx,/ipos/calendar,"20:const params = searchParamsObject(await searchParams); | 24:const data = await readOrSignIn(`/ipos/calendar${qs === '' ? '' : `?${qs}`}`, () =>",apps/web/src/app/ipos/calendar/loading.tsx
+apps/web/src/app/ipos/gmp/page.tsx,/ipos/gmp,"21:const params = searchParamsObject(await searchParams); | 24:const data = await readOrSignIn(`/ipos/gmp${scope === 'all' ? '' : `?board=${scope}`}`, () =>",apps/web/src/app/ipos/gmp/loading.tsx
+apps/web/src/app/ipos/listings/page.tsx,/ipos/listings,"20:const params = searchParamsObject(await searchParams); | 24:const data = await readOrSignIn(`/ipos/listings${qs === '' ? '' : `?${qs}`}`, () =>",apps/web/src/app/ipos/listings/loading.tsx
+apps/web/src/app/ipos/mainboard/page.tsx,/ipos/mainboard,"7:return redirectToTable('mainboard', await searchParams);",Redirect only; destination owns loading
+apps/web/src/app/ipos/page.tsx,/ipos,26:const params = searchParamsObject(await searchParams); | 33:return <IpoDashboardView data={await getIpoDashboard(scope)} />;,apps/web/src/app/ipos/loading.tsx
+apps/web/src/app/ipos/pipeline/page.tsx,/ipos/pipeline,"21:const params = searchParamsObject(await searchParams); | 24:const data = await readOrSignIn(`/ipos/pipeline${scope === 'all' ? '' : `?board=${scope}`}`, () =>",apps/web/src/app/ipos/pipeline/loading.tsx
+apps/web/src/app/ipos/sme/page.tsx,/ipos/sme,"7:return redirectToTable('sme', await searchParams);",Redirect only; destination owns loading
+apps/web/src/app/markets/breadth/page.tsx,/markets/breadth,20:const u = (await searchParams).u; | 23:return <BreadthView data={await getMarketBreadth(universe)} />;,apps/web/src/app/markets/breadth/loading.tsx
+apps/web/src/app/methodology/page.tsx,/methodology,,Static content immediately; persistent PublicHeader reserves account-control space through session-provider loading
+apps/web/src/app/page.tsx,/,43:const user = await getSessionUser().catch(() => null);,Root route loading fallback preserves the landing-page hierarchy while the session redirect resolves
+apps/web/src/app/paper-trading/page.tsx,/paper-trading,13:await requireAdminPage();,apps/web/src/app/paper-trading/loading.tsx
+apps/web/src/app/portfolio/[symbol]/page.tsx,/portfolio/[symbol],16:const { symbol } = await params; | 18:const detail = await getHoldingDetail(decodeURIComponent(symbol));,apps/web/src/app/portfolio/[symbol]/loading.tsx
+apps/web/src/app/portfolio/analysis/page.tsx,/portfolio/analysis,"17:const { analysis, returns, benchmark, tax, risk } = await getPortfolioAnalysis();",apps/web/src/app/portfolio/analysis/loading.tsx
+apps/web/src/app/portfolio/notices/page.tsx,/portfolio/notices,17:return <NoticesView data={await getNotices()} />;,apps/web/src/app/portfolio/notices/loading.tsx
+apps/web/src/app/portfolio/page.tsx,/portfolio,"21:const [portfolio, jar] = await Promise.all([getPortfolio(), cookies()]);",apps/web/src/app/portfolio/loading.tsx
+apps/web/src/app/privacy/page.tsx,/privacy,,Static content immediately; persistent PublicHeader reserves account-control space through session-provider loading
+apps/web/src/app/profile/page.tsx,/profile,"50:const user = await getSessionUser(); | 54:const full = await getUserWithProfile(db, user.id); | 57:const watchlists = await listWatchlists(db, user.id); | 59:const methods = await listAccountMethods(db, user.id); | 77:mfaEnabled: await mfaEnabled(db, user.id),",apps/web/src/app/profile/loading.tsx
+apps/web/src/app/screener/page.tsx,/screener,"37:const params = await searchParams; | 39:const [meta, saved] = await Promise.all([getScreenerMeta(), getSavedScreens()]); | 67:const [result, counts] = await Promise.all([",apps/web/src/app/screener/loading.tsx
+apps/web/src/app/signals/page.tsx,/signals,,Redirect only; destination owns loading
+apps/web/src/app/stocks/[symbol]/page.tsx,/stocks/[symbol],"18:const symbol = decodeURIComponent((await params).symbol).toUpperCase(); | 39:const raw = decodeURIComponent((await params).symbol); | 40:const query = await searchParams; | 52:const data = await getStockResearchPage(raw, { screen, screenName });",apps/web/src/app/stocks/[symbol]/loading.tsx
+apps/web/src/app/terms/page.tsx,/terms,,Static content immediately; persistent PublicHeader reserves account-control space through session-provider loading
+apps/web/src/app/today/page.tsx,/today,"16:const { brief, defaultWatchlistId } = await getMarketBrief();",apps/web/src/app/today/loading.tsx
+apps/web/src/app/watchlists/page.tsx,/watchlists,,apps/web/src/app/watchlists/loading.tsx

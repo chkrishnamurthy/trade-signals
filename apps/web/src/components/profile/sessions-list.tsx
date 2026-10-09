@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { SkeletonRows } from '@/components/data-display/loading';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -11,7 +12,6 @@ import {
   CardHeading,
   CardTitle,
 } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/toast';
 import { API_ROUTES } from '@/lib/api-routes';
 import { sendJson } from './request';
@@ -65,23 +65,30 @@ function relativeTime(iso: string): string {
 
 export function SessionsList() {
   const [sessions, setSessions] = useState<Session[] | null>(null);
+  const [loadError, setLoadError] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const [busy, setBusy] = useState(false);
   const { toast } = useToast();
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Retry intentionally restarts the read.
   useEffect(() => {
     let cancelled = false;
+    setLoadError(false);
     fetch(API_ROUTES.accountSessions)
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error('Sessions unavailable');
+        return r.json();
+      })
       .then((d: { sessions?: Session[] }) => {
         if (!cancelled) setSessions(d.sessions ?? []);
       })
       .catch(() => {
-        if (!cancelled) setSessions([]);
+        if (!cancelled) setLoadError(true);
       });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [attempt]);
 
   async function revokeOthers() {
     setBusy(true);
@@ -129,10 +136,16 @@ export function SessionsList() {
         ) : null}
       </CardHeader>
       <CardContent className="p-0">
-        {sessions === null ? (
+        {loadError ? (
+          <div role="alert" className="p-4 text-sm">
+            Could not load active sessions.{' '}
+            <Button variant="ghost" size="sm" onClick={() => setAttempt((value) => value + 1)}>
+              Retry
+            </Button>
+          </div>
+        ) : sessions === null ? (
           <div className="flex flex-col gap-3 p-4">
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
+            <SkeletonRows rows={2} label="Loading active sessions" />
           </div>
         ) : sessions.length === 0 ? (
           <p className="p-4 text-muted-foreground text-sm">No active sessions.</p>

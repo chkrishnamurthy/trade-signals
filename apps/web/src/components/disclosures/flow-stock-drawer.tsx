@@ -3,6 +3,13 @@
 import { StarIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import {
+  LoadingRegion,
+  SkeletonList,
+  SkeletonMetrics,
+  SkeletonPanel,
+  SkeletonTable,
+} from '@/components/data-display/loading';
 import { EmptyState } from '@/components/data-display/states';
 import { Currency, Percent, Price, Quantity } from '@/components/market/numeric';
 import { Badge } from '@/components/ui/badge';
@@ -14,7 +21,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/typography';
 import type { StockFlowDetailDto } from '@/lib/disclosure-types';
 import { BUILDUP_LABEL, buildupTone, contracts } from '@/lib/flow-labels';
@@ -93,11 +99,15 @@ export function StockDrawer({ symbol, onClose }: { symbol: string | null; onClos
 
 function DrawerSkeleton() {
   return (
-    <div className="flex flex-col gap-4">
-      <Skeleton className="h-32 w-full" />
-      <Skeleton className="h-32 w-full" />
-      <Skeleton className="h-24 w-full" />
-    </div>
+    <LoadingRegion label="Loading stock flow">
+      <div className="space-y-4">
+        <SkeletonMetrics count={2} className="lg:grid-cols-2" />
+        <SkeletonPanel>
+          <SkeletonList rows={3} />
+        </SkeletonPanel>
+        <SkeletonTable rows={3} columns={3} />
+      </div>
+    </LoadingRegion>
   );
 }
 

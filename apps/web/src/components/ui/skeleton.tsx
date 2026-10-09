@@ -1,13 +1,14 @@
 import type * as React from 'react';
 import { cn } from '@/lib/utils';
 
-/** The one loading shimmer. Never a spinner — spinners hide layout. */
+/** Decorative shape; its containing LoadingRegion owns the accessible status. */
 function Skeleton({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
-      data-slot="skeleton"
-      className={cn('animate-pulse rounded-md bg-muted', className)}
       {...props}
+      aria-hidden="true"
+      data-slot="skeleton"
+      className={cn('skeleton-shape rounded-md bg-border/50', className)}
     />
   );
 }

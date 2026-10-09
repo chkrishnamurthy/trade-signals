@@ -2,6 +2,7 @@
 
 import { LifeBuoyIcon, LogOut, MonitorSmartphone, UserRound } from 'lucide-react';
 import Link from 'next/link';
+import { LoadingRegion } from '@/components/data-display/loading';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -16,6 +17,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Skeleton } from '@/components/ui/skeleton';
 import { THEME_ICONS, THEME_LABELS, useThemePreference } from '@/components/ui/theme-toggle';
 import { HELP_LINKS } from '@/lib/navigation';
 import { THEME_PREFERENCES } from '@/lib/theme';
@@ -42,10 +44,9 @@ export function UserMenu({ className }: { className?: string | undefined }) {
   if (session.status === 'signed-out') return null;
   if (session.status === 'loading') {
     return (
-      <span
-        aria-hidden
-        className={cn('size-8 shrink-0 animate-pulse rounded-full bg-muted', className)}
-      />
+      <LoadingRegion label="Loading account" className={cn('size-8 shrink-0', className)}>
+        <Skeleton className="size-8 rounded-full" />
+      </LoadingRegion>
     );
   }
 

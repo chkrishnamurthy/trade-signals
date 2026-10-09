@@ -7,6 +7,7 @@ import {
   paperPerformanceReportSchema,
 } from '@equitywise/shared';
 import { useEffect, useState } from 'react';
+import { ChartSkeleton } from '@/components/data-display/loading';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -17,7 +18,6 @@ import {
   CardHeading,
   CardTitle,
 } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
 import {
   Table,
   TableBody,
@@ -306,7 +306,7 @@ export function PerformanceCard({ initial }: { initial?: PaperPerformanceReport 
         ) : error ? (
           <p className="text-sm text-muted-foreground">{error}</p>
         ) : (
-          <Skeleton className="h-40 w-full" />
+          <ChartSkeleton className="h-40" />
         )}
       </CardContent>
     </Card>

@@ -21,13 +21,13 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
 import { API_ROUTES } from '@/lib/api-routes';
 import { ActivityCard } from './activity-card';
 import { ControlsCard } from './controls-card';
 import { clock, reasonLabel, time } from './format';
 import { HistoryCard } from './history-card';
 import { OpenTradesCard } from './open-trades-card';
+import { PaperSkeleton } from './paper-skeleton';
 import { PerformanceCard } from './performance-card';
 import { SummaryCards } from './summary-cards';
 
@@ -203,11 +203,7 @@ export function PaperDashboard() {
               <PerformanceCard />
             </>
           ) : error ? null : (
-            <div className="space-y-4" aria-busy role="status">
-              <Skeleton className="h-48 w-full" />
-              <Skeleton className="h-24 w-full" />
-              <Skeleton className="h-40 w-full" />
-            </div>
+            <PaperSkeleton />
           )}
           <PageDisclaimer>
             Paper trading is a simulation for education and research. Trades, balances, profits and

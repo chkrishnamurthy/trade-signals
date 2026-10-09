@@ -2,6 +2,7 @@
 import { type PaperTradesPage, paperTradesPageSchema } from '@equitywise/shared';
 import { DownloadIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { TableSkeleton } from '@/components/data-display/loading';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -13,7 +14,6 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Skeleton } from '@/components/ui/skeleton';
 import { API_ROUTES } from '@/lib/api-routes';
 import { redirectToLoginIfUnauthenticated } from '@/lib/session-guard';
 import { TradesTable } from './trades-table';
@@ -169,7 +169,7 @@ export function HistoryCard({ initial }: { initial?: PaperTradesPage }) {
           </div>
         </form>
         {loading && !page ? (
-          <Skeleton className="h-24 w-full" />
+          <TableSkeleton rows={4} columns={6} />
         ) : error ? (
           <p className="text-sm text-muted-foreground">{error}</p>
         ) : page ? (

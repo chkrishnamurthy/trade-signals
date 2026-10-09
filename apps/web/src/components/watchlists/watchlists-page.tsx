@@ -2,7 +2,13 @@
 
 import { RefreshCwIcon } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
-import { CardSkeleton, ErrorState, TableSkeleton } from '@/components/data-display/states';
+import {
+  LoadingRegion,
+  SkeletonSummary,
+  SkeletonTable,
+  SkeletonToolbar,
+} from '@/components/data-display/loading';
+import { ErrorState } from '@/components/data-display/states';
 import { ActiveFilters, SearchInput } from '@/components/forms/filter-bar';
 import { AppShell } from '@/components/layout/app-shell';
 import {
@@ -532,19 +538,16 @@ export function WatchlistsPage() {
   );
 }
 
-/**
- * Mirrors the real layout so nothing jumps once the list's data lands —
- * same shape and the same `CardSkeleton`/`TableSkeleton` primitives every
- * other page's loading state is built from (see `DashboardSkeleton` in
- * `dashboard.tsx`), not a bespoke skeleton for this one page.
- */
+/** The list keeps its navigation while summary and rows arrive. */
 function WatchlistPageSkeleton() {
   return (
-    <div aria-busy="true">
-      <CardSkeleton className="h-20" />
-      <TableSkeleton className="mt-4" />
-      <span className="sr-only">Loading watchlist</span>
-    </div>
+    <LoadingRegion label="Loading watchlist">
+      <div className="space-y-4">
+        <SkeletonSummary />
+        <SkeletonToolbar />
+        <SkeletonTable columns={7} />
+      </div>
+    </LoadingRegion>
   );
 }
 

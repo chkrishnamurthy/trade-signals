@@ -516,3 +516,23 @@
 @utility price-flash-down {
   animation: price-flash-down 900ms ease-out;
 }
+
+/* Loading shapes share a quiet opacity pulse, never a sweeping highlight.
+   Start still for fast responses; reduced motion keeps every shape static. */
+@keyframes skeleton-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+.skeleton-shape {
+  animation: skeleton-breathe 2.4s ease-in-out 0.2s infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-shape {
+    animation: none;
+  }
+}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { SkeletonRows } from '@/components/data-display/loading';
 import { SearchInput } from '@/components/forms/filter-bar';
 import { StockIdentity } from '@/components/market/stock-identity';
 import { Badge } from '@/components/ui/badge';
@@ -55,6 +56,7 @@ export function StockSearch({
   const [results, setResults] = useState<SearchHit[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [failed, setFailed] = useState(false);
   const [active, setActive] = useState(-1);
   const abort = useRef<AbortController | null>(null);
   const input = useRef<HTMLInputElement | null>(null);
@@ -65,31 +67,37 @@ export function StockSearch({
     if (query.trim().length < 1) {
       setResults([]);
       setActive(-1);
+      setLoading(false);
+      setFailed(false);
       return;
     }
 
+    abort.current?.abort();
+    const controller = new AbortController();
+    abort.current = controller;
+    setLoading(true);
+    setFailed(false);
     const timer = setTimeout(async () => {
-      abort.current?.abort();
-      const controller = new AbortController();
-      abort.current = controller;
-      setLoading(true);
       try {
         const response = await fetch(API_ROUTES.search(query), {
           signal: controller.signal,
         });
-        if (!response.ok) return;
+        if (!response.ok) throw new Error('Search unavailable');
         const payload = (await response.json()) as { results?: SearchHit[] };
         const hits = payload.results ?? [];
         setResults(stocksOnly ? hits.filter((hit) => hit.kind === 'equity') : hits);
         setActive(-1);
       } catch {
-        // Aborted or offline — leave the previous results in place.
+        if (!controller.signal.aborted) setFailed(true);
       } finally {
         if (!controller.signal.aborted) setLoading(false);
       }
     }, 250);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [query, stocksOnly]);
 
   useEffect(() => {
@@ -113,6 +121,8 @@ export function StockSearch({
   const choose = useCallback(
     (symbol: string) => {
       onSelect(symbol);
+      abort.current?.abort();
+      setLoading(false);
       setQuery('');
       setResults([]);
       setActive(-1);
@@ -133,6 +143,8 @@ export function StockSearch({
             value={query}
             onValueChange={(next) => {
               setQuery(next);
+              setLoading(next.trim().length > 0);
+              setFailed(false);
               setOpen(true);
             }}
             onFocus={() => setOpen(true)}
@@ -193,7 +205,11 @@ export function StockSearch({
         }}
       >
         {loading && results.length === 0 ? (
-          <p className="px-2 py-1.5 text-muted-foreground text-xs">Searching…</p>
+          <SkeletonRows rows={3} label="Searching stocks" />
+        ) : failed ? (
+          <p role="status" className="px-2 py-1.5 text-muted-foreground text-xs">
+            Search unavailable. Try again.
+          </p>
         ) : results.length === 0 ? (
           <p className="px-2 py-1.5 text-muted-foreground text-xs">No matches</p>
         ) : (

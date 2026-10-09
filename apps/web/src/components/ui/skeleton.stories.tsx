@@ -11,7 +11,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** The one loading shimmer — never a spinner, because a spinner hides layout. */
+/** Quiet pulse with reduced-motion support. Wrap compositions in LoadingRegion. */
 export const Default: Story = { render: () => <Skeleton className="h-4 w-40" /> };
 
 export const RowPlaceholder: Story = {

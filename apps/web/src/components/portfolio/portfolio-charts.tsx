@@ -3,6 +3,7 @@
 import { treemapLayout } from '@equitywise/core';
 import { formatPaise } from '@equitywise/shared';
 import * as React from 'react';
+import { SkeletonChart } from '@/components/data-display/loading';
 import { TONE_GLYPH, toneOf, toneText } from '@/lib/tone';
 import { cn } from '@/lib/utils';
 
@@ -65,11 +66,9 @@ export function Treemap({
   const h = width !== null && width < 500 ? Math.min(height, 260) : height;
   if (width === null)
     return (
-      <div
-        ref={ref}
-        className="w-full animate-pulse rounded-md bg-surface-sunken"
-        style={{ height }}
-      />
+      <div ref={ref} className="w-full" style={{ height }}>
+        <SkeletonChart className="h-full border-0 p-0 shadow-none" />
+      </div>
     );
   // One group (say, every stock unclassified) would paint every tile alike: tell them apart instead.
   const oneGroup = new Set(items.map((i) => i.colourIndex)).size === 1 && items.length > 1;

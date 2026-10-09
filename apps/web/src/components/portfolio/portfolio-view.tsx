@@ -19,6 +19,7 @@ import type { Route } from 'next';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import * as React from 'react';
+import { SkeletonRows, TableSkeleton } from '@/components/data-display/loading';
 import { MetricCard } from '@/components/data-display/metric-card';
 import { EmptyState } from '@/components/data-display/states';
 import { AppShell } from '@/components/layout/app-shell';
@@ -635,6 +636,8 @@ function AddEntryDialog({
   const [kind, setKind] = React.useState<AddEntryBody['kind']>('opening');
   const [query, setQuery] = React.useState('');
   const [picked, setPicked] = React.useState<SearchHit | null>(null);
+  const [searching, setSearching] = React.useState(false);
+  const [searchFailed, setSearchFailed] = React.useState(false);
   const [hits, setHits] = React.useState<readonly SearchHit[]>([]);
   const [shares, setShares] = React.useState('');
   const [price, setPrice] = React.useState('');
@@ -648,14 +651,28 @@ function AddEntryDialog({
   React.useEffect(() => {
     if (!open || picked !== null || query.trim() === '') {
       setHits([]);
+      setSearching(false);
+      setSearchFailed(false);
       return;
     }
     const controller = new AbortController();
+    setSearching(true);
+    setSearchFailed(false);
     const timer = setTimeout(() => {
       void fetch(API_ROUTES.search(query.trim()), { signal: controller.signal, cache: 'no-store' })
-        .then((r) => r.json())
-        .then((p: { results?: readonly SearchHit[] }) => setHits((p.results ?? []).slice(0, 6)))
-        .catch(() => {});
+        .then((r) => {
+          if (!r.ok) throw new Error('Search unavailable');
+          return r.json();
+        })
+        .then((p: { results?: readonly SearchHit[] }) => {
+          if (!controller.signal.aborted) setHits((p.results ?? []).slice(0, 6));
+        })
+        .catch(() => {
+          if (!controller.signal.aborted) setSearchFailed(true);
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setSearching(false);
+        });
     }, 180);
     return () => {
       clearTimeout(timer);
@@ -777,6 +794,14 @@ function AddEntryDialog({
                   Change
                 </Button>
               </div>
+            )}
+            {searching && hits.length === 0 && picked === null && (
+              <SkeletonRows rows={3} label="Searching stocks" />
+            )}
+            {searchFailed && picked === null && (
+              <p role="status" className="text-xs text-muted-foreground">
+                Search unavailable. Try again.
+              </p>
             )}
             {hits.length > 0 && picked === null && (
               <ul
@@ -1132,7 +1157,12 @@ function ImportDialog({
               </form>
             )}
             {busy && preview === null && (
-              <p className="text-sm text-muted-foreground">Reading the file…</p>
+              <div className="space-y-3">
+                <p role="status" className="text-sm text-muted-foreground">
+                  Reading the file…
+                </p>
+                <TableSkeleton rows={3} columns={4} />
+              </div>
             )}
             {statement !== null && <StatementCheck result={statement} />}
 

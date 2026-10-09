@@ -88,9 +88,15 @@ export function WatchlistTabs({
     <>
       <nav
         aria-label="Watchlists"
+        aria-busy={loading || undefined}
         className="flex min-w-0 items-center gap-1.5 border-b border-border"
       >
         <ul className="flex min-w-0 flex-1 items-center gap-4 overflow-x-auto">
+          {loading && (
+            <span role="status" className="sr-only">
+              Loading watchlists
+            </span>
+          )}
           {loading &&
             [0, 1, 2].map((key) => (
               <li key={key} aria-hidden>

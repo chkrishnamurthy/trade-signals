@@ -2,6 +2,7 @@
 
 import { type PaperActivity, type PaperDecisionDto, paperActivitySchema } from '@equitywise/shared';
 import { Fragment } from 'react';
+import { SkeletonRows } from '@/components/data-display/loading';
 import { usePolledResource } from '@/components/intraday/use-polled-resource';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -12,7 +13,6 @@ import {
   CardHeading,
   CardTitle,
 } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
 import { API_ROUTES } from '@/lib/api-routes';
 import { CAP, EVENT, price, reasonLabel, time } from './format';
 
@@ -126,7 +126,7 @@ export function ActivityCard({ sessionDate }: { sessionDate: string }) {
         ) : error ? (
           <p className="text-sm text-muted-foreground">{error}</p>
         ) : (
-          <Skeleton className="h-24 w-full" />
+          <SkeletonRows rows={3} label="Loading activity" />
         )}
       </CardContent>
     </Card>
