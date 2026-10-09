@@ -57,6 +57,7 @@ export function StockSearch({
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [searched, setSearched] = useState(false);
   const [active, setActive] = useState(-1);
   const abort = useRef<AbortController | null>(null);
   const input = useRef<HTMLInputElement | null>(null);
@@ -69,15 +70,19 @@ export function StockSearch({
       setActive(-1);
       setLoading(false);
       setFailed(false);
+      setSearched(false);
       return;
     }
 
     abort.current?.abort();
     const controller = new AbortController();
     abort.current = controller;
-    setLoading(true);
+    setResults([]);
+    setLoading(false);
     setFailed(false);
+    setSearched(false);
     const timer = setTimeout(async () => {
+      setLoading(true);
       try {
         const response = await fetch(API_ROUTES.search(query), {
           signal: controller.signal,
@@ -87,8 +92,12 @@ export function StockSearch({
         const hits = payload.results ?? [];
         setResults(stocksOnly ? hits.filter((hit) => hit.kind === 'equity') : hits);
         setActive(-1);
+        setSearched(true);
       } catch {
-        if (!controller.signal.aborted) setFailed(true);
+        if (!controller.signal.aborted) {
+          setFailed(true);
+          setSearched(true);
+        }
       } finally {
         if (!controller.signal.aborted) setLoading(false);
       }
@@ -123,6 +132,7 @@ export function StockSearch({
       onSelect(symbol);
       abort.current?.abort();
       setLoading(false);
+      setSearched(false);
       setQuery('');
       setResults([]);
       setActive(-1);
@@ -131,7 +141,7 @@ export function StockSearch({
     [onSelect],
   );
 
-  const showPanel = open && (query.trim().length > 0 || loading);
+  const showPanel = open && (loading || failed || searched || results.length > 0);
   const status = loading && results.length === 0 ? 'Searching…' : `${results.length} results`;
 
   return (
@@ -143,8 +153,10 @@ export function StockSearch({
             value={query}
             onValueChange={(next) => {
               setQuery(next);
-              setLoading(next.trim().length > 0);
+              setLoading(false);
               setFailed(false);
+              setSearched(false);
+              setResults([]);
               setOpen(true);
             }}
             onFocus={() => setOpen(true)}
@@ -210,7 +222,7 @@ export function StockSearch({
           <p role="status" className="px-2 py-1.5 text-muted-foreground text-xs">
             Search unavailable. Try again.
           </p>
-        ) : results.length === 0 ? (
+        ) : searched && results.length === 0 ? (
           <p className="px-2 py-1.5 text-muted-foreground text-xs">No matches</p>
         ) : (
           <div id={listId} role="listbox" aria-label="Search results">

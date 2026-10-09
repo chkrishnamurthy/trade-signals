@@ -2,7 +2,6 @@
 
 import { formatPaise } from '@equitywise/shared';
 import * as React from 'react';
-import { SkeletonChart } from '@/components/data-display/loading';
 import { largeCurrency } from '@/lib/format';
 import type { ValuePointDto } from '@/lib/portfolio-types';
 import { ChartTable, HoverTip, Marker, TableToggle, useChartHover } from './chart-extras';
@@ -96,12 +95,7 @@ export function ValueChart({
       </div>
     );
   }
-  if (width === null)
-    return (
-      <div ref={ref} className="w-full" style={{ height }}>
-        <SkeletonChart className="h-full border-0 p-0 shadow-none" />
-      </div>
-    );
+  if (width === null) return <div ref={ref} className="w-full" style={{ height }} aria-hidden />;
 
   const left = VALUE_LEFT;
   const right = VALUE_RIGHT;
@@ -419,12 +413,7 @@ export function LinesChart({
       </div>
     );
   }
-  if (width === null)
-    return (
-      <div ref={ref} className="w-full" style={{ height }}>
-        <SkeletonChart className="h-full border-0 p-0 shadow-none" />
-      </div>
-    );
+  if (width === null) return <div ref={ref} className="w-full" style={{ height }} aria-hidden />;
   const left = LINES_LEFT;
   const right = LINES_RIGHT;
   const top = 10;

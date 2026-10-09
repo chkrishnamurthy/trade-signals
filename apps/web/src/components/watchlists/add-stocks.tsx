@@ -66,6 +66,7 @@ export function AddStocks({
   const [query, setQuery] = useState('');
   const [hits, setHits] = useState<readonly SearchHit[]>([]);
   const [searching, setSearching] = useState(false);
+  const [searched, setSearched] = useState(false);
   const [staged, setStaged] = useState<readonly SearchHit[]>([]);
   const [cursor, setCursor] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -91,14 +92,19 @@ export function AddStocks({
     if (q === '') {
       setHits([]);
       setSearching(false);
+      setSearched(false);
       return;
     }
 
-    setSearching(true);
+    abort.current?.abort();
+    setHits([]);
+    setSearching(false);
+    setSearched(false);
+    let controller: AbortController | null = null;
     const timer = setTimeout(() => {
-      abort.current?.abort();
-      const controller = new AbortController();
+      controller = new AbortController();
       abort.current = controller;
+      setSearching(true);
 
       void (async () => {
         try {
@@ -111,15 +117,22 @@ export function AddStocks({
           const results = (payload as { results?: readonly SearchHit[] }).results ?? [];
           setHits(results);
           setCursor(0);
+          setSearched(true);
         } catch {
-          if (!controller.signal.aborted) setHits([]);
+          if (!controller.signal.aborted) {
+            setHits([]);
+            setSearched(true);
+          }
         } finally {
           if (!controller.signal.aborted) setSearching(false);
         }
       })();
     }, DEBOUNCE_MS);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      controller?.abort();
+    };
   }, [query, open]);
 
   const stage = useCallback(
@@ -130,6 +143,7 @@ export function AddStocks({
       );
       setQuery('');
       setHits([]);
+      setSearched(false);
       inputRef.current?.focus();
     },
     [existing],
@@ -226,7 +240,12 @@ export function AddStocks({
               <SearchInput
                 ref={inputRef}
                 value={query}
-                onValueChange={setQuery}
+                onValueChange={(next) => {
+                  setQuery(next);
+                  setHits([]);
+                  setSearching(false);
+                  setSearched(false);
+                }}
                 onKeyDown={onKeyDown}
                 placeholder="RELIANCE, Infosys, HDFC…"
                 aria-label="Search for a stock"
@@ -239,7 +258,7 @@ export function AddStocks({
                   <SkeletonRows rows={3} className="px-2 py-1" />
                 )}
 
-                {!searching && query.trim() !== '' && hits.length === 0 && (
+                {searched && !searching && query.trim() !== '' && hits.length === 0 && (
                   <div className="px-2 py-6 text-center">
                     <Text variant="label">No match for “{query.trim()}”</Text>
                     <Text variant="caption">Try the ticker, or part of the company name.</Text>

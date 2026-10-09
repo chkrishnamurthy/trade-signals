@@ -98,7 +98,7 @@ apps/web/src/components/market/numeric.tsx,component,,Presentational/local synch
 apps/web/src/components/market/signal.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
 apps/web/src/components/market/sparkline.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
 apps/web/src/components/market/stock-identity.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
-apps/web/src/components/market/stock-search.tsx,component,"55:const response = await fetch(API_ROUTES.search(query), {",Search rows; debounce pending; preserve previous results; error on failure
+apps/web/src/components/market/stock-search.tsx,component,"82:const response = await fetch(API_ROUTES.search(query), {",Debounce is visually silent; delayed search rows only after the request starts; distinct error/no-match result
 apps/web/src/components/market-brief/factor-breakdown.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
 apps/web/src/components/market-brief/market-brief-view.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
 apps/web/src/components/market-brief/parts.tsx,component,"254:const response = await fetch(`/api/watchlists/${defaultWatchlistId}/items`, {","Mutation on explicit action; retain form/dialog/content, pending control and existing error feedback"
@@ -114,7 +114,7 @@ apps/web/src/components/paper/paper-status-card.tsx,component,"65:const { data, 
 apps/web/src/components/paper/performance-card.tsx,component,"260:fetch(API_ROUTES.paperPerformance(range), { cache: 'no-store' })",Initial chart; retain report on range change
 apps/web/src/components/paper/summary-cards.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
 apps/web/src/components/paper/trades-table.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
-apps/web/src/components/portfolio/analysis-view.tsx,component,"119:{!ready && <ChartSkeleton className=""h-64"" />}",Server-provided content; neutral chart grid while measuring or resolving hash tab
+apps/web/src/components/portfolio/analysis-view.tsx,component,,Server-provided content; hash-tab initialization reserves layout without a skeleton
 apps/web/src/components/portfolio/benchmark-view.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
 apps/web/src/components/portfolio/chart-extras.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
 apps/web/src/components/portfolio/entry-edit.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
@@ -223,9 +223,9 @@ apps/web/src/components/portfolio/use-hash-tab.ts,component,,Synchronous externa
 apps/web/src/components/profile/request.ts,component,"16:const res = await fetch(url, init);",Request helper; profile forms retain known values and use control-level progress
 apps/web/src/components/screener/filter-edit.ts,component,,Pure filter-state helper; no loading state
 apps/web/src/app/(auth)/login/page.tsx,/login,20:const params = await searchParams; | 22:if ((await getSessionUser()) !== null) redirect(next);,apps/web/src/app/(auth)/login/loading.tsx
-apps/web/src/app/(auth)/reset/page.tsx,/reset,10:const raw = (await searchParams).token;,apps/web/src/app/(auth)/reset/loading.tsx
+apps/web/src/app/(auth)/reset/page.tsx,/reset,10:const raw = (await searchParams).token;,No skeleton; URL-token parsing only
 apps/web/src/app/(auth)/signup/page.tsx,/signup,10:if ((await getSessionUser()) !== null) redirect('/watchlists');,apps/web/src/app/(auth)/signup/loading.tsx
-apps/web/src/app/(auth)/verify/page.tsx,/verify,10:const raw = (await searchParams).token;,apps/web/src/app/(auth)/verify/loading.tsx
+apps/web/src/app/(auth)/verify/page.tsx,/verify,10:const raw = (await searchParams).token;,No skeleton; URL-token parsing only
 apps/web/src/app/about/page.tsx,/about,,Static content immediately; persistent PublicHeader reserves account-control space through session-provider loading
 apps/web/src/app/account/verify-email/page.tsx,/account/verify-email,21:const user = await getSessionUser(); | 22:const { token } = await searchParams;,apps/web/src/app/account/verify-email/loading.tsx
 apps/web/src/app/admin/ipos/page.tsx,/admin/ipos,26:await requireAdminPage(); | 27:const health = await getIpoAdminHealth();,apps/web/src/app/admin/ipos/loading.tsx
@@ -251,7 +251,7 @@ apps/web/src/app/ipos/pipeline/page.tsx,/ipos/pipeline,"21:const params = search
 apps/web/src/app/ipos/sme/page.tsx,/ipos/sme,"7:return redirectToTable('sme', await searchParams);",Redirect only; destination owns loading
 apps/web/src/app/markets/breadth/page.tsx,/markets/breadth,20:const u = (await searchParams).u; | 23:return <BreadthView data={await getMarketBreadth(universe)} />;,apps/web/src/app/markets/breadth/loading.tsx
 apps/web/src/app/methodology/page.tsx,/methodology,,Static content immediately; persistent PublicHeader reserves account-control space through session-provider loading
-apps/web/src/app/page.tsx,/,43:const user = await getSessionUser().catch(() => null);,Root route loading fallback preserves the landing-page hierarchy while the session redirect resolves
+apps/web/src/app/(landing)/page.tsx,/,43:const user = await getSessionUser().catch(() => null);,Isolated delayed landing skeleton only if the server session lookup remains pending
 apps/web/src/app/paper-trading/page.tsx,/paper-trading,13:await requireAdminPage();,apps/web/src/app/paper-trading/loading.tsx
 apps/web/src/app/portfolio/[symbol]/page.tsx,/portfolio/[symbol],16:const { symbol } = await params; | 18:const detail = await getHoldingDetail(decodeURIComponent(symbol));,apps/web/src/app/portfolio/[symbol]/loading.tsx
 apps/web/src/app/portfolio/analysis/page.tsx,/portfolio/analysis,"17:const { analysis, returns, benchmark, tax, risk } = await getPortfolioAnalysis();",apps/web/src/app/portfolio/analysis/loading.tsx
@@ -264,4 +264,4 @@ apps/web/src/app/signals/page.tsx,/signals,,Redirect only; destination owns load
 apps/web/src/app/stocks/[symbol]/page.tsx,/stocks/[symbol],"18:const symbol = decodeURIComponent((await params).symbol).toUpperCase(); | 39:const raw = decodeURIComponent((await params).symbol); | 40:const query = await searchParams; | 52:const data = await getStockResearchPage(raw, { screen, screenName });",apps/web/src/app/stocks/[symbol]/loading.tsx
 apps/web/src/app/terms/page.tsx,/terms,,Static content immediately; persistent PublicHeader reserves account-control space through session-provider loading
 apps/web/src/app/today/page.tsx,/today,"16:const { brief, defaultWatchlistId } = await getMarketBrief();",apps/web/src/app/today/loading.tsx
-apps/web/src/app/watchlists/page.tsx,/watchlists,,apps/web/src/app/watchlists/loading.tsx
+apps/web/src/app/watchlists/page.tsx,/watchlists,,No route skeleton; synchronous route delegates the genuine first API wait to the client boundary

@@ -8,16 +8,16 @@ The review covers all **43 page routes**, **88 API handlers** as data sources, a
 
 Before this change there were 12 `loading.tsx` files. Server-rendered profile, stock, screener, breadth, alerts and admin pages had no matching route fallback. Portfolio subroutes inherited an overview placeholder. Several IPO and research fallbacks were large pulsing rectangles. The daily brief fallback described an older layout. Cards, tables and charts had separate placeholder implementations. Some smaller reads displayed only “Loading…” or “Searching…”. The account avatar arrived without reserved space. Seven static information pages blocked their entire body on a session lookup.
 
-There are now **33 explicit route fallbacks**, including a root landing fallback; the public header reserves its account-control footprint while shared session state resolves. Redirect-only routes need no new loading UI. Existing inputs, menus, navigation, errors and genuine empty states remain distinct from pending data.
+There are **30 explicit route fallbacks** for routes that perform genuine server or session reads. The root fallback is isolated in a route group so other routes cannot inherit its landing layout. URL-token-only auth routes and the synchronous watchlists route deliberately have no route fallback. Existing inputs, menus, navigation, errors and genuine empty states remain distinct from pending data.
 
 ## Design contract
 
 - **Keep known structure.** Render the real app bar, navigation, section tabs, headings and existing panel titles. Skeleton only the unknown content. A full page fallback uses the same `AppShell` and `PageContainer` as its destination. Public pages stream static copy while account controls resolve.
 - **Use hierarchy, not slabs.** Metric labels use 12px bars, readings 28px bars; table headers have a 40px band and initial rows use 56px slots. Cards and forms use existing 16px padding, 16px inter-section gaps, `rounded-lg`, `border-border`, `bg-surface` and `shadow-subtle`. Shapes use `rounded-md` and `bg-border/50` in both themes.
-- **Quiet motion.** One opacity pulse, 2.4 seconds with a 200ms animation delay, 1 → .55 → 1. No shimmer gradients or staggered waves. The shape is immediately visible; there is no artificial minimum loading duration. `prefers-reduced-motion: reduce` disables the animation completely.
+- **Short waits stay quiet.** Skeleton visuals remain hidden for the first 300ms and appear only if the request is still pending. There is no artificial minimum display duration. Once visible, one quiet 2.4-second opacity pulse runs from 1 → .55 → 1; reduced-motion users get a static shape after the same threshold.
 - **One accessible announcement per boundary.** `LoadingRegion` has a single visually hidden `role=status` outside its busy subtree. Its children are decorative, `aria-hidden`, and cannot receive focus. Do not put real controls in that subtree. Individual `Skeleton` shapes are always decorative. Independent header, index and panel requests can have their own boundaries.
 - **Initial load differs from refresh.** Unknown initial data gets a skeleton. Tables with existing rows retain them and expose `aria-busy`. Screener results, watchlist polling, paper polling and history pagination retain their established refresh behavior. New symbol/timeframe requests may show a chart skeleton so the previous symbol’s prices cannot look like the requested series.
-- **Empty is a completed result.** No “No matches”, “No sessions” or onboarding content before a read resolves. Search includes debounce time in pending state. Search, watchlist-picker and session failures have distinct feedback; the picker and session list offer retry. Never leave a skeleton running because a rejected request was mistaken for pending.
+- **Empty is a completed result.** No “No matches”, “No sessions” or onboarding content before a read resolves. Search debounce time remains visually silent; its skeleton can begin only after the network request starts and passes the shared reveal threshold. Search, watchlist-picker and session failures have distinct feedback; the picker and session list offer retry. Never leave a skeleton running because a rejected request was mistaken for pending.
 - **Do not imply financial results.** Charts reserve axes, grid and labels without synthetic price curves, bars or success-colored trends. Skeletons contain no holdings, balances, signal scores, or example financial values.
 - **Match responsive behavior.** Grids collapse with the destination. `SkeletonResults` switches between cards and tables at `sm` (screener/portfolio) or `lg` (IPO master list). Generic dense tables reduce visible placeholder columns rather than widening the document. The screener’s desktop filter panel is hidden on phones. Sheet content stays within its existing Radix focus trap and viewport.
 - **No skeleton for completed local content.** Already populated dialogs, filter builders, tab switches over available data, and synchronous settings remain visible. Saving, uploading, revoking and verifying use control-level pending feedback. Replacing an editable form with a skeleton would lose context and focus. Small button progress icons are intentionally retained.
@@ -47,9 +47,9 @@ Compositions use visual-only primitives inside one `LoadingRegion`. Standalone w
 
 | Route | Pending UI / content retained |
 | --- | --- |
-| `/` | Root landing skeleton: persistent public header plus hero, product-preview and section hierarchy while the session redirect resolves |
+| `/` | Isolated, delayed landing skeleton only if the server session lookup passes the reveal threshold; no other route inherits it |
 | `/today` | `TodayLoading`: four metrics, technical-read and movers columns, overview table; real greeting shell |
-| `/watchlists` | Route `WatchlistsLoading`; client `WatchlistPageSkeleton`: compact summary, toolbar, table; real watchlist tabs remain during reads |
+| `/watchlists` | No route fallback because the route is synchronous; client `WatchlistPageSkeleton` appears only when its API data remains unavailable after the reveal threshold |
 | `/screener` | `ScreenerLoading`: universe/preset toolbar, desktop filter builder, results; phone cards; loaded results remain during edits |
 | `/stocks/[symbol]` | `StockLoading`: identity/header, ratio board with context sidebar, chart and levels |
 | `/markets/breadth` | `BreadthLoading`: six metrics, 3:2 charts, industry table |
@@ -75,7 +75,8 @@ Compositions use visual-only primitives inside one `LoadingRegion`. Standalone w
 | `/ipos/gmp` | `IpoSectionSkeleton(gmp)`: metrics, controls and comparison rows |
 | `/ipos/listings` | `IpoSectionSkeleton(listings)`: metrics, controls and listing rows |
 | `/ipos/pipeline` | `IpoSectionSkeleton(pipeline)`: three metrics, controls and pipeline rows |
-| `/login`, `/signup`, `/reset`, `/verify` | `AuthLoading` in the existing centered auth layout; appropriate field counts; verification retains announced operation status |
+| `/login`, `/signup` | Delayed `AuthLoading` only while the server session redirect check remains pending |
+| `/reset`, `/verify` | No skeleton; these pages only read their URL token and render their stable form/status shell |
 | `/account/verify-email` | Stable confirmation-card fallback; announced verification state with stable minimum height |
 | `/about`, `/contact`, `/methodology`, `/data-sources`, `/disclaimer`, `/privacy`, `/terms` | Static page content streams immediately; `PublicHeader` reserves the account-control footprint while shared session state resolves |
 | `/signals`, `/ipos/mainboard`, `/ipos/sme` | Redirects to existing destinations; no independent data surface |
@@ -84,7 +85,7 @@ Compositions use visual-only primitives inside one `LoadingRegion`. Standalone w
 
 | Surface | Treatment |
 | --- | --- |
-| Global stock search | Compact result skeleton during initial query/debounce; input stays focused, abort old query immediately, distinct error/no-match result |
+| Global stock search | Debounce stays visually silent; compact result skeleton starts with the request and uses the shared reveal threshold; input stays focused, old query aborts immediately, distinct error/no-match result |
 | Portfolio add-share dialog search | Compact rows; form and selected stock retained; canceled reads cannot update results |
 | Watchlist add/import dialogs | Existing result skeletons inherit common rows; staged selections and action-level progress retained |
 | Watchlist starter templates | Existing pending list inherits common rows; no skeleton for absent optional templates after resolution |
@@ -96,7 +97,7 @@ Compositions use visual-only primitives inside one `LoadingRegion`. Standalone w
 | Profile photo, password/email, MFA, identities, account deletion | Existing values and dialog remain; action-level pending/disabled state; no whole-form replacement |
 | Auth login/signup/reset/social/MFA/verification | Form remains on submission; verification has status semantics |
 | Portfolio import / statement check | Preview table slots while parsing/resolving; file inputs/help remain; parsed review appears only after completion |
-| Portfolio allocation/returns/risk charts | Shared chart grid during initial width measurement; hash-tab initialization gets a chart boundary |
+| Portfolio allocation/returns/risk charts | No skeleton for width measurement or hash-tab initialization because the API data is already present; dimensions remain reserved until the first measurement |
 | Paper status/activity/history/performance | Structured card/list/table/chart within existing headings; retained reports and history on refresh |
 | Shared `DataTable` | Empty initial read → table skeleton; populated refresh → existing table with busy state |
 | Global indices | Existing fixed cell skeletons inherit common tokens/motion; no whole-strip replacement during polling |

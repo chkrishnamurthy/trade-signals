@@ -18,6 +18,7 @@ describe('loading accessibility and refresh contract', () => {
     );
     expect(html.match(/role="status"/g)).toHaveLength(1);
     expect(html).toContain('Loading research');
+    expect(html).toContain('data-slot="loading-visual"');
     expect(html).toContain('aria-busy="true" aria-hidden="true"');
     expect(html).not.toMatch(/<(button|input|a)\b/);
   });

@@ -656,9 +656,11 @@ function AddEntryDialog({
       return;
     }
     const controller = new AbortController();
-    setSearching(true);
+    setHits([]);
+    setSearching(false);
     setSearchFailed(false);
     const timer = setTimeout(() => {
+      setSearching(true);
       void fetch(API_ROUTES.search(query.trim()), { signal: controller.signal, cache: 'no-store' })
         .then((r) => {
           if (!r.ok) throw new Error('Search unavailable');
@@ -772,7 +774,12 @@ function AddEntryDialog({
               <Input
                 id="pf-stock"
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setHits([]);
+                  setSearching(false);
+                  setSearchFailed(false);
+                }}
                 placeholder="Search by name or NSE symbol"
                 autoComplete="off"
               />

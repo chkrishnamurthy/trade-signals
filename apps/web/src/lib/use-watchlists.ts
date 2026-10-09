@@ -85,9 +85,6 @@ async function request<T>(url: string, init?: RequestInit): Promise<MutationResu
   }
 }
 
-/** Shortest time the refresh icon spins, so a fast response is still seen. */
-const MIN_SPIN_MS = 500;
-
 /** Detail poll floor while the live stream is delivering prices. */
 const LIVE_POLL_FLOOR_SECONDS = 60;
 
@@ -318,20 +315,13 @@ export function useWatchlists() {
     })();
   }, [activeId, loadDetail, schedule]);
 
-  /**
-   * The user's explicit refresh. Unlike the background poll it is NOT quiet:
-   * the button must visibly spin, and for long enough to register — a quote
-   * fetch can finish in under 100 ms, which reads as "nothing happened".
-   */
+  /** The user's explicit refresh retains the current rows while the request runs. */
   const refresh = useCallback(() => {
     const id = activeIdRef.current;
     if (id === null) return;
     setIsRefreshing(true);
     void (async () => {
-      const [next] = await Promise.all([
-        loadDetail(id, true),
-        new Promise((resolve) => setTimeout(resolve, MIN_SPIN_MS)),
-      ]);
+      const next = await loadDetail(id, true);
       if (!mounted.current) return;
       setIsRefreshing(false);
       schedule(next);

@@ -5,7 +5,6 @@ import { FileUpIcon } from 'lucide-react';
 import type { Route } from 'next';
 import Link from 'next/link';
 import * as React from 'react';
-import { ChartSkeleton } from '@/components/data-display/loading';
 import { MetricHint } from '@/components/data-display/metric-card';
 import { EmptyState } from '@/components/data-display/states';
 import { AppShell } from '@/components/layout/app-shell';
@@ -116,7 +115,6 @@ export function AnalysisView({
                   <TabsTrigger value="risk">Risk</TabsTrigger>
                   <TabsTrigger value="tax">Tax</TabsTrigger>
                 </TabsList>
-                {!ready && <ChartSkeleton className="h-64" />}
                 <TabsContent value="allocation">
                   {analysis.holdings.length === 0 ? (
                     <section className="rounded-lg border border-border bg-surface p-6">

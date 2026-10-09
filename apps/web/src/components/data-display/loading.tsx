@@ -18,7 +18,7 @@ export function LoadingRegion({
       <span role="status" className="sr-only">
         {label}
       </span>
-      <div aria-busy="true" aria-hidden="true">
+      <div data-slot="loading-visual" aria-busy="true" aria-hidden="true">
         {children}
       </div>
     </div>
