@@ -136,13 +136,7 @@ export async function getMarketBreadthData(
     snapshotLeaders(db, {
       tradingDate: session,
       metric: 'deliveryRatio',
-      filter: withScope({
-        op: 'and',
-        children: [
-          { metric: 'changePct', cmp: 'gt', value: 0 },
-          { metric: 'relVolume', cmp: 'gte', value: 1.5 },
-        ],
-      }),
+      filter: withScope(spikeFilter),
       limit: 6,
     }),
     snapshotLeaders(db, {
