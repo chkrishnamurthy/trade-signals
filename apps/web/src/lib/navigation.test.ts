@@ -31,6 +31,13 @@ describe('navigation model', () => {
     expect(PRIMARY_NAV.length).toBeLessThanOrEqual(6);
   });
 
+  it('keeps IPOs in the primary bar and Alerts in the Markets menu', () => {
+    expect(PRIMARY_NAV.some((entry) => entry.kind === 'link' && entry.item.id === 'ipos')).toBe(
+      true,
+    );
+    expect(MARKETS_GROUP.items.some((item) => item.id === 'alerts')).toBe(true);
+  });
+
   it('gives each destination a unique id and href', () => {
     const items = [...allReadyItems(true), ...HELP_LINKS];
     expect(new Set(items.map((item) => item.id)).size).toBe(items.length);
@@ -74,7 +81,7 @@ describe('active matching', () => {
   });
 
   it('lights the Markets menu for a page inside it', () => {
-    expect(isGroupActive(MARKETS_GROUP, '/ipos/calendar')).toBe(true);
+    expect(isGroupActive(MARKETS_GROUP, '/alerts')).toBe(true);
     expect(isGroupActive(MARKETS_GROUP, '/watchlists')).toBe(false);
   });
 

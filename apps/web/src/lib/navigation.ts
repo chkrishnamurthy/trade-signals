@@ -121,6 +121,15 @@ const SCREENER: ReadyNavItem = {
   description: 'Filter every NSE stock by technical, delivery, F&O and ownership conditions',
 };
 
+const IPOS: ReadyNavItem = {
+  id: 'ipos',
+  status: 'ready',
+  href: '/ipos',
+  label: 'IPOs',
+  icon: CalendarRangeIcon,
+  description: 'Mainboard and SME public issues: dates, demand and listing',
+};
+
 const ALERTS: ReadyNavItem = {
   id: 'alerts',
   status: 'ready',
@@ -130,7 +139,7 @@ const ALERTS: ReadyNavItem = {
   description: 'Be told when a stock crosses a price or RSI level at the close',
 };
 
-/** The "Markets" menu — what the whole market did, not one stock. */
+/** The "Markets" menu — market-wide data plus the user's market alerts. */
 export const MARKETS_GROUP: NavMenuGroup = {
   id: 'markets',
   label: 'Markets',
@@ -168,14 +177,7 @@ export const MARKETS_GROUP: NavMenuGroup = {
       icon: CalendarDaysIcon,
       description: 'Results, corporate actions, holidays and watchlist events',
     },
-    {
-      id: 'ipos',
-      status: 'ready',
-      href: '/ipos',
-      label: 'IPOs',
-      icon: CalendarRangeIcon,
-      description: 'Mainboard and SME public issues: dates, demand and listing',
-    },
+    ALERTS,
   ],
 };
 
@@ -314,7 +316,7 @@ export const PRIMARY_NAV: readonly PrimaryEntry[] = [
   { kind: 'link', item: PORTFOLIO },
   { kind: 'link', item: SCREENER },
   { kind: 'menu', group: MARKETS_GROUP },
-  { kind: 'link', item: ALERTS },
+  { kind: 'link', item: IPOS },
 ];
 
 /**
@@ -327,7 +329,7 @@ export const MOBILE_TABS: readonly ReadyNavItem[] = [MARKET_BRIEF, WATCHLISTS, P
 /** What the "More" drawer lists, in order. Lab is appended for admins. */
 export const DRAWER_SECTIONS: readonly NavMenuGroup[] = [
   MARKETS_GROUP,
-  { id: 'tools', label: 'Tools', icon: BellRingIcon, items: [ALERTS] },
+  { id: 'tools', label: 'Tools', icon: CalendarRangeIcon, items: [IPOS] },
 ];
 
 /** The URL a home link goes to — the brand mark, and "back to the app". */

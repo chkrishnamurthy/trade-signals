@@ -31,7 +31,7 @@ import { DISCLAIMER } from './page';
  * Why tabs and not the old hamburger: the four places people go most are one
  * thumb-tap away and always visible, so "where am I" never needs a menu
  * opened. The drawer — a bottom sheet, the direction a thumb already moves —
- * holds Markets, Alerts, the admin Lab and Help & legal, grouped with headings.
+ * holds Markets, IPOs, the admin Lab and Help & legal, grouped with headings.
  *
  * The "More" tab lights when the current page lives in the drawer, so exactly
  * one tab is always current.
@@ -143,7 +143,7 @@ export function NavDrawer({
         <SheetHeader className="border-border border-b px-4 py-3">
           <SheetTitle className="text-base">More</SheetTitle>
           <SheetDescription className="sr-only">
-            Markets, alerts and help pages of EquityWise
+            Markets, IPOs and help pages of EquityWise
           </SheetDescription>
         </SheetHeader>
 
