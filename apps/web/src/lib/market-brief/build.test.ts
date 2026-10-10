@@ -170,6 +170,25 @@ describe('buildMarketBrief — market condition', () => {
     expect(brief.marketCondition.label).toBe('transitional');
   });
 
+  it('keeps the market condition independent of admin-only signals', () => {
+    const input = scenario({
+      advancing: 28,
+      declining: 22,
+      unchanged: 0,
+      above20: 28,
+      above50: 26,
+      total: 50,
+      bullSignals: 50,
+      bearSignals: 0,
+      expected: 50,
+    });
+    const admin = buildMarketBrief(input);
+    const regularUser = buildMarketBrief({ ...input, includeSignals: false });
+
+    expect(admin.marketCondition).toEqual(regularUser.marketCondition);
+    expect(admin.marketCondition.factors.some((factor) => factor.id === 'setups')).toBe(false);
+  });
+
   it('refuses to classify below the coverage floor', () => {
     const brief = buildMarketBrief(
       scenario({

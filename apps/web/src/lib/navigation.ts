@@ -8,7 +8,6 @@ import {
   CalendarRangeIcon,
   DatabaseIcon,
   FlaskConicalIcon,
-  GaugeIcon,
   HistoryIcon,
   InfoIcon,
   LandmarkIcon,
@@ -86,7 +85,7 @@ const MARKET_BRIEF: ReadyNavItem = {
   id: 'brief',
   status: 'ready',
   href: '/today',
-  label: 'Market brief',
+  label: 'Market Brief',
   shortLabel: 'Brief',
   icon: SunriseIcon,
   description: 'A technical summary of the latest completed session',
@@ -145,14 +144,6 @@ export const MARKETS_GROUP: NavMenuGroup = {
   label: 'Markets',
   icon: LayoutGridIcon,
   items: [
-    {
-      id: 'breadth',
-      status: 'ready',
-      href: '/markets/breadth',
-      label: 'Market breadth',
-      icon: GaugeIcon,
-      description: 'Advances, declines, highs vs lows and industry rotation',
-    },
     {
       id: 'flows',
       status: 'ready',

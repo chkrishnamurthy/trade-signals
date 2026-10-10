@@ -14,9 +14,9 @@ import { handle, ok } from '@/server/watchlist-routes';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function GET(): Promise<NextResponse> {
+export async function GET(request: Request): Promise<NextResponse> {
   return handle(async () => {
-    const { brief, defaultWatchlistId } = await getMarketBrief();
-    return ok({ brief, defaultWatchlistId });
+    const universe = new URL(request.url).searchParams.get('u') === 'nifty500' ? 'nifty500' : 'all';
+    return ok(await getMarketBrief(universe));
   });
 }

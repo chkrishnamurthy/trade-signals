@@ -7,7 +7,7 @@ import {
   type SnapshotRow,
   snapshotLeaders,
 } from '@equitywise/db';
-import { istDateKey } from '@equitywise/shared';
+import { countSessionsBehind } from '@/lib/market-brief';
 import { getSessionUser } from './auth/require-user';
 import { getDatabase } from './db';
 import { MarketDataError } from './errors';
@@ -60,6 +60,7 @@ export interface MarketBreadthDto {
     readonly volume: readonly LeaderDto[];
     readonly buildup: readonly LeaderDto[];
     readonly highs: readonly LeaderDto[];
+    readonly lows: readonly LeaderDto[];
   };
 }
 
@@ -83,6 +84,13 @@ export async function getMarketBreadth(universe: 'all' | 'nifty500'): Promise<Ma
       remedy: 'Sign in and try again.',
     });
   }
+  return getMarketBreadthData(universe);
+}
+
+/** Authenticated callers may reuse the persisted breadth read without a second owner lookup. */
+export async function getMarketBreadthData(
+  universe: 'all' | 'nifty500',
+): Promise<MarketBreadthDto> {
   const db = getDatabase();
   const build = await latestSnapshotBuild(db);
   if (build === null) {
@@ -94,7 +102,7 @@ export async function getMarketBreadth(universe: 'all' | 'nifty500'): Promise<Ma
       history: [],
       industries: [],
       deliverySpikes: null,
-      leaders: { delivery: [], volume: [], buildup: [], highs: [] },
+      leaders: { delivery: [], volume: [], buildup: [], highs: [], lows: [] },
     };
   }
   const session = build.tradingDate;
@@ -119,9 +127,12 @@ export async function getMarketBreadth(universe: 'all' | 'nifty500'): Promise<Ma
       { metric: 'changePct' as const, cmp: 'gt' as const, value: 0 },
     ],
   };
-  const [history, industries, delivery, volume, buildup, highs, spikes] = await Promise.all([
+  const [history, industries, delivery, volume, buildup, highs, lows, spikes] = await Promise.all([
     breadthHistory(db, { universe, from: from.toISOString().slice(0, 10) }),
-    industryAggregates(db, session),
+    industryAggregates(db, {
+      tradingDate: session,
+      universe: universe === 'nifty500' ? { kind: 'index', indexKey: 'nifty500' } : { kind: 'all' },
+    }),
     snapshotLeaders(db, {
       tradingDate: session,
       metric: 'deliveryRatio',
@@ -152,6 +163,12 @@ export async function getMarketBreadth(universe: 'all' | 'nifty500'): Promise<Ma
       filter: withScope({ metric: 'breakout52w', cmp: 'is', value: true }),
       limit: 6,
     }),
+    snapshotLeaders(db, {
+      tradingDate: session,
+      metric: 'relVolume',
+      filter: withScope({ metric: 'breakdown52w', cmp: 'is', value: true }),
+      limit: 6,
+    }),
     conditionCounts(db, {
       tradingDate: session,
       universe: universe === 'nifty500' ? { kind: 'index', indexKey: 'nifty500' } : { kind: 'all' },
@@ -159,12 +176,11 @@ export async function getMarketBreadth(universe: 'all' | 'nifty500'): Promise<Ma
     }),
   ]);
 
-  const today = Date.parse(`${istDateKey(new Date())}T00:00:00Z`);
   return {
     universe,
     session,
     builtAt: build.finishedAt?.toISOString() ?? null,
-    stale: today - Date.parse(`${session}T00:00:00Z`) > 4 * 86_400_000,
+    stale: countSessionsBehind(session, new Date()) > 1,
     history: history.map((d) => ({
       date: d.tradingDate,
       advances: d.advances,
@@ -183,6 +199,7 @@ export async function getMarketBreadth(universe: 'all' | 'nifty500'): Promise<Ma
       volume: volume.map((r) => leader(r, r.relVolume)),
       buildup: buildup.map((r) => leader(r, r.futOiChgPct)),
       highs: highs.map((r) => leader(r, r.relVolume)),
+      lows: lows.map((r) => leader(r, r.relVolume)),
     },
   };
 }

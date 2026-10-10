@@ -7,17 +7,21 @@ import {
   getDailyBars,
   getInstrumentBySymbol,
   indicatorsForInstrumentsOnDate,
+  listOwnerWatchedInstrumentIds,
   listWatchlists,
   ownerHasWatchlists,
   recentIndicatorSessions,
   resolveInstrumentIds,
   signalsForInstrumentsOnDate,
+  snapshotsForInstrumentsOnDate,
   watchlistMembershipForOwner,
 } from '@equitywise/db';
 import {
+  type BreadthMarketRead,
   type BriefDirection,
   type BriefSignalFactor,
   type BriefWatchlistRef,
+  buildBreadthMarketRead,
   buildMarketBrief,
   type DailyMarketBrief,
   expectedLatestSession,
@@ -29,6 +33,7 @@ import { getSessionUser } from './auth/require-user';
 import { getDatabase } from './db';
 import { MarketDataError } from './errors';
 import { getHeadlineIndices, getIndex, listIndexKeys } from './indices';
+import { getMarketBreadthData, type MarketBreadthDto } from './market-breadth';
 
 /**
  * The Daily Market Brief server service (`/today`).
@@ -59,8 +64,20 @@ function toDirection(value: string): BriefDirection | null {
 
 export interface MarketBriefResponse {
   readonly brief: DailyMarketBrief;
+  readonly breadth: MarketBreadthDto;
+  readonly marketRead: BreadthMarketRead;
+  readonly personalMovers: readonly PersonalMoverDto[];
   /** The user's default watchlist, for the add-to-watchlist controls. Null when none. */
   readonly defaultWatchlistId: number | null;
+}
+
+export interface PersonalMoverDto {
+  readonly instrumentId: number;
+  readonly symbol: string;
+  readonly name: string;
+  readonly closePaise: number;
+  readonly sessionReturn: number | null;
+  readonly watchlists: readonly BriefWatchlistRef[];
 }
 
 async function requireOwner(): Promise<{ id: number; isAdmin: boolean }> {
@@ -101,7 +118,9 @@ async function loadUniverse(): Promise<Map<string, UniverseEntry>> {
 }
 
 /** The benchmark index's session return, percent. Null when unavailable. */
-async function indexReturn(): Promise<{ name: string | null; returnPercent: number | null }> {
+async function indexReturn(
+  sessionDate: string,
+): Promise<{ name: string | null; returnPercent: number | null }> {
   try {
     const headlines = await getHeadlineIndices();
     const benchmark = headlines.find((h) => h.display === 'index') ?? headlines[0];
@@ -114,7 +133,9 @@ async function indexReturn(): Promise<{ name: string | null; returnPercent: numb
     const bars = await getDailyBars(db, {
       instrumentId: instrument.id,
       from: new Date(0),
-      to: new Date(),
+      // The page describes one completed session. Never let a newer stored bar
+      // leak into an older/stale brief.
+      to: new Date(`${sessionDate}T23:59:59.999+05:30`),
       limit: 2,
     });
     if (bars.length < 2) return { name: benchmark.name, returnPercent: null };
@@ -131,22 +152,49 @@ async function indexReturn(): Promise<{ name: string | null; returnPercent: numb
   }
 }
 
-export async function getMarketBrief(now: Date = new Date()): Promise<MarketBriefResponse> {
+export async function getMarketBrief(
+  breadthUniverse: 'all' | 'nifty500' = 'all',
+  now: Date = new Date(),
+): Promise<MarketBriefResponse> {
   const { id: ownerId, isAdmin } = await requireOwner();
   const db = getDatabase();
 
-  const universe = await loadUniverse();
+  const [universe, breadth, sessions, hasWatchlists, allWatchlists, watchedInstrumentIds] =
+    await Promise.all([
+      loadUniverse(),
+      getMarketBreadthData(breadthUniverse),
+      recentIndicatorSessions(db, 2),
+      ownerHasWatchlists(db, ownerId),
+      listWatchlists(db, ownerId),
+      listOwnerWatchedInstrumentIds(db, ownerId),
+    ]);
   const expectedInstruments = universe.size;
   const symbolIds = await resolveInstrumentIds(db, [...universe.keys()]);
   const instrumentIds = [...symbolIds.values()];
 
-  const [sessions, hasWatchlists, allWatchlists] = await Promise.all([
-    recentIndicatorSessions(db, 2),
-    ownerHasWatchlists(db, ownerId),
-    listWatchlists(db, ownerId),
-  ]);
   const defaultWatchlistId =
     allWatchlists.find((w) => w.isDefault)?.id ?? allWatchlists[0]?.id ?? null;
+
+  const [personalRows, personalMembership] =
+    breadth.session === null
+      ? [[], new Map<number, BriefWatchlistRef[]>()]
+      : await Promise.all([
+          snapshotsForInstrumentsOnDate(db, breadth.session, watchedInstrumentIds),
+          watchlistMembershipForOwner(db, ownerId, watchedInstrumentIds),
+        ]);
+  const personalMovers: PersonalMoverDto[] = personalRows
+    .map((row) => ({
+      instrumentId: row.instrumentId,
+      symbol: row.symbol,
+      name: row.name,
+      closePaise: row.close,
+      sessionReturn: row.changePct,
+      watchlists: personalMembership.get(row.instrumentId) ?? [],
+    }))
+    .sort((a, b) => Math.abs(b.sessionReturn ?? 0) - Math.abs(a.sessionReturn ?? 0))
+    .slice(0, 12);
+  const latestBreadth = breadth.history[breadth.history.length - 1] ?? null;
+  const marketRead = buildBreadthMarketRead(latestBreadth);
 
   const latest = sessions[0];
   const previous = sessions[1];
@@ -170,7 +218,13 @@ export async function getMarketBrief(now: Date = new Date()): Promise<MarketBrie
       indexReturnPercent: null,
       indexName: null,
     };
-    return { brief: buildMarketBrief(emptyInput), defaultWatchlistId };
+    return {
+      brief: buildMarketBrief(emptyInput),
+      breadth,
+      marketRead,
+      personalMovers,
+      defaultWatchlistId,
+    };
   }
 
   const emptyIndicators = Promise.resolve(new Map<number, BriefIndicatorRow>());
@@ -194,7 +248,7 @@ export async function getMarketBrief(now: Date = new Date()): Promise<MarketBrie
       ? emptySignals
       : signalsForInstrumentsOnDate(db, instrumentIds, previous.tradingDate),
     watchlistMembershipForOwner(db, ownerId, instrumentIds),
-    indexReturn(),
+    indexReturn(breadth.session ?? latest.tradingDate),
   ]);
 
   const currentSignalIds = [...currentSignalRows.values()].map((s) => s.signalId);
@@ -271,7 +325,13 @@ export async function getMarketBrief(now: Date = new Date()): Promise<MarketBrie
     indexName: index.name,
   };
 
-  return { brief: buildMarketBrief(input), defaultWatchlistId };
+  return {
+    brief: buildMarketBrief(input),
+    breadth,
+    marketRead,
+    personalMovers,
+    defaultWatchlistId,
+  };
 }
 
 /** Maps stored factor rows to the wire shape. */

@@ -339,7 +339,7 @@ function Tile({
   );
 }
 
-function ParticipationChart({ history }: { history: MarketBreadthDto['history'] }) {
+export function ParticipationChart({ history }: { history: MarketBreadthDto['history'] }) {
   const points = history.filter((d) => d.above200Pct !== null);
   if (points.length < 2)
     return (
@@ -396,7 +396,7 @@ function ParticipationChart({ history }: { history: MarketBreadthDto['history'] 
   );
 }
 
-function HighsLowsChart({ history }: { history: MarketBreadthDto['history'] }) {
+export function HighsLowsChart({ history }: { history: MarketBreadthDto['history'] }) {
   if (history.length === 0)
     return (
       <p className="py-10 text-center text-muted-foreground text-sm">Not enough history yet.</p>

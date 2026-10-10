@@ -51,22 +51,23 @@ export function PageLoading({
 export function TodayLoading() {
   return (
     <PageLoading
-      title="Welcome back 👋"
-      description="Here’s your read on the session that just closed."
+      title="Market Brief"
+      description="Market participation, trend health and the stocks that deserve attention."
     >
-      <Skeleton className="h-8 w-72 max-w-full" />
-      <SkeletonMetrics />
-      <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
-        <SkeletonPanel className="space-y-6">
-          <Skeleton className="h-5 w-48 max-w-full" />
-          <SkeletonText lines={3} />
-          <SkeletonMetrics count={3} className="grid-cols-3 lg:grid-cols-3" />
-        </SkeletonPanel>
-        <SkeletonPanel>
-          <Skeleton className="h-4 w-32" />
-          <SkeletonList rows={3} />
-        </SkeletonPanel>
+      <SkeletonToolbar />
+      <SkeletonPanel className="space-y-5">
+        <Skeleton className="h-6 w-56 max-w-full" />
+        <SkeletonText lines={2} />
+        <SkeletonMetrics count={6} className="sm:grid-cols-3 lg:grid-cols-6" />
+      </SkeletonPanel>
+      <div className="grid gap-4 xl:grid-cols-2">
+        <SkeletonChart />
+        <SkeletonChart />
       </div>
+      <SkeletonPanel>
+        <Skeleton className="h-5 w-44" />
+        <SkeletonList rows={4} />
+      </SkeletonPanel>
       <SkeletonTable rows={5} />
     </PageLoading>
   );

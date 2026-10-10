@@ -740,6 +740,31 @@ export async function snapshotForInstrument(
   return row ?? null;
 }
 
+/** Snapshot rows for a bounded owner-scoped instrument set on one session. */
+export async function snapshotsForInstrumentsOnDate(
+  db: Database,
+  tradingDate: string,
+  instrumentIds: readonly number[],
+): Promise<SnapshotRow[]> {
+  if (instrumentIds.length === 0) return [];
+  const rows: SnapshotRow[] = [];
+  for (let i = 0; i < instrumentIds.length; i += CHUNK) {
+    const ids = instrumentIds.slice(i, i + CHUNK);
+    rows.push(
+      ...(await db
+        .select()
+        .from(screenerSnapshots)
+        .where(
+          and(
+            eq(screenerSnapshots.tradingDate, tradingDate),
+            inArray(screenerSnapshots.instrumentId, ids),
+          ),
+        )),
+    );
+  }
+  return rows;
+}
+
 /** Peers: same industry on the same session, ranked by RS. */
 export async function industryPeers(
   db: Database,
@@ -791,8 +816,13 @@ export interface IndustryAggregate {
 /** Median returns and % above EMA 50 per industry on a session. */
 export async function industryAggregates(
   db: Database,
-  tradingDate: string,
+  input: { readonly tradingDate: string; readonly universe: ScreenUniverse },
 ): Promise<IndustryAggregate[]> {
+  const universe = universeCondition(input.universe);
+  const where =
+    universe === undefined
+      ? sql`trading_date = ${input.tradingDate} AND industry IS NOT NULL`
+      : sql`trading_date = ${input.tradingDate} AND industry IS NOT NULL AND ${universe}`;
   const result = await db.execute<{
     industry: string;
     stocks: number;
@@ -810,7 +840,7 @@ export async function industryAggregates(
            percentile_cont(0.5) WITHIN GROUP (ORDER BY ret3m) AS ret3m,
            100.0 * count(*) FILTER (WHERE close_vs_ema50 > 0) / NULLIF(count(close_vs_ema50), 0) AS above50_pct
     FROM ${screenerSnapshots}
-    WHERE trading_date = ${tradingDate} AND industry IS NOT NULL
+    WHERE ${where}
     GROUP BY industry
     HAVING count(*) >= 3
     ORDER BY ret1m DESC NULLS LAST

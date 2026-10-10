@@ -130,7 +130,6 @@ export function buildMarketBrief(
     availableInstruments,
     expectedInstruments: input.expectedInstruments,
     breadth,
-    signalCategories: signalCategoryCounts(input.currentSignals),
     thresholds,
   });
 
@@ -253,21 +252,6 @@ function computeNewSetupCounts(input: MarketBriefInput): { bullish: number; bear
   return { bullish, bearish };
 }
 
-function signalCategoryCounts(signals: ReadonlyMap<number, SessionSignalFacts>): {
-  bullish: number;
-  bearish: number;
-  total: number;
-} {
-  let bullish = 0;
-  let bearish = 0;
-  for (const signal of signals.values()) {
-    const category = categoryOf(signal.direction);
-    if (category === 'bullish') bullish += 1;
-    else if (category === 'bearish') bearish += 1;
-  }
-  return { bullish, bearish, total: signals.size };
-}
-
 // ---------------------------------------------------------------------------
 // Classification
 // ---------------------------------------------------------------------------
@@ -276,10 +260,9 @@ function classifyMarket(args: {
   availableInstruments: number;
   expectedInstruments: number;
   breadth: Breadth;
-  signalCategories: { bullish: number; bearish: number; total: number };
   thresholds: MarketBriefThresholds;
 }): MarketConditionDto {
-  const { availableInstruments, expectedInstruments, breadth, signalCategories, thresholds } = args;
+  const { availableInstruments, expectedInstruments, breadth, thresholds } = args;
 
   const coverage = expectedInstruments === 0 ? 0 : availableInstruments / expectedInstruments;
 
@@ -297,17 +280,7 @@ function classifyMarket(args: {
       ? (breadth.above50 / breadth.sma50Total) * 2 - 1
       : null;
   if (longTerm !== null) components.push({ id: 'above50', value: longTerm });
-  if (signalCategories.total > 0) {
-    components.push({
-      id: 'setups',
-      value: (signalCategories.bullish - signalCategories.bearish) / signalCategories.total,
-    });
-  }
-
-  const factors = buildConditionFactors(
-    breadth,
-    signalCategories.total > 0 ? signalCategories : null,
-  );
+  const factors = buildConditionFactors(breadth);
 
   if (coverage < thresholds.coverageFloor || components.length < thresholds.minComponents) {
     return {
@@ -377,11 +350,7 @@ function decideLabel(args: {
   return 'mixed';
 }
 
-function buildConditionFactors(
-  breadth: Breadth,
-  /** Null when no signals were read (a non-admin viewer, or none stored). */
-  signalCategories: { bullish: number; bearish: number; total: number } | null,
-): MarketConditionFactor[] {
+function buildConditionFactors(breadth: Breadth): MarketConditionFactor[] {
   const factors: MarketConditionFactor[] = [];
   const advTotal = breadth.advances + breadth.declines;
 
@@ -410,16 +379,6 @@ function buildConditionFactors(
       totalCount: breadth.sma50Total,
     });
   }
-  if (signalCategories !== null) {
-    factors.push({
-      id: 'setups',
-      label: 'Bullish vs bearish setups',
-      value: `${signalCategories.bullish} / ${signalCategories.bearish}`,
-      availableCount: signalCategories.bullish + signalCategories.bearish,
-      totalCount: signalCategories.total,
-    });
-  }
-
   return factors;
 }
 

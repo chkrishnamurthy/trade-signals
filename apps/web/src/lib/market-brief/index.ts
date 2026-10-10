@@ -1,4 +1,9 @@
 export {
+  type BreadthMarketRead,
+  type BreadthSummaryInput,
+  buildBreadthMarketRead,
+} from './breadth-summary';
+export {
   buildMarketBrief,
   countSessionsBehind,
   expectedLatestSession,

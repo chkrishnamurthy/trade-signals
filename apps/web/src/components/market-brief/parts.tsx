@@ -1,6 +1,7 @@
 'use client';
 
 import { CheckIcon, PlusIcon } from 'lucide-react';
+import Link from 'next/link';
 import { useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +14,7 @@ import type {
   BriefWatchlistRef,
   MarketConditionLabel,
 } from '@/lib/market-brief';
+import { stockHref } from '@/lib/screener-format';
 import { cn } from '@/lib/utils';
 
 /** IST-formatted trading date, e.g. "Fri, 11 Sep 2026". */
@@ -285,7 +287,7 @@ export function AddToWatchlist({
   );
 }
 
-/** A muted stock identity line: symbol in mono, name beside it. */
+/** A linked stock identity line: symbol in mono, name beside it. */
 export function StockName({
   symbol,
   name,
@@ -296,11 +298,14 @@ export function StockName({
   className?: string | undefined;
 }) {
   return (
-    <span className={cn('flex min-w-0 flex-col', className)}>
+    <Link
+      href={stockHref(symbol)}
+      className={cn('flex min-w-0 flex-col hover:underline', className)}
+    >
       <span className="font-mono text-xs font-medium text-foreground">{symbol}</span>
       <Text as="span" variant="caption" className="truncate">
         {name}
       </Text>
-    </span>
+    </Link>
   );
 }
