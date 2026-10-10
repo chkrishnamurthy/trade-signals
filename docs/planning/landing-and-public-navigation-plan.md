@@ -74,7 +74,7 @@ media logos (we have none — never invent them); app-download CTAs (no app yet)
 
 | | Phase A — now | Phase B — after data rights confirmed |
 |---|---|---|
-| Public | Landing, About, Methodology, Data sources, Contact, legal | + `/stocks/[symbol]`, `/screener` (ready-made screens), `/markets/breadth`, `/ipos/*`, `/calendar`, `/announcements`, `/flows` — **end-of-day** values, "At close · date" stamp |
+| Public | Landing, About, Methodology, Data sources, Contact, legal | + `/stocks/[symbol]`, `/screener` (ready-made screens), `/ipos/*`, `/calendar`, `/announcements`, `/flows` — **end-of-day** values, "At close · date" stamp. Market breadth remains inside the signed-in `/today` brief. |
 | Account needed | Everything else | Watchlists, portfolio, alerts, saving/building screens, ratio-board layout, live prices |
 | Search in header | Hidden | Shown → public stock page |
 | SEO | Trust pages only | Stock and market pages indexable (the existing SEO doc's plan) |
@@ -109,7 +109,7 @@ This is a legal/commercial check, not a design one — the design works either w
   *Start here* — "How EquityWise works" tour card · "How every number is calculated".
   In phase A each item links to its section of the landing page (`/#watchlists`…); dedicated
   `/features/<x>` pages later if SEO needs them.
-- **Markets ▾** (phase B only): Market breadth · IPOs · Market calendar · Announcements · Institutional flow
+- **Markets ▾** (phase B only): IPOs · Market calendar · Announcements · Institutional flow
   — the same group as the app's Markets menu, so the words don't change after sign-in.
 - **Learn ▾**: Methodology · Data sources · FAQ (· Glossary later).
 - **About**: About · Contact & support.
@@ -134,7 +134,7 @@ Markets ▾ · Alerts (+ Lab ▾ for admins), search, market-status pill, notice
 | Rule | Why |
 |---|---|
 | Logo far left, account control far right, search in the same slot, 56–64px header in all states | Muscle memory across the sign-in boundary |
-| Same group names: "Markets" means the same five pages before and after sign-in | No relearning |
+| Same group names: "Markets" means the same market-record pages before and after sign-in | No relearning |
 | Logo goes to `/` when signed out, `/today` when signed in; `/` redirects signed-in users to `/today` | One home per state (L8) |
 | Every gated action returns the user to where they were, with the action done (`?next=` + intent) | The sign-up is a step, not a detour |
 | Footer legal links in every state | Trust signals never disappear |

@@ -35,7 +35,7 @@ EQ/BE/BZ**; bhavcopy bars count as closed the **same evening**; prices are
 | Schema + migration `0032_stock_analysis` (instrument_reference, index_memberships, screener_snapshots, screener_snapshot_builds, market_breadth_daily, saved_screens) and the SQL compiler | `packages/db/src/schema/screener.ts`, `packages/db/src/repositories/screener.ts` |
 | NSE source (equity list, index files, bhavcopy bars, corporate actions) and jobs | `apps/worker/src/sources/nse-market.ts`, `apps/worker/src/jobs/stock-analysis.ts` |
 | Screener API + page, presets | `apps/web/src/app/api/screener/*`, `apps/web/src/app/screener`, `config/screener-presets.yaml` |
-| Stock page, market breadth, Discover navigation | `apps/web/src/app/stocks/[symbol]`, `apps/web/src/app/markets/breadth`, `apps/web/src/lib/navigation.ts` |
+| Stock page and market breadth inside Market Brief | `apps/web/src/app/stocks/[symbol]`, `apps/web/src/app/today`, `apps/web/src/server/market-breadth.ts` |
 | Local real-data loader | `scripts/load-stock-analysis.ts` (refuses non-local hosts) |
 
 **Deviations from the plan text below, and why:**
@@ -75,8 +75,9 @@ unchanged by this build: the pages are signed-in only.
 2. **`/stocks/[symbol]`** — one stock in full: price and chart, technical summary,
    relative strength, delivery and deals, F&O panel, ownership trend, announcements,
    events, corporate actions, peers, and (admin-only) signals with their factors.
-3. **`/markets/breadth`** — the market's internals: advance/decline, % above key
-   averages, new highs vs lows, sector rotation, delivery and OI leaders.
+3. **Market breadth inside `/today`** — the market's internals: advance/decline, % above key
+   averages, new highs vs lows, industry rotation, delivery and OI leaders. The former
+   `/markets/breadth` route now redirects to the same universe on `/today`.
 
 **V1 does not deliver:** any fundamental metric (P/E, P/B, ROE, ROCE, EPS, revenue,
 profit, margins, debt, dividend yield), market cap, financial statements, analyst
@@ -375,7 +376,11 @@ composition service returning independent sections, each with
 No fundamental cards appear in V1, and no empty "coming soon" fundamentals placeholders —
 the page is complete on its own terms.
 
-## 7. Market breadth (`/markets/breadth`)
+## 7. Market breadth (consolidated into `/today`)
+
+**As-built update, 2026-10-10:** these modules are now ordered within Market Brief instead
+of presented as a separate page. `/markets/breadth` is an authenticated compatibility
+redirect and `?u=nifty500` is preserved.
 
 | Module | Content |
 | --- | --- |
@@ -393,11 +398,11 @@ Each module links into a pre-filled screener (e.g. clicking "312 new 52W highs" 
 
 ### 8.1 Information architecture
 
-New navigation group **"Discover"** above "Market record":
+The original proposal used a separate Discover destination. The as-built navigation keeps
+Screener primary and folds breadth into Market Brief:
 
 ```text
-Tracking        Market Brief · My watchlists
-Discover        Screener · Market breadth          ← new
+Primary         Market Brief · Watchlists · Portfolio · Screener
 Market record   Announcements · Market Calendar · Institutional Flow · IPOs
 Account         Your profile
 ```
@@ -548,7 +553,7 @@ POST   /api/screener/screens
 PATCH  /api/screener/screens/[id]
 DELETE /api/screener/screens/[id]
 GET    /api/screener/count?f=<AST>           # live per-condition counts (debounced client)
-GET    /api/markets/breadth?universe=&range=
+# Breadth is composed server-side into /today; there is no separate public breadth API.
 GET    /api/stocks/[symbol]/chart?range=&interval=
 ```
 
@@ -622,7 +627,7 @@ keep scope tight.
 | Decision | Recommendation |
 | --- | --- |
 | Universe | NSE EQ/BE/BZ now; SME (SM/ST) behind a filter later |
-| Navigation | New "Discover" group with Screener and Market breadth |
+| Navigation | Screener is primary; market breadth is part of Market Brief |
 | Launch audience | Owner + invited testers until the display-rights decision |
 | Intraday snapshot | Build in Phase 5 as admin-only |
 | Option chain PCR/IV | Phase 5, only if Dhan's limits allow an evening sweep |

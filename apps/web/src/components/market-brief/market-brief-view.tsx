@@ -22,7 +22,6 @@ import {
 } from '@/components/layout/page';
 import { PercentChange, Price } from '@/components/market/numeric';
 import { SetupTag, SignalBadge, SignalStrength } from '@/components/market/signal';
-import { HighsLowsChart, ParticipationChart } from '@/components/markets/breadth-view';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -33,6 +32,7 @@ import { toneText } from '@/lib/tone';
 import { cn } from '@/lib/utils';
 import type { LeaderDto, MarketBreadthDto } from '@/server/market-breadth';
 import type { MarketBriefResponse, PersonalMoverDto } from '@/server/market-brief';
+import { HighsLowsChart, ParticipationChart } from './breadth-charts';
 import { FactorBreakdown } from './factor-breakdown';
 import {
   AddToWatchlist,
@@ -43,23 +43,17 @@ import {
   StockName,
   WatchlistChips,
 } from './parts';
+import {
+  buildPersonalItems,
+  INDUSTRY_METRICS,
+  type Industry,
+  type IndustryMetric,
+  marketAttentionCategories,
+  rankIndustries,
+  signed,
+} from './view-model';
 
 type Universe = MarketBreadthDto['universe'];
-type Industry = MarketBreadthDto['industries'][number];
-type IndustryMetric = 'change1d' | 'ret1w' | 'ret1m' | 'ret3m';
-
-const INDUSTRY_METRICS: readonly { id: IndustryMetric; label: string }[] = [
-  { id: 'change1d', label: '1D' },
-  { id: 'ret1w', label: '1W' },
-  { id: 'ret1m', label: '1M' },
-  { id: 'ret3m', label: '3M' },
-];
-
-function signed(value: number | null, digits = 1, suffix = '%'): string {
-  if (value === null || !Number.isFinite(value)) return '—';
-  const sign = value > 0 ? '+' : value < 0 ? '−' : '';
-  return `${sign}${Math.abs(value).toFixed(digits)}${suffix}`;
-}
 
 function screenHref(filter: Parameters<typeof encodeFilter>[0], universe: Universe): Route {
   const query = new URLSearchParams({ f: encodeFilter(filter) });
@@ -286,10 +280,6 @@ function InsightTile({
   );
 }
 
-interface PersonalItem extends PersonalMoverDto {
-  readonly reasons: readonly string[];
-}
-
 function PersonalSection({
   brief,
   movers,
@@ -297,32 +287,10 @@ function PersonalSection({
   brief: DailyMarketBrief;
   movers: readonly PersonalMoverDto[];
 }) {
-  const items = useMemo(() => {
-    const bySymbol = new Map<string, PersonalItem>();
-    for (const mover of movers) bySymbol.set(mover.symbol, { ...mover, reasons: [] });
-    for (const change of brief.watchlists.items) {
-      const prior = bySymbol.get(change.symbol);
-      if (prior === undefined) {
-        bySymbol.set(change.symbol, {
-          instrumentId: change.instrumentId,
-          symbol: change.symbol,
-          name: change.name,
-          closePaise: change.closePaise,
-          sessionReturn: change.sessionReturn,
-          watchlists: change.watchlists,
-          reasons: [change.explanation],
-        });
-      } else if (!prior.reasons.includes(change.explanation)) {
-        bySymbol.set(change.symbol, { ...prior, reasons: [...prior.reasons, change.explanation] });
-      }
-    }
-    return [...bySymbol.values()]
-      .sort((a, b) => {
-        if (a.reasons.length !== b.reasons.length) return b.reasons.length - a.reasons.length;
-        return Math.abs(b.sessionReturn ?? 0) - Math.abs(a.sessionReturn ?? 0);
-      })
-      .slice(0, 8);
-  }, [brief.watchlists.items, movers]);
+  const items = useMemo(
+    () => buildPersonalItems(movers, brief.watchlists.items),
+    [brief.watchlists.items, movers],
+  );
 
   return (
     <Section aria-labelledby="personal-heading">
@@ -425,14 +393,7 @@ function TrendsSection({ breadth }: { breadth: MarketBreadthDto }) {
 
 function IndustrySection({ breadth }: { breadth: MarketBreadthDto }) {
   const [metric, setMetric] = useState<IndustryMetric>('ret1m');
-  const ranked = [...breadth.industries]
-    .filter((row) => row[metric] !== null)
-    .sort((a, b) => (b[metric] ?? 0) - (a[metric] ?? 0));
-  const leaders = ranked.slice(0, 5);
-  const laggards = ranked
-    .slice(-5)
-    .reverse()
-    .filter((row) => !leaders.includes(row));
+  const { leaders, laggards } = rankIndustries(breadth.industries, metric);
 
   if (breadth.industries.length === 0) return null;
   return (
@@ -571,39 +532,7 @@ function MarketAttentionSection({
   watchedSymbols: ReadonlySet<string>;
   defaultWatchlistId: number | null;
 }) {
-  const categories = [
-    {
-      id: 'volume',
-      label: 'Unusual volume',
-      rows: breadth.leaders.volume,
-      format: (value: number | null) => (value === null ? '—' : `${value.toFixed(1)}×`),
-    },
-    {
-      id: 'delivery',
-      label: 'Delivery spikes',
-      rows: breadth.leaders.delivery,
-      count: breadth.deliverySpikes,
-      format: (value: number | null) => (value === null ? '—' : `${value.toFixed(1)}% delivery`),
-    },
-    {
-      id: 'highs',
-      label: '52W highs',
-      rows: breadth.leaders.highs,
-      format: (value: number | null) => (value === null ? '—' : `${value.toFixed(1)}× volume`),
-    },
-    {
-      id: 'lows',
-      label: '52W lows',
-      rows: breadth.leaders.lows,
-      format: (value: number | null) => (value === null ? '—' : `${value.toFixed(1)}× volume`),
-    },
-    {
-      id: 'buildup',
-      label: 'Long build-up',
-      rows: breadth.leaders.buildup,
-      format: (value: number | null) => `OI ${signed(value)}`,
-    },
-  ].filter((category) => category.rows.length > 0);
+  const categories = marketAttentionCategories(breadth);
   const first = categories[0];
   if (first === undefined) return null;
 

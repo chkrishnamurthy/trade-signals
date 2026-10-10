@@ -102,7 +102,7 @@ apps/web/src/components/market/stock-search.tsx,component,"82:const response = a
 apps/web/src/components/market-brief/factor-breakdown.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
 apps/web/src/components/market-brief/market-brief-view.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
 apps/web/src/components/market-brief/parts.tsx,component,"254:const response = await fetch(`/api/watchlists/${defaultWatchlistId}/items`, {","Mutation on explicit action; retain form/dialog/content, pending control and existing error feedback"
-apps/web/src/components/markets/breadth-view.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
+apps/web/src/components/market-brief/breadth-charts.tsx,component,,Presentational chart primitives; the unified Market Brief owns loading
 apps/web/src/components/paper/activity-card.tsx,component,"105:const { data, error } = usePolledResource(",Activity rows within existing card
 apps/web/src/components/paper/controls-card.tsx,component,,"Mutation on explicit action; retain form/dialog/content, pending control and existing error feedback"
 apps/web/src/components/paper/history-card.tsx,component,"55:fetch(query(filter), { cache: 'no-store' })",Initial table rows; retain history on pagination
@@ -249,7 +249,7 @@ apps/web/src/app/ipos/mainboard/page.tsx,/ipos/mainboard,"7:return redirectToTab
 apps/web/src/app/ipos/page.tsx,/ipos,26:const params = searchParamsObject(await searchParams); | 33:return <IpoDashboardView data={await getIpoDashboard(scope)} />;,apps/web/src/app/ipos/loading.tsx
 apps/web/src/app/ipos/pipeline/page.tsx,/ipos/pipeline,"21:const params = searchParamsObject(await searchParams); | 24:const data = await readOrSignIn(`/ipos/pipeline${scope === 'all' ? '' : `?board=${scope}`}`, () =>",apps/web/src/app/ipos/pipeline/loading.tsx
 apps/web/src/app/ipos/sme/page.tsx,/ipos/sme,"7:return redirectToTable('sme', await searchParams);",Redirect only; destination owns loading
-apps/web/src/app/markets/breadth/page.tsx,/markets/breadth,20:const u = (await searchParams).u; | 23:return <BreadthView data={await getMarketBreadth(universe)} />;,apps/web/src/app/markets/breadth/loading.tsx
+apps/web/src/app/markets/breadth/page.tsx,/markets/breadth,Authenticated compatibility redirect to /today; preserves ?u=nifty500,Redirect only; destination owns loading
 apps/web/src/app/methodology/page.tsx,/methodology,,Static content immediately; persistent PublicHeader reserves account-control space through session-provider loading
 apps/web/src/app/(landing)/page.tsx,/,43:const user = await getSessionUser().catch(() => null);,Isolated delayed landing skeleton only if the server session lookup remains pending
 apps/web/src/app/paper-trading/page.tsx,/paper-trading,13:await requireAdminPage();,apps/web/src/app/paper-trading/loading.tsx
@@ -263,5 +263,5 @@ apps/web/src/app/screener/page.tsx,/screener,"37:const params = await searchPara
 apps/web/src/app/signals/page.tsx,/signals,,Redirect only; destination owns loading
 apps/web/src/app/stocks/[symbol]/page.tsx,/stocks/[symbol],"18:const symbol = decodeURIComponent((await params).symbol).toUpperCase(); | 39:const raw = decodeURIComponent((await params).symbol); | 40:const query = await searchParams; | 52:const data = await getStockResearchPage(raw, { screen, screenName });",apps/web/src/app/stocks/[symbol]/loading.tsx
 apps/web/src/app/terms/page.tsx,/terms,,Static content immediately; persistent PublicHeader reserves account-control space through session-provider loading
-apps/web/src/app/today/page.tsx,/today,"16:const { brief, defaultWatchlistId } = await getMarketBrief();",apps/web/src/app/today/loading.tsx
+apps/web/src/app/today/page.tsx,/today,Reads the selected universe and composes the unified Market Brief response,apps/web/src/app/today/loading.tsx
 apps/web/src/app/watchlists/page.tsx,/watchlists,,No route skeleton; synchronous route delegates the genuine first API wait to the client boundary

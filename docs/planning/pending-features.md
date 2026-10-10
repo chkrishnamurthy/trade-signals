@@ -3,7 +3,7 @@ name: Pending features backlog
 status: reference
 horizon: none
 created: 2026-08-24
-updated: 2026-10-07
+updated: 2026-10-10
 area: [docs]
 summary: The backlog as of 2026-08-24, with a code-verified status ledger added 2026-10-05. Sections below the ledger are the original text; where they disagree with the ledger, the ledger wins.
 owner: krishna
@@ -45,6 +45,7 @@ session on 2026-10-05 and in progress. Nothing here is committed yet.
 | Breadth page, stock page, watchlist-scoped filings, IPO section, Google sign-in, indices strip (phases 0–3), market calendar, profile page, paper-trading phases 1–7 (admin-only) | Present in the tree |
 | Navigation redesign (2026-10-07) | Six-destination top bar, phone tab bar + More sheet, admin Lab menu, market-status pill, stock search with `/` and ⌘K, app footer — `docs/planning/navigation-redesign-plan.md`; landing claims cleanup and app-wide focus rings shipped first (`docs/planning/landing-and-public-navigation-plan.md`) |
 | Landing page and public pages (2026-10-07) | Phase 3 of `docs/planning/landing-and-public-navigation-plan.md`: new landing page (sample-data previews, FAQ, phone sign-up bar), public header with Learn menu and phone menu, one-landmark footer, rewritten About / Methodology / Data sources / Disclaimer / Terms / Privacy / Contact, share card and favicon. Also: signals admin-only in watchlists and the Market brief; Google-only accounts can delete themselves; sign-up buttons follow `AUTH_ALLOW_SIGNUP` |
+| Market Brief + breadth consolidation (2026-10-10) | `/today` is the single market-condition page: role-independent breadth read, All NSE/Nifty 500 switch, personal watchlist relevance, participation charts, industry timeframes, unusual-volume/delivery/high/low/OI activity, and admin-only strategy research. `/markets/breadth` preserves old links as a redirect. Legacy page/loading code removed; route, view-model, captured-session classifier, Storybook interaction, mobile-overflow and accessibility coverage added. See `docs/reference/market-brief.md`. |
 | Polish and accessibility (2026-10-07) | Phase 4 of the landing plan (§9): dark-mode warning text fixed app-wide, AA-safe green buttons and text, notifications panel behind the bell, reduced-motion support, axe-clean Storybook in both themes |
 | Run tracking, event log, metadata sync, trading-day helper, indices drawer, lint in CI (2026-10-05) | Built and committed; verified on a fresh Postgres 17 + TimescaleDB (all 39 migrations, 1,717 tests) and in the running app where there is a page: `ingestion_runs` writers + indicator gate (EW-105); `event_log` migration 0038 with `job_failed`, credential events and `/admin/logs` (EW-071); `sync-instrument-metadata` (EW-107); `isTradingDay` and friends (EW-108); strip drawer (EW-133 phase 4); `pnpm lint:app` in CI. Regime line (EW-129) already existed as "Today's technical read". `CLAUDE.md`/`AGENTS.md` now point at the real docs (EW-110) |
 | Security hardening (2026-10-05) | Route guards + audit test, admin-only Fyers connect, CSRF layer, search/sign-up/2FA-confirm limits, worker credential-mint switch |

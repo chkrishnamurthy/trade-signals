@@ -40,7 +40,6 @@ menu in a 56px top bar from `lg` up; a **bottom tab bar + "More" drawer** below 
 | My portfolio | `/portfolio` | ✓ | | ✓ | | |
 | Alerts | `/alerts` | ✓ | | ✓ | | |
 | Screener | `/screener` | ✓ | | ✓ | | |
-| Market breadth | `/markets/breadth` | ✓ | | ✓ | | |
 | Announcements | `/announcements` | ≥1680 | "Market record" | ✓ | ✓ | |
 | Market Calendar | `/calendar` | ≥1680 | "Market record" | ✓ | | |
 | Institutional Flow | `/flows` | ≥1680 | "Market record" | ✓ | "Institutional flow" | |
@@ -110,7 +109,6 @@ EquityWise (signed in)
 ├── Screener                /screener
 │   └── Stock detail        /stocks/[symbol]            ← lights "Screener"; where search lands
 ├── Markets ▾
-│   ├── Market breadth      /markets/breadth
 │   ├── Institutional flow  /flows
 │   ├── Announcements       /announcements
 │   ├── Market calendar     /calendar
@@ -134,6 +132,7 @@ EquityWise (signed in)
 | Module | Where |
 |---|---|
 | Dashboard | **Market brief** (`/today`) — first tab, brand link |
+| Market breadth | Consolidated into **Market brief**; `/markets/breadth` is a compatibility redirect |
 | Signals | Admin-only by product decision (CLAUDE.md) → **Lab › Intraday signals** |
 | Stock detail / Watchlist | **Watchlists** tab; stock detail under **Screener**, reached from search, watchlists, screener |
 | Backtesting | **Lab › Backtests**, planned (engine removed; shown disabled, never a dead link) |

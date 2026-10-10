@@ -48,11 +48,11 @@ Compositions use visual-only primitives inside one `LoadingRegion`. Standalone w
 | Route | Pending UI / content retained |
 | --- | --- |
 | `/` | Isolated, delayed landing skeleton only if the server session lookup passes the reveal threshold; no other route inherits it |
-| `/today` | `TodayLoading`: four metrics, technical-read and movers columns, overview table; real greeting shell |
+| `/today` | `TodayLoading`: universe toolbar, market-at-a-glance panel, participation charts, personal activity and supporting table; real app shell |
 | `/watchlists` | No route fallback because the route is synchronous; client `WatchlistPageSkeleton` appears only when its API data remains unavailable after the reveal threshold |
 | `/screener` | `ScreenerLoading`: universe/preset toolbar, desktop filter builder, results; phone cards; loaded results remain during edits |
 | `/stocks/[symbol]` | `StockLoading`: identity/header, ratio board with context sidebar, chart and levels |
-| `/markets/breadth` | `BreadthLoading`: six metrics, 3:2 charts, industry table |
+| `/markets/breadth` | Redirect only; `/today` owns the pending UI |
 | `/flows` | `FlowsLoading`: feed strip, market tape charts, stock and deal tables |
 | `/announcements` | `AnnouncementsLoading`: filters and filing cards |
 | `/calendar` | `CalendarLoading`: four metrics, filters and date-grouped agenda |

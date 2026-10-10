@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { MarketBriefView } from '@/components/market-brief/market-brief-view';
+import { parseMarketBriefUniverse } from '@/lib/market-brief';
 import { getMarketBrief } from '@/server/market-brief';
 
 export const metadata: Metadata = {
@@ -16,7 +17,7 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 export default async function TodayRoute({ searchParams }: { searchParams: SearchParams }) {
   const requested = (await searchParams).u;
-  const universe = requested === 'nifty500' ? 'nifty500' : 'all';
+  const universe = parseMarketBriefUniverse(requested);
   const response = await getMarketBrief(universe);
   return <MarketBriefView {...response} />;
 }

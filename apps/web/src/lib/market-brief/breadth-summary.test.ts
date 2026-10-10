@@ -50,4 +50,55 @@ describe('buildBreadthMarketRead', () => {
   it('does not classify missing breadth', () => {
     expect(buildBreadthMarketRead(null).label).toBe('insufficient_data');
   });
+
+  it.each([
+    {
+      name: 'All NSE on 2026-10-09',
+      input: {
+        advances: 1_447,
+        declines: 1_099,
+        unchanged: 74,
+        above20Pct: 23.7,
+        above50Pct: 26.1,
+        above200Pct: 34.9,
+        newHighs: 26,
+        newLows: 125,
+      },
+      expected: 'bearish',
+    },
+    {
+      name: 'Nifty 500 on 2026-10-09',
+      input: {
+        advances: 351,
+        declines: 146,
+        unchanged: 3,
+        above20Pct: 19.2,
+        above50Pct: 20,
+        above200Pct: 33.1,
+        newHighs: 3,
+        newLows: 27,
+      },
+      expected: 'bearish',
+    },
+  ] as const)('matches the captured completed-session classification for $name', (scenario) => {
+    const result = buildBreadthMarketRead(scenario.input);
+    expect(result.label).toBe(scenario.expected);
+    expect(result.headline).toContain('stocks advanced');
+    expect(result.headline).toContain('200-day EMA');
+  });
+
+  it('treats no new highs or lows as absent evidence rather than neutral evidence', () => {
+    const withoutExtremes = buildBreadthMarketRead({
+      advances: 600,
+      declines: 400,
+      unchanged: 0,
+      above20Pct: 58,
+      above50Pct: 54,
+      above200Pct: 52,
+      newHighs: 0,
+      newLows: 0,
+    });
+    expect(withoutExtremes.label).toBe('transitional');
+    expect(withoutExtremes.headline).not.toContain('new 52-week');
+  });
 });

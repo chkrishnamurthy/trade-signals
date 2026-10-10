@@ -158,21 +158,6 @@ export function AnalysisLoading() {
     </PageLoading>
   );
 }
-export function BreadthLoading() {
-  return (
-    <PageLoading
-      title="Market breadth"
-      description="Advances and declines, stocks above key averages, new highs and lows, and industry rotation."
-    >
-      <SkeletonMetrics count={6} className="sm:grid-cols-3 xl:grid-cols-6" />
-      <div className="grid gap-4 lg:grid-cols-5">
-        <SkeletonChart className="lg:col-span-3" />
-        <SkeletonChart className="lg:col-span-2" />
-      </div>
-      <SkeletonTable rows={6} columns={6} />
-    </PageLoading>
-  );
-}
 export function FlowsLoading() {
   return (
     <PageLoading

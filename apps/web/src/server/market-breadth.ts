@@ -8,12 +8,10 @@ import {
   snapshotLeaders,
 } from '@equitywise/db';
 import { countSessionsBehind } from '@/lib/market-brief';
-import { getSessionUser } from './auth/require-user';
 import { getDatabase } from './db';
-import { MarketDataError } from './errors';
 
 /**
- * `/markets/breadth` (plan §7): participation, not just the index level.
+ * The breadth data inside Market Brief: participation, not just the index level.
  * Everything is read from the nightly breadth rows and the snapshot; nothing
  * is computed per request beyond sorting and ratios.
  */
@@ -74,17 +72,6 @@ function leader(row: SnapshotRow, metric: number | null): LeaderDto {
     changePct: row.changePct,
     metric,
   };
-}
-
-export async function getMarketBreadth(universe: 'all' | 'nifty500'): Promise<MarketBreadthDto> {
-  if ((await getSessionUser()) === null) {
-    throw new MarketDataError('Not signed in.', {
-      code: 'UNAUTHENTICATED',
-      status: 401,
-      remedy: 'Sign in and try again.',
-    });
-  }
-  return getMarketBreadthData(universe);
 }
 
 /** Authenticated callers may reuse the persisted breadth read without a second owner lookup. */
