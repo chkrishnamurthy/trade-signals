@@ -57,11 +57,13 @@ sources:
     timeoutMs: 30000
     feeds: [filings]
   investorgain:
-    # D1 (2026-10-02): GMP is shown, from this source only. Flip to false on a
-    # takedown request; every GMP surface then shows the explainer instead.
-    enabled: true
+    # Disabled for public-launch safety on 2026-10-11. InvestorGain's published
+    # terms prohibit unauthorised copying/republishing and competitive reuse.
+    # Re-enable only after written permission covers signed-in display, storage,
+    # screenshots and recorded demonstrations.
+    enabled: false
     kind: aggregator
-    userAgent: equitywise # accepted (200) on 2026-10-02
+    userAgent: equitywise
     minIntervalMs: 5000
     maxRequestsPerRun: 3
     timeoutMs: 30000

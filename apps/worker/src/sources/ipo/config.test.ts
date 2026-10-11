@@ -10,7 +10,8 @@ describe('config/ipo-sources.yaml', () => {
   it('the committed file is valid', () => {
     const config = parseIpoSourcesConfig(real());
     expect(sourceFor(config, 'nse', 'detail')?.minIntervalMs).toBeGreaterThanOrEqual(2_000);
-    expect(sourceFor(config, 'investorgain', 'gmp')?.kind).toBe('aggregator');
+    expect(config.sources.investorgain?.kind).toBe('aggregator');
+    expect(sourceFor(config, 'investorgain', 'gmp')).toBeNull();
     // An aggregator can never be asked for an official feed.
     expect(sourceFor(config, 'investorgain', 'detail')).toBeNull();
     expect(boardForSeries(config, 'eq')).toBe('mainboard');

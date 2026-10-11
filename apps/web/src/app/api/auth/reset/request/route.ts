@@ -16,12 +16,9 @@ const RESET_TTL_MS = 30 * 60_000;
 /**
  * POST /api/auth/reset/request — email a reset link.
  *
- * UX choice (product decision): when no account exists for the email we tell the
- * requester so, and point them at sign-up, rather than returning the same generic
- * message for every address. This is deliberately NOT enumeration-safe — it lets
- * someone probe which emails are registered. The IP throttle below is what blunts
- * mass-probing; keep it. To restore enumeration-safety, return `json({ ok: true })`
- * in place of the NO_ACCOUNT branch.
+ * The response is deliberately identical whether or not an account exists. This
+ * prevents the public endpoint from becoming an account directory; the IP
+ * throttle also limits reset-email abuse.
  */
 export async function POST(request: Request): Promise<NextResponse> {
   if (!isSameOrigin(request)) {
@@ -39,8 +36,8 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
   const { email } = parsed.data;
 
-  // Throttle reset spam per IP — still enforced, and now the limiter is the main
-  // defence against using this endpoint to enumerate registered emails at scale.
+  // Throttle reset spam per IP even though unknown addresses receive the same
+  // response and do not result in email delivery.
   const ipKey = `reset-ip:${clientIp(request) ?? 'unknown'}`;
   const lock = await checkLock(ipKey);
   if (lock.locked) {
@@ -53,10 +50,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   const db = getDatabase();
   const found = await getUserForLogin(db, email);
   if (found === null) {
-    return fail("We couldn't find an account with that email. Please sign up first.", 404, {
-      code: 'NO_ACCOUNT',
-      remedy: 'Create an account, then sign in.',
-    });
+    return json({ ok: true });
   }
 
   const token = generateSessionToken();

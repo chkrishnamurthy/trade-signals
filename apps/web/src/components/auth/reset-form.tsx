@@ -19,7 +19,6 @@ export function ResetForm({ token }: { token: string | null }) {
 function RequestLink() {
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
-  const [noAccount, setNoAccount] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -38,10 +37,6 @@ function RequestLink() {
         return;
       }
       const data = (await res.json().catch(() => ({}))) as { error?: string; code?: string };
-      if (data.code === 'NO_ACCOUNT') {
-        setNoAccount(true);
-        return;
-      }
       setError(data.error ?? 'Could not send a reset link. Please try again.');
     } catch {
       setError('Network error — please try again.');
@@ -63,22 +58,10 @@ function RequestLink() {
       {sent ? (
         <Alert>
           <AlertDescription>
-            A reset link is on its way to <span className="font-medium">{email}</span>. Check your
-            inbox (and spam) — the link expires in 30 minutes.
+            If an account exists for <span className="font-medium">{email}</span>, a reset link is
+            on its way. Check your inbox (and spam) — the link expires in 30 minutes.
           </AlertDescription>
         </Alert>
-      ) : noAccount ? (
-        <div className="space-y-4">
-          <Alert>
-            <AlertDescription>
-              We couldn't find an account for <span className="font-medium">{email}</span>. Please
-              sign up first.
-            </AlertDescription>
-          </Alert>
-          <Button asChild className="w-full">
-            <Link href="/signup">Sign up</Link>
-          </Button>
-        </div>
       ) : (
         <form onSubmit={onSubmit} className="space-y-4">
           {error !== null ? (

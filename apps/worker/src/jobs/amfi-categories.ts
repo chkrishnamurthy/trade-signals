@@ -13,11 +13,20 @@ import { type AmfiSource, createAmfiSource } from '../sources/amfi-categories.js
 /** A list covering fewer companies than this is a broken file, not AMFI's list (it has about 5,400). */
 export const MIN_AMFI_ROWS = 500;
 
+/** AMFI's published terms require explicit written approval for product use. */
+export function amfiCategoriesEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env.AMFI_CATEGORIES_ENABLED?.trim().toLowerCase() === 'true';
+}
+
 export async function loadAmfiCategories(
   context: WorkerContext,
   log: Logger,
   options: { source?: AmfiSource } = {},
 ): Promise<{ loaded: boolean; periodEnd: string | null; rows: number }> {
+  if (options.source === undefined && !amfiCategoriesEnabled()) {
+    log.info('AMFI category ingestion is switched off (enable only after data-use approval)');
+    return { loaded: false, periodEnd: null, rows: 0 };
+  }
   const source = options.source ?? createAmfiSource();
   const file = await source.latestFile();
   if (file === null) {

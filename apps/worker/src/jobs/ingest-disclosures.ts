@@ -164,9 +164,9 @@ export function businessHoursInWindow(since: Date, now: Date): number {
   return hours;
 }
 
-/** Off-switch for the BSE crawl: `BSE_ANNOUNCEMENTS_ENABLED=false`. */
-function bseAnnouncementsDisabled(env: NodeJS.ProcessEnv = process.env): boolean {
-  return env.BSE_ANNOUNCEMENTS_ENABLED?.trim().toLowerCase() === 'false';
+/** Explicit opt-in for the unlicensed BSE crawl. Disabled is the safe default. */
+function bseAnnouncementsEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env.BSE_ANNOUNCEMENTS_ENABLED?.trim().toLowerCase() === 'true';
 }
 
 export async function ingestAnnouncements(
@@ -178,8 +178,10 @@ export async function ingestAnnouncements(
     options.source ?? createIndiaDisclosureSource({ warn: (message) => log.warn(message) });
   const now = options.now ?? new Date();
 
-  if (bseAnnouncementsDisabled()) {
-    log.info('BSE announcements are switched off (BSE_ANNOUNCEMENTS_ENABLED=false)');
+  if (!bseAnnouncementsEnabled()) {
+    log.info(
+      'BSE announcements are switched off (set BSE_ANNOUNCEMENTS_ENABLED=true after approval)',
+    );
     return { fetched: 0, written: 0 };
   }
 

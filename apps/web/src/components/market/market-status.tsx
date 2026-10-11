@@ -199,7 +199,7 @@ export function DataFreshness({
 }) {
   const copy = {
     live: 'Live',
-    cached: 'Cached',
+    cached: 'As of',
     stale: 'Stale',
     error: 'Unavailable',
   }[state];

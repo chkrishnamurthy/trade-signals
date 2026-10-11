@@ -94,7 +94,7 @@ describe('ingestAnnouncements', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    delete process.env.BSE_ANNOUNCEMENTS_ENABLED;
+    process.env.BSE_ANNOUNCEMENTS_ENABLED = 'true';
     dbMock.announcementIngestionHealth.mockResolvedValue({
       successful: { startedAt: new Date('2026-10-05T05:20:00Z') },
     });
@@ -199,6 +199,17 @@ describe('ingestAnnouncements', () => {
     expect(result).toEqual({ fetched: 0, written: 0 });
     expect(fetchAnnouncements).not.toHaveBeenCalled();
     expect(dbMock.recordAnnouncementIngestion).not.toHaveBeenCalled();
+  });
+
+  it('is disabled by default until BSE data rights are approved', async () => {
+    delete process.env.BSE_ANNOUNCEMENTS_ENABLED;
+    const fetchAnnouncements = vi.fn();
+    const result = await ingestAnnouncements(context, log as never, {
+      source: sourceOf(fetchAnnouncements),
+      now,
+    });
+    expect(result).toEqual({ fetched: 0, written: 0 });
+    expect(fetchAnnouncements).not.toHaveBeenCalled();
   });
 
   it('does not fail a stored run because the relink pass failed', async () => {

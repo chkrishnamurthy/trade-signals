@@ -201,11 +201,11 @@ export interface WatchlistDetailDto {
   /** Members the provider returned no quote for. Shown, never dropped. */
   readonly missingQuotes: readonly string[];
   /**
-   * True when the quote half could not be fetched at all.
+   * True when the quote half could not be fetched or is too old for an open session.
    *
-   * The table still renders — indicator columns are worth reading on their
-   * own — but the price columns must be labelled stale rather than left to
-   * look live.
+   * The table still renders because indicator columns remain useful. The UI
+   * presents this as a delay only during continuous trading; after the market
+   * closes, an unchanged final price is expected rather than stale.
    */
   readonly quotesStale: boolean;
   readonly refreshAfterSeconds: number;

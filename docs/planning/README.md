@@ -5,6 +5,15 @@ that is proposed or in progress but not yet built.
 
 | Document | What it covers |
 | --- | --- |
+| [public-launch-readiness-plan.md](public-launch-readiness-plan.md) | **In progress / public launch blocked, 2026-10-11.** Phase-gated roadmap for release engineering, security/legal/data rights, production integrations, UX/QA, onboarding, demo assets, promotion, beta and launch |
+| [public-launch-phase-0.md](public-launch-phase-0.md) | **Complete, 2026-10-11.** Approved main-only web release boundary, excluded branches, product promise, golden journey, supported-platform matrix, severity rules and evidence standard |
+| [public-launch-tracker.md](public-launch-tracker.md) | **Active Phase 0–3 ledger.** Task-by-task status, acceptance evidence, blockers and the exact owner inputs still required |
+| [public-launch-risk-register.md](public-launch-risk-register.md) | Ranked Critical/High launch risks, mitigations, owners and no-go conditions |
+| [public-launch-data-rights-matrix.md](public-launch-data-rights-matrix.md) | **Blocked.** Source-specific display, derived-analysis and promotional rights findings for NSE, providers, BSE, InvestorGain, SEBI/RHP and AMFI |
+| [public-launch-security-review.md](public-launch-security-review.md) | Phase 2 auth/privacy/security findings, completed remediations, admin policy and open blockers |
+| [public-launch-production-readiness-2026-10-11.md](public-launch-production-readiness-2026-10-11.md) | **NO-GO evidence report.** Local release gates, live public/authenticated observations and missing VPS evidence |
+| [public-launch-data-freshness-matrix.md](public-launch-data-freshness-matrix.md) | Dataset cadence, proposed stale thresholds, source and required unavailable behavior |
+| [public-launch-integration-failure-matrix.md](public-launch-integration-failure-matrix.md) | Provider, worker, database, auth, email, deploy, proxy and backup failure expectations |
 | [pending-features.md](pending-features.md) | The authoritative backlog — what is built, built-but-unwired, and declared-but-absent, ordered by cost-to-value |
 | [announcement-interpretation-sources.md](announcement-interpretation-sources.md) | Announcement interpretation feasibility: best free sources, FYERS capabilities, reuse rights, existing implementation gaps and staged delivery |
 | [company-research-implementation-plan.md](company-research-implementation-plan.md) | **Ready for decisions, 2026-10-03 (rev 2).** Full-market screener + `/stocks/[symbol]` company research: repository audit, provider/licensing research, explicit list of what is not possible, technical-screener-first roadmap, fundamentals spike (Upstox / XBRL / vendor). Supersedes stock-research-platform-plan.md |

@@ -443,8 +443,9 @@ describe('feed statuses', () => {
     const config = await getIpoWebConfig(now.getTime());
     const feeds = feedIdsFor(config);
     expect(feeds.map((f) => f.id)).toEqual(
-      expect.arrayContaining(['ipo-nse-calendar', 'ipo-nse-subscription', 'ipo-investorgain-gmp']),
+      expect.arrayContaining(['ipo-nse-calendar', 'ipo-nse-subscription']),
     );
+    expect(feeds.map((f) => f.id)).not.toContain('ipo-investorgain-gmp');
     const statuses = toFeedStatuses(
       feeds,
       new Map([
@@ -648,22 +649,22 @@ describe('services and routes', () => {
       today: '2026-10-02',
     });
     expect(main.open.map((r) => r.slug)).toEqual(['vishal-nirmiti-ipo-2026']);
-    expect(main.gmp).toHaveLength(1);
+    expect(main.gmp).toEqual([]);
     expect(main.filedRecently).toBe(14);
     expect(mock.filedCount).toHaveBeenCalledWith(expect.anything(), '2026-07-04');
-    expect(main.gmpTracks).toEqual([expect.objectContaining({ board: 'mainboard', total: 0 })]);
+    expect(main.gmpTracks).toEqual([]);
     for (const call of mock.list.mock.calls) expect(call[1]).toMatchObject({ board: 'mainboard' });
 
     const sme = await getIpoDashboard('sme', now);
     expect(sme.filedRecently).toBeNull();
 
-    // Both boards: no board filter, and a GMP record per board, never pooled.
+    // Both boards: no board filter. GMP remains absent while its source is disabled.
     mock.list.mockClear();
     const all = await getIpoDashboard('all', now);
     expect(all.board).toBe('all');
     for (const call of mock.list.mock.calls) expect(call[1].board).toBeUndefined();
-    expect(all.gmpTracks.map((t) => t.board)).toEqual(['mainboard', 'sme']);
-    expect(mock.track).toHaveBeenLastCalledWith(expect.anything(), expect.any(String), 'sme');
+    expect(all.gmpTracks).toEqual([]);
+    expect(mock.track).not.toHaveBeenCalled();
     // The Overview no longer reads offer documents or the filings list: Pipeline does.
     expect(mock.documents).not.toHaveBeenCalled();
     expect(mock.filings).not.toHaveBeenCalled();
@@ -763,8 +764,9 @@ describe('services and routes', () => {
     expect(listings.months.map((m) => m.month)).toEqual(['2026-09']);
 
     const gmp = await getIpoGmpPage('all', now);
-    expect(gmp.gmpPolicy.enabled).toBe(true);
-    expect(gmp.tracks.map((t) => t.board)).toEqual(['mainboard', 'sme']);
+    expect(gmp.gmpPolicy.enabled).toBe(false);
+    expect(gmp.quotes).toEqual([]);
+    expect(gmp.tracks).toEqual([]);
 
     mock.list.mockImplementation(async (_db: unknown, f: { status?: string }) =>
       f.status === 'upcoming'
@@ -837,11 +839,10 @@ describe('services and routes', () => {
     expect(page.highlights.openNow).toHaveLength(1);
     expect(page.highlights.listsThisWeek).toBe(1);
     expect(page.gmpPolicy).toEqual({
-      enabled: true,
-      sourceName: 'InvestorGain',
-      sourceUrl: 'https://www.investorgain.com/report/ipo-gmp-live/331/',
-      // The day of the first stored quote: no GMP exists before it.
-      trackedSince: '2026-10-02',
+      enabled: false,
+      sourceName: null,
+      sourceUrl: null,
+      trackedSince: null,
     });
     expect(page.disclaimer).toMatch(/not investment advice/);
     // SEBI filings are shown on their own, never as issues.
@@ -949,7 +950,7 @@ describe('services and routes', () => {
     expect(detail.gmpPanel).toMatchObject({
       official: false,
       available: false,
-      reason: 'not_tracked',
+      reason: 'source_disabled',
     });
   });
 

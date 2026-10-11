@@ -8,6 +8,7 @@ import {
   deleteAvatarByUrl,
   detectImageKind,
   MAX_AVATAR_BYTES,
+  normaliseAvatar,
   saveAvatar,
 } from '@/server/profile/avatar';
 
@@ -39,14 +40,20 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   const bytes = new Uint8Array(await file.arrayBuffer());
-  const kind = detectImageKind(bytes);
-  if (kind === null) {
+  if (detectImageKind(bytes) === null) {
     return fail('Upload a PNG, JPEG, or WebP image.', 415, { code: 'UNSUPPORTED_TYPE' });
+  }
+
+  let normalised: Buffer;
+  try {
+    normalised = await normaliseAvatar(bytes);
+  } catch {
+    return fail('The image could not be safely processed.', 415, { code: 'INVALID_IMAGE' });
   }
 
   const db = getDatabase();
   const previous = await getAvatarUrl(db, user.id);
-  const url = await saveAvatar(user.id, bytes, kind);
+  const url = await saveAvatar(user.id, normalised);
   await updateProfile(db, user.id, { avatarUrl: url });
   await deleteAvatarByUrl(previous);
 

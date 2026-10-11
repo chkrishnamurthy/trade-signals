@@ -2,6 +2,7 @@ import 'server-only';
 import { randomBytes } from 'node:crypto';
 import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
+import sharp from 'sharp';
 
 /**
  * Avatar files on disk. The DB stores only a path; the bytes live on the VPS
@@ -13,10 +14,10 @@ import { join, resolve } from 'node:path';
  * write. Reads sanitise the filename and confirm the resolved path stays inside
  * the avatar directory.
  *
- * NOT DONE HERE (documented follow-up): server-side re-encode to a normalised
- * 256×256 WebP with metadata (EXIF/GPS) stripped. That needs an image library
- * (`sharp`); until it lands, uploads are stored as received after strict
- * validation, so treat avatars as public and don't rely on EXIF being gone.
+ * Valid uploads are decoded with a pixel limit, orientation-normalised, cropped
+ * to 256×256 and written as WebP. Sharp drops input metadata unless explicitly
+ * asked to retain it, so EXIF/GPS and the original file structure never reach
+ * the public avatar endpoint.
  */
 
 /** 2 MiB — comfortably more than a normalised avatar, tight enough to abuse-cap. */
@@ -31,6 +32,9 @@ const EXT_CONTENT_TYPE: Record<ImageKind['ext'], string> = {
   jpg: 'image/jpeg',
   webp: 'image/webp',
 };
+
+const NORMALISED_AVATAR_SIZE = 256;
+const MAX_INPUT_PIXELS = 4096 * 4096;
 
 /** Identify PNG / JPEG / WebP from the leading bytes, or null if it is neither. */
 export function detectImageKind(bytes: Uint8Array): ImageKind | null {
@@ -73,15 +77,20 @@ function avatarDir(): string {
 /** Only ever a stored basename: `<digits>-<hex>.<ext>`. Rejects anything else. */
 const STORED_NAME = /^[0-9]+-[0-9a-f]{16}\.(png|jpg|webp)$/;
 
-/** Write the bytes under a random name and return the public URL to store. */
-export async function saveAvatar(
-  userId: number,
-  bytes: Uint8Array,
-  kind: ImageKind,
-): Promise<string> {
+/** Decode an allowed raster and return a metadata-free, bounded WebP avatar. */
+export async function normaliseAvatar(bytes: Uint8Array): Promise<Buffer> {
+  return sharp(bytes, { failOn: 'warning', limitInputPixels: MAX_INPUT_PIXELS })
+    .rotate()
+    .resize(NORMALISED_AVATAR_SIZE, NORMALISED_AVATAR_SIZE, { fit: 'cover' })
+    .webp({ quality: 82, effort: 4 })
+    .toBuffer();
+}
+
+/** Write normalised WebP bytes under a random name and return the public URL to store. */
+export async function saveAvatar(userId: number, bytes: Uint8Array): Promise<string> {
   const dir = avatarDir();
   await mkdir(dir, { recursive: true });
-  const filename = `${userId}-${randomBytes(8).toString('hex')}.${kind.ext}`;
+  const filename = `${userId}-${randomBytes(8).toString('hex')}.webp`;
   await writeFile(join(dir, filename), bytes, { flag: 'wx' });
   return `${PUBLIC_AVATAR_PREFIX}${filename}`;
 }

@@ -72,29 +72,40 @@ Google OAuth credentials, configuration, and verification are documented in [Goo
 
 ---
 
-## 3. Deploy pipeline — push-to-`main` auto-deploys
+## 3. Deploy pipeline — validated `main` auto-deploys
 
 **Merging to `main` deploys automatically.** You never SSH in to deploy.
 
 ```
-branch → PR → merge to main → GitHub Actions (.github/workflows/deploy.yml)
-        → SSH into the VPS → /opt/equitywise/scripts/deploy.sh
-        → git reset --hard origin/main → pnpm install → db:migrate → pnpm build → pm2 restart all
-        → equitywise.io live (~1–2 min).  Watch it in the repo's Actions tab.
+branch → PR → required GitHub checks (`.github/workflows/ci.yml`)
+        → merge to main → checks + DB tests rerun for that SHA
+        → deploy job (only after both pass) → forced SSH command on the VPS
+        → install → build → forward-compatible migrations → PM2 restart
+        → public post-deploy smoke against equitywise.io
 ```
 
 - **Auth**: GitHub holds a dedicated ed25519 private key (repo secret
   `VPS_SSH_KEY`, **base64-encoded** to survive the secret UI). Its public key is
   in `krishna`'s `authorized_keys` with a **forced command** — that key can
   *only* run `deploy.sh`, never open a shell.
-- **`deploy.sh` behaviour**: migrations run automatically; a failed build leaves
-  the previous version running (a bad deploy never takes the site down — it just
-  shows a red ✗ in Actions).
+- **Exact revision rule**: the forced command must deploy the SHA passed by the GitHub deploy job,
+  not whatever `origin/main` happens to contain later. Multiple successful main runs can queue;
+  pulling the moving branch head would deploy code whose checks have not finished.
+- **`deploy.sh` ordering**: install and build the selected revision **before** migrations. Only
+  forward-compatible migrations may run automatically; the previous web/worker processes must be
+  able to operate against the migrated schema until restart succeeds. A failed build must leave
+  both the running processes and database unchanged.
+- **Current verification requirement (2026-10-11)**: the server-side script is outside Git and was
+  not inspectable with the forced deploy key. Verify/update its exact-SHA and build-before-migrate
+  behavior with an operations key before merging the new single-workflow deploy gate.
 - **Gotcha**: if you change dependencies, commit the updated `pnpm-lock.yaml` too,
   or `pnpm install --frozen-lockfile` fails the deploy.
 - **Manual deploy (fallback only)**: `ssh krishna@… && /opt/equitywise/scripts/deploy.sh`.
-- **Rollback**: revert the offending commit on `main` (the revert auto-deploys),
-  or on the server `git checkout <prev> && pnpm build && pm2 restart all`.
+- **Rollback**: prefer a reviewed revert on `main`, which passes the same checks and deploys as a
+  new exact SHA. Emergency application rollback may select the recorded previous safe SHA, build
+  it and restart PM2 only when every migration in the failed release is backward-compatible.
+  Destructive/down migrations require a restore decision and a maintenance window; never improvise
+  them during an incident.
 
 ---
 
@@ -394,7 +405,8 @@ tables; the export is the only copy afterwards.
 
 ## 10. File map (where things live)
 
-- `.github/workflows/deploy.yml` — the auto-deploy workflow (repo).
+- `.github/workflows/ci.yml` — required checks, gated deploy and post-deploy smoke (repo).
+- `.github/RELEASE_CHECKLIST.md` — release evidence and go/no-go gate.
 - `/opt/equitywise/repo/` — the deployed checkout of `main` (VPS).
 - `/opt/equitywise/repo/.env` — production secrets (VPS, not in git).
 - `/opt/equitywise/scripts/deploy.sh` — pull + build + migrate + restart (VPS).

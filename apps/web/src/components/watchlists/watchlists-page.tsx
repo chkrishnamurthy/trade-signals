@@ -44,6 +44,7 @@ import {
   applyWatchlistFilters,
   removeWatchlistFilter,
 } from '@/lib/watchlist-filters';
+import { quoteUpdatesDelayed } from '@/lib/watchlist-freshness';
 import { exchangesIn, sectorsIn, sortRows, summarise, toggleSort } from '@/lib/watchlist-summary';
 import type { SavedViewDto, WatchlistFilterStateDto, WatchlistRowDto } from '@/lib/watchlist-types';
 import { getQuickView } from '@/lib/watchlist-views';
@@ -226,6 +227,7 @@ export function WatchlistsPage() {
 
   const hasFilters = chips.length > 0;
   const hasList = activeId !== null && data !== null && data.watchlist.id !== 0;
+  const showQuoteDelay = data !== null && quoteUpdatesDelayed(data);
   const canReorderRows = layout.sort.length === 0 && !hasFilters;
   // Covers both the very first load (no watchlist chosen yet) and switching
   // between watchlists (a new `activeId` restarts `detail` at 'loading') —
@@ -267,19 +269,13 @@ export function WatchlistsPage() {
                 }
                 className="mr-1"
               />
-              <DataFreshness
-                state={
-                  data.quotesStale
-                    ? 'stale'
-                    : data.quoteSnapshotAt === null
-                      ? 'error'
-                      : liveState === 'streaming'
-                        ? 'live'
-                        : 'cached'
-                }
-                at={data.quoteSnapshotAt}
-                className="mr-1"
-              />
+              {(data.quoteSnapshotAt !== null || showQuoteDelay) && (
+                <DataFreshness
+                  state={showQuoteDelay ? 'stale' : liveState === 'streaming' ? 'live' : 'cached'}
+                  at={data.quoteSnapshotAt}
+                  className="mr-1"
+                />
+              )}
               {/* Refreshing THIS list's prices is page functionality, so it sits
                   with the page's own actions. The header bar owns market state,
                   not per-page reloads. */}
@@ -348,21 +344,20 @@ export function WatchlistsPage() {
             <>
               <SummaryBar performance={performance} filtered={hasFilters} />
 
-              {data.quotesStale && (
+              {showQuoteDelay && (
                 <Alert variant="warning">
-                  <AlertTitle>Prices are stale</AlertTitle>
+                  <AlertTitle>Price updates are delayed</AlertTitle>
                   <AlertDescription>
                     {data.quoteSnapshotAt === null
-                      ? 'The worker has not cached quotes for this list yet.'
-                      : `Showing the last cached worker snapshot from ${new Date(
+                      ? 'Current prices are not available yet.'
+                      : `Showing the latest available prices from ${new Date(
                           data.quoteSnapshotAt,
                         ).toLocaleTimeString('en-IN', {
                           hour: '2-digit',
                           minute: '2-digit',
-                          second: '2-digit',
                           timeZone: 'Asia/Kolkata',
                         })}.`}{' '}
-                    Indicator columns still show the last session the worker computed.
+                    Technical indicators are based on the latest completed session.
                   </AlertDescription>
                 </Alert>
               )}

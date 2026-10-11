@@ -91,8 +91,9 @@ export default function DataSourcesPage() {
       <PublicSection title="Filings, flows and corporate actions">
         <PublicList>
           <li>
-            <strong className={STRONG}>Company announcements</strong> come from BSE&rsquo;s public
-            corporate-filings feed, matched to NSE symbols by ISIN.
+            <strong className={STRONG}>Company announcements:</strong> the implementation can read
+            BSE corporate filings and match them to NSE symbols by ISIN, but new BSE ingestion is
+            disabled unless a written data agreement has been approved.
           </li>
           <li>
             <strong className={STRONG}>
@@ -118,8 +119,9 @@ export default function DataSourcesPage() {
             ; dividends are never applied to prices.
           </li>
           <li>
-            <strong className={STRONG}>Large, mid and small-cap labels</strong> come from
-            AMFI&rsquo;s half-yearly list.
+            <strong className={STRONG}>Large, mid and small-cap labels:</strong> the implementation
+            can read AMFI&rsquo;s half-yearly list, but refresh is disabled unless written reuse
+            permission has been approved. Any older stored label must be read with its period date.
           </li>
         </PublicList>
       </PublicSection>
@@ -140,9 +142,9 @@ export default function DataSourcesPage() {
         </p>
         <p className="m-0">
           The <strong className={STRONG}>grey-market premium (GMP)</strong> is an unofficial,
-          unregulated quote that no exchange or regulator publishes. EquityWise shows it, labelled
-          as unofficial, as reported by <strong className={STRONG}>InvestorGain</strong>, and does
-          not verify it. It is not a forecast of the listing price.
+          unregulated quote that no exchange or regulator publishes. EquityWise is not currently
+          ingesting or displaying third-party GMP values while written reuse permission is
+          unresolved. GMP is not a forecast of the listing price.
         </p>
       </PublicSection>
 
