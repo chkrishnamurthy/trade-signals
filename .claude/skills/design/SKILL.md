@@ -55,7 +55,7 @@ drift apart; it's a design-system decision for the author, not a per-screen work
   stat-block anatomy, section rhythm, summary tiles, segmented range controls, density
   and color discipline, empty/loading/error selection.
 - `references/labels.md` — copy and labeling conventions: what a component says when
-  data is missing vs. stale vs. unreachable, the CLAUDE.md wording rules for signals,
+  data is missing vs. stale vs. unreachable, the CLAUDE.md wording rules (no signals or setups),
   and the tone rules (`toneOf`, glyph-plus-color, never color alone).
 - `references/exclusions.md` — the brokerage-app patterns (order bar, holdings/portfolio
   value, order history) that must never appear, and why borrowing the layout idea without
@@ -76,5 +76,5 @@ Two different situations, two different responses:
    filled once, centrally, stays consistent; a gap patched per-screen is the next
    inconsistency this skill exists to prevent.
 
-Call the Skill tool with "signal-invariants" if a conflict touches one of the eight hard
+Call the Skill tool with "signal-invariants" if a conflict touches one of the hard
 rules rather than a styling convention.

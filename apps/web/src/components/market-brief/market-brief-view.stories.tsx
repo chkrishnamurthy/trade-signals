@@ -8,8 +8,6 @@ import type { MarketBriefResponse } from '@/server/market-brief';
 import { MarketBriefView } from './market-brief-view';
 
 const watchlist = [{ watchlistId: 7, name: 'Core' }];
-const emptySetups = { bullish: [], bearish: [], breakout: [], breakdown: [], unusualVolume: [] };
-
 const brief: DailyMarketBrief = {
   session: {
     sessionDate: '2026-10-09',
@@ -37,17 +35,12 @@ const brief: DailyMarketBrief = {
     above20DayTotal: 2_620,
     above50DayAverage: 684,
     above50DayTotal: 2_620,
-    newBullishSetups: 0,
-    newBearishSetups: 0,
   },
   changes: [],
-  attention: [],
   watchlists: {
     hasWatchlists: true,
     watchedCount: 2,
     affectedCount: 1,
-    newBullishCount: 0,
-    newBearishCount: 0,
     strengthenedCount: 1,
     invalidatedCount: 0,
     transitionCount: 1,
@@ -65,9 +58,7 @@ const brief: DailyMarketBrief = {
       },
     ],
   },
-  setups: emptySetups,
   disclaimer: 'Technical research only; not investment advice.',
-  signalsIncluded: false,
 };
 
 const history: MarketBreadthDto['history'] = Array.from({ length: 12 }, (_, index) => ({
@@ -221,13 +212,15 @@ export const Mobile: Story = {
   },
 };
 
+/** An admin sees the same brief as everyone else: there is no admin-only section. */
 export const Admin: Story = {
-  args: { ...response, brief: { ...brief, signalsIncluded: true } },
+  args: response,
   render: (args) => <StoryPage data={args} viewerRole="admin" />,
   globals: { viewport: { value: 'desktop', isRotated: false } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole('heading', { name: 'Strategy research' })).toBeInTheDocument();
-    await expect(canvas.getByText(/Admin-only/)).toBeInTheDocument();
+    await expect(
+      canvas.queryByRole('heading', { name: 'Strategy research' }),
+    ).not.toBeInTheDocument();
   },
 };

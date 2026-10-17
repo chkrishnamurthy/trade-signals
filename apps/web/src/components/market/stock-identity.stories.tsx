@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { SignalBadge } from './signal';
+import { Badge } from '@/components/ui/badge';
 import { StockAvatar, StockIdentity } from './stock-identity';
 
 /**
@@ -32,7 +32,9 @@ export const WithAvatarAndBadge: Story = {
     <div className="flex items-center gap-2">
       <StockAvatar symbol="HDFCBANK" />
       <StockIdentity symbol="HDFCBANK" name="HDFC Bank">
-        <SignalBadge direction="bullish" compact />
+        <Badge variant="outline" size="sm">
+          NIFTY 50
+        </Badge>
       </StockIdentity>
     </div>
   ),

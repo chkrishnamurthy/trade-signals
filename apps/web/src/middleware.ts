@@ -44,7 +44,7 @@ export function middleware(request: NextRequest): NextResponse {
   const { pathname } = request.nextUrl;
 
   // Second CSRF layer for every API mutation, whether or not the route checks
-  // the origin itself (most watchlist/screener/paper routes did not).
+  // the origin itself (most watchlist/screener routes did not).
   if (
     pathname.startsWith('/api/') &&
     isCrossSiteMutation({

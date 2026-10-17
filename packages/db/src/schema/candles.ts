@@ -1,4 +1,14 @@
-import { bigint, index, integer, pgTable, primaryKey, text, timestamp } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+import {
+  bigint,
+  check,
+  index,
+  integer,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+} from 'drizzle-orm/pg-core';
 import { instruments } from './instruments.js';
 
 /**
@@ -45,5 +55,30 @@ export const dailyCandles = pgTable(
     index('daily_candles_instrument_ts_idx').on(table.instrumentId, table.ts.desc()),
     // Breadth scans one session across every instrument.
     index('daily_candles_ts_idx').on(table.ts.desc()),
+  ],
+);
+
+/** 1-minute candles (rule 4: the only stored intraday timeframe). */
+export const minuteCandles = pgTable(
+  'minute_candles',
+  {
+    instrumentId: integer()
+      .notNull()
+      .references(() => instruments.id),
+    ts: timestamp({ withTimezone: true }).notNull(),
+    open: integer().notNull(),
+    high: integer().notNull(),
+    low: integer().notNull(),
+    close: integer().notNull(),
+    volume: bigint({ mode: 'number' }).notNull(),
+    providerId: text().notNull(),
+    ingestedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.instrumentId, t.ts] }),
+    check(
+      'minute_candles_valid',
+      sql`${t.low}>0 and ${t.high}>=greatest(${t.open},${t.close}) and ${t.low}<=least(${t.open},${t.close}) and ${t.volume}>=0`,
+    ),
   ],
 );

@@ -7,7 +7,7 @@
  * — the clock arrives as `input.now`. That is what makes every classification
  * branch and every generated sentence unit-testable against fixed fixtures.
  *
- * It never recomputes an indicator or a signal (hard rule 8): it reads what the
+ * It never recomputes an indicator: it reads what the
  * worker persisted and aggregates it. Prices stay in integer paise; formatting
  * to rupees happens only in React via `formatPaise()`.
  */
@@ -21,10 +21,6 @@ import {
 } from './sentences';
 import { DEFAULT_BRIEF_THRESHOLDS, type MarketBriefThresholds } from './thresholds';
 import type {
-  AttentionFactorDto,
-  AttentionItemDto,
-  AttentionLevel,
-  BriefDirection,
   BriefStatus,
   ChangeEventDto,
   ChangeEventType,
@@ -35,61 +31,35 @@ import type {
   MarketConditionLabel,
   OverviewDto,
   SessionInstrumentFacts,
-  SessionSignalFacts,
-  SetupListsDto,
-  SetupRowDto,
   WatchlistBriefDto,
   WatchlistBriefItemDto,
 } from './types';
 
-const DISCLAIMER =
-  'Technical observations based on completed market data. Setup strength is not a probability of profit or investment advice.';
-const DISCLAIMER_NO_SIGNALS =
-  'Technical observations based on completed market data. Not investment advice.';
+const DISCLAIMER = 'Technical observations based on completed market data. Not investment advice.';
 
 /** After this IST minute the day's end-of-day pass is expected to have run. */
 const SESSION_COMPLETE_MINUTE = 17 * 60;
 
-type DirectionCategory = 'bullish' | 'bearish' | 'neutral';
-
-function categoryOf(direction: BriefDirection): DirectionCategory {
-  if (direction === 'strong_bullish' || direction === 'bullish') return 'bullish';
-  if (direction === 'strong_bearish' || direction === 'bearish') return 'bearish';
-  return 'neutral';
-}
-
 /** Event salience, lowest number = most salient. Drives ordering. */
 const EVENT_PRIORITY: Record<ChangeEventType, number> = {
-  new_bullish_setup: 1,
-  new_bearish_setup: 1,
-  breakout_appeared: 2,
-  breakdown_appeared: 2,
   crossed_above_ma50: 3,
   crossed_below_ma50: 3,
   crossed_above_ma20: 4,
   crossed_below_ma20: 4,
   momentum_strengthened: 5,
   momentum_weakened: 5,
-  bullish_invalidated: 6,
-  bearish_invalidated: 6,
   unusual_volume: 7,
 };
 
 const BULLISH_EVENTS: ReadonlySet<ChangeEventType> = new Set([
-  'new_bullish_setup',
-  'breakout_appeared',
   'crossed_above_ma50',
   'crossed_above_ma20',
   'momentum_strengthened',
-  'bearish_invalidated',
 ]);
 const BEARISH_EVENTS: ReadonlySet<ChangeEventType> = new Set([
-  'new_bearish_setup',
-  'breakdown_appeared',
   'crossed_below_ma50',
   'crossed_below_ma20',
   'momentum_weakened',
-  'bullish_invalidated',
 ]);
 
 function eventDirection(eventType: ChangeEventType): 'bullish' | 'bearish' | 'neutral' | null {
@@ -108,7 +78,6 @@ export function buildMarketBrief(
   const availableInstruments = instruments.length;
 
   const breadth = computeBreadth(instruments, thresholds);
-  const setupCounts = computeNewSetupCounts(input);
   const events = detectEvents(input, thresholds);
 
   const overview: OverviewDto = {
@@ -122,8 +91,6 @@ export function buildMarketBrief(
     above20DayTotal: breadth.sma20Total,
     above50DayAverage: breadth.above50,
     above50DayTotal: breadth.sma50Total,
-    newBullishSetups: setupCounts.bullish,
-    newBearishSetups: setupCounts.bearish,
   };
 
   const condition = classifyMarket({
@@ -139,11 +106,8 @@ export function buildMarketBrief(
     directionCovered: breadth.directionCovered,
     above20: breadth.above20,
     above20Total: breadth.sma20Total,
-    newBullishSetups: input.includeSignals ? setupCounts.bullish : null,
   });
 
-  const attention = rankAttention(input, events, thresholds);
-  const setups = buildSetupLists(input, thresholds);
   const watchlists = buildWatchlistBrief(input, events, thresholds);
 
   const sessionsBehind = countSessionsBehind(input.sessionDate, input.now);
@@ -168,11 +132,8 @@ export function buildMarketBrief(
     marketCondition: condition,
     overview,
     changes: events.slice(0, thresholds.maxChanges).map((event) => event.dto),
-    attention,
     watchlists,
-    setups,
-    disclaimer: input.includeSignals ? DISCLAIMER : DISCLAIMER_NO_SIGNALS,
-    signalsIncluded: input.includeSignals,
+    disclaimer: DISCLAIMER,
   };
 }
 
@@ -233,23 +194,6 @@ function computeBreadth(
     above50: sma50Total === 0 ? null : above50,
     sma50Total: sma50Total === 0 ? null : sma50Total,
   };
-}
-
-// ---------------------------------------------------------------------------
-// Setup counts & signal categories
-// ---------------------------------------------------------------------------
-
-function computeNewSetupCounts(input: MarketBriefInput): { bullish: number; bearish: number } {
-  let bullish = 0;
-  let bearish = 0;
-  for (const [instrumentId, signal] of input.currentSignals) {
-    const current = categoryOf(signal.direction);
-    const prior = input.previousSignals.get(instrumentId);
-    const previous = prior === undefined ? 'neutral' : categoryOf(prior.direction);
-    if (current === 'bullish' && previous !== 'bullish') bullish += 1;
-    if (current === 'bearish' && previous !== 'bearish') bearish += 1;
-  }
-  return { bullish, bearish };
 }
 
 // ---------------------------------------------------------------------------
@@ -422,24 +366,6 @@ function detectEvents(
 
   for (const facts of input.current.values()) {
     const prev = input.previous.get(facts.instrumentId);
-    const signal = input.currentSignals.get(facts.instrumentId);
-    const prevSignal = input.previousSignals.get(facts.instrumentId);
-
-    // --- Signal category transitions ---
-    if (signal !== undefined) {
-      const current = categoryOf(signal.direction);
-      const previous = prevSignal === undefined ? 'neutral' : categoryOf(prevSignal.direction);
-      if (current === 'bullish' && previous !== 'bullish') add(facts, 'new_bullish_setup');
-      if (current === 'bearish' && previous !== 'bearish') add(facts, 'new_bearish_setup');
-      if (previous === 'bullish' && current !== 'bullish') add(facts, 'bullish_invalidated');
-      if (previous === 'bearish' && current !== 'bearish') add(facts, 'bearish_invalidated');
-
-      // --- Range breakout / breakdown from the stored setups ---
-      const hadBreakout = prevSignal?.setups.includes('Breakout') ?? false;
-      const hadBreakdown = prevSignal?.setups.includes('Breakdown') ?? false;
-      if (signal.setups.includes('Breakout') && !hadBreakout) add(facts, 'breakout_appeared');
-      if (signal.setups.includes('Breakdown') && !hadBreakdown) add(facts, 'breakdown_appeared');
-    }
 
     // --- Moving-average crossings (needs both sessions) ---
     if (prev !== undefined) {
@@ -488,212 +414,6 @@ function sortEvents(events: readonly DetectedEvent[]): DetectedEvent[] {
 }
 
 // ---------------------------------------------------------------------------
-// Attention
-// ---------------------------------------------------------------------------
-
-function rankAttention(
-  input: MarketBriefInput,
-  events: readonly DetectedEvent[],
-  thresholds: MarketBriefThresholds,
-): AttentionItemDto[] {
-  const eventsByInstrument = new Map<number, DetectedEvent[]>();
-  for (const event of events) {
-    const list = eventsByInstrument.get(event.instrumentId) ?? [];
-    list.push(event);
-    eventsByInstrument.set(event.instrumentId, list);
-  }
-
-  const items: AttentionItemDto[] = [];
-  const w = thresholds.attentionWeights;
-
-  for (const facts of input.current.values()) {
-    const signal = input.currentSignals.get(facts.instrumentId);
-    const prevSignal = input.previousSignals.get(facts.instrumentId);
-    const instrumentEvents = eventsByInstrument.get(facts.instrumentId) ?? [];
-    const membership = input.watchlistMembership.get(facts.instrumentId) ?? [];
-
-    const factors: AttentionFactorDto[] = [];
-    const push = (id: string, label: string, contribution: number, explanation: string): void => {
-      if (contribution > 0) factors.push({ id, label, contribution, explanation });
-    };
-
-    if (signal !== undefined && prevSignal === undefined) {
-      push('newSignal', 'New signal', w.newSignal, 'A signal was recorded for the first time.');
-    }
-    if (signal !== undefined && prevSignal !== undefined) {
-      if (categoryOf(signal.direction) !== categoryOf(prevSignal.direction)) {
-        push(
-          'directionChanged',
-          'Direction changed',
-          w.directionChanged,
-          'The signal direction changed from the previous session.',
-        );
-      }
-    }
-    if (
-      instrumentEvents.some(
-        (e) => e.eventType === 'breakout_appeared' || e.eventType === 'breakdown_appeared',
-      )
-    ) {
-      push(
-        'breakoutOrBreakdown',
-        'Breakout / breakdown',
-        w.breakoutOrBreakdown,
-        'Price left its recent range.',
-      );
-    }
-    if (facts.relativeVolume !== null && facts.relativeVolume >= thresholds.abnormalVolume) {
-      push(
-        'abnormalVolume',
-        'Abnormal volume',
-        w.abnormalVolume,
-        `Volume was ${facts.relativeVolume.toFixed(1)}× the 20-day average.`,
-      );
-    }
-    if (instrumentEvents.some((e) => e.eventType.startsWith('crossed_'))) {
-      push(
-        'maTransition',
-        'Moving-average transition',
-        w.maTransition,
-        'Price crossed a tracked moving average.',
-      );
-    }
-    if (
-      instrumentEvents.some(
-        (e) => e.eventType === 'momentum_strengthened' || e.eventType === 'momentum_weakened',
-      )
-    ) {
-      push('momentumFlip', 'Momentum shift', w.momentumFlip, 'The MACD histogram changed sign.');
-    }
-    if (signal !== undefined && (signal.strength >= 70 || signal.strength <= 30)) {
-      push(
-        'alignedStrength',
-        'Aligned factors',
-        w.alignedStrength,
-        `Multiple factors align (setup strength ${signal.strength}/100).`,
-      );
-    }
-    if (membership.length > 0) {
-      push(
-        'inWatchlist',
-        'On your watchlist',
-        w.inWatchlist,
-        'This name is on one of your watchlists.',
-      );
-    }
-
-    const score = factors.reduce((sum, f) => sum + f.contribution, 0);
-    if (score <= 0) continue;
-
-    items.push({
-      instrumentId: facts.instrumentId,
-      symbol: facts.symbol,
-      name: facts.name,
-      level: attentionLevel(score, thresholds),
-      score,
-      direction: signal?.direction ?? null,
-      closePaise: facts.close,
-      sessionReturn: facts.changePercent,
-      factors,
-      signalFactors: signal?.factors ?? [],
-      watchlists: membership,
-    });
-  }
-
-  return items
-    .sort((a, b) => {
-      if (a.score !== b.score) return b.score - a.score;
-      const ra = Math.abs(a.sessionReturn ?? 0);
-      const rb = Math.abs(b.sessionReturn ?? 0);
-      if (ra !== rb) return rb - ra;
-      return a.symbol < b.symbol ? -1 : a.symbol > b.symbol ? 1 : 0;
-    })
-    .slice(0, thresholds.maxAttention);
-}
-
-function attentionLevel(score: number, thresholds: MarketBriefThresholds): AttentionLevel {
-  if (score >= thresholds.attentionHigh) return 'high';
-  if (score >= thresholds.attentionMedium) return 'medium';
-  return 'monitor';
-}
-
-// ---------------------------------------------------------------------------
-// Setup lists
-// ---------------------------------------------------------------------------
-
-function buildSetupLists(
-  input: MarketBriefInput,
-  thresholds: MarketBriefThresholds,
-): SetupListsDto {
-  const bullish: SetupRowDto[] = [];
-  const bearish: SetupRowDto[] = [];
-  const breakout: SetupRowDto[] = [];
-  const breakdown: SetupRowDto[] = [];
-  const unusualVolume: SetupRowDto[] = [];
-
-  for (const facts of input.current.values()) {
-    const signal = input.currentSignals.get(facts.instrumentId);
-    const membership = input.watchlistMembership.get(facts.instrumentId) ?? [];
-    const category = signal === undefined ? 'neutral' : categoryOf(signal.direction);
-
-    const base = (explanation: string): SetupRowDto => ({
-      instrumentId: facts.instrumentId,
-      symbol: facts.symbol,
-      name: facts.name,
-      direction: signal?.direction ?? null,
-      closePaise: facts.close,
-      sessionReturn: facts.changePercent,
-      strength: signal?.strength ?? null,
-      relativeVolume: facts.relativeVolume,
-      explanation,
-      signalFactors: signal?.factors ?? [],
-      watchlists: membership,
-    });
-
-    if (category === 'bullish') bullish.push(base(setupExplanation(signal, 'bullish')));
-    if (category === 'bearish') bearish.push(base(setupExplanation(signal, 'bearish')));
-    if (signal?.setups.includes('Breakout') === true) {
-      breakout.push(base('Closed above its recent trading range.'));
-    }
-    if (signal?.setups.includes('Breakdown') === true) {
-      breakdown.push(base('Closed below its recent trading range.'));
-    }
-    if (facts.relativeVolume !== null && facts.relativeVolume >= thresholds.unusualVolume) {
-      unusualVolume.push(base(`${facts.relativeVolume.toFixed(1)}× the 20-day average volume.`));
-    }
-  }
-
-  const byStrengthDesc = (a: SetupRowDto, b: SetupRowDto): number =>
-    (b.strength ?? 0) - (a.strength ?? 0) || symbolOrder(a, b);
-  const byStrengthAsc = (a: SetupRowDto, b: SetupRowDto): number =>
-    (a.strength ?? 100) - (b.strength ?? 100) || symbolOrder(a, b);
-  const byRelVolDesc = (a: SetupRowDto, b: SetupRowDto): number =>
-    (b.relativeVolume ?? 0) - (a.relativeVolume ?? 0) || symbolOrder(a, b);
-
-  const cap = thresholds.maxSetupRows;
-  return {
-    bullish: bullish.sort(byStrengthDesc).slice(0, cap),
-    bearish: bearish.sort(byStrengthAsc).slice(0, cap),
-    breakout: breakout.sort(byStrengthDesc).slice(0, cap),
-    breakdown: breakdown.sort(byStrengthAsc).slice(0, cap),
-    unusualVolume: unusualVolume.sort(byRelVolDesc).slice(0, cap),
-  };
-}
-
-function symbolOrder(a: { symbol: string }, b: { symbol: string }): number {
-  return a.symbol < b.symbol ? -1 : a.symbol > b.symbol ? 1 : 0;
-}
-
-function setupExplanation(
-  signal: SessionSignalFacts | undefined,
-  category: 'bullish' | 'bearish',
-): string {
-  const named = (signal?.setups ?? []).slice(0, 2);
-  if (named.length > 0) return `${named.join(', ')}.`;
-  return category === 'bullish' ? 'Bullish technical alignment.' : 'Bearish technical alignment.';
-}
-
-// ---------------------------------------------------------------------------
 // Watchlist brief
 // ---------------------------------------------------------------------------
 
@@ -712,8 +432,6 @@ function buildWatchlistBrief(
     if (!bestByInstrument.has(event.instrumentId)) bestByInstrument.set(event.instrumentId, event);
   }
 
-  let newBullishCount = 0;
-  let newBearishCount = 0;
   let strengthenedCount = 0;
   let invalidatedCount = 0;
   let transitionCount = 0;
@@ -722,19 +440,9 @@ function buildWatchlistBrief(
     const instrumentEvents = events.filter((e) => e.instrumentId === instrumentId);
     for (const event of instrumentEvents) {
       switch (event.eventType) {
-        case 'new_bullish_setup':
-          newBullishCount += 1;
-          break;
-        case 'new_bearish_setup':
-          newBearishCount += 1;
-          break;
         case 'momentum_strengthened':
-        case 'breakout_appeared':
           strengthenedCount += 1;
           break;
-        case 'bullish_invalidated':
-        case 'bearish_invalidated':
-        case 'breakdown_appeared':
         case 'momentum_weakened':
           invalidatedCount += 1;
           break;
@@ -774,8 +482,6 @@ function buildWatchlistBrief(
     hasWatchlists: input.hasWatchlists,
     watchedCount,
     affectedCount: bestByInstrument.size,
-    newBullishCount,
-    newBearishCount,
     strengthenedCount,
     invalidatedCount,
     transitionCount,

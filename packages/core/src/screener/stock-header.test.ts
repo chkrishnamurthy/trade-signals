@@ -150,24 +150,23 @@ describe('ratio layout', () => {
     expect(defaultRatioKeys(false)).toBe(DEFAULT_RATIO_KEYS);
   });
 
-  it('drops unknown, duplicate and admin-only keys, keeping order', () => {
+  it('drops unknown, duplicate and retired keys, keeping order', () => {
     expect(
       normaliseRatioKeys(
         ['rsi14', 'nope', 'range52w', 'rsi14', 'signalStrength', 'close', 4],
         false,
       ),
     ).toEqual(['rsi14', 'range52w', 'close']);
-    expect(normaliseRatioKeys(['rsi14', 'signalStrength', 'close'], true)).toEqual([
+    expect(normaliseRatioKeys(['rsi14', 'signalStrength', 'range52w', 'close'], true)).toEqual([
       'rsi14',
-      'signalStrength',
+      'range52w',
       'close',
     ]);
   });
 
   it('falls back (null) below the minimum and caps at the maximum', () => {
     expect(normaliseRatioKeys(['rsi14', 'close'], false)).toBeNull();
-    const many = (METRIC_KEYS as readonly string[]).filter((k) => !k.startsWith('signal'));
-    expect(normaliseRatioKeys(many, false)).toHaveLength(RATIO_LIMITS.max);
+    expect(normaliseRatioKeys(METRIC_KEYS, false)).toHaveLength(RATIO_LIMITS.max);
   });
 });
 

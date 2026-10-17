@@ -1,6 +1,6 @@
 ---
 name: api-boundary
-description: Conventions for apps/web/src/app/api routes — Zod validation, the server/ layer routes must delegate to, error-response shape, auth via middleware only, the intraday-signals read-only rule. Use when adding or changing a route.ts file, or touching apps/web/src/server.
+description: Conventions for apps/web/src/app/api routes — Zod validation, the server/ layer routes must delegate to, error-response shape, auth via middleware only, the read-only rule for derived data. Use when adding or changing a route.ts file, or touching apps/web/src/server.
 ---
 
 # api-boundary
@@ -28,9 +28,8 @@ validation** — no `route.ts` file imports Zod directly.
 
 Dynamic route params and query strings are validated ad hoc instead: a hand-written
 `Record` lookup for an enum-like param (`history/[symbol]/route.ts`'s timeframe), a
-`Number()` + `Number.isSafeInteger` check for a numeric id, or — in two routes
-(`dashboard/[index]`, `signals/[index]`) — **no validation at the route layer at all**,
-left to the downstream `server/` function to reject. A new route with a body should use
+`Number()` + `Number.isSafeInteger` check for a numeric id, or no validation at the route
+layer at all, left to the downstream `server/` function to reject. A new route with a body should use
 `parseBody` + a schema in the `watchlist-schemas.ts` style; a new route with a dynamic
 segment should not assume Zod is already the norm there — match whatever the nearest
 existing route of the same shape does, or centralize the check rather than inventing a
@@ -52,22 +51,15 @@ routes** — it's DRYer and it's what the shared helper exists for — but if ha
 match the field names exactly, since the client renders `error`/`code`/`remedy` uniformly
 regardless of which route produced them.
 
-## The `intraday-signals` read-only rule, and its one narrow exception
+## Derived data is read-only from the web app
 
-`apps/web/src/app/api/intraday-signals/**` imports only `server/errors` and
-`server/intraday-signals` — no provider package, no `@equitywise/core` engine call, no
-`@equitywise/fyers`/`@equitywise/providers-fyers` symbol. `server/intraday-signals.ts`'s
-own header comment states it directly: "this layer never computes a signal, never
-re-derives a score, and never touches the provider except for session state."
-
-**The one real exception**: `getIntradayFeed` calls `getMarketStatus()`
-(`server/market-status.ts`), which does construct a live `MarketDataProvider` via
-`server/provider.ts` — but strictly to ask whether the exchange is open, never for bars,
-never invoking the engine. A naive "no provider import in this file" grep would miss this
-one-hop chain (`route → server/intraday-signals.ts → server/market-status.ts →
-server/provider.ts`) — it's a deliberate, narrow carve-out, not a boundary leak. If new
-code in this area starts reaching for bars or the engine through that same chain, that
-*is* a leak — report it, don't extend the carve-out.
+Routes and `server/` modules READ what the worker derived — `daily_indicators`,
+`screener_snapshots`, `latest_quotes`, market breadth — and never recompute or write it.
+The one provider call a page path makes on its own is `getMarketStatus()`
+(`server/market-status.ts`), strictly to ask whether the exchange is open. If new code
+starts reaching for bars or a calculation through that chain, that is a leak — report it.
+(The `intraday-signals` routes this section once described were removed long ago, and the
+`/api/intraday` and `/api/paper` routes on 2026-10-17.)
 
 `server/provider.ts` is explicitly "the ONLY module in `apps/web` allowed to name a
 concrete provider" — see the `provider-boundary` skill for the full rule.

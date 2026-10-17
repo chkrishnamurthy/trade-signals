@@ -33,7 +33,6 @@ import {
   getWorkerCheckpoint,
   insertDailyCandles,
   latestCandleDate,
-  latestSignalsOnOrBefore,
   listScreenableInstruments,
   oiPointsSince,
   rawBarsAroundExDate,
@@ -535,7 +534,6 @@ async function buildRows(
     db,
     new Date(`${shiftDate(session, -7)}T00:00:00Z`),
   );
-  const signalRows = await latestSignalsOnOrBefore(db, session);
   // Dividend figures only once the dividend history has been loaded; before
   // that "no dividend in the window" would read as a false zero.
   const dividendsReady = (await getWorkerCheckpoint(db, DIVIDENDS_CHECKPOINT))?.done === true;
@@ -579,7 +577,6 @@ async function buildRows(
       const om = ownershipMetrics(holdings.get(inst.id) ?? []);
       const ev = events.get(inst.id);
       const dealCount = deals.get(inst.id);
-      const signal = signalRows.get(inst.id);
       const dividend = dividendsReady
         ? trailingDividend(
             dividendsById.get(inst.id) ?? [],
@@ -701,8 +698,6 @@ async function buildRows(
         series: inst.series,
         indexKeys: keys,
         sizeBucket: sizeBucket(keys),
-        signalDirection: signal?.direction ?? null,
-        signalStrength: signal?.strength ?? null,
         spark: [...tech.spark],
         dataIssue: tech.dataIssue,
       });

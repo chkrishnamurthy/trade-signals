@@ -9,8 +9,8 @@ import { WatchlistTable } from './watchlist-table';
  * The watchlist table — renders through the shared `DataTable`, adding the
  * registry-resolved column set, the per-row action menu, and the expandable
  * row-detail. Sorting is controlled (rows arrive pre-sorted, because the sort is
- * persisted per watchlist). Composes the numeric, identity and signal domain
- * components via the cell registry.
+ * persisted per watchlist). Composes the numeric and identity domain components
+ * via the cell registry.
  */
 const meta = {
   title: 'Features/Watchlist/Table',
@@ -41,7 +41,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** A gainer (with signal), a loser, an unchanged name, and a just-added, unquoted row. */
+/** A gainer, a loser, an unchanged name, and a just-added, unquoted row. */
 export const Ready: Story = {
   args: { rows: WATCHLIST_ROWS, status: 'ready' },
 };

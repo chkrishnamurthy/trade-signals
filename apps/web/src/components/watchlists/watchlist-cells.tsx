@@ -11,8 +11,8 @@ import {
   Turnover,
   Volume,
 } from '@/components/market/numeric';
-import { SignalBadge, SignalStrength, VolumeIndicator } from '@/components/market/signal';
 import { StockIdentity } from '@/components/market/stock-identity';
+import { VolumeIndicator } from '@/components/market/volume-indicator';
 import { Badge } from '@/components/ui/badge';
 import * as fmt from '@/lib/format';
 import { RETURN_WINDOWS } from '@/lib/return-windows';
@@ -211,54 +211,6 @@ const CELLS: Record<string, (row: WatchlistRowDto) => ReactNode> = {
   atrPercent: (row) => {
     const value = getColumn('atrPercent')?.value(row);
     return <Percent value={typeof value === 'number' ? value : null} decimals={2} size="sm" />;
-  },
-
-  // --- Trading signals ------------------------------------------------------
-  /**
-   * The daily engine's direction.
-   *
-   * Deliberately the descriptive vocabulary — "Bullish", not "BUY". The
-   * direction badge on an intraday TRADE signal may read BUY or SELL; a daily
-   * bias column may not, and never has.
-   */
-  signal: (row) =>
-    row.signal === null ? (
-      <span className="text-subtle-foreground" title="No stored daily signal for this instrument">
-        —
-      </span>
-    ) : (
-      <SignalBadge
-        direction={row.signal.direction}
-        title={`From the session of ${row.signal.tradingDate}`}
-      />
-    ),
-  signalStrength: (row) =>
-    row.signal === null ? (
-      <span className="text-subtle-foreground">—</span>
-    ) : (
-      <SignalStrength
-        strength={row.signal.strength}
-        direction={row.signal.direction}
-        className="w-24"
-      />
-    ),
-  signalSetups: (row) => {
-    const setups = row.signal?.setups ?? [];
-    if (setups.length === 0) return <span className="text-subtle-foreground">—</span>;
-    // Two, then a count. A row that lists five setups is a row nobody reads.
-    const shown = setups.slice(0, 2);
-    return (
-      <span className="flex flex-wrap items-center gap-1" title={setups.join(', ')}>
-        {shown.map((setup) => (
-          <Badge key={setup} variant="outline" size="sm" className="font-normal">
-            {setup}
-          </Badge>
-        ))}
-        {setups.length > shown.length && (
-          <span className="text-2xs text-muted-foreground">+{setups.length - shown.length}</span>
-        )}
-      </span>
-    );
   },
 
   /** How many of the three EMAs price is above, as "2/3" plus a tone. */

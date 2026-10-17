@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 /**
  * Filtering shell.
  *
- * The screener, the signals list, the IPO calendar and the watchlist all filter
+ * The screener, the IPO calendar and the watchlist all filter
  * the same way, so they share the bar, the chips and the clear-all. What each
  * page supplies is the controls; what it never supplies is the arrangement.
  *

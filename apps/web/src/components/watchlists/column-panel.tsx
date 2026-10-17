@@ -45,10 +45,7 @@ export function ColumnPanel({
   columnIds,
   onChange,
   trigger,
-  showSignals = false,
 }: {
-  /** Offer the admin-only signal columns. */
-  showSignals?: boolean;
   /** Ordered visible ids, excluding the implicit pinned column. */
   columnIds: readonly string[];
   onChange: (next: readonly string[]) => void;
@@ -57,7 +54,7 @@ export function ColumnPanel({
   const [query, setQuery] = useState('');
   const [dragging, setDragging] = useState<string | null>(null);
 
-  const groups = useMemo(() => groupedColumns(query, { showSignals }), [query, showSignals]);
+  const groups = useMemo(() => groupedColumns(query), [query]);
   const selected = useMemo(() => new Set(columnIds), [columnIds]);
 
   const chosen = useMemo(

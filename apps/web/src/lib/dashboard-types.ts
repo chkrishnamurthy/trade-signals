@@ -6,13 +6,6 @@
  */
 import type { MarketStateDto, QuoteDto } from './market-types';
 
-export type SignalDirection =
-  | 'strong_bullish'
-  | 'bullish'
-  | 'neutral'
-  | 'bearish'
-  | 'strong_bearish';
-
 export interface HeadlineIndexDto {
   readonly symbol: string;
   readonly name: string;
@@ -74,55 +67,6 @@ export interface MoverDto extends QuoteDto {
   readonly turnover: number | null;
 }
 
-export interface SignalFactorDto {
-  readonly key: string;
-  readonly label: string;
-  readonly score: number;
-  readonly weight: number;
-  readonly detail: string;
-}
-
-export interface StockSignalDto {
-  readonly symbol: string;
-  readonly name: string;
-  readonly sector: string;
-  readonly ltp: number;
-  readonly changePercent: number | null;
-  readonly direction: SignalDirection;
-  readonly strength: number;
-  readonly setups: readonly string[];
-  readonly factors: readonly SignalFactorDto[];
-  readonly rsi: number | null;
-  readonly ema20: number | null;
-  readonly ema50: number | null;
-  readonly ema200: number | null;
-  readonly macdHistogram: number | null;
-  readonly atr: number | null;
-  readonly relativeVolume: number | null;
-  readonly high52w: number | null;
-  readonly low52w: number | null;
-}
-
-export interface SwingCandidateDto {
-  readonly symbol: string;
-  readonly name: string;
-  readonly sector: string;
-  readonly setup: string;
-  readonly ltp: number;
-  readonly changePercent: number | null;
-  readonly strength: number;
-  readonly direction: SignalDirection;
-  readonly rsi: number | null;
-  readonly relativeVolume: number | null;
-  readonly met: number;
-  readonly total: number;
-  readonly criteria: readonly {
-    readonly label: string;
-    readonly met: boolean;
-    readonly detail: string;
-  }[];
-}
-
 export interface ActivityEventDto {
   readonly at: string;
   readonly symbol: string;
@@ -159,19 +103,4 @@ export interface DashboardDto {
    * cycle than quotes because each one costs a separate upstream history call.
    */
   readonly indicatorsReady: boolean;
-}
-
-export interface SignalsDto {
-  readonly signals: readonly StockSignalDto[];
-  readonly swing: readonly SwingCandidateDto[];
-  readonly activity: readonly ActivityEventDto[];
-  readonly breadthExtras: {
-    readonly aboveEma20: number;
-    readonly aboveEma50: number;
-    readonly aboveEma200: number;
-    readonly total: number;
-  };
-  readonly computedAt: string;
-  /** Symbols whose history could not be fetched. */
-  readonly skipped: readonly string[];
 }

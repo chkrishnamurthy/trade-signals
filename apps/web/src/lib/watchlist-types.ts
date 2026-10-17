@@ -13,24 +13,7 @@
  * rest of the list has yesterday's.
  */
 
-import type { SignalDirection } from './dashboard-types';
 import type { ReturnCloses } from './return-windows';
-
-/**
- * The daily engine's latest verdict on a name.
- *
- * Read from stored `signals` rows — the web app never recomputes one (hard
- * rule 8). `tradingDate` is the CLOSED session it describes, which is not
- * necessarily the session the indicators on the same row describe.
- */
-export interface RowSignalDto {
-  readonly direction: SignalDirection;
-  /** 0-100, 50 neutral. Explained by the stored factor breakdown. */
-  readonly strength: number;
-  /** Named setups, e.g. "Golden cross". */
-  readonly setups: readonly string[];
-  readonly tradingDate: string;
-}
 
 export interface WatchlistRowDto {
   readonly instrumentId: number;
@@ -91,9 +74,6 @@ export interface WatchlistRowDto {
    * A missing key means no session that far back — never zero.
    */
   readonly returnCloses: ReturnCloses;
-
-  // --- Signals --------------------------------------------------------------
-  readonly signal: RowSignalDto | null;
 }
 
 /**
@@ -209,9 +189,4 @@ export interface WatchlistDetailDto {
    */
   readonly quotesStale: boolean;
   readonly refreshAfterSeconds: number;
-  /**
-   * Whether this viewer may see the daily engine's signals (admins only). When
-   * false the rows carry no signal data and the signal columns are not offered.
-   */
-  readonly showSignals: boolean;
 }

@@ -1,9 +1,10 @@
 # EquityWise
 
-A **multi-user** tool for **tracking, analysing and screening NSE equities** to
-surface technical setups worth attention — bullish/bearish setups, breakouts,
-breakdowns, momentum, trend changes, volume anomalies. Decision support, not
-execution. **Deployed publicly, with per-user accounts** — each user signs in and
+A **multi-user** tool for **tracking, analysing and screening NSE equities**: it shows
+what the market and each stock are doing — trend, breakouts, momentum, volume, delivery,
+ownership, events — from data, and lets the user screen and watch on their own
+conditions. It describes; it never picks stocks, issues buy/sell signals or simulates
+trades (removed 2026-10-17, see "Do not"). **Deployed publicly, with per-user accounts** — each user signs in and
 owns their own watchlists and data (auth design: `docs/planning/authentication-plan.md`).
 Multi-*user* (individuals), not multi-*tenant* (no organisations/teams).
 
@@ -18,28 +19,19 @@ represents an order. Orders are placed by hand on a separate platform. The produ
 answers three questions and nothing else:
 
 1. What is happening in the market?
-2. Which stocks deserve attention right now?
-3. Why does this stock deserve attention?
+2. Which stocks match the conditions I chose (screener, watchlists, alerts)?
+3. What do the facts say about this stock?
 
 **Fyers is a market-data provider, not the product.** The app is broker-independent:
 business logic consumes a normalised `MarketDataProvider`, never a Fyers type. The
 UI never presents itself as a Fyers client.
 
-**Current scope: watchlists only.** The app has been stripped to the watchlists
-surface (`/watchlists`) plus its data spine — the Fyers provider for live quotes,
-`/api/search` to add names, and the daily end-of-day pass that feeds the watchlist's
-indicator/return/signal columns. The dashboard, all-stocks, intraday-signals,
-signal-performance and backtests pages and APIs were removed, along with the whole
-intraday/backtest/paper-trading engine (`packages/core/src/intraday`, the worker's
-intraday cycle, and the backtest scripts). New feature pages will be built on this
-base later. The design docs above still describe the fuller original product as
-historical intent; that intraday code no longer exists in the tree.
-
-> **Update (2026-09-18):** an intraday strategy (`/intraday`, ORB-VC on Dhan data) and
-> per-user paper trading (`/paper-trading`) have since been built — see
-> `docs/planning/intraday-strategy-dhan-plan.md` and `docs/planning/paper-trading-plan.md`.
-> **Both are admin-only:** the pages redirect a non-admin, their APIs answer 403, and
-> they appear only in the admin-only "Lab" menu. Do not expose them to users without a decision.
+> **Update (2026-10-17): signals and paper trading are removed.** The intraday ORB-VC
+> strategy (`/intraday`), per-user paper trading (`/paper-trading`), the daily signal
+> engine and every surface that showed it (watchlist Signal/Setups columns and "Daily
+> signals" view, the stock page's Signal tab, screener signal metrics, the Market brief's
+> "Strategy research") are gone, with their tables (migration `0046`). Plan and record:
+> `docs/planning/signals-and-paper-removal-plan.md`. The admin-only menu is now "Admin".
 
 > **Update (2026-10-02):** `/ipos` — Indian mainboard and SME IPOs — is built for **every
 > signed-in user** (in the "Markets" navigation menu). Since 2026-10-04 it is one section
@@ -65,10 +57,8 @@ historical intent; that intraday code no longer exists in the tree.
 > comes from the bhavcopy (split/bonus-adjusted via `corporate_actions`); the worker
 > builds a nightly `screener_snapshots` row per stock (~95 technical, delivery, F&O,
 > ownership and event metrics; catalogue in `packages/core/src/screener/catalogue.ts`).
-> **No fundamentals** (P/E, ROE, market cap…) — those need a new source. **Signals are
-> admin-only everywhere** (decided 2026-10-07): the stock page, screener, watchlists (Signal /
-> Signal Strength / Setups columns and the "Daily signals" view) and the Market brief (setup
-> counts and setup lists) read them for admins only; nobody else is sent them. Plan: `docs/planning/screener-dhan-fyers-plan.md`.
+> **No fundamentals** (P/E, ROE, market cap…) — those need a new source. Plan:
+> `docs/planning/screener-dhan-fyers-plan.md`.
 > The stock page header (2026-10-04) adds a per-user ratio board (`user_ratio_layouts`),
 > computed "What stands out" facts and a 12-month dividend yield from NSE corporate actions
 > (`dividends` table — never applied to prices). Plan: `docs/planning/stock-header-redesign-plan.md`.
@@ -92,11 +82,11 @@ Fyers API v3 for market data. No Redis. No Celery. No Python in the app.
 
 1. **`packages/core` is pure.** Every function takes data plus config and returns a
    result. No DB, no `Date.now()`, no network, no module-level mutable state, no
-   `process.env`. This is what lets the backtester and the live path run identical code.
+   `process.env`. This is what makes every calculation testable against fixed fixtures.
 
-2. **Signals are computed on CLOSED candles only.** Never the forming candle. The
-   tradeable entry is the NEXT candle's open. Any path that lets the engine see a
-   price at or after the entry timestamp is lookahead bias and invalidates every backtest.
+2. **Indicators and screener metrics use CLOSED candles only.** Never the forming
+   candle. A value stored for a session is computed from that session's closed bars and
+   nothing later.
 
 3. **All prices are INTEGER PAISE everywhere internally.** ₹1,245.50 is `124550`.
    Never `number` rupees, never floats, never a decimal library. Convert to a display
@@ -114,13 +104,7 @@ Fyers API v3 for market data. No Redis. No Celery. No Python in the app.
    the presentation boundary. Never store a naive datetime. Never use the server's
    local timezone for anything.
 
-7. **Strategy config is immutable and versioned.** Changing a weight mints a new
-   `strategy_versions` row. Never UPDATE an existing version.
-
-8. **Every signal writes its factor breakdown and indicator snapshot.** The
-   "Why this signal?" UI reads `signal_factors`; it never recomputes.
-
-9. **Portfolio data is private.** Every query is scoped by `owner_id` in the repository
+7. **Portfolio data is private.** Every query is scoped by `owner_id` in the repository
    layer. Holdings, shares and cost are never written to logs, the event log, error
    reports or URLs. No admin screen shows them. Account deletion cascades. Uploaded
    files are parsed and discarded; only the rows the user reviewed are stored.
@@ -185,15 +169,15 @@ operations — is **`docs/operations/deployment.md`**. Read it before touching i
 - **Do not build order execution of any kind** — no place/modify/cancel order, order
   book, funds, or broker portfolio. Nothing is ever fetched from a broker account.
   Holdings the user types in or uploads themselves ARE allowed (see "My portfolio")
-- **BUY / SELL may label a signal's direction, and nothing else.** The direction
-  badge on a trade signal reads BUY or SELL because that is the fastest thing to
-  scan. Every other word stays technical: "Bullish setup", "Breakout candidate",
-  "Technical entry zone", "Invalidation level", "Watch". Never "ORDER", never
-  "ENTRY PRICE", never "position", never "quantity". An entry or exit level is a
-  technical price level and is labelled as one
-- There is no order button, order ticket, or order-shaped affordance anywhere.
-  A direction label describes price structure; it is not an instruction, and the
-  UI must never imply the application could act on it
+- **No signals, setups, recommendations or paper trading** (removed 2026-10-17). The app
+  never labels a stock BUY / SELL or bullish/bearish "setup", never ranks stocks by its
+  own conviction or "setup strength", never names entry, target or stop levels, and
+  never simulates trades. Paid stock recommendations need SEBI Research Analyst
+  registration; bringing any of this back is a product decision, not a feature task.
+  Users screen on conditions they choose; the app states facts about the data
+- There is no order button, order ticket, or order-shaped affordance anywhere. Never
+  "ORDER", "ENTRY PRICE", "position" or "quantity"; the UI must never imply the
+  application could act on anything
 - **Portfolio vocabulary.** On the portfolio page use "Added shares" / "Removed shares"
   (tax view: "Acquired" / "Disposed"), "Number of shares", "Holding", "Average cost".
   Never "Buy", "Sell", "Position", "Quantity", "Order", "Execute", "Rebalance",

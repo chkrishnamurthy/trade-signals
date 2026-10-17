@@ -125,18 +125,13 @@ export function WatchlistsPage() {
   const data = detail.status === 'ready' ? detail.data : null;
   const layout = data?.layout ?? { columns: [], sort: [], filters: {}, quickView: null };
 
-  // Signals are admin-only; the server decides and sends no signal data otherwise.
-  const showSignals = data?.showSignals ?? false;
-
   // An empty stored layout means "the registry default", not "no columns".
-  // Columns this viewer may not see are dropped — a layout saved while a
-  // column was offered must not keep showing it.
+  // Ids that are no longer columns are dropped — a layout saved before a
+  // column was retired must still render.
   const columnIds = useMemo(
     () =>
-      visibleColumnIds(layout.columns.length > 0 ? layout.columns : DEFAULT_COLUMN_IDS.slice(1), {
-        showSignals,
-      }),
-    [layout.columns, showSignals],
+      visibleColumnIds(layout.columns.length > 0 ? layout.columns : DEFAULT_COLUMN_IDS.slice(1)),
+    [layout.columns],
   );
 
   const allRows = data?.rows ?? [];
@@ -169,7 +164,7 @@ export function WatchlistsPage() {
 
   const applyQuickView = useCallback(
     (viewId: string) => {
-      const view = getQuickView(viewId, { showSignals });
+      const view = getQuickView(viewId);
       if (view === null) return;
       setLayout({
         columns: [...view.columns],
@@ -178,7 +173,7 @@ export function WatchlistsPage() {
         quickView: view.id,
       });
     },
-    [setLayout, showSignals],
+    [setLayout],
   );
 
   const applySavedView = useCallback(
@@ -373,7 +368,6 @@ export function WatchlistsPage() {
               )}
 
               <QuickViews
-                showSignals={showSignals}
                 activeId={layout.quickView}
                 savedViews={data.savedViews}
                 layout={layout}
@@ -410,7 +404,6 @@ export function WatchlistsPage() {
                       onClear={() => setFilters({})}
                     />
                     <ColumnPanel
-                      showSignals={showSignals}
                       columnIds={columnIds}
                       onChange={(columns) =>
                         setLayout({ ...layout, columns: [...columns], quickView: null })
@@ -496,7 +489,6 @@ export function WatchlistsPage() {
 
       <StockDetailDrawer
         quote={selected === null ? null : toMoverDto(selected)}
-        signal={null}
         isLive={data?.market.isOpen ?? false}
         onClose={() => setSelected(null)}
       />

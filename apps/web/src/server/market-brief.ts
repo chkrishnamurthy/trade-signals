@@ -1,9 +1,6 @@
 import 'server-only';
 import {
-  type BriefFactorRow,
   type BriefIndicatorRow,
-  type BriefSignalRow,
-  factorsForSignals,
   getDailyBars,
   getInstrumentBySymbol,
   indicatorsForInstrumentsOnDate,
@@ -12,14 +9,11 @@ import {
   ownerHasWatchlists,
   recentIndicatorSessions,
   resolveInstrumentIds,
-  signalsForInstrumentsOnDate,
   snapshotsForInstrumentsOnDate,
   watchlistMembershipForOwner,
 } from '@equitywise/db';
 import {
   type BreadthMarketRead,
-  type BriefDirection,
-  type BriefSignalFactor,
   type BriefWatchlistRef,
   buildBreadthMarketRead,
   buildMarketBrief,
@@ -27,7 +21,6 @@ import {
   expectedLatestSession,
   type MarketBriefInput,
   type SessionInstrumentFacts,
-  type SessionSignalFacts,
 } from '@/lib/market-brief';
 import { getSessionUser } from './auth/require-user';
 import { getDatabase } from './db';
@@ -39,28 +32,15 @@ import { getMarketBreadthData, type MarketBreadthDto } from './market-breadth';
  * The Daily Market Brief server service (`/today`).
  *
  * Assembles a typed read model from data the worker already persisted — daily
- * indicators, signals, factors — plus the signed-in user's watchlist
- * membership. It never calls Fyers, never mints a credential, and never
- * recomputes an indicator or a signal. The deterministic summarisation lives in
+ * indicators — plus the signed-in user's watchlist membership. It never calls
+ * Fyers, never mints a credential, and never recomputes an indicator. The deterministic summarisation lives in
  * the pure `@/lib/market-brief` module; this layer only fetches, shapes, and
  * scopes the data to the current user.
  *
  * Data is fetched in a small, bounded set of set-based queries (no N+1): two
- * indicator reads, two signal reads, one factor read, one membership read, and
- * one index-return read, run in parallel.
+ * indicator reads, one membership read, and one index-return read, run in
+ * parallel.
  */
-
-const DIRECTIONS: ReadonlySet<string> = new Set([
-  'strong_bullish',
-  'bullish',
-  'neutral',
-  'bearish',
-  'strong_bearish',
-]);
-
-function toDirection(value: string): BriefDirection | null {
-  return DIRECTIONS.has(value) ? (value as BriefDirection) : null;
-}
 
 export interface MarketBriefResponse {
   readonly brief: DailyMarketBrief;
@@ -80,7 +60,7 @@ export interface PersonalMoverDto {
   readonly watchlists: readonly BriefWatchlistRef[];
 }
 
-async function requireOwner(): Promise<{ id: number; isAdmin: boolean }> {
+async function requireOwnerId(): Promise<number> {
   const user = await getSessionUser();
   if (user === null) {
     throw new MarketDataError('Not signed in.', {
@@ -89,7 +69,7 @@ async function requireOwner(): Promise<{ id: number; isAdmin: boolean }> {
       remedy: 'Sign in and try again.',
     });
   }
-  return { id: user.id, isAdmin: user.role === 'admin' };
+  return user.id;
 }
 
 interface UniverseEntry {
@@ -156,7 +136,7 @@ export async function getMarketBrief(
   breadthUniverse: 'all' | 'nifty500' = 'all',
   now: Date = new Date(),
 ): Promise<MarketBriefResponse> {
-  const { id: ownerId, isAdmin } = await requireOwner();
+  const ownerId = await requireOwnerId();
   const db = getDatabase();
 
   const [universe, breadth, sessions, hasWatchlists, allWatchlists, watchedInstrumentIds] =
@@ -210,9 +190,6 @@ export async function getMarketBrief(
       expectedInstruments,
       current: new Map(),
       previous: new Map(),
-      currentSignals: new Map(),
-      previousSignals: new Map(),
-      includeSignals: isAdmin,
       watchlistMembership: new Map(),
       hasWatchlists,
       indexReturnPercent: null,
@@ -228,31 +205,14 @@ export async function getMarketBrief(
   }
 
   const emptyIndicators = Promise.resolve(new Map<number, BriefIndicatorRow>());
-  const emptySignals = Promise.resolve(new Map<number, BriefSignalRow>());
-  const [
-    currentIndicators,
-    previousIndicators,
-    currentSignalRows,
-    previousSignalRows,
-    membership,
-    index,
-  ] = await Promise.all([
+  const [currentIndicators, previousIndicators, membership, index] = await Promise.all([
     indicatorsForInstrumentsOnDate(db, instrumentIds, latest.tradingDate),
     previous === undefined
       ? emptyIndicators
       : indicatorsForInstrumentsOnDate(db, instrumentIds, previous.tradingDate),
-    // Signals are admin-only (CLAUDE.md): nobody else's brief reads them, so
-    // no signal badge, strength or setup can reach a user's screen.
-    isAdmin ? signalsForInstrumentsOnDate(db, instrumentIds, latest.tradingDate) : emptySignals,
-    !isAdmin || previous === undefined
-      ? emptySignals
-      : signalsForInstrumentsOnDate(db, instrumentIds, previous.tradingDate),
     watchlistMembershipForOwner(db, ownerId, instrumentIds),
     indexReturn(breadth.session ?? latest.tradingDate),
   ]);
-
-  const currentSignalIds = [...currentSignalRows.values()].map((s) => s.signalId);
-  const factorsBySignal = await factorsForSignals(db, currentSignalIds);
 
   const idToSymbol = new Map<number, string>();
   for (const [symbol, id] of symbolIds) idToSymbol.set(id, symbol);
@@ -280,26 +240,6 @@ export async function getMarketBrief(
     return map;
   };
 
-  const toSignals = (
-    rows: Map<number, BriefSignalRow>,
-    withFactors: boolean,
-  ): Map<number, SessionSignalFacts> => {
-    const map = new Map<number, SessionSignalFacts>();
-    for (const [instrumentId, row] of rows) {
-      const direction = toDirection(row.direction);
-      if (direction === null) continue;
-      map.set(instrumentId, {
-        signalId: row.signalId,
-        direction,
-        strength: row.strength,
-        setups: row.setups,
-        close: row.close,
-        factors: withFactors ? toFactors(factorsBySignal.get(row.signalId) ?? []) : [],
-      });
-    }
-    return map;
-  };
-
   const membershipRefs = new Map<number, readonly BriefWatchlistRef[]>();
   for (const [instrumentId, refs] of membership) {
     membershipRefs.set(
@@ -316,9 +256,6 @@ export async function getMarketBrief(
     expectedInstruments,
     current: toFacts(currentIndicators),
     previous: toFacts(previousIndicators),
-    currentSignals: toSignals(currentSignalRows, true),
-    previousSignals: toSignals(previousSignalRows, false),
-    includeSignals: isAdmin,
     watchlistMembership: membershipRefs,
     hasWatchlists,
     indexReturnPercent: index.returnPercent,
@@ -332,15 +269,4 @@ export async function getMarketBrief(
     personalMovers,
     defaultWatchlistId,
   };
-}
-
-/** Maps stored factor rows to the wire shape. */
-function toFactors(rows: readonly BriefFactorRow[]): BriefSignalFactor[] {
-  return rows.map((row) => ({
-    key: row.key,
-    label: row.label,
-    score: row.score,
-    weight: row.weight,
-    detail: row.detail,
-  }));
 }

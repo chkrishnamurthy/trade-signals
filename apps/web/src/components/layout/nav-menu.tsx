@@ -15,7 +15,7 @@ import { isGroupActive, isItemActive, type NavMenuGroup } from '@/lib/navigation
 import { cn } from '@/lib/utils';
 
 /**
- * A primary-bar entry that opens a menu ("Markets", admin "Lab").
+ * A primary-bar entry that opens a menu ("Markets", admin "Admin").
  *
  * Radix's DropdownMenu gives the WAI-ARIA menu-button pattern for free:
  * Enter/Space/↓ open it, arrow keys move, typeahead jumps, Escape closes and
@@ -28,7 +28,7 @@ export function NavMenu({
   className,
 }: {
   group: NavMenuGroup;
-  /** A short marker after the label — "Admin" on the Lab menu. */
+  /** A short marker after the label — e.g. "Admin". */
   badge?: string | undefined;
   className?: string | undefined;
 }) {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Bar } from '../types.js';
 import { aggregateBreadth, breadthPoints } from './breadth.js';
-import { catalogueFor, METRIC_CATALOGUE, METRIC_KEYS } from './catalogue.js';
+import { catalogueFor, METRIC_CATALOGUE, METRIC_CATEGORIES, METRIC_KEYS } from './catalogue.js';
 import { classifyStoredSeries, parseCorporateActionSubject } from './corporate-actions.js';
 import {
   describeLeaf,
@@ -25,9 +25,10 @@ describe('catalogue', () => {
     expect(METRIC_CATALOGUE).toHaveLength(METRIC_KEYS.length);
   });
 
-  it('hides signal metrics from non-admins', () => {
-    expect(catalogueFor(false).some((d) => d.category === 'signals')).toBe(false);
-    expect(catalogueFor(true).some((d) => d.category === 'signals')).toBe(true);
+  it('carries no signal metrics, for anyone', () => {
+    expect((METRIC_CATEGORIES as readonly string[]).includes('signals')).toBe(false);
+    expect(catalogueFor(true).some((d) => d.key.startsWith('signal'))).toBe(false);
+    expect(catalogueFor(false)).toHaveLength(catalogueFor(true).length);
   });
 
   it('never uses advisory wording in a label or description', () => {
@@ -173,20 +174,18 @@ describe('filter', () => {
     expect(leavesOf(screen)).toHaveLength(4);
   });
 
-  it('rejects unknown metrics, bad comparators and admin metrics for users', () => {
+  it('rejects unknown and retired metrics and bad comparators', () => {
     const bad: FilterNode = {
       op: 'and',
       children: [
         { metric: 'nope' as never, cmp: 'gt', value: 1 },
         { metric: 'emaStack', cmp: 'gt', value: 1 },
-        { metric: 'signalStrength', cmp: 'gt', value: 50 },
+        { metric: 'signalStrength' as never, cmp: 'gt', value: 50 },
         { metric: 'close', cmp: 'gt', rhsMetric: 'rsi14' },
       ],
     };
     expect(validateFilter(bad, { isAdmin: false })).toHaveLength(4);
-    expect(
-      validateFilter({ metric: 'signalStrength', cmp: 'gt', value: 50 }, { isAdmin: true }),
-    ).toEqual([]);
+    expect(validateFilter(bad, { isAdmin: true })).toHaveLength(4);
   });
 
   it('enforces depth and size limits', () => {

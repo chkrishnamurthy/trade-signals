@@ -17,10 +17,8 @@ import {
   getDailyBars,
   getInstrumentBySymbol,
   getRecentDeals,
-  getSignalFactors,
   industryPeers,
   instrumentReferenceFor,
-  latestSignalRow,
   listCorporateActions,
   marketEventsForInstrument,
   shareholdingHistory,
@@ -90,7 +88,6 @@ export async function getStockResearchPage(
     holdings,
     announcements,
     events,
-    signalRow,
     reference,
     dividends,
   ] = await Promise.all([
@@ -121,7 +118,6 @@ export async function getStockResearchPage(
       }),
       [],
     ),
-    isAdmin ? soft(latestSignalRow(db, instrument.id), null) : Promise.resolve(null),
     soft(instrumentReferenceFor(db, instrument.id), null),
     soft(dividendHistory(db, instrument.id, 12), []),
   ]);
@@ -152,21 +148,6 @@ export async function getStockResearchPage(
   const closes = bars.map((b) => b.close);
   const e20 = ema(closes, 20);
   const e50 = ema(closes, 50);
-
-  const signal =
-    signalRow === null
-      ? null
-      : {
-          date: signalRow.tradingDate,
-          direction: signalRow.direction,
-          strength: signalRow.strength,
-          factors: (await soft(getSignalFactors(db, signalRow.id), [])).map((f) => ({
-            label: f.label,
-            score: f.score,
-            weight: f.weight,
-            detail: f.detail,
-          })),
-        };
 
   // "Matched because": the screen the user came from, evaluated against the
   // same stored values the screener used — never recomputed.
@@ -279,7 +260,6 @@ export async function getStockResearchPage(
     })),
     levels: levelsFrom(snapshot, bars),
     match,
-    signal,
   };
 }
 
