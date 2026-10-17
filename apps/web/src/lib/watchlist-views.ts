@@ -27,8 +27,6 @@ export interface QuickView {
   readonly columns: readonly string[];
   readonly sort: readonly SortRuleDto[];
   readonly filters: WatchlistFilterStateDto;
-  /** Built on the daily engine's signals — offered to admins only. */
-  readonly adminOnly?: true;
 }
 
 const PRICE_CORE = ['ltp', 'change', 'changePercent'] as const;
@@ -132,31 +130,13 @@ const VIEWS: readonly QuickView[] = [
     sort: [{ columnId: 'return1m', direction: 'desc' }],
     filters: {},
   },
-  {
-    id: 'daily_signals',
-    label: 'Daily signals',
-    description: 'The daily engine’s latest verdict, strongest first',
-    columns: ['ltp', 'changePercent', 'signal', 'signalStrength', 'signalSetups', 'trend', 'rsi14'],
-    sort: [{ columnId: 'signalStrength', direction: 'desc' }],
-    filters: {},
-    adminOnly: true,
-  },
 ];
 
 export const QUICK_VIEWS = VIEWS;
 
 const BY_ID = new Map(VIEWS.map((view) => [view.id, view]));
 
-export function getQuickView(
-  id: string,
-  options: { showSignals?: boolean } = {},
-): QuickView | null {
-  const view = BY_ID.get(id) ?? null;
-  if (view?.adminOnly === true && options.showSignals !== true) return null;
-  return view;
-}
-
-/** The quick views this viewer is offered. */
-export function quickViewsFor(options: { showSignals?: boolean } = {}): readonly QuickView[] {
-  return VIEWS.filter((view) => view.adminOnly !== true || options.showSignals === true);
+/** A quick view by id; null for an unknown (or retired) one. */
+export function getQuickView(id: string): QuickView | null {
+  return BY_ID.get(id) ?? null;
 }

@@ -5,7 +5,6 @@ import { type ReactNode, useEffect, useState } from 'react';
 import { DefinitionGrid, DefinitionRow } from '@/components/data-display/metric-card';
 import { LiveIndicator } from '@/components/market/market-status';
 import { Price, PriceChange } from '@/components/market/numeric';
-import { SetupTag, SignalBadge, SignalStrength } from '@/components/market/signal';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -69,7 +68,6 @@ export function WatchlistRowDetail({
         </Text>
         <Price paise={row.ltp} size="md" weight="medium" />
         <PriceChange paise={row.change} percent={row.changePercent} />
-        {row.signal !== null && <SignalBadge direction={row.signal.direction} compact />}
         <LiveIndicator
           live={isLive}
           label={isLive ? 'Live — updating automatically' : 'Market closed — last traded price'}
@@ -90,13 +88,6 @@ export function WatchlistRowDetail({
             <DefinitionRow label="Volume" value={cellFor('volume')(row)} />
             <DefinitionRow label="52W range" value={cellFor('range52w')(row)} />
             <DefinitionRow label="RSI (14)" value={cellFor('rsi14')(row)} />
-            {/* Admin-only: the server sends signal data to admins alone. */}
-            {row.signal !== null && (
-              <>
-                <DefinitionRow label="Signal" value={cellFor('signal')(row)} />
-                <DefinitionRow label="Signal strength" value={cellFor('signalStrength')(row)} />
-              </>
-            )}
           </DefinitionGrid>
           <Button size="sm" className="mt-3 w-full" onClick={() => onViewChart(row)}>
             <BarChart3Icon />
@@ -108,7 +99,7 @@ export function WatchlistRowDetail({
       {onSaveNote !== undefined && <NoteEditor row={row} onSave={onSaveNote} />}
 
       {/* Compact analysis — same values as the table columns, reorganised. */}
-      <div className="mt-4 grid grid-cols-1 gap-x-6 gap-y-4 lg:grid-cols-3">
+      <div className="mt-4 grid grid-cols-1 gap-x-6 gap-y-4 lg:grid-cols-2">
         <SummarySection title="Technical">
           <DefinitionGrid columns={1}>
             <DefinitionRow label="RSI (14)" value={cellFor('rsi14')(row)} />
@@ -126,29 +117,6 @@ export function WatchlistRowDetail({
               <DefinitionRow key={window.id} label={window.label} value={cellFor(window.id)(row)} />
             ))}
           </DefinitionGrid>
-        </SummarySection>
-
-        <SummarySection title="Signal">
-          {row.signal === null ? (
-            <span className="text-xs text-subtle-foreground">
-              No stored daily signal for this instrument
-            </span>
-          ) : row.signal.setups.length > 0 ? (
-            <div className="flex flex-wrap gap-1">
-              {row.signal.setups.map((setup) => (
-                <SetupTag key={setup}>{setup}</SetupTag>
-              ))}
-            </div>
-          ) : (
-            <span className="text-xs text-subtle-foreground">No named setups today</span>
-          )}
-          {row.signal !== null && (
-            <SignalStrength
-              strength={row.signal.strength}
-              direction={row.signal.direction}
-              className="mt-2"
-            />
-          )}
         </SummarySection>
       </div>
 
@@ -190,7 +158,7 @@ export function WatchlistRowDetail({
       </div>
 
       <p className="mt-2 text-2xs text-subtle-foreground">
-        Technical observation from stored indicator and signal data. Not a recommendation.
+        Technical observation from stored indicator data. Not a recommendation.
       </p>
     </div>
   );

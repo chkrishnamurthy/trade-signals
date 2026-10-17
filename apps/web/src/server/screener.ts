@@ -51,6 +51,7 @@ import { getDatabase } from './db';
 import { MarketDataError } from './errors';
 import {
   type CountsInput,
+  DEFAULT_SORT,
   filterNodeSchema,
   type RunScreenInput,
   type SavedScreenBody,
@@ -62,9 +63,8 @@ import {
  *
  * Reads the worker-built snapshot only: no provider call and no recomputation
  * happens on a request. Every filter passes Zod (shape) and `validateFilter`
- * (meaning) before it is compiled to SQL. Signal metrics exist only for admins
- * — for everyone else they are absent from the catalogue, rejected in filters
- * and sorts, and stripped from rows.
+ * (meaning) before it is compiled to SQL. Admin-only metrics, if any exist, are
+ * absent from everyone else's catalogue and rejected in their filters and sorts.
  */
 
 interface Viewer {
@@ -155,7 +155,6 @@ function isStale(tradingDate: string | null): boolean {
   return today - Date.parse(`${tradingDate}T00:00:00Z`) > 4 * 86_400_000;
 }
 
-const HIDDEN_FROM_USERS: ReadonlySet<string> = new Set(['signalDirection', 'signalStrength']);
 /** Non-metric display fields carried alongside the catalogue values. */
 const EXTRA_FIELDS = [
   'high52w',
@@ -178,7 +177,6 @@ export function toRowDto(row: SnapshotRow, isAdmin: boolean): ScreenerRowDto {
     values[def.key] = (v === undefined ? null : v) as ScreenerCellValue;
   }
   for (const key of EXTRA_FIELDS) values[key] = (record[key] ?? null) as ScreenerCellValue;
-  if (!isAdmin) for (const key of HIDDEN_FROM_USERS) delete values[key];
   return {
     instrumentId: row.instrumentId,
     symbol: row.symbol,
@@ -356,7 +354,7 @@ function toSavedDto(row: SavedScreenRow): SavedScreenDto | null {
     name: row.name,
     filter: filter.data,
     columns: columns.data.filter(isMetricKey),
-    sort: row.sort,
+    sort: sortSchema.safeParse(row.sort).success ? row.sort : DEFAULT_SORT,
     universe: row.universe,
     updatedAt: row.updatedAt.toISOString(),
   };

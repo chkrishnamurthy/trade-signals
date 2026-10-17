@@ -43,7 +43,7 @@ import { EmptyState, ErrorState, TableSkeleton } from './states';
 /**
  * The one financial data table.
  *
- * NIFTY 50, the screener, signals, watchlists, IPOs and movers all render
+ * NIFTY 50, the screener, watchlists, IPOs and movers all render
  * through this. Five separate table implementations is how a product ends up
  * with five different ideas of what a sorted column looks like.
  *
@@ -282,7 +282,7 @@ export function DataTable<Row>({
           return { columnId, direction: 'desc' };
         }
         // Third click clears the sort and restores the feed's own ordering,
-        // which for movers and signals is itself meaningful.
+        // which for movers is itself meaningful.
         return current.direction === 'desc' ? { columnId, direction: 'asc' } : null;
       });
     },

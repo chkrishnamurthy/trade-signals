@@ -5,7 +5,7 @@ horizon: next
 created: 2026-10-17
 updated: 2026-10-17
 phases_total: 6
-phases_done: 3
+phases_done: 4
 phase_names: [Move shared pieces, Lab pages + APIs, Worker jobs, Daily signals, Core + shared cleanup, DB + docs]
 area: [web, worker, core, db, docs]
 summary: "Remove the intraday ORB-VC strategy, paper trading and the daily signal engine completely, without changing anything a non-admin user sees today."
@@ -139,7 +139,24 @@ About **12,000 lines** of code and tests.
 - **Proof:** worker tests pass, `--once refresh-latest-quotes` and `--once calendar-refresh`
   run, and the scheduler list contains no intraday/paper job.
 
-### Phase 3: daily signals
+### Phase 3: daily signals ✅ done
+- Worker: `compute-indicators` writes indicators only. Its MACD/RSI/ATR/volume parameters moved
+  from `DEFAULT_STRATEGY` into the job with **identical values**, so stored indicators do not
+  change. `stock-analysis` no longer fills the two snapshot signal columns.
+- Watchlists: signal columns, the "Signals" group, the "Daily signals" view and `showSignals` are
+  gone. The expanded row's **"Signal" section and the drawer's "Signal" card are removed for
+  everyone**: non-admins saw them too, always reading "No stored daily signal". So were the
+  drawer's two 52W rows, which always read "—" (their only source was that empty signal).
+- Stock page: the admin "Signal" tab is gone. Screener: the two signal metrics and the `signals`
+  category are gone. A saved screen sorted by a retired metric now falls back to the default sort.
+- Market brief: the admin-only "Strategy research" section, the attention ranking, the setup lists,
+  setup events and counts and factor breakdowns are gone. What every user saw (breadth, MA
+  crossings, momentum flips, unusual volume, watchlist items) is unchanged.
+- `components/market/signal.tsx` deleted (`VolumeIndicator` moved to `volume-indicator.tsx`), as
+  are the old signal DTOs and `toneOfDirection`. The sign-in page no longer advertises signals.
+- Not changed: the Institutional flow page's "Signal" filter (delivery / build-up / deals) is flow
+  data, not a trade signal.
+- Verified: lint, typecheck, 1,892 unit tests, `next build`, `build-storybook`.
 - `compute-indicators.ts`: indicators only.
 - `stock-analysis.ts`: stop filling the two signal columns.
 - Watchlists, stock page, screener and market brief: delete the `isAdmin` signal branches so

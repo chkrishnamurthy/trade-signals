@@ -51,8 +51,8 @@ export function AuthCard({
             The calm way to follow NSE stocks.
           </h2>
           <p className="max-w-xs text-sm leading-relaxed text-white/85">
-            Watchlists, signals with a factor breakdown, and corporate filings the moment they land
-            — each read explained in plain English.
+            Watchlists, a stock screener, and corporate filings the moment they land — each read
+            explained in plain English.
           </p>
         </div>
 

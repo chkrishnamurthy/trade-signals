@@ -70,30 +70,18 @@ describe('joinClauses', () => {
 });
 
 describe('headlineSentence', () => {
-  it('uses the singular for one new setup', () => {
+  it('states advances and the 20-day count, and nothing about setups', () => {
     const sentence = headlineSentence({
       label: 'mixed',
       advances: 29,
       directionCovered: 50,
       above20: 32,
       above20Total: 50,
-      newBullishSetups: 1,
     });
-    expect(sentence).toContain('1 new bullish setup was detected');
-    expect(sentence).toContain('29 of 50 stocks advanced');
-    expect(sentence).toContain('32 held above their 20-day average');
-  });
-
-  it('uses the plural for several new setups', () => {
-    const sentence = headlineSentence({
-      label: 'bullish',
-      advances: 40,
-      directionCovered: 50,
-      above20: 45,
-      above20Total: 50,
-      newBullishSetups: 5,
-    });
-    expect(sentence).toContain('5 new bullish setups were detected');
+    expect(sentence).toBe(
+      'Market conditions were mixed. 29 of 50 stocks advanced and 32 held above their 20-day average.',
+    );
+    expect(sentence).not.toMatch(/setup/);
   });
 
   it('omits the 20-day clause when the metric is unavailable', () => {
@@ -103,7 +91,6 @@ describe('headlineSentence', () => {
       directionCovered: 40,
       above20: null,
       above20Total: null,
-      newBullishSetups: 0,
     });
     expect(sentence).not.toContain('20-day');
     expect(sentence).toContain('20 of 40 stocks advanced');
@@ -116,7 +103,6 @@ describe('headlineSentence', () => {
       directionCovered: 0,
       above20: null,
       above20Total: null,
-      newBullishSetups: 0,
     });
     expect(sentence).toBe('There was not enough completed data to describe market conditions.');
   });
@@ -171,20 +157,5 @@ describe('eventExplanation', () => {
     expect(eventExplanation('unusual_volume', facts({ relativeVolume: null }))).toBe(
       'Unusual trading volume was recorded.',
     );
-  });
-});
-
-describe('headlineSentence without signals', () => {
-  it('drops the setups clause when the viewer is not shown signals', () => {
-    const sentence = headlineSentence({
-      label: 'mixed',
-      advances: 29,
-      directionCovered: 50,
-      above20: 32,
-      above20Total: 50,
-      newBullishSetups: null,
-    });
-    expect(sentence).not.toMatch(/setup/);
-    expect(sentence).toContain('32 held above their 20-day average');
   });
 });

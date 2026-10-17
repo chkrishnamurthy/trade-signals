@@ -53,6 +53,9 @@ export const universeSchema = z
   .regex(/^(all|index:[a-z0-9]{1,40}|watchlist:\d{1,9})$/, 'Unknown universe.')
   .default('all');
 
+/** The sort a screen gets when none is given, or its saved one names a retired metric. */
+export const DEFAULT_SORT = 'rsRank:desc';
+
 /** `<metric|symbol>:<asc|desc>`. */
 export const sortSchema = z
   .string()
@@ -61,7 +64,7 @@ export const sortSchema = z
     const key = v.split(':')[0] ?? '';
     return key === 'symbol' || isMetricKey(key);
   }, 'Unknown sort.')
-  .default('rsRank:desc');
+  .default(DEFAULT_SORT);
 
 const dateKey = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD.');
 

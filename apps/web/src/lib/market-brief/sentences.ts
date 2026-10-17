@@ -43,8 +43,8 @@ export function conditionPhrase(label: MarketConditionLabel): string {
 /**
  * The one-line headline.
  *
- * "Market conditions were mixed. 29 of 50 stocks advanced, 32 held above their
- * 20-day average, and 5 new bullish setups were detected."
+ * "Market conditions were mixed. 29 of 50 stocks advanced and 32 held above
+ * their 20-day average."
  */
 export function headlineSentence(input: {
   label: MarketConditionLabel;
@@ -52,8 +52,6 @@ export function headlineSentence(input: {
   directionCovered: number;
   above20: number | null;
   above20Total: number | null;
-  /** Null when the viewer is not shown signals: the clause is left out. */
-  newBullishSetups: number | null;
 }): string {
   const lead = conditionPhrase(input.label);
   if (input.label === 'insufficient_data' || input.directionCovered === 0) {
@@ -64,15 +62,6 @@ export function headlineSentence(input: {
 
   if (input.above20 !== null && input.above20Total !== null && input.above20Total > 0) {
     clauses.push(`${input.above20} held above their 20-day average`);
-  }
-
-  const setups = input.newBullishSetups;
-  if (setups !== null) {
-    clauses.push(
-      setups === 1
-        ? '1 new bullish setup was detected'
-        : `${setups} new bullish setups were detected`,
-    );
   }
 
   return `${lead}. ${joinClauses(clauses)}.`;
@@ -139,10 +128,6 @@ function breadthClause(advances: number, declines: number): string {
 }
 
 const EVENT_TEMPLATES: Record<ChangeEventType, (facts: SessionInstrumentFacts) => string> = {
-  new_bullish_setup: () => 'A new bullish setup appeared this session.',
-  new_bearish_setup: () => 'A new bearish setup appeared this session.',
-  bullish_invalidated: () => 'A previous bullish setup was invalidated.',
-  bearish_invalidated: () => 'A previous bearish setup was invalidated.',
   crossed_above_ma20: () => 'Price crossed above its 20-day moving average.',
   crossed_below_ma20: () => 'Price crossed below its 20-day moving average.',
   crossed_above_ma50: () => 'Price crossed above its 50-day moving average.',
@@ -153,8 +138,6 @@ const EVENT_TEMPLATES: Record<ChangeEventType, (facts: SessionInstrumentFacts) =
     facts.relativeVolume === null
       ? 'Unusual trading volume was recorded.'
       : `Unusual trading volume — ${facts.relativeVolume.toFixed(1)}× the 20-day average.`,
-  breakout_appeared: () => 'Price broke out above its recent range.',
-  breakdown_appeared: () => 'Price broke down below its recent range.',
 };
 
 export function eventExplanation(

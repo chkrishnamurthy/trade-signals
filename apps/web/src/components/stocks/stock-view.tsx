@@ -57,15 +57,7 @@ function shortDate(date: string): string {
   });
 }
 
-const TABS = [
-  'technicals',
-  'delivery',
-  'fno',
-  'ownership',
-  'announcements',
-  'events',
-  'signal',
-] as const;
+const TABS = ['technicals', 'delivery', 'fno', 'ownership', 'announcements', 'events'] as const;
 type Tab = (typeof TABS)[number];
 const TAB_LABELS: Record<Tab, string> = {
   technicals: 'Technicals',
@@ -74,14 +66,12 @@ const TAB_LABELS: Record<Tab, string> = {
   ownership: 'Ownership',
   announcements: 'Announcements',
   events: 'Events',
-  signal: 'Signal',
 };
 
 export function StockView({ data, backHref }: { data: StockPageDto; backHref: string | null }) {
   const router = useRouter();
   const { f, num, raw, def } = useFmt(data.metrics, data.values);
   const [tab, setTab] = useState<Tab>('technicals');
-  const tabs = TABS.filter((t) => t !== 'signal' || data.signal !== null);
 
   const close = num('close');
   const change = num('changePct');
@@ -203,7 +193,7 @@ export function StockView({ data, backHref }: { data: StockPageDto; backHref: st
                   aria-label="Analysis"
                   className="flex gap-1 overflow-x-auto border-border border-b px-2"
                 >
-                  {tabs.map((t) => (
+                  {TABS.map((t) => (
                     <button
                       key={t}
                       type="button"
@@ -237,7 +227,6 @@ export function StockView({ data, backHref }: { data: StockPageDto; backHref: st
                   {tab === 'ownership' && <OwnershipTab data={data} />}
                   {tab === 'announcements' && <AnnouncementsTab data={data} />}
                   {tab === 'events' && <EventsTab data={data} />}
-                  {tab === 'signal' && data.signal !== null && <SignalTab signal={data.signal} />}
                 </div>
               </Card>
             </div>
@@ -909,57 +898,6 @@ function EventsTab({ data }: { data: StockPageDto }) {
           dividends.
         </p>
       </section>
-    </div>
-  );
-}
-
-function SignalTab({ signal }: { signal: NonNullable<StockPageDto['signal']> }) {
-  const tone =
-    signal.direction === 'bullish'
-      ? 'bullish'
-      : signal.direction === 'bearish'
-        ? 'bearish'
-        : 'neutral';
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <Badge variant={tone}>
-          {signal.direction === 'bullish'
-            ? 'Bullish setup'
-            : signal.direction === 'bearish'
-              ? 'Bearish setup'
-              : 'Neutral'}
-        </Badge>
-        <span className="text-sm">
-          Strength <span className="figure font-semibold">{signal.strength}</span> ·{' '}
-          {shortDate(signal.date)}
-        </span>
-        <Badge size="sm" variant="warning">
-          Admin only
-        </Badge>
-      </div>
-      <p className="text-muted-foreground text-xs">
-        The score is shown with every factor that produced it, as stored when it was computed.
-      </p>
-      <ul>
-        {signal.factors.map((factor) => (
-          <li
-            key={factor.label}
-            className="grid grid-cols-[minmax(0,1fr)_4rem_4rem] gap-2 border-border border-b py-2 text-sm last:border-b-0"
-          >
-            <span className="flex min-w-0 flex-col">
-              <span>{factor.label}</span>
-              {factor.detail !== null && (
-                <span className="truncate text-2xs text-muted-foreground">{factor.detail}</span>
-              )}
-            </span>
-            <span className="figure text-right font-mono text-xs">{factor.score.toFixed(2)}</span>
-            <span className="figure text-right font-mono text-muted-foreground text-xs">
-              × {factor.weight.toFixed(2)}
-            </span>
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }
