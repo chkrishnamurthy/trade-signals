@@ -5,7 +5,7 @@ horizon: next
 created: 2026-10-17
 updated: 2026-10-17
 phases_total: 6
-phases_done: 2
+phases_done: 3
 phase_names: [Move shared pieces, Lab pages + APIs, Worker jobs, Daily signals, Core + shared cleanup, DB + docs]
 area: [web, worker, core, db, docs]
 summary: "Remove the intraday ORB-VC strategy, paper trading and the daily signal engine completely, without changing anything a non-admin user sees today."
@@ -121,7 +121,17 @@ About **12,000 lines** of code and tests.
 - **Proof:** `pnpm build` for web, and every remaining page still renders. `/intraday`,
   `/paper-trading` and `/signals` return 404.
 
-### Phase 2: worker jobs
+### Phase 2: worker jobs ✅ done
+- Removed 12 scheduled jobs (`feed-start/stop`, `intraday-reconcile/quotes/scan/warmup`,
+  `paper-entries/monitor/squareoff/snapshot/reconcile`, `calendar-check`), their `--once` names,
+  the feed, and the paper calls in startup recovery. Startup recovery keeps its quote-cache refresh.
+- **`calendar-check` dropped, not rewritten:** it only decided whether paper entries could open.
+  Without it, an unscheduled closure just means `refresh-latest-quotes` re-reads unchanged prices.
+- `calendar-refresh` keeps the expiring-calendar warning as a log line (the paper risk-event
+  write is gone). `scripts/replay-intraday.ts` and `pnpm replay:intraday` went too: they imported
+  the deleted intraday job.
+- Verified: lint, typecheck, 1,900 unit tests (the 19 fewer are the deleted job tests and the
+  closure-check tests).
 - `calendar-refresh.ts`: replace `recordPaperRiskEvent` with the worker logger / event log.
 - Remove the intraday, paper and feed jobs and their schedule entries, `--once` names and
   startup-recovery calls. Keep `refresh-latest-quotes` with startup recovery.
