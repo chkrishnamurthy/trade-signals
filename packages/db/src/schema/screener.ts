@@ -247,8 +247,6 @@ export const screenerSnapshots = pgTable(
     sizeBucket: text(),
 
     // Signals (served to admins only)
-    signalDirection: text(),
-    signalStrength: doublePrecision(),
 
     /** Last 60 adjusted closes, paise — the results sparkline. */
     spark: integer().array(),

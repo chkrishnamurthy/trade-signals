@@ -57,10 +57,11 @@ the test doesn't distinguish read from write, `/positions` alone fails it.
 
 ## Config over admin UI
 
-CLAUDE.md's "config is versioned YAML" rule (rule 7, plus the explicit "do not build an
-admin CRUD UI") means a request for "a settings page to edit strategy weights" or "a UI to
-manage the instrument universe" should become a `config/*.yaml` change plus a new
-`strategy_versions` row (see the `worker` skill), not a form backed by a database table.
+CLAUDE.md's "config is versioned YAML" rule (and the explicit "do not build an admin CRUD
+UI") means a request for "a settings page to edit thresholds" or "a UI to manage the
+instrument universe" should become a reviewed `config/*.yaml` change, not a form backed by
+a database table. A request to bring back signals, setups or paper trading is a product
+decision for the owner (CLAUDE.md "Do not"), not a feature to build.
 If the request is specifically for something only an admin screen can reasonably do
 (inspecting current config, not editing it), a read-only view is fine — the ban is on
 CRUD, not on visibility.

@@ -1,7 +1,7 @@
 # Labels and copy
 
 How this product's components talk, verified against the actual copy conventions in
-`data-display/states.tsx`, `market/numeric.tsx`, `market/signal.tsx`, and the wording
+`data-display/states.tsx`, `market/numeric.tsx`, `market/volume-indicator.tsx`, and the wording
 rules in `CLAUDE.md`.
 
 ## Missing data has three distinct meanings — say which one
@@ -25,17 +25,13 @@ in."* Pick the narrowest true one:
 pairs its bullish/bearish/neutral color with a glyph (▲/▼/→). A colorblind user or a
 grayscale screenshot must still be able to read direction.
 
-## Signal and direction wording — the CLAUDE.md rules, as enforced in components today
+## Direction wording — the CLAUDE.md rules
 
-- `market/signal.tsx` carries **no BUY, no SELL, no ORDER** anywhere in the file, by its
-  own header comment — that absence is the convention, not an oversight to "helpfully" fix.
-- BUY / SELL may label a signal's *direction* and nothing else. Never "ORDER", never
-  "ENTRY PRICE" (say "technical entry zone" / "entry level"), never "position", never
-  "quantity", never "portfolio". An entry or exit level is a technical price level,
-  labelled as one.
-- A score never renders without its factor breakdown — `SignalScore`'s own type signature
-  requires the `children` slot; this isn't optional copy guidance, the component won't
-  compile without it.
+- **No signals and no setups** (removed 2026-10-17). No BUY, SELL, "bullish setup",
+  "breakout candidate", "setup strength", entry, target or stop level anywhere. State the
+  fact the data shows: "Above its 50-day average", "New 52-week high", "MACD histogram
+  turned positive". Never "ORDER", "ENTRY PRICE", "position" or "quantity".
+- A score never renders without its component breakdown.
 - `VolumeIndicator`'s "unusual" label is tied to a specific, named threshold (1.5× relative
   volume) — if a screen surfaces this language, it should mean that threshold, not a vague
   sense of "a lot."

@@ -1,11 +1,11 @@
 ---
 name: Remove signals and paper trading
-status: proposed
+status: done
 horizon: next
 created: 2026-10-17
 updated: 2026-10-17
 phases_total: 6
-phases_done: 5
+phases_done: 6
 phase_names: [Move shared pieces, Lab pages + APIs, Worker jobs, Daily signals, Core + shared cleanup, DB + docs]
 area: [web, worker, core, db, docs]
 summary: "Remove the intraday ORB-VC strategy, paper trading and the daily signal engine completely, without changing anything a non-admin user sees today."
@@ -14,7 +14,7 @@ owner: krishna
 
 # Remove signals and paper trading
 
-**Status:** plan only. Nothing is removed until this is approved.
+**Status:** done — all six phases (2026-10-17).
 
 **Decision (owner, 2026-10-17):** remove **all** signals and paper trading. That covers the
 intraday ORB-VC strategy, paper trading, and the daily signal engine with every place
@@ -185,24 +185,27 @@ About **12,000 lines** of code and tests.
 - Remove their exports from the `index.ts` files and the temporary re-exports from Phase 0.
 - **Proof:** `pnpm typecheck` across the workspace finds no dangling import.
 
-### Phase 5: database and docs
-- **Before deploy:** `pg_dump` the tables below on the VPS (a one-way change).
-- **Migration:**
-  1. Drop the triggers and trigger functions on these tables (e.g. `strategy_signals_freeze_evidence`,
-     `paper_*_no_update`, the `signals` append-only guards).
-  2. Drop the intraday tables, `signal_quotes`, `signal_observations`, all `paper_*` tables,
-     `instrument_provider_refs`, `signals`, `signal_factors`, `strategy_versions`.
-  3. Drop `screener_snapshots.signal_direction` and `signal_strength`.
-  4. Strip signal-metric leaves from `saved_screens`.
-  5. **Keep** `minute_candles`, `exchange_sessions`, `worker_checkpoints`, `daily_indicators`.
-- **Docs:**
-  - `CLAUDE.md`: remove hard rules 2 (closed candles for signals), 7 (strategy versions), 8
-    (signal factors), the BUY/SELL rule, the 2026-09-18 Lab note and the "signals are
-    admin-only" note. Replace with "no signals, no setups, no paper trading" in "Do not".
-  - Skills: delete `.claude/skills/paper-trading/`; update `signal-invariants`, `closed-candles`, `worker`.
-  - Plans: mark `intraday-strategy-dhan-plan.md`, `paper-trading-plan.md`, `signals-page-plan.md`,
-    `signals-implementation.md` as `status: removed`; update `pending-features.md` and
-    `docs/operations/deployment.md`.
+### Phase 5: database and docs ✅ done
+- **Before the deploy that carries `0046`:** take the `pg_dump` in
+  `docs/operations/deployment.md` ("Signals and paper trading — removed"). One-way change.
+- **Migration `0046_drop_signals_and_paper.sql`** (hand-written, journal entry added): drops
+  the 21 tables in dependency order **without `CASCADE`**, the trigger functions only they
+  used (`paper_orders_forward_only`, `paper_positions_freeze_identity`,
+  `strategy_signals_freeze_evidence`, `reject_strategy_mutation`), and the two
+  `screener_snapshots` signal columns. Keeps `minute_candles`, `exchange_sessions`,
+  `worker_checkpoints`, `daily_indicators` and the shared `reject_mutation()`. Checked:
+  `drizzle-kit export` before vs after differs by exactly those 21 tables and 2 columns.
+- **Saved screens:** not rewritten in SQL. A screen whose filter uses a removed metric is
+  already hidden on read (`toSavedDto`), and a retired sort falls back to the default.
+- **Credential self-heal kept:** it lived only in the removed intraday and feed jobs. It is
+  now `apps/worker/src/jobs/credential-self-heal.ts`, wired into `refresh-latest-quotes`
+  (same rules: auth failures only, once per provider per 10 min), with tests.
+- **Docs:** `CLAUDE.md` (and `AGENTS.md`, now a copy of it): new product framing, hard rule 2
+  reworded for indicators, rules 7–8 removed, a "no signals, setups or paper trading" rule.
+  Skills: `paper-trading` deleted; `signal-invariants`, `closed-candles`, `worker`,
+  `api-boundary`, `database`, `architecture-guardrails`, `design`, `grill-me` and the
+  skills README updated. Plans marked `removed`; `pending-features.md` and
+  `docs/operations/deployment.md` updated.
 
 ## 5. Check after every phase
 
@@ -224,6 +227,7 @@ About **12,000 lines** of code and tests.
 | Backfills lose their checkpoints | Phase 0 moves `worker_checkpoints` |
 | Old saved preferences mention removed columns or metrics | Already filtered on read (columns, ratios); saved screens cleaned in the migration |
 | Dropped tables can't be restored | `pg_dump` before the Phase 5 deploy |
+| Credential self-heal lost with the intraday jobs | Moved to `credential-self-heal.ts` (Phase 5) |
 | A hidden importer is missed | Typecheck and full tests after every phase; Phase 4 deletes the last files only after Phases 1–3 |
 
 ## 7. Open item

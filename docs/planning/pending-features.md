@@ -32,6 +32,12 @@ Every row was checked in the repository, not taken from the older text below. **
 present in the code. **Open** = confirmed absent. **Other tab** = assigned to a separate
 session on 2026-10-05 and in progress. Nothing here is committed yet.
 
+> **2026-10-17 — signals and paper trading removed.** The daily signal engine, the
+> intraday ORB-VC strategy and paper trading are deleted with their tables (migration
+> `0046`); see `signals-and-paper-removal-plan.md`. Rows below that mention signals,
+> setups, `/signals`, the Lab, ORB-VC or paper trading describe code that no longer
+> exists.
+
 ### Done since this backlog was written
 
 | Item | Evidence |
@@ -41,7 +47,7 @@ session on 2026-10-05 and in progress. Nothing here is committed yet.
 | 1.3 Watchlists | Complete, plus member reorder and notes (built; browser polish in another tab) |
 | 1.4 Alerts v1 | Closing-price and RSI crossings on closed sessions: evaluator, tables, worker job, API, `/alerts`. **Unverified against Postgres** (migration check in another tab) |
 | 2.1 Corporate action ingestion | Worker job `corporate-actions-sync` (08:40 weekdays) + `dividends` table |
-| 2.3 Trading calendar | `config/nse-calendar.yaml` + `calendar-refresh` + `market-calendar-sync`; /calendar page; `isTradingDay()` and friends in `packages/core/src/paper/calendar.ts` |
+| 2.3 Trading calendar | `config/nse-calendar.yaml` + `calendar-refresh` + `market-calendar-sync`; /calendar page; `isTradingDay()` and friends in `packages/core/src/exchange-calendar.ts` |
 | Breadth page, stock page, watchlist-scoped filings, IPO section, Google sign-in, indices strip (phases 0–3), market calendar, profile page, paper-trading phases 1–7 (admin-only) | Present in the tree |
 | Navigation redesign (2026-10-07) | Six-destination top bar, phone tab bar + More sheet, admin Lab menu, market-status pill, stock search with `/` and ⌘K, app footer — `docs/planning/navigation-redesign-plan.md`; landing claims cleanup and app-wide focus rings shipped first (`docs/planning/landing-and-public-navigation-plan.md`) |
 | Landing page and public pages (2026-10-07) | Phase 3 of `docs/planning/landing-and-public-navigation-plan.md`: new landing page (sample-data previews, FAQ, phone sign-up bar), public header with Learn menu and phone menu, one-landmark footer, rewritten About / Methodology / Data sources / Disclaimer / Terms / Privacy / Contact, share card and favicon. Also: signals admin-only in watchlists and the Market brief; Google-only accounts can delete themselves; sign-up buttons follow `AUTH_ALLOW_SIGNUP` |

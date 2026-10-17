@@ -6,6 +6,7 @@ import { loadAmfiCategories } from './jobs/amfi-categories.js';
 import { authMaintenance } from './jobs/auth-maintenance.js';
 import { calendarRefresh, isTradingSession, sessionToday } from './jobs/calendar-refresh.js';
 import { computeIndicators } from './jobs/compute-indicators.js';
+import { createCredentialSelfHeal } from './jobs/credential-self-heal.js';
 import { crossCheckProviders } from './jobs/cross-check-bars.js';
 import { evaluateAlerts } from './jobs/evaluate-alerts.js';
 import { extractIpoRhp } from './jobs/extract-ipo-rhp.js';
@@ -199,6 +200,9 @@ interface Jobs {
 }
 
 function buildScheduler(context: WorkerContext): Jobs {
+  // A token killed mid-session (a manual Fyers login) is re-minted on the next
+  // in-session provider failure instead of waiting for the morning refresh.
+  const healCredential = createCredentialSelfHeal(context, log.child('credential-self-heal'));
   /**
    * Calendar gating (plan §9.1): every in-session job first asks the exchange
    * calendar. A holiday, weekend or detected closure is a logged no-op — the
@@ -236,9 +240,14 @@ function buildScheduler(context: WorkerContext): Jobs {
       {
         name: 'refresh-latest-quotes',
         schedule: SCHEDULES.latestQuotes,
-        run: gated('refresh-latest-quotes', () =>
-          refreshLatestQuotes(context, log.child('refresh-latest-quotes')),
-        ),
+        run: gated('refresh-latest-quotes', async () => {
+          try {
+            await refreshLatestQuotes(context, log.child('refresh-latest-quotes'));
+          } catch (error) {
+            await healCredential(error);
+            throw error;
+          }
+        }),
       },
       {
         name: 'refresh-credential',

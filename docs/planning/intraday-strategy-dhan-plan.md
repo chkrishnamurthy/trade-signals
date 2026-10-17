@@ -1,6 +1,6 @@
 ---
 name: Intraday ORB-VC
-status: in-progress
+status: removed
 horizon: next
 created: 2026-09-17
 updated: 2026-09-17

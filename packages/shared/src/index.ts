@@ -5,7 +5,6 @@ export {
   parseRetryAfter,
 } from './circuit.js';
 export * from './exchange-calendar.js';
-export * from './intraday.js';
 export * from './ipos.js';
 export * from './market-calendar.js';
 export type { FormatPaiseOptions } from './money.js';
@@ -17,7 +16,6 @@ export {
   paiseToRupees,
   rupeesToPaise,
 } from './money.js';
-export * from './paper.js';
 export type { RateLimits, TokenBucketOptions } from './rate-limit.js';
 export { RateLimiter } from './rate-limit.js';
 export type {

@@ -9,8 +9,6 @@
  *   - Candles are append-only; corrections are corporate_actions rows (rule 5)
  *   - All prices are integer paise (rule 3)
  *   - All timestamps are TIMESTAMPTZ in UTC (rule 6)
- *   - strategy_versions rows are immutable (rule 7)
- *   - Every signal writes its factor breakdown (rule 8)
  */
 
 export { alertEvents, alerts } from './alerts.js';
@@ -46,12 +44,6 @@ export {
 export { dailyIndicators } from './indicators.js';
 export { corporateActions, ingestionRuns, instruments } from './instruments.js';
 export {
-  intradayScanRuns,
-  intradaySessionExclusions,
-  intradaySignalEvents,
-  intradaySignals,
-} from './intraday.js';
-export {
   ipoDocuments,
   ipoGmpSnapshots,
   ipoIssues,
@@ -63,20 +55,6 @@ export {
   type RhpTableData,
 } from './ipos.js';
 export { marketEvents } from './market-events.js';
-export {
-  instrumentProviderRefs,
-  paperAuditEvents,
-  paperEquitySnapshots,
-  paperFills,
-  paperLedgerEntries,
-  paperOrders,
-  paperPortfolios,
-  paperPositionEvents,
-  paperPositions,
-  paperRiskEvents,
-  paperSettings,
-  paperStrategyAssignments,
-} from './paper.js';
 export {
   amfiCategories,
   fairMarketValues2018,
@@ -98,8 +76,6 @@ export {
   screenerSnapshots,
   userRatioLayouts,
 } from './screener.js';
-export { signalFactors, signals, strategyVersions } from './signals.js';
-export * from './vwap-signals.js';
 export {
   watchlistItems,
   watchlistLayouts,

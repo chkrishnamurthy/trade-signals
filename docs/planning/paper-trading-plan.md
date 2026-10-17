@@ -1,6 +1,6 @@
 ---
 name: Paper trading
-status: done
+status: removed
 horizon: now
 created: 2026-09-17
 updated: 2026-10-05
