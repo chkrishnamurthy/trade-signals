@@ -51,15 +51,6 @@ export default async function AdminPage() {
           </PageHeading>
           <PageActions>
             <Button asChild variant="outline" size="sm">
-              <Link href="/intraday">Intraday</Link>
-            </Button>
-            <Button asChild variant="outline" size="sm">
-              <Link href="/paper-trading">Paper trading</Link>
-            </Button>
-            <Button asChild variant="outline" size="sm">
-              <Link href="/admin/paper">Paper trading health</Link>
-            </Button>
-            <Button asChild variant="outline" size="sm">
               <Link href="/admin/ipos">IPO data health</Link>
             </Button>
             <Button asChild variant="outline" size="sm">

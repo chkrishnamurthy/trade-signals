@@ -11,9 +11,7 @@ import {
   SkeletonText,
   SkeletonToolbar,
 } from '@/components/data-display/loading';
-import { IntradaySkeleton } from '@/components/intraday/intraday-skeleton';
 import { IpoSectionLoading } from '@/components/ipos/ipo-section-loading';
-import { PaperSkeleton } from '@/components/paper/paper-skeleton';
 import {
   AnalysisLoading,
   AnnouncementsLoading,
@@ -58,20 +56,6 @@ export const Portfolio: Story = { render: () => <PortfolioLoading /> };
 export const Calendar: Story = { render: () => <CalendarLoading /> };
 export const IpoDashboard: Story = { render: () => <IpoLoading /> };
 export const IpoCalendar: Story = { render: () => <IpoSectionLoading section="calendar" /> };
-export const Intraday: Story = {
-  render: () => (
-    <div className="bg-background p-4">
-      <IntradaySkeleton />
-    </div>
-  ),
-};
-export const Paper: Story = {
-  render: () => (
-    <div className="bg-background p-4">
-      <PaperSkeleton />
-    </div>
-  ),
-};
 export const Drawer: Story = {
   render: () => (
     <div className="ml-auto min-h-screen max-w-lg border-l border-border bg-surface p-5">

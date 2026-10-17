@@ -3,7 +3,7 @@
 import { UserMenu } from '@/components/auth/user-menu';
 import { StockSearch } from '@/components/market/stock-search';
 import { NoticesBell } from '@/components/portfolio/notices-bell';
-import { HOME_HREF, LAB_GROUP, PRIMARY_NAV } from '@/lib/navigation';
+import { ADMIN_GROUP, HOME_HREF, PRIMARY_NAV } from '@/lib/navigation';
 import type { IndexStripState } from '@/lib/use-index-strip';
 import type { LiveSourceState } from '@/lib/watchlist-types';
 import { Brand } from './brand';
@@ -24,7 +24,7 @@ import { NavMenu } from './nav-menu';
  * - ≥ xl (1280): everything, with the pill. Wordmark from 2xl.
  *
  * Six destinations — five links and the "Markets" menu — fit from 1024px with
- * room for an admin's "Lab" menu; the old bar's ten names needed 1680px.
+ * room for an admin's "Admin" menu; the old bar's ten names needed 1680px.
  */
 export function Navbar({
   onSearchSelect,
@@ -55,7 +55,7 @@ export function Navbar({
             ))}
             {isAdmin && (
               <li className="flex border-border border-l pl-1.5 ml-1">
-                <NavMenu group={LAB_GROUP} badge="Admin" />
+                <NavMenu group={ADMIN_GROUP} />
               </li>
             )}
           </ul>

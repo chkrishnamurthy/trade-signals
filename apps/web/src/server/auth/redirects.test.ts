@@ -3,7 +3,7 @@ import { safeRedirectPath } from './redirects';
 
 describe('safeRedirectPath', () => {
   it('accepts local paths and preserves local query strings', () => {
-    expect(safeRedirectPath('/signals?date=2026-09-20')).toBe('/signals?date=2026-09-20');
+    expect(safeRedirectPath('/screener?view=week')).toBe('/screener?view=week');
   });
 
   it.each([

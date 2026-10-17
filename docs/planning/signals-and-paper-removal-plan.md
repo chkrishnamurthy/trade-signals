@@ -5,7 +5,7 @@ horizon: next
 created: 2026-10-17
 updated: 2026-10-17
 phases_total: 6
-phases_done: 1
+phases_done: 2
 phase_names: [Move shared pieces, Lab pages + APIs, Worker jobs, Daily signals, Core + shared cleanup, DB + docs]
 area: [web, worker, core, db, docs]
 summary: "Remove the intraday ORB-VC strategy, paper trading and the daily signal engine completely, without changing anything a non-admin user sees today."
@@ -109,7 +109,11 @@ About **12,000 lines** of code and tests.
 - Verified: lint, typecheck and 1,947 unit tests unchanged; `drizzle-kit export` produces
   byte-identical schema SQL before and after (no migration).
 
-### Phase 1: Lab pages, APIs and navigation
+### Phase 1: Lab pages, APIs and navigation ✅ done
+- Done as below. The "Lab" menu also held the **Admin console** link, so it is kept as an
+  **"Admin"** menu holding only that link (the planned "Backtests" entry went with the Lab).
+- Verified: lint, workspace typecheck, 1,919 unit tests (the 28 fewer are the two deleted
+  component test files), `next build` and `build-storybook` all pass.
 - Delete the pages, APIs, web server files and components in §1A.
 - Remove the "Lab" menu (`navigation.ts`), the intraday/paper entries (`api-routes.ts`) and
   the three links in `app/admin/page.tsx`.

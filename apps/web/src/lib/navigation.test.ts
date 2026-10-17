@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { ShieldIcon } from 'lucide-react';
 import { describe, expect, it } from 'vitest';
 import {
   allReadyItems,
@@ -7,9 +8,9 @@ import {
   HELP_LINKS,
   isGroupActive,
   isItemActive,
-  LAB_GROUP,
   MARKETS_GROUP,
   MOBILE_TABS,
+  type NavItem,
   PRIMARY_NAV,
 } from './navigation';
 
@@ -54,8 +55,7 @@ describe('navigation model', () => {
 
   it('keeps admin-only destinations out of the user arrangement', () => {
     const user = new Set(allReadyItems(false).map((item) => item.href));
-    for (const href of ['/intraday', '/paper-trading', '/admin'])
-      expect(user.has(href)).toBe(false);
+    expect(user.has('/admin')).toBe(false);
   });
 });
 
@@ -86,8 +86,13 @@ describe('active matching', () => {
   });
 
   it('never marks a planned item active', () => {
-    const planned = LAB_GROUP.items.find((item) => item.status === 'planned');
-    expect(planned).toBeDefined();
-    if (planned !== undefined) expect(isItemActive(planned, '/backtests')).toBe(false);
+    const planned: NavItem = {
+      id: 'planned',
+      status: 'planned',
+      label: 'Planned',
+      icon: ShieldIcon,
+      description: 'Not built yet',
+    };
+    expect(isItemActive(planned, '/planned')).toBe(false);
   });
 });

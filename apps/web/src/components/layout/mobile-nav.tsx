@@ -13,10 +13,10 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import {
+  ADMIN_GROUP,
   DRAWER_SECTIONS,
   HELP_LINKS,
   isGroupActive,
-  LAB_GROUP,
   MOBILE_TABS,
   type NavMenuGroup,
 } from '@/lib/navigation';
@@ -31,7 +31,7 @@ import { DISCLAIMER } from './page';
  * Why tabs and not the old hamburger: the four places people go most are one
  * thumb-tap away and always visible, so "where am I" never needs a menu
  * opened. The drawer — a bottom sheet, the direction a thumb already moves —
- * holds Markets, IPOs, the admin Lab and Help & legal, grouped with headings.
+ * holds Markets, IPOs, the Admin menu and Help & legal, grouped with headings.
  *
  * The "More" tab lights when the current page lives in the drawer, so exactly
  * one tab is always current.
@@ -47,7 +47,7 @@ export function MobileNav({
   const [open, setOpen] = useState(false);
   const moreButton = useRef<HTMLButtonElement>(null);
   const sections: readonly NavMenuGroup[] = isAdmin
-    ? [...DRAWER_SECTIONS, LAB_GROUP]
+    ? [...DRAWER_SECTIONS, ADMIN_GROUP]
     : DRAWER_SECTIONS;
   const moreActive = sections.some((group) => isGroupActive(group, pathname));
   const close = () => setOpen(false);

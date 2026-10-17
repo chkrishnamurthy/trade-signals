@@ -362,17 +362,3 @@ export function IpoHealthLoading() {
     </PageLoading>
   );
 }
-export function PaperHealthLoading() {
-  return (
-    <PageLoading
-      title="Paper trading health"
-      description="Feed, worker cycles, calendar and open alerts."
-    >
-      <SkeletonMetrics />
-      <SkeletonTable rows={5} />
-      <SkeletonPanel>
-        <SkeletonList rows={3} />
-      </SkeletonPanel>
-    </PageLoading>
-  );
-}

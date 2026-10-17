@@ -102,7 +102,7 @@ export const metadata: Metadata = {
 
 /**
  * The session as this request sees it, handed to the client so the navigation
- * paints the right account control (and an admin's Lab menu) on the first
+ * paints the right account control (and an admin's Admin menu) on the first
  * frame. Every page already checks the session server-side; the lookup is
  * memoised per request, so this adds one profile read. A failure here must
  * never take a page down: it degrades to "unknown" and the browser asks.
