@@ -4,11 +4,11 @@ status: proposed
 horizon: next
 created: 2026-10-17
 updated: 2026-10-17
-phases_total: 5
+phases_total: 6
 phases_done: 0
-phase_names: [Lab pages + APIs, Worker jobs, Core + shared, Daily signals, DB + docs]
+phase_names: [Move shared pieces, Lab pages + APIs, Worker jobs, Daily signals, Core + shared cleanup, DB + docs]
 area: [web, worker, core, db, docs]
-summary: "Remove the intraday ORB-VC strategy, paper trading and the daily signal engine completely. Plan only — no code removed yet."
+summary: "Remove the intraday ORB-VC strategy, paper trading and the daily signal engine completely, without changing anything a non-admin user sees today."
 owner: krishna
 ---
 
@@ -16,16 +16,34 @@ owner: krishna
 
 **Status:** plan only. Nothing is removed until this is approved.
 
+**Decision (owner, 2026-10-17):** remove **all** signals and paper trading. That covers the
+intraday ORB-VC strategy, paper trading, and the daily signal engine with every place
+it shows up (watchlists, stock page, screener, market brief).
+
 **Why:** the product stays a charting, screening and tracking tool. Buy/sell signals and
-"setups" chosen by the app read as investment research under SEBI's Research Analyst
-rules, and paper trading only exists to grade those signals. Removing both also drops
-the main reason for the paid Dhan Data API.
+app-picked "setups" read as investment research under SEBI's Research Analyst rules,
+and paper trading only exists to grade those signals.
 
-## 1. What exists today
+## 0. Why this can be done without breaking anything
 
-There are two separate signal systems, plus paper trading on top of the first one.
+Every feature being removed is **already admin-only**:
 
-### A. Intraday strategy (ORB-VC) and paper trading — admin-only "Lab"
+- The Lab pages redirect a non-admin and their APIs answer 403.
+- Every daily-signal read is behind `isAdmin`. A regular user's watchlists, stock page,
+  screener and market brief already run on a path with **no signals at all**: empty
+  maps, hidden columns, `HIDDEN_FROM_USERS`, and `catalogueFor(false)`.
+
+So the safe rule for every change below is: **make the admin path behave like today's
+user path, then delete the unused branch.** A regular user sees no difference. An admin
+sees what a regular user sees today.
+
+The only real risks are pieces that **sit inside** the paper or intraday files but are
+used by other features. §3 lists each one with what to do. They are moved first, in
+Phase 0, before anything is deleted.
+
+## 1. What gets removed
+
+### A. Intraday strategy (ORB-VC) and paper trading (admin-only "Lab")
 
 | Layer | Files |
 |---|---|
@@ -33,102 +51,139 @@ There are two separate signal systems, plus paper trading on top of the first on
 | APIs | `apps/web/src/app/api/intraday/` (today, day/[date], rules), `apps/web/src/app/api/paper/` (9 routes), `apps/web/src/app/api/admin/paper/health/` |
 | Web server | `apps/web/src/server/intraday.ts`, `apps/web/src/server/paper.ts` |
 | Components | `apps/web/src/components/intraday/` (10 files), `apps/web/src/components/paper/` (16 files) |
-| Navigation / links | `lib/navigation.ts` (the "Lab" menu: `intraday`, `paper`), `lib/api-routes.ts` (intraday + paper entries), `app/admin/page.tsx` (3 links), route-auth and navigation tests |
-| Worker jobs | `jobs/intraday-orb.ts`, `jobs/paper.ts` (+ tests); in `index.ts`: `intraday-reconcile`, `intraday-quotes`, `intraday-scan`, `intraday-warmup`, `paper-entries`, `paper-monitor`, `paper-squareoff`, `paper-snapshot`, `paper-reconcile`, and the startup recovery block |
-| Live feed | `jobs/feed.ts` (+ test). It exists only to feed intraday observations (`observeIntradayPrice`) and uses `ORB_CONFIG` / `loadIntradaySettings` |
-| Core (pure) | `packages/core/src/intraday/` (16 files), `packages/core/src/paper/` (22 files), `packages/core/src/paper-journal.ts` |
-| Shared | `packages/shared/src/intraday.ts`, `packages/shared/src/paper.ts` |
-| DB repositories | `repositories/intraday.ts`, `repositories/paper.ts`, `repositories/paper-ops.ts`, `repositories/minute-bars.ts`, db tests `__tests__/intraday.test.ts`, `__tests__/paper.test.ts` |
-| DB tables | `strategy_signals`, `strategy_signal_events`, `strategy_session_exclusions`, `strategy_scan_runs`, `signal_quotes`, `signal_observations`, 11 `paper_*` tables, and `instrument_provider_refs` (written only by the feed) |
+| Navigation / links | `lib/navigation.ts` (the "Lab" menu: `intraday`, `paper`), `lib/api-routes.ts` (intraday + paper entries), `app/admin/page.tsx` (3 links) |
+| Worker jobs | `jobs/intraday-orb.ts`, `jobs/paper.ts`, `jobs/feed.ts` (+ tests). In `index.ts`: `intraday-reconcile`, `intraday-quotes`, `intraday-scan`, `intraday-warmup`, `paper-entries`, `paper-monitor`, `paper-squareoff`, `paper-snapshot`, `paper-reconcile`, `feed-start`, `feed-stop`, the `--once` names, and the paper calls in startup recovery |
+| Core (pure) | `packages/core/src/intraday/` (16 files), `packages/core/src/paper/` (22 files, **except** `calendar.ts`, see §3), `packages/core/src/paper-journal.ts` |
+| Shared | `packages/shared/src/intraday.ts`, `packages/shared/src/paper.ts` (except the `ExchangeSession` / calendar types, see §3) |
+| DB repositories | `repositories/intraday.ts`, `repositories/paper-ops.ts`, `repositories/minute-bars.ts`, most of `repositories/paper.ts` (see §3); tests `__tests__/intraday.test.ts`, `__tests__/paper.test.ts` |
+| DB tables | `strategy_signals`, `strategy_signal_events`, `strategy_session_exclusions`, `strategy_scan_runs`, `signal_quotes`, `signal_observations`, 11 `paper_*` tables, `instrument_provider_refs` (written only by the feed) |
 | Config / scripts | `config/intraday-orb.yaml`, `scripts/replay-intraday.ts` |
-| Skills / docs | `.claude/skills/paper-trading/`, `docs/planning/intraday-strategy-dhan-plan.md`, `paper-trading-plan.md`, `signals-page-plan.md`, `signals-implementation.md`, journal entries |
 
 About **12,000 lines** of code and tests.
 
-### B. Daily (end-of-day) signal engine — admin-only columns across the app
+### B. Daily (end-of-day) signal engine
 
-| Layer | Files |
-|---|---|
-| Engine | `packages/core/src/signals/` (`evaluateSignals`, `scanSwing`, `DEFAULT_STRATEGY`) |
-| Writer | `apps/worker/src/jobs/compute-indicators.ts` writes a `signals` row + `signal_factors` per stock after the indicators |
-| Tables | `strategy_versions`, `signals`, `signal_factors` (`repositories/signals.ts`) |
-| Readers | Watchlists: Signal / Signal Strength / Setups columns and the "Daily signals" view (`server/watchlists.ts`, `lib/watchlist-columns.ts`, `lib/watchlist-views.ts`, `components/watchlists/*`) |
-| | Stock page: signal + "Why this signal?" factors (`server/stock-research.ts`, `components/stocks/stock-view.tsx`) |
-| | Screener: `signalDirection`, `signalStrength` metrics and the `signals` category (`core/screener/catalogue.ts`, `worker/jobs/stock-analysis.ts`, `repositories/screener.ts`) |
-| | Market brief: setup counts, setup lists, factor breakdown (`server/market-brief.ts`, `lib/market-brief/*`, `components/market-brief/*`, `repositories/brief.ts`) |
-| UI pieces | `components/market/signal.tsx` (the BUY/SELL direction badge) + story |
-
-## 2. Things that look related but must STAY
-
-These are woven into the paper/intraday files but are used by the rest of the app.
-
-| Keep | Why | What to do |
+| Where | What is removed | What stays |
 |---|---|---|
-| **Exchange calendar** — `exchange_sessions` table, `sessionFor` / `calendarExpiresSoon` (in `core/paper/calendar.ts`), `upsertExchangeSession` / `getExchangeSession` (in `repositories/paper.ts`), `jobs/calendar-refresh.ts` | The worker's `gated()` wrapper uses it to skip holidays for `refresh-latest-quotes` (watchlist prices) | **Move** out of the paper files into `core/calendar/` and `repositories/calendar.ts`. No table change |
-| `worker_checkpoints` table + `get/setWorkerCheckpoint` (in `repositories/paper.ts`) | Stock-analysis and dividend backfills use it | **Move** to `repositories/checkpoints.ts` |
-| `calendar-check` job | Detects unscheduled closures using `latestSignalQuoteAt` (from `signal_quotes`) | **Rewrite** to use `latest_quotes` instead, or drop it |
-| `minute_candles` table | Price history (hard rules 4 and 5) | **Keep the table and its data.** Only stop writing to it. Drop `repositories/minute-bars.ts` if nothing else reads it |
-| `daily_indicators` + `compute-indicators` job | Feeds watchlist indicator columns, screener and alerts | **Keep.** Only remove the `evaluateSignals` / `saveSignal` part |
-| `refresh-latest-quotes` job, web `live-quotes.ts` | Watchlist live prices | Keep (unrelated to the worker feed) |
-| Portfolio "intraday" | Tax classification of same-day trades | Unrelated; keep |
-| `paiseSchema` / `barSchema` in `shared/intraday.ts` | Used by `minute-bars.ts` and the feed only | Move to `shared` money/bar helpers if anything still needs them |
+| Engine | `packages/core/src/signals/` (`evaluateSignals`, `scanSwing`, `DEFAULT_STRATEGY`) | All indicators in `core/indicators` |
+| Worker `compute-indicators.ts` | `registerStrategy`, the `evaluateSignals` / `saveSignal` block, `signalsWritten` in the result | Indicator computation and `upsertDailyIndicators` (feeds watchlists, screener, alerts) |
+| Watchlists | Columns `signal`, `signalStrength`, `signalSetups`; the `signals` column group; the "Daily signals" quick view; `showSignals` plumbing; signal reads in `server/watchlists.ts`; signal cells in `watchlist-cells.tsx` | Every other column and view (`trend` is EMA-derived, not a signal) |
+| Stock page | Signal badge and "Why this signal?" factor section (`server/stock-research.ts`: `latestSignalRow`, `getSignalFactors`; `components/stocks/stock-view.tsx`) | Header, ratio board, charts, "What stands out" |
+| Screener | `signalDirection`, `signalStrength` metrics and the `signals` category (`core/screener/catalogue.ts`), `HIDDEN_FROM_USERS`, signal fill in `worker/jobs/stock-analysis.ts` (`latestSignalsOnOrBefore`) | All ~93 other metrics and presets. The preset mentioning "MACD signal" is the MACD signal **line** and stays |
+| Market brief | Setup counts, setup lists, factor breakdown (`server/market-brief.ts` signal reads, `lib/market-brief/*` signal facts and sentences, `components/market-brief/factor-breakdown.tsx`); `repositories/brief.ts` signal readers | Breadth, movers, indicator-based facts |
+| UI pieces | `components/market/signal.tsx` (BUY/SELL direction badge) and its story | — |
+| Tables | `signals`, `signal_factors`, `strategy_versions`; columns `screener_snapshots.signal_direction` / `signal_strength` | `daily_indicators`, `screener_snapshots` |
+| Repositories | `repositories/signals.ts` | — |
 
-## 3. Order of removal (one PR per phase, each green on its own)
+## 2. Not affected (checked)
 
-### Phase 1 — Lab pages, APIs and navigation
-- Delete the pages, API routes, web server files and components listed in §1A.
-- Remove the "Lab" menu from `lib/navigation.ts`, the intraday/paper entries from
-  `lib/api-routes.ts`, the three links from `app/admin/page.tsx`.
-- Update `route-auth.test.ts`, `navigation.test.ts`, `redirects.test.ts`.
-- `/signals`, `/intraday`, `/paper-trading` then return 404 (fine, admin-only today).
+- **Alerts** (`core/alerts`, `evaluate-alerts`): no signal dependency. They read `daily_indicators`.
+- **Portfolio "intraday"**: tax classification of same-day trades. Unrelated, stays.
+- **Watchlist live prices**: web `live-quotes.ts` and the worker `refresh-latest-quotes` job do not use the worker feed. They stay.
+- **IPOs, calendar page, flows, announcements, portfolio**: no imports from the removed code.
+- **MACD "signal line"** wording in indicators, screener and presets: an indicator term. It stays.
 
-### Phase 2 — Worker jobs
-- Remove the intraday and paper jobs, the feed job, and the startup recovery's paper calls
-  from `apps/worker/src/index.ts` (schedule list and the `--once` job-name list).
-- Move the calendar and checkpoint helpers (§2) first, so `calendar-refresh` and the
-  backfills keep working.
-- Rewrite or drop `calendar-check`.
+## 3. Shared pieces that must be MOVED, not deleted
 
-### Phase 3 — Core and shared
-- Delete `core/intraday/`, `core/paper/` (after moving `calendar.ts`), `core/paper-journal.ts`,
-  `shared/intraday.ts`, `shared/paper.ts`; remove their exports from the `index.ts` files.
-- Delete `config/intraday-orb.yaml`, `scripts/replay-intraday.ts`.
+| Piece | Lives in today | Used by | Action |
+|---|---|---|---|
+| Exchange calendar: `sessionFor`, `calendarExpiresSoon` | `core/paper/calendar.ts` | `jobs/calendar-refresh.ts`, the worker's `gated()` holiday check for `refresh-latest-quotes` | Move to `core/calendar/` |
+| `ExchangeSession`, `CalendarConfig` types | `shared/paper.ts` | Calendar code | Move to `shared/calendar.ts` |
+| `exchange_sessions` table + `upsertExchangeSession` / `getExchangeSession` | `schema/paper.ts`, `repositories/paper.ts` | Calendar refresh, `gated()` | Move to `schema/calendar.ts`, `repositories/calendar.ts`. **No table change** |
+| `worker_checkpoints` table + `get/setWorkerCheckpoint(Row)` | `schema/paper.ts`, `repositories/paper.ts` | Stock-analysis and dividend backfills (`stock-analysis.ts`), portfolio reference data (`portfolio-reference.ts`) | Move to `schema/checkpoints.ts`, `repositories/checkpoints.ts`. **No table change** |
+| `recordPaperRiskEvent` call in `calendar-refresh.ts` | `repositories/paper.ts` | Calendar alerts written to the paper risk log | Replace with the worker's normal logger / event log |
+| `calendar-check` job (`latestSignalQuoteAt`) | `signal_quotes` table | Detects unscheduled closures from intraday quotes | Rewrite to read `latest_quotes` (written by `refresh-latest-quotes`), or drop the job |
+| `minute_candles` table | `schema/vwap-signals.ts` | Price history (hard rules 4 and 5) | Move the table definition to `schema/candles.ts`. **Keep the table and its data.** Nothing writes to it after removal |
+| `gated()` helper in `worker/index.ts` | — | `refresh-latest-quotes` | Keep |
 
-### Phase 4 — Daily signal engine (§1B)
-- `compute-indicators.ts`: stop calling `evaluateSignals` / `saveSignal` (indicators stay).
-- Remove signal columns, the "Daily signals" view, the stock-page signal section, the
-  screener `signals` category, and the market-brief setup sections.
-- Delete `core/signals/`, `components/market/signal.tsx`, `repositories/signals.ts` and the
-  signal readers in `brief.ts` / `screener.ts`.
-- **Check** saved screener presets (`config/screener-presets.yaml`) and users' saved
-  watchlist column layouts for signal columns, and drop them safely on read.
+## 4. Phases (one PR each; every PR passes lint, typecheck and all tests on its own)
 
-### Phase 5 — Database and docs
-- **Migration:** drop the intraday tables, `signal_quotes`, `signal_observations`, all `paper_*`
-  tables, `instrument_provider_refs`, and `signals` / `signal_factors` / `strategy_versions`. Drop their triggers and
-  trigger functions first. **Keep** `minute_candles`, `exchange_sessions`, `worker_checkpoints`.
-  Take a `pg_dump` of these tables on the VPS before the deploy (one-way change).
-- Remove hard rules 2, 7, 8 and the BUY/SELL wording from `CLAUDE.md` (or reword them for
-  indicators), and the 2026-09-18 / 2026-10-07 update notes.
-- Delete `.claude/skills/paper-trading/`; update `signal-invariants`, `closed-candles`,
-  `worker` skills; mark the plans in §1A as `status: removed`; update
-  `docs/operations/deployment.md` and `pending-features.md`.
+### Phase 0: move the shared pieces (no behaviour change)
+- Do every move in §3. Re-point the imports. Keep the old names re-exported for one phase
+  so nothing else has to change at the same time.
+- **Proof:** the full test suite passes unchanged. `calendar-refresh.test.ts` and the
+  stock-analysis / dividend backfill tests still pass.
 
-## 4. Decisions needed before starting
+### Phase 1: Lab pages, APIs and navigation
+- Delete the pages, APIs, web server files and components in §1A.
+- Remove the "Lab" menu (`navigation.ts`), the intraday/paper entries (`api-routes.ts`) and
+  the three links in `app/admin/page.tsx`.
+- Update `route-auth.test.ts`, `navigation.test.ts`, `redirects.test.ts` and the loading-system story.
+- **Proof:** `pnpm build` for web, and every remaining page still renders. `/intraday`,
+  `/paper-trading` and `/signals` return 404.
 
-1. **Daily signals (§1B): remove completely, or only the intraday + paper part?**
-   Recommended: remove both. They are admin-only today, and the BUY/SELL badge and
-   "setups" are exactly what makes the app look like research.
-2. **Old data:** drop the tables (recommended, after a backup), or keep them unused?
-3. **Dhan:** after this, only `ingest-futures-oi` and the `routed` daily bars use Dhan.
-   Switch to Fyers-only in the same series, or as a separate change?
+### Phase 2: worker jobs
+- Remove the intraday, paper and feed jobs and their schedule entries, `--once` names and
+  startup-recovery calls. Keep `refresh-latest-quotes` with startup recovery.
+- Rewrite or drop `calendar-check` (§3).
+- **Proof:** worker tests pass, `--once refresh-latest-quotes` and `--once calendar-refresh`
+  run, and the scheduler list contains no intraday/paper job.
 
-## 5. Risk check
+### Phase 3: daily signals
+- `compute-indicators.ts`: indicators only.
+- `stock-analysis.ts`: stop filling the two signal columns.
+- Watchlists, stock page, screener and market brief: delete the `isAdmin` signal branches so
+  the admin path equals today's user path. Remove the signal columns, view, category,
+  badge and factor components.
+- Saved data, so old preferences don't break:
+  - Saved watchlist column lists: unknown ids are already dropped by `visibleColumnIds`. Nothing to do.
+  - Ratio board: `normaliseRatioKeys` already drops keys not in the catalogue. Nothing to do.
+  - **Saved screens** (`saved_screens`): an admin's saved screen with a signal filter would
+    stop validating. Clean these in the Phase 5 migration (remove those filter leaves), and
+    make loading a saved screen ignore unknown metrics.
+- **Proof:** watchlist, screener, stock-page and market-brief tests pass. Their admin snapshots
+  now match the user snapshots.
+
+### Phase 4: core and shared cleanup
+- Delete `core/intraday/`, `core/paper/`, `core/paper-journal.ts`, `core/signals/`,
+  `shared/intraday.ts`, `shared/paper.ts`, `config/intraday-orb.yaml`, `scripts/replay-intraday.ts`,
+  `repositories/{intraday,paper-ops,minute-bars,signals}.ts`, and what is left of `repositories/paper.ts`.
+- Remove their exports from the `index.ts` files and the temporary re-exports from Phase 0.
+- **Proof:** `pnpm typecheck` across the workspace finds no dangling import.
+
+### Phase 5: database and docs
+- **Before deploy:** `pg_dump` the tables below on the VPS (a one-way change).
+- **Migration:**
+  1. Drop the triggers and trigger functions on these tables (e.g. `strategy_signals_freeze_evidence`,
+     `paper_*_no_update`, the `signals` append-only guards).
+  2. Drop the intraday tables, `signal_quotes`, `signal_observations`, all `paper_*` tables,
+     `instrument_provider_refs`, `signals`, `signal_factors`, `strategy_versions`.
+  3. Drop `screener_snapshots.signal_direction` and `signal_strength`.
+  4. Strip signal-metric leaves from `saved_screens`.
+  5. **Keep** `minute_candles`, `exchange_sessions`, `worker_checkpoints`, `daily_indicators`.
+- **Docs:**
+  - `CLAUDE.md`: remove hard rules 2 (closed candles for signals), 7 (strategy versions), 8
+    (signal factors), the BUY/SELL rule, the 2026-09-18 Lab note and the "signals are
+    admin-only" note. Replace with "no signals, no setups, no paper trading" in "Do not".
+  - Skills: delete `.claude/skills/paper-trading/`; update `signal-invariants`, `closed-candles`, `worker`.
+  - Plans: mark `intraday-strategy-dhan-plan.md`, `paper-trading-plan.md`, `signals-page-plan.md`,
+    `signals-implementation.md` as `status: removed`; update `pending-features.md` and
+    `docs/operations/deployment.md`.
+
+## 5. Check after every phase
+
+| Area | Check |
+|---|---|
+| Watchlists | Live prices, indicator columns, quick views, add/remove stocks |
+| Screener | Run a preset, save/load a screen, CSV export |
+| Stock page | Header, ratio board, chart, "What stands out" |
+| Market brief and breadth | Page loads with breadth and movers |
+| IPOs, portfolio, calendar, alerts | Unchanged |
+| Worker | `ingest-daily` → `compute-indicators` → `stock-analysis` → `evaluate-alerts` chain completes; `refresh-latest-quotes` skips holidays |
+| Automated | `pnpm lint`, `pnpm typecheck`, `pnpm test`, db-tests, web build |
+
+## 6. Risks
 
 | Risk | Guard |
 |---|---|
-| Holiday gating breaks for watchlist quotes | Move the calendar code first (Phase 2) and keep `calendar-refresh.test.ts` |
-| Backfills lose their checkpoints | Move `worker_checkpoints` helpers before deleting `repositories/paper.ts` |
-| Saved watchlist layouts reference removed columns | Unknown column ids are ignored on read (verify in Phase 4) |
-| Dropped tables can't be restored | `pg_dump` before Phase 5 deploy |
-| Hidden importer missed | `pnpm typecheck` and the full test suite after every phase |
+| Holiday check breaks for watchlist quotes | Phase 0 moves the calendar before anything is deleted; `calendar-refresh.test.ts` stays |
+| Backfills lose their checkpoints | Phase 0 moves `worker_checkpoints` |
+| Old saved preferences mention removed columns or metrics | Already filtered on read (columns, ratios); saved screens cleaned in the migration |
+| Dropped tables can't be restored | `pg_dump` before the Phase 5 deploy |
+| A hidden importer is missed | Typecheck and full tests after every phase; Phase 4 deletes the last files only after Phases 1–3 |
+
+## 7. Open item
+
+**Dhan:** after this, Dhan is used only for `ingest-futures-oi` and the `routed` daily bars,
+quotes and instruments. Moving to Fyers-only (and cancelling the ₹589/month Data API) is a
+separate change after this plan.
