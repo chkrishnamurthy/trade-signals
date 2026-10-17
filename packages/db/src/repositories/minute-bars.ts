@@ -1,7 +1,8 @@
 import { and, asc, eq, gte, sql } from 'drizzle-orm';
 import type { Database } from '../client.js';
+import { minuteCandles } from '../schema/candles.js';
 import { instruments } from '../schema/instruments.js';
-import { minuteCandles, signalQuotes } from '../schema/vwap-signals.js';
+import { signalQuotes } from '../schema/vwap-signals.js';
 
 /**
  * Minute history and the sampled-quote store, shared by every intraday

@@ -1,5 +1,4 @@
 export * from './allocate.js';
-export * from './calendar.js';
 export * from './catalogue.js';
 export * from './config.js';
 export * from './intent.js';

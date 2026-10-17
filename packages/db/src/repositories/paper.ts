@@ -20,7 +20,6 @@ import {
   reconstructLedger,
 } from '@equitywise/core';
 import {
-  type ExchangeSession,
   type PaperDecision,
   type PaperLedgerEntry,
   type PaperLimits,
@@ -35,7 +34,6 @@ import {
 import { and, asc, desc, eq, gte, inArray, lte, ne, sql } from 'drizzle-orm';
 import type { Database } from '../client.js';
 import {
-  exchangeSessions,
   instrumentProviderRefs,
   paperAuditEvents,
   paperFills,
@@ -47,7 +45,6 @@ import {
   paperRiskEvents,
   paperSettings,
   paperStrategyAssignments,
-  workerCheckpoints,
 } from '../schema/paper.js';
 
 /** Advisory lock namespace for per-portfolio writes (802 = intraday instruments). */
@@ -855,83 +852,6 @@ export async function listPaperAudit(db: Database, userId: number, limit = 50) {
     .where(eq(paperAuditEvents.portfolioId, view.portfolio.id))
     .orderBy(desc(paperAuditEvents.id))
     .limit(limit);
-}
-export async function getWorkerCheckpoint(
-  db: Database,
-  job: string,
-): Promise<Record<string, unknown> | null> {
-  const [row] = await db.select().from(workerCheckpoints).where(eq(workerCheckpoints.job, job));
-  return row?.cursor ?? null;
-}
-/** The checkpoint with its write time — for "how old is this report". */
-export async function getWorkerCheckpointRow(
-  db: Database,
-  job: string,
-): Promise<{ cursor: Record<string, unknown>; updatedAt: number } | null> {
-  const [row] = await db.select().from(workerCheckpoints).where(eq(workerCheckpoints.job, job));
-  return row ? { cursor: row.cursor, updatedAt: row.updatedAt.getTime() } : null;
-}
-export async function setWorkerCheckpoint(
-  db: Database,
-  job: string,
-  cursor: Record<string, unknown>,
-  now: number,
-  runId: string | null = null,
-) {
-  await db
-    .insert(workerCheckpoints)
-    .values({ job, cursor, runId, updatedAt: new Date(now) })
-    .onConflictDoUpdate({
-      target: workerCheckpoints.job,
-      set: { cursor, runId, updatedAt: new Date(now) },
-    });
-}
-export async function upsertExchangeSession(
-  db: Database,
-  session: ExchangeSession,
-  source: string,
-  now: number,
-) {
-  const value = {
-    exchange: 'NSE',
-    tradingDate: session.tradingDate,
-    kind: session.kind,
-    openAt: session.openAt === null ? null : new Date(session.openAt),
-    closeAt: session.closeAt === null ? null : new Date(session.closeAt),
-    entryCutoffAt: session.entryCutoffAt === null ? null : new Date(session.entryCutoffAt),
-    squareOffAt: session.squareOffAt === null ? null : new Date(session.squareOffAt),
-    source,
-    note: session.note,
-    updatedAt: new Date(now),
-  };
-  await db
-    .insert(exchangeSessions)
-    .values(value)
-    .onConflictDoUpdate({
-      target: [exchangeSessions.exchange, exchangeSessions.tradingDate],
-      set: value,
-    });
-}
-export async function getExchangeSession(
-  db: Database,
-  tradingDate: string,
-): Promise<ExchangeSession | null> {
-  const [row] = await db
-    .select()
-    .from(exchangeSessions)
-    .where(
-      and(eq(exchangeSessions.exchange, 'NSE'), eq(exchangeSessions.tradingDate, tradingDate)),
-    );
-  if (!row) return null;
-  return {
-    tradingDate: row.tradingDate,
-    kind: row.kind as ExchangeSession['kind'],
-    openAt: row.openAt?.getTime() ?? null,
-    closeAt: row.closeAt?.getTime() ?? null,
-    entryCutoffAt: row.entryCutoffAt?.getTime() ?? null,
-    squareOffAt: row.squareOffAt?.getTime() ?? null,
-    note: row.note,
-  };
 }
 export async function upsertInstrumentProviderRef(
   db: Database,

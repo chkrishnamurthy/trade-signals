@@ -7,7 +7,7 @@ import {
 } from '@equitywise/shared';
 
 /**
- * Exchange calendar (docs/planning/paper-trading-plan.md §9.4). Pure lookup
+ * Exchange calendar (originally docs/planning/paper-trading-plan.md §9.4). Pure lookup
  * over the versioned `config/nse-calendar.yaml`; the worker cross-checks the
  * answer against provider status and candle arrival for unscheduled closures.
  */

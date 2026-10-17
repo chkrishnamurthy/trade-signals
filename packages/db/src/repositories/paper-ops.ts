@@ -15,6 +15,7 @@ import {
 } from '@equitywise/shared';
 import { and, asc, desc, eq, gt, gte, inArray, isNull, lte, ne, notExists, sql } from 'drizzle-orm';
 import type { Database } from '../client.js';
+import { workerCheckpoints } from '../schema/checkpoints.js';
 import { intradaySignals } from '../schema/intraday.js';
 import {
   paperEquitySnapshots,
@@ -26,7 +27,6 @@ import {
   paperPositions,
   paperRiskEvents,
   paperSettings,
-  workerCheckpoints,
 } from '../schema/paper.js';
 import { signalObservations, signalQuotes } from '../schema/vwap-signals.js';
 import {

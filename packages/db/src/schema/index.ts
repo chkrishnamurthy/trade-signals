@@ -27,7 +27,8 @@ export {
   eventLog,
   userProfiles,
 } from './auth.js';
-export { dailyCandles } from './candles.js';
+export { dailyCandles, minuteCandles } from './candles.js';
+export { workerCheckpoints } from './checkpoints.js';
 export { providerCredentials } from './credentials.js';
 export {
   bulkBlockDeals,
@@ -35,6 +36,7 @@ export {
   fiiDiiFlows,
   shareholdingPatterns,
 } from './disclosures.js';
+export { exchangeSessions } from './exchange-calendar.js';
 export {
   deliveryStats,
   derivativeOiDaily,
@@ -62,7 +64,6 @@ export {
 } from './ipos.js';
 export { marketEvents } from './market-events.js';
 export {
-  exchangeSessions,
   instrumentProviderRefs,
   paperAuditEvents,
   paperEquitySnapshots,
@@ -75,7 +76,6 @@ export {
   paperRiskEvents,
   paperSettings,
   paperStrategyAssignments,
-  workerCheckpoints,
 } from './paper.js';
 export {
   amfiCategories,

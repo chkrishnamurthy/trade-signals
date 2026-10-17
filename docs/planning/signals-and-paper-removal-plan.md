@@ -5,7 +5,7 @@ horizon: next
 created: 2026-10-17
 updated: 2026-10-17
 phases_total: 6
-phases_done: 0
+phases_done: 1
 phase_names: [Move shared pieces, Lab pages + APIs, Worker jobs, Daily signals, Core + shared cleanup, DB + docs]
 area: [web, worker, core, db, docs]
 summary: "Remove the intraday ORB-VC strategy, paper trading and the daily signal engine completely, without changing anything a non-admin user sees today."
@@ -87,9 +87,9 @@ About **12,000 lines** of code and tests.
 
 | Piece | Lives in today | Used by | Action |
 |---|---|---|---|
-| Exchange calendar: `sessionFor`, `calendarExpiresSoon` | `core/paper/calendar.ts` | `jobs/calendar-refresh.ts`, the worker's `gated()` holiday check for `refresh-latest-quotes` | Move to `core/calendar/` |
-| `ExchangeSession`, `CalendarConfig` types | `shared/paper.ts` | Calendar code | Move to `shared/calendar.ts` |
-| `exchange_sessions` table + `upsertExchangeSession` / `getExchangeSession` | `schema/paper.ts`, `repositories/paper.ts` | Calendar refresh, `gated()` | Move to `schema/calendar.ts`, `repositories/calendar.ts`. **No table change** |
+| Exchange calendar: `sessionFor`, `calendarExpiresSoon`, `isTradingDay`, … | `core/paper/calendar.ts` | `jobs/calendar-refresh.ts`, the worker's `gated()` holiday check for `refresh-latest-quotes`, **the IPO timeline** (`core/ipos/timeline.ts`) | Move to `core/exchange-calendar.ts` |
+| `ExchangeSession`, `CalendarConfig` types | `shared/paper.ts` | Calendar code | Move to `shared/exchange-calendar.ts` (`shared/market-calendar.ts` is the separate events calendar) |
+| `exchange_sessions` table + `upsertExchangeSession` / `getExchangeSession` | `schema/paper.ts`, `repositories/paper.ts` | Calendar refresh, `gated()` | Move to `schema/exchange-calendar.ts`, `repositories/exchange-calendar.ts`. **No table change** |
 | `worker_checkpoints` table + `get/setWorkerCheckpoint(Row)` | `schema/paper.ts`, `repositories/paper.ts` | Stock-analysis and dividend backfills (`stock-analysis.ts`), portfolio reference data (`portfolio-reference.ts`) | Move to `schema/checkpoints.ts`, `repositories/checkpoints.ts`. **No table change** |
 | `recordPaperRiskEvent` call in `calendar-refresh.ts` | `repositories/paper.ts` | Calendar alerts written to the paper risk log | Replace with the worker's normal logger / event log |
 | `calendar-check` job (`latestSignalQuoteAt`) | `signal_quotes` table | Detects unscheduled closures from intraday quotes | Rewrite to read `latest_quotes` (written by `refresh-latest-quotes`), or drop the job |
@@ -98,11 +98,16 @@ About **12,000 lines** of code and tests.
 
 ## 4. Phases (one PR each; every PR passes lint, typecheck and all tests on its own)
 
-### Phase 0: move the shared pieces (no behaviour change)
-- Do every move in §3. Re-point the imports. Keep the old names re-exported for one phase
-  so nothing else has to change at the same time.
-- **Proof:** the full test suite passes unchanged. `calendar-refresh.test.ts` and the
-  stock-analysis / dividend backfill tests still pass.
+### Phase 0: move the shared pieces (no behaviour change) ✅ done
+- Moved: the exchange calendar (core + shared types), `exchange_sessions` and
+  `worker_checkpoints` (schema + repository functions), `minute_candles` (schema, to `candles.ts`).
+  Every package re-exports through its `index.ts`, so the public names are unchanged and no
+  caller had to change.
+- The two §3 rows that change behaviour (`recordPaperRiskEvent` in `calendar-refresh.ts`, and
+  `calendar-check`'s use of `signal_quotes`) move to **Phase 2**, where the paper tables they
+  touch are retired.
+- Verified: lint, typecheck and 1,947 unit tests unchanged; `drizzle-kit export` produces
+  byte-identical schema SQL before and after (no migration).
 
 ### Phase 1: Lab pages, APIs and navigation
 - Delete the pages, APIs, web server files and components in §1A.
@@ -113,6 +118,7 @@ About **12,000 lines** of code and tests.
   `/paper-trading` and `/signals` return 404.
 
 ### Phase 2: worker jobs
+- `calendar-refresh.ts`: replace `recordPaperRiskEvent` with the worker logger / event log.
 - Remove the intraday, paper and feed jobs and their schedule entries, `--once` names and
   startup-recovery calls. Keep `refresh-latest-quotes` with startup recovery.
 - Rewrite or drop `calendar-check` (§3).

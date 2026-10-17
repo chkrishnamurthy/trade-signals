@@ -9,6 +9,7 @@
 
 export * from './alerts/index.js';
 export * from './announcement-interpretation.js';
+export * from './exchange-calendar.js';
 export * from './flows.js';
 export * from './indicators/index.js';
 export * from './intraday/index.js';

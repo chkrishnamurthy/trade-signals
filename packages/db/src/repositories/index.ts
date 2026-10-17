@@ -121,6 +121,7 @@ export {
   getStoredSessionDates,
   insertDailyCandles,
 } from './candles.js';
+export * from './checkpoints.js';
 export type { CredentialInput, StoredCredential } from './credentials.js';
 export {
   getProviderCredential,
@@ -167,6 +168,7 @@ export {
   listEvents,
   logEvent,
 } from './event-log.js';
+export * from './exchange-calendar.js';
 export type {
   DealAggregateRow,
   DeliveryHistoryRow,

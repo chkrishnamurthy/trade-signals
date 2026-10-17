@@ -4,6 +4,7 @@ export {
   PathCircuitBreaker,
   parseRetryAfter,
 } from './circuit.js';
+export * from './exchange-calendar.js';
 export * from './intraday.js';
 export * from './ipos.js';
 export * from './market-calendar.js';

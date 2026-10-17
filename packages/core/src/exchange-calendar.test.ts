@@ -7,7 +7,7 @@ import {
   previousTradingDay,
   sessionFor,
   tradingDaysBetween,
-} from './calendar.js';
+} from './exchange-calendar.js';
 
 const calendar: CalendarConfig = {
   exchange: 'NSE',

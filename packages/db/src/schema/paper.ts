@@ -342,36 +342,6 @@ export const paperAuditEvents = pgTable(
   (t) => [index('paper_audit_events_portfolio_idx').on(t.portfolioId, t.at)],
 );
 
-export const workerCheckpoints = pgTable('worker_checkpoints', {
-  job: text().primaryKey(),
-  cursor: jsonb().$type<Record<string, unknown>>().notNull(),
-  runId: text(),
-  updatedAt: timestamp({ withTimezone: true }).notNull(),
-});
-
-export const exchangeSessions = pgTable(
-  'exchange_sessions',
-  {
-    exchange: text().notNull(),
-    tradingDate: date().notNull(),
-    kind: text().notNull(),
-    openAt: timestamp({ withTimezone: true }),
-    closeAt: timestamp({ withTimezone: true }),
-    entryCutoffAt: timestamp({ withTimezone: true }),
-    squareOffAt: timestamp({ withTimezone: true }),
-    source: text().notNull(),
-    note: text(),
-    updatedAt: timestamp({ withTimezone: true }).notNull(),
-  },
-  (t) => [
-    primaryKey({ columns: [t.exchange, t.tradingDate] }),
-    check(
-      'exchange_sessions_kind',
-      sql`${t.kind} in ('NORMAL','HOLIDAY','SPECIAL','MUHURAT','CLOSED_UNSCHEDULED','WEEKEND')`,
-    ),
-  ],
-);
-
 export const instrumentProviderRefs = pgTable(
   'instrument_provider_refs',
   {
