@@ -5,7 +5,7 @@ horizon: next
 created: 2026-10-17
 updated: 2026-10-17
 phases_total: 6
-phases_done: 4
+phases_done: 5
 phase_names: [Move shared pieces, Lab pages + APIs, Worker jobs, Daily signals, Core + shared cleanup, DB + docs]
 area: [web, worker, core, db, docs]
 summary: "Remove the intraday ORB-VC strategy, paper trading and the daily signal engine completely, without changing anything a non-admin user sees today."
@@ -171,7 +171,14 @@ About **12,000 lines** of code and tests.
 - **Proof:** watchlist, screener, stock-page and market-brief tests pass. Their admin snapshots
   now match the user snapshots.
 
-### Phase 4: core and shared cleanup
+### Phase 4: core and shared cleanup ✅ done
+- Deleted `core/intraday/`, `core/paper/`, `core/paper-journal.ts`, `core/signals/`, the
+  `intraday`, `paper`, `paper-ops`, `minute-bars` and `signals` repositories, the signal readers in
+  `brief.ts` / `screener.ts`, their db tests, and `config/intraday-orb.yaml`.
+- `shared/intraday.ts` / `shared/paper.ts` stay until Phase 5: the table definitions use their types.
+- Verified: lint, workspace typecheck, 1,775 unit tests (the 117 fewer are the deleted engines' tests).
+- Noted, not changed: `scripts/coverage.ts` imports `minuteCandleCoverage`, which does not exist on
+  `main` either — that script was already broken.
 - Delete `core/intraday/`, `core/paper/`, `core/paper-journal.ts`, `core/signals/`,
   `shared/intraday.ts`, `shared/paper.ts`, `config/intraday-orb.yaml`, `scripts/replay-intraday.ts`,
   `repositories/{intraday,paper-ops,minute-bars,signals}.ts`, and what is left of `repositories/paper.ts`.

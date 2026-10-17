@@ -32,7 +32,6 @@ import {
   screenerSnapshotBuilds,
   screenerSnapshots,
   shareholdingPatterns,
-  signals,
   userRatioLayouts,
 } from '../schema/index.js';
 import { hasTakenEffect } from './candles.js';
@@ -421,25 +420,6 @@ export async function announcementCountsSince(
   const out = new Map<number, number>();
   for (const row of rows) if (row.instrumentId !== null) out.set(row.instrumentId, row.count);
   return out;
-}
-
-/** Latest end-of-day signal per instrument on or before `date`. */
-export async function latestSignalsOnOrBefore(
-  db: Database,
-  date: string,
-): Promise<Map<number, { direction: string; strength: number }>> {
-  const rows = await db.execute<{ instrument_id: number; direction: string; strength: number }>(sql`
-    SELECT DISTINCT ON (instrument_id) instrument_id, direction, strength
-    FROM ${signals}
-    WHERE trading_date <= ${date} AND trading_date >= (${date}::date - 7)
-    ORDER BY instrument_id, trading_date DESC
-  `);
-  return new Map(
-    rows.rows.map((r) => [
-      r.instrument_id,
-      { direction: r.direction, strength: Number(r.strength) },
-    ]),
-  );
 }
 
 // ---------------------------------------------------------------------------
@@ -1098,22 +1078,6 @@ export async function marketEventsForInstrument(
     )
     .orderBy(asc(marketEvents.eventDate))
     .limit(30);
-}
-
-/** The latest stored signal for one stock, with its id for the factor breakdown. */
-export async function latestSignalRow(db: Database, instrumentId: number) {
-  const [row] = await db
-    .select({
-      id: signals.id,
-      tradingDate: signals.tradingDate,
-      direction: signals.direction,
-      strength: signals.strength,
-    })
-    .from(signals)
-    .where(eq(signals.instrumentId, instrumentId))
-    .orderBy(desc(signals.tradingDate))
-    .limit(1);
-  return row ?? null;
 }
 
 // ---------------------------------------------------------------------------
