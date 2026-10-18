@@ -84,7 +84,6 @@ apps/web/src/components/ipos/pipeline/ipo-pipeline-view.tsx,component,,Presentat
 apps/web/src/components/ipos/scope-switch.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
 apps/web/src/components/layout/app-shell.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
 apps/web/src/components/layout/brand.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
-apps/web/src/components/layout/grid.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
 apps/web/src/components/layout/page-skeletons.tsx,component,,Reusable skeleton composition or primitive; no data requests
 apps/web/src/components/layout/page.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
 apps/web/src/components/layout/public-footer.tsx,component,,Presentational/local synchronous state; data-dependent parent owns loading; no independent skeleton
