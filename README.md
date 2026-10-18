@@ -24,7 +24,6 @@ packages/
   providers-fyers/  the Fyers adapter — the only place Fyers types and ours co-exist
   dhan/             Dhan API v2 client
   providers-dhan/   the Dhan adapter
-  archive/          local-only research tooling; never imported by web or worker
 config/             versioned YAML: indices, market calendar, IPO sources, screener presets
 docs/               architecture, operations, planning, design system — see docs/README.md
 scripts/            one-off operations and verification scripts

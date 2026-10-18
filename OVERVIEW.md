@@ -131,7 +131,7 @@ constraints, DB triggers, tests and convention.
 
 ## 5. Architecture & topology
 
-A **pnpm-workspace TypeScript monorepo**: two runnable apps and nine packages, all on
+A **pnpm-workspace TypeScript monorepo**: two runnable apps and eight packages, all on
 one self-hosted VPS.
 
 ```
@@ -148,7 +148,6 @@ packages/
   providers-fyers/  The Fyers adapter — the only place Fyers types and ours co-exist.
   dhan/             Dhan API v2 client.
   providers-dhan/   The Dhan adapter.
-  archive/          Local-only research tooling; never imported by web or worker.
 config/             Versioned YAML: indices, NSE/market calendars, IPO sources/registrars/RHP
                     overrides, screener presets.
 docs/               Architecture, operations, planning, reference, design system (docs/README.md).
