@@ -370,10 +370,9 @@ The dump is the only copy afterwards. `minute_candles`, `exchange_sessions`,
 move `verifiedThrough` forward. The worker logs a warning daily from 14 days
 before that date.
 
-**One-off before merging migration 0024:** `pnpm data:export-legacy --out
-/opt/equitywise/backups/legacy-$(date +%F)` on the VPS. The migration drops the
-retired `vwap_*`, `signal_scan_runs` and `paper_stud*`/`paper_equity_marks`
-tables; the export is the only copy afterwards.
+**Migration 0024 (2026-09-18)** dropped the retired `vwap_*`, `signal_scan_runs` and
+`paper_stud*`/`paper_equity_marks` tables after a one-off export on the VPS. The export
+script was removed once that migration had run; a fresh database has nothing to export.
 
 ---
 
@@ -387,7 +386,6 @@ tables; the export is the only copy afterwards.
 - `pnpm dhan:feed-probe --minutes 30 --out <file>` — measures the Dhan live socket during a session (tick gaps, skew, reconnects); read-only. Nothing in the tree places orders: the `no-execution` test fails the build on any order code.
 - `config/nse-calendar.yaml` — the exchange calendar the worker's in-session jobs gate on (operator-verified; see §9).
 - `apps/worker/src/jobs/calendar-refresh.ts` — the exchange calendar service.
-- `pnpm data:export-legacy --out <dir>` — exports the retired VWAP-page tables before migration 0024 drops them.
 - `/opt/equitywise/scripts/backup-db.sh` — nightly dump (VPS, cron 02:30).
 - `/opt/equitywise/scripts/restore-drill.sh` — restore verification (VPS).
 - `/etc/nginx/sites-available/equitywise` — reverse proxy + TLS (VPS).
