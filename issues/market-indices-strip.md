@@ -2,13 +2,15 @@
 id: EW-133
 title: Market indices strip under the page header
 type: feature
-stage: now
+stage: done
 priority: high
 area: [web]
 plan: market-indices-strip-plan
 created: 2026-09-18
-updated: 2026-10-05
-stage_since: 2026-09-18
+updated: 2026-10-18
+stage_since: 2026-10-18
+done_at: 2026-10-18
+why: Phases 0–4 built and ticked (0–3 on 2026-09-18, the drawer on 2026-10-05); phase 5 moves to EW-134.
 source: docs/planning/market-indices-strip-plan.md
 refs:
   - apps/web/src/components/layout/app-shell.tsx
@@ -37,3 +39,5 @@ Five phases in the plan; ship 0–2 as one PR:
 
 Phases 0–3 built 2026-09-18 — as-built: `docs/reference/market-indices-strip.md`.
 R1 confirmed: the Fyers symbol layer is NSE-only, so SENSEX is out until BSE support lands (NIFTY NEXT 50 holds its slot); SMALLCAP 100 waits on ticker verification. Outbound Fyers index aliases fixed on the way (`toFyersSymbol`).
+
+Done 2026-10-18 for phases 0–4. Phase 5 (per-user index selection) continues as EW-134.
