@@ -62,8 +62,10 @@ UI never presents itself as a Fyers client.
 > computed "What stands out" facts and a 12-month dividend yield from NSE corporate actions
 > (`dividends` table — never applied to prices). Plan: `docs/planning/stock-header-redesign-plan.md`.
 
-Design & architecture docs: `docs/README.md` (index), `docs/architecture/`
-(`backtesting-architecture.md`, `auth-system-design.md`, `seo-architecture.md`),
+Design & architecture docs: `docs/README.md` (index), `docs/architecture/` (historical
+or partly aspirational: `backtesting-architecture.md` was never built, `auth-system-design.md`
+is superseded, `seo-architecture.md` describes an unbuilt public spine — the `seo` skill is
+the as-built rule),
 `docs/operations/deployment.md` (hosting, pipeline, credentials, backups, runbook),
 `docs/reference/` (as-built references, e.g. the market calendar and indices strip), and
 `docs/planning/` (plans; `pending-features.md` carries the code-verified status ledger).
