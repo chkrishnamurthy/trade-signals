@@ -18,6 +18,15 @@ get() {
   fi
 }
 
+# PM2 has only just restarted the web app, and Nginx answers 502 until Next.js is
+# listening. Wait for it (up to ~90 s) before checking anything.
+for attempt in $(seq 1 30); do
+  status="$(curl --silent --output /dev/null --write-out '%{http_code}' "${base_url}/" || true)"
+  [[ "$status" == '200' ]] && break
+  echo "waiting for ${base_url} to come up (attempt ${attempt}, HTTP ${status})" >&2
+  sleep 3
+done
+
 get / 200
 grep --quiet 'Know why a stock deserves your attention' "$tmp_dir/body"
 
