@@ -9,10 +9,9 @@ owns their own watchlists and data (auth design: `docs/planning/authentication-p
 Multi-*user* (individuals), not multi-*tenant* (no organisations/teams).
 
 > **Direction change (2026-09-06):** this was previously a single-user, never-public
-> personal tool. It is being made a multi-user product; the login system and
-> per-user data isolation are being designed in `docs/planning/authentication-plan.md`.
-> Some rules and prose below still reflect the old single-user framing and are being
-> updated as that work lands.
+> personal tool. It is now a multi-user product: the first-party login system and
+> per-user data isolation are built (`docs/planning/authentication-plan.md`). Prose
+> anywhere that still assumes a single user is out of date.
 
 **This is not a broker and not a trading terminal.** It never places, manages, or
 represents an order. Orders are placed by hand on a separate platform. The product
@@ -74,9 +73,9 @@ Android app (Expo / React Native, planned, not yet in the tree): `docs/mobile/RE
 
 ## Stack
 
-Node 22 · TypeScript strict · pnpm workspaces · Neon Postgres 17 + timescaledb
+Node 24 · TypeScript strict · pnpm workspaces · self-hosted PostgreSQL 17 + TimescaleDB
 Drizzle ORM · Next.js (web) · croner (scheduler) · Zod · Vitest · Biome
-Fyers API v3 for market data. No Redis. No Celery. No Python in the app.
+Fyers API v3 and Dhan API v2 for market data. No Redis. No Celery. No Python in the app.
 
 ## Hard rules — violating these breaks the system
 
