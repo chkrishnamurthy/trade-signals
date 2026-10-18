@@ -1,3 +1,0 @@
-interface:
-  display_name: "Database"
-  short_description: "Neon/Drizzle/TimescaleDB conventions — connection strings, guards, migrations, repositories"
