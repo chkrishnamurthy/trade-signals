@@ -28,3 +28,7 @@ apps/.web-preview/
 /uploads/
 uploads/
 .pnpm-store/
+
+# Expo generates these on every start; never commit them.
+apps/mobile/.expo/
+apps/mobile/expo-env.d.ts
