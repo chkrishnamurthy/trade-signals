@@ -1,6 +1,6 @@
 ---
 name: signal-invariants
-description: The eight load-bearing invariants of this NSE signal repo and the mechanism enforcing each — integer paise, closed candles, provider boundary, UTC timestamps, pure core, immutable candle history, versioned strategy config, persisted factor breakdowns. Read before writing or reviewing anything that touches a price, a timestamp, a candle, a strategy weight, or a provider call.
+description: The load-bearing invariants of this NSE market-data repo and the mechanism enforcing each — integer paise, closed candles, provider boundary, UTC timestamps, pure core, immutable candle history, private portfolio data — plus the no-signals product rule. Read before writing or reviewing anything that touches a price, a timestamp, a candle, an indicator, or a provider call.
 ---
 
 # Invariants
@@ -12,23 +12,25 @@ An **invariant** here is load-bearing in a specific sense: the code is built ass
 holds, so a violation does not produce an error, it produces a plausible wrong number.
 That is the whole danger. Treat a violation as a correctness defect, never as style.
 
-## The eight
+## The seven
 
 | # | Invariant | Enforced by | What a violation produces |
 |---|---|---|---|
-| 1 | `packages/core` is pure: data plus config in, result out | Convention only. Nothing fails the build. | Backtest and live path diverge. Every backtest result becomes unfalsifiable. |
-| 2 | Signals read CLOSED candles; entry is the NEXT open | `BarsRequest.includeForming` defaults false, `now` is injected. Beyond the fetch, convention. | Lookahead bias. A backtest that prints profit the market never offered. |
+| 1 | `packages/core` is pure: data plus config in, result out | Convention only. Nothing fails the build. | A calculation that cannot be tested against a fixed fixture, and silently differs between runs. |
+| 2 | Indicators and screener metrics read CLOSED candles only | `BarsRequest.includeForming` defaults false, `now` is injected. Beyond the fetch, convention. | A stored value for a session that used a price from after it closed. |
 | 3 | Prices are integer paise below the presentation layer | `assertPaise` in code; integer columns plus positivity and range-coherence CHECKs in `0002_guards.sql` | Sub-paise drift that compounds silently across a series. |
 | 4 | Persist 1m and 1d only; derive the rest via `time_bucket` at 09:15 IST | Schema shape: `minute_candles` and `daily_candles` are the only candle tables, both hypertables | A persisted 5m table that disagrees with the derived one after any backfill. |
-| 5 | Candle history is append-only; corporate actions apply on read | **Trigger.** `daily_candles_no_update` and `minute_candles_no_update` raise on UPDATE. DELETE stays allowed so a bad ingestion run can be rolled back wholesale. | Yesterday's chart changes shape. No way to reproduce a past signal. |
+| 5 | Candle history is append-only; corporate actions apply on read | **Trigger.** `daily_candles_no_update` and `minute_candles_no_update` raise on UPDATE. DELETE stays allowed so a bad ingestion run can be rolled back wholesale. | Yesterday's chart changes shape. No way to reproduce a past indicator. |
 | 6 | Timestamps are TIMESTAMPTZ UTC; IST only at presentation | Column types. Every timestamp column in `0000_modern_hulk.sql` is `with time zone`. | A candle filed to the wrong session. Off-by-5:30 on every boundary comparison. |
-| 7 | Strategy config is immutable and versioned | **Trigger.** `strategy_versions_no_update` raises on UPDATE. | A signal whose stated reasoning came from different weights than the ones stored. |
-| 8 | Every signal persists its factor breakdown and indicator snapshot | `signal_factors` table; `SignalReport.factors` is required; score, strength, and bias ranges are CHECK-constrained | "Why this signal?" recomputes, and the explanation disagrees with the signal it explains. |
+| 7 | Portfolio data is private and owner-scoped | Every repository query takes `owner_id`; account deletion cascades | One user's holdings on another user's screen, or in a log line. |
 
-Rules 5, 6, and 7 have real teeth, and rule 3 is half-covered. **Rules 1, 2, and 8 rest on
-convention alone**, and they are the three whose violation is hardest to see from the outside:
-an impure core, a forming candle reaching the engine, and a UI that recomputes its own
-explanation all produce plausible output. Check those three by reading, every time.
+Rules 5 and 6 have real teeth, and rule 3 is half-covered. **Rules 1, 2 and 7 rest on
+convention alone**, and they are the ones whose violation is hardest to see from the outside:
+an impure core, a forming candle reaching a calculation, and an unscoped query all produce
+plausible output. Check those by reading, every time.
+
+(The former rules 7 and 8 — versioned strategy config and persisted signal factor
+breakdowns — went with the signal engine on 2026-10-17.)
 
 ## Two guards worth knowing before you touch them
 
@@ -52,13 +54,15 @@ smoothing factor. The invariant is that no fractional price leaves the module.
 
 ## Product vocabulary
 
-This is decision support. The UI names technical observations: "Bullish setup",
-"Breakout candidate", "Potential entry level", "Watch". `SignalDirection` already models
-this correctly. Keep displayed numbers explainable: a strength value renders with the
-factor breakdown that produced it.
+The app describes data; it does not recommend. **No signals, setups, BUY / SELL labels,
+"setup strength" rankings, entry/target/stop levels or paper trading** — all removed on
+2026-10-17 (`docs/planning/signals-and-paper-removal-plan.md`), and bringing any back is a
+product decision (SEBI Research Analyst rules), not a feature task. Name facts: "Above its
+50-day average", "52-week high", "Volume 2.4× its 20-day average". Users screen on
+conditions they choose. Keep displayed numbers explainable.
 
 ## When a task appears to require breaking one
 
 Report the conflict and stop. Name the invariant, the line that would violate it, and the
 change to the design that would satisfy both. The author decides. An invariant relaxed
-quietly during an unrelated task is how all six convention-only rules will eventually go.
+quietly during an unrelated task is how every convention-only rule will eventually go.

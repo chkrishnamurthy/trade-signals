@@ -17,7 +17,6 @@ import {
 } from '@equitywise/core';
 import {
   conditionCounts,
-  countSavedScreens,
   createSavedScreen,
   deleteSavedScreen,
   getWatchlistMembers,
@@ -51,6 +50,7 @@ import { getDatabase } from './db';
 import { MarketDataError } from './errors';
 import {
   type CountsInput,
+  DEFAULT_SORT,
   filterNodeSchema,
   type RunScreenInput,
   type SavedScreenBody,
@@ -62,9 +62,8 @@ import {
  *
  * Reads the worker-built snapshot only: no provider call and no recomputation
  * happens on a request. Every filter passes Zod (shape) and `validateFilter`
- * (meaning) before it is compiled to SQL. Signal metrics exist only for admins
- * — for everyone else they are absent from the catalogue, rejected in filters
- * and sorts, and stripped from rows.
+ * (meaning) before it is compiled to SQL. Admin-only metrics, if any exist, are
+ * absent from everyone else's catalogue and rejected in their filters and sorts.
  */
 
 interface Viewer {
@@ -155,7 +154,6 @@ function isStale(tradingDate: string | null): boolean {
   return today - Date.parse(`${tradingDate}T00:00:00Z`) > 4 * 86_400_000;
 }
 
-const HIDDEN_FROM_USERS: ReadonlySet<string> = new Set(['signalDirection', 'signalStrength']);
 /** Non-metric display fields carried alongside the catalogue values. */
 const EXTRA_FIELDS = [
   'high52w',
@@ -178,7 +176,6 @@ export function toRowDto(row: SnapshotRow, isAdmin: boolean): ScreenerRowDto {
     values[def.key] = (v === undefined ? null : v) as ScreenerCellValue;
   }
   for (const key of EXTRA_FIELDS) values[key] = (record[key] ?? null) as ScreenerCellValue;
-  if (!isAdmin) for (const key of HIDDEN_FROM_USERS) delete values[key];
   return {
     instrumentId: row.instrumentId,
     symbol: row.symbol,
@@ -356,7 +353,7 @@ function toSavedDto(row: SavedScreenRow): SavedScreenDto | null {
     name: row.name,
     filter: filter.data,
     columns: columns.data.filter(isMetricKey),
-    sort: row.sort,
+    sort: sortSchema.safeParse(row.sort).success ? row.sort : DEFAULT_SORT,
     universe: row.universe,
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -377,9 +374,14 @@ export async function saveScreen(body: SavedScreenBody): Promise<SavedScreenDto>
   parseSort(body.sort, viewer);
   await resolveUniverse(body.universe, viewer);
   const db = getDatabase();
-  if ((await countSavedScreens(db, viewer.userId)) >= MAX_SAVED_SCREENS) {
+  // Only the screens the user can see count: one hidden because it names a retired
+  // metric must not use up the limit, and its name is reported, not a silent clash.
+  const existing = await listSavedScreens(db, viewer.userId);
+  const visible = existing.filter((r) => toSavedDto(r) !== null);
+  if (visible.length >= MAX_SAVED_SCREENS) {
     throw invalid(`You can keep up to ${MAX_SAVED_SCREENS} saved screens.`, 'TOO_MANY_SCREENS');
   }
+  assertNameFree(existing, body.name);
   const row = await createSavedScreen(db, viewer.userId, {
     name: body.name,
     definition: body.filter,
@@ -400,6 +402,11 @@ export async function patchScreen(
   if (body.filter !== undefined) assertFilter(body.filter, viewer);
   if (body.sort !== undefined) parseSort(body.sort, viewer);
   if (body.universe !== undefined) await resolveUniverse(body.universe, viewer);
+  if (body.name !== undefined)
+    assertNameFree(
+      (await listSavedScreens(getDatabase(), viewer.userId)).filter((r) => r.id !== id),
+      body.name,
+    );
   const row = await updateSavedScreen(getDatabase(), viewer.userId, id, {
     ...(body.name === undefined ? {} : { name: body.name }),
     ...(body.filter === undefined ? {} : { definition: body.filter }),
@@ -408,6 +415,21 @@ export async function patchScreen(
     ...(body.universe === undefined ? {} : { universe: body.universe }),
   }).catch(rethrowDuplicate);
   return row === null ? null : toSavedDto(row);
+}
+
+/**
+ * A name held by a hidden screen (one naming a retired metric, e.g. the signal
+ * metrics removed 2026-10-17) would otherwise surface as a clash with nothing the
+ * user can see. That screen is not deleted — only explained.
+ */
+function assertNameFree(rows: readonly SavedScreenRow[], name: string): void {
+  const holder = rows.find((r) => r.name === name);
+  if (holder === undefined || toSavedDto(holder) !== null) return;
+  throw new MarketDataError('An older saved screen with that name uses a removed metric.', {
+    code: 'DUPLICATE_NAME',
+    status: 409,
+    remedy: 'Pick a different name.',
+  });
 }
 
 /** A second screen with the same name is the user's to fix, not a fault. */

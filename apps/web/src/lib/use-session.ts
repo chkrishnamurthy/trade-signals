@@ -58,7 +58,7 @@ export function useSignupOpen(): boolean {
 
 /**
  * One request per page load, however many components ask. The navigation
- * (admin "Lab" menu) and the account menu both need the session; without this
+ * (admin "Admin" menu) and the account menu both need the session; without this
  * they would fetch it twice on every route.
  */
 let pending: Promise<SessionState> | null = null;
@@ -85,7 +85,7 @@ function loadSession(): Promise<SessionState> {
 
 /**
  * The current session. Starts from the server's answer, so the first paint
- * already shows the right account control and (for admins) the Lab menu; the
+ * already shows the right account control and (for admins) the Admin menu; the
  * browser still confirms it once per page load, which also catches a sign-in
  * or sign-out that happened after the layout rendered (layouts persist across
  * client-side navigation).

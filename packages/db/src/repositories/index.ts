@@ -98,18 +98,14 @@ export {
   savePendingMfaEnrollment,
 } from './auth-mfa.js';
 export type {
-  BriefFactorRow,
   BriefIndicatorRow,
-  BriefSignalRow,
   IndicatorSession,
   WatchlistMembershipRef,
 } from './brief.js';
 export {
-  factorsForSignals,
   indicatorsForInstrumentsOnDate,
   ownerHasWatchlists,
   recentIndicatorSessions,
-  signalsForInstrumentsOnDate,
   watchlistMembershipForOwner,
 } from './brief.js';
 export type { BarQuery, CandleInput, CloseAnchor, StoredBar } from './candles.js';
@@ -121,6 +117,7 @@ export {
   getStoredSessionDates,
   insertDailyCandles,
 } from './candles.js';
+export * from './checkpoints.js';
 export type { CredentialInput, StoredCredential } from './credentials.js';
 export {
   getProviderCredential,
@@ -167,6 +164,7 @@ export {
   listEvents,
   logEvent,
 } from './event-log.js';
+export * from './exchange-calendar.js';
 export type {
   DealAggregateRow,
   DeliveryHistoryRow,
@@ -240,7 +238,6 @@ export {
   syncInstruments,
   updateInstrumentMetadata,
 } from './instruments.js';
-export * from './intraday.js';
 export type {
   DocumentInput,
   GmpSnapshotInput,
@@ -332,9 +329,6 @@ export type {
   MarketEventUpsert,
 } from './market-events.js';
 export { listMarketEvents, marketEventSummary, upsertMarketEvents } from './market-events.js';
-export * from './minute-bars.js';
-export * from './paper.js';
-export * from './paper-ops.js';
 export * from './portfolio.js';
 export * from './portfolio-notices.js';
 export type { ProfilePatch } from './profile.js';
@@ -349,20 +343,6 @@ export {
 export type { LatestQuoteInput, LatestQuoteRow } from './quotes.js';
 export { latestQuotesForInstruments, QUOTE_CACHE_FEED, upsertLatestQuotes } from './quotes.js';
 export * from './screener.js';
-export type {
-  InstrumentSignal,
-  SignalFactorInput,
-  SignalInput,
-  StoredSignal,
-} from './signals.js';
-export {
-  getSignalFactors,
-  getSignalsForDate,
-  hashStrategyConfig,
-  latestSignalsForInstruments,
-  registerStrategy,
-  saveSignal,
-} from './signals.js';
 export type {
   StoredLayout,
   StoredView,

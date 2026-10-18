@@ -3,7 +3,7 @@
  *
  * Same rules as the wire layer: every price is INTEGER PAISE, instants are ISO
  * strings, and `null` means "not supplied" (never zero). Rows cover the states
- * the organisms must survive: a gainer with a full signal + setup, a loser, an
+ * the organisms must survive: a gainer, a loser, an
  * exactly-unchanged name, and a just-added name with no quote and no indicators.
  */
 
@@ -55,12 +55,6 @@ const RELIANCE: WatchlistRowDto = {
     returnYtd: 264000,
     return1y: 241000,
   },
-  signal: {
-    direction: 'bullish',
-    strength: 72,
-    setups: ['Golden cross'],
-    tradingDate: '2026-09-05',
-  },
 };
 
 const TCS: WatchlistRowDto = {
@@ -103,7 +97,6 @@ const TCS: WatchlistRowDto = {
     returnYtd: 401000,
     return1y: 372000,
   },
-  signal: { direction: 'bearish', strength: 38, setups: [], tradingDate: '2026-09-05' },
 };
 
 const ITC: WatchlistRowDto = {
@@ -146,7 +139,6 @@ const ITC: WatchlistRowDto = {
     returnYtd: 45000,
     return1y: 41200,
   },
-  signal: null,
 };
 
 /** Added this morning: no quote yet, and no indicator session at all. */
@@ -183,7 +175,6 @@ const NEWSTOCK: WatchlistRowDto = {
   relativeVolume: null,
   previousVolume: null,
   returnCloses: {},
-  signal: null,
 };
 
 export const WATCHLIST_ROWS: readonly WatchlistRowDto[] = [RELIANCE, TCS, ITC, NEWSTOCK];
@@ -230,7 +221,7 @@ export const WATCHLIST_PERFORMANCE: WatchlistPerformance = {
 };
 
 export const WATCHLIST_LAYOUT: WatchlistLayoutDto = {
-  columns: ['ltp', 'changePercent', 'dayRange', 'volume', 'rsi14', 'signal'],
+  columns: ['ltp', 'changePercent', 'dayRange', 'volume', 'rsi14', 'trend'],
   sort: [{ columnId: 'changePercent', direction: 'desc' }],
   filters: {},
   quickView: null,
@@ -241,7 +232,7 @@ export const SAVED_VIEWS: readonly SavedViewDto[] = [
     id: 101,
     watchlistId: null,
     name: 'Momentum scan',
-    columns: ['ltp', 'changePercent', 'rsi14', 'relativeVolume', 'signal'],
+    columns: ['ltp', 'changePercent', 'rsi14', 'relativeVolume', 'trend'],
     sort: [{ columnId: 'changePercent', direction: 'desc' }],
     filters: { direction: 'advancing' },
   },

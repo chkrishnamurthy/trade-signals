@@ -11,27 +11,23 @@ not. Check every screen against this list, especially a stock detail page, befor
 - **A sticky Buy/Sell action bar**, or any bottom-anchored action bar shaped like one.
   There is no order button, order ticket, or order-shaped affordance anywhere in this
   product — not disabled, not read-only, not "for display". If a stock detail page needs
-  a persistent bottom element, it is a secondary navigation aid (jump to signals, jump to
-  chart), never a transaction control.
+  a persistent bottom element, it is a secondary navigation aid (jump to chart, jump to
+  filings), never a transaction control.
 - **An order pad, order ticket, or quantity/price-entry form** of any kind.
 - **A position, holdings, or portfolio-value display.** This product does not know what
   the user owns and never will. A "your holdings" style card has no equivalent here —
   see `references/mapping.md` for what replaces it.
-- **An order book / order history list.** Replace with signal history or paper-trade
-  history — outcomes the engine recorded, not orders the user placed.
+- **An order book / order history list.** There is no equivalent: the app records no
+  trades, real or simulated (paper trading was removed on 2026-10-17).
 
 ## Language that must not appear
 
-Per `CLAUDE.md`: BUY / SELL may label a signal's *direction* and nothing else. Never
-"ORDER", never "ENTRY PRICE" (say "technical entry zone" or "entry level"), never
-"position", never "quantity", never "portfolio". An entry or exit level is a technical
-price level, labelled as one — not an instruction to act on.
+Per `CLAUDE.md`: no signals or setups — no BUY / SELL, "bullish setup", "breakout
+candidate", "setup strength", entry, target or stop level. Never "ORDER", "ENTRY PRICE",
+"position" or "quantity". Describe what the data shows, never what to do.
 
 ## Numbers that must not appear
 
-- No portfolio P&L in rupees. Paper-trade performance is published in **R** (risk
-  multiples), with its margin of error shown alongside every rate, per `CLAUDE.md`'s
-  `/signals/performance` rule. A rupee P&L figure implies money changed hands; it didn't.
 - No confidence/score number without its factor breakdown rendered alongside it. A score
   the factors can't explain doesn't render, full stop — this is a `CLAUDE.md` hard rule,
   not a style preference.

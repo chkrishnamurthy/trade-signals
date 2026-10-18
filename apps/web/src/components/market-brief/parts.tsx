@@ -8,12 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
 import { Text } from '@/components/ui/typography';
-import type {
-  AttentionLevel,
-  BriefSessionMeta,
-  BriefWatchlistRef,
-  MarketConditionLabel,
-} from '@/lib/market-brief';
+import type { BriefSessionMeta, BriefWatchlistRef, MarketConditionLabel } from '@/lib/market-brief';
 import { stockHref } from '@/lib/screener-format';
 import { cn } from '@/lib/utils';
 
@@ -136,26 +131,6 @@ export function ConditionBadge({ label }: { label: MarketConditionLabel }) {
   return (
     <Badge variant={CONDITION_VARIANT[label]} size="lg">
       {CONDITION_LABEL[label]}
-    </Badge>
-  );
-}
-
-const ATTENTION_LABEL: Record<AttentionLevel, string> = {
-  high: 'High attention',
-  medium: 'Medium attention',
-  monitor: 'Monitor',
-};
-
-const ATTENTION_VARIANT: Record<AttentionLevel, 'bearish' | 'warning' | 'neutral'> = {
-  high: 'bearish',
-  medium: 'warning',
-  monitor: 'neutral',
-};
-
-export function AttentionBadge({ level }: { level: AttentionLevel }) {
-  return (
-    <Badge variant={ATTENTION_VARIANT[level]} size="sm">
-      {ATTENTION_LABEL[level]}
     </Badge>
   );
 }

@@ -24,8 +24,7 @@ import type { WatchlistRowDto } from './watchlist-types';
  * ## Only columns with a data source
  *
  * Every column here is backed by something this application actually has —
- * the live quote, the end-of-day indicator pass, the stored daily signal, or a
- * derivation of those. Fundamentals (P/E, market cap, dividend yield…), circuit
+ * the live quote, the end-of-day indicator pass, or a derivation of those. Fundamentals (P/E, market cap, dividend yield…), circuit
  * limits, delivery percentages and indicators the daily pass does not compute
  * are NOT declared: CLAUDE.md is explicit that this product does not display a
  * figure it cannot substantiate, and a column that can only ever render an em
@@ -40,7 +39,6 @@ export type ColumnGroup =
   | 'volume'
   | 'range52w'
   | 'technical'
-  | 'signals'
   | 'market';
 
 export const COLUMN_GROUP_LABEL: Record<ColumnGroup, string> = {
@@ -50,7 +48,6 @@ export const COLUMN_GROUP_LABEL: Record<ColumnGroup, string> = {
   volume: 'Volume & Liquidity',
   range52w: '52-Week Position',
   technical: 'Technical Indicators',
-  signals: 'Trading Signals',
   market: 'Market Information',
 };
 
@@ -62,12 +59,11 @@ export const COLUMN_GROUP_ORDER: readonly ColumnGroup[] = [
   'volume',
   'range52w',
   'technical',
-  'signals',
   'market',
 ];
 
 /** Where a column's number comes from. */
-export type ColumnSource = 'quote' | 'indicators' | 'instrument' | 'signals' | 'derived';
+export type ColumnSource = 'quote' | 'indicators' | 'instrument' | 'derived';
 
 export interface WatchlistColumn {
   readonly id: string;
@@ -108,15 +104,6 @@ function positionIn(value: number | null, low: number | null, high: number | nul
   if (value === null || low === null || high === null || high === low) return null;
   return ((value - low) / (high - low)) * 100;
 }
-
-/** Sort order for the five signal directions: bearish low, bullish high. */
-const DIRECTION_RANK: Record<string, number> = {
-  strong_bearish: -2,
-  bearish: -1,
-  neutral: 0,
-  bullish: 1,
-  strong_bullish: 2,
-};
 
 /** Distance within which a name counts as sitting at its 52-week extreme. */
 const NEAR_52W_BAND = 0.05;
@@ -501,44 +488,6 @@ const COLUMNS: readonly WatchlistColumn[] = [
       row.atr14 === null || row.ltp === null || row.ltp === 0 ? null : (row.atr14 / row.ltp) * 100,
   },
 
-  // --- Trading signals ------------------------------------------------------
-  {
-    id: 'signal',
-    label: 'Signal',
-    description:
-      'The daily engine’s latest direction for this name. Computed only for the NIFTY 50 and Bank Nifty names the engine is configured for; other stocks show a dash, not a neutral reading.',
-    group: 'signals',
-    source: 'signals',
-    numeric: false,
-    // Ranked rather than alphabetical: sorting a signal column by the word
-    // "bearish" first is not what anyone means by sorting it.
-    value: (row) => (row.signal === null ? null : (DIRECTION_RANK[row.signal.direction] ?? null)),
-  },
-  {
-    id: 'signalStrength',
-    label: 'Signal Strength',
-    description:
-      'Conviction behind the daily signal, 0-100 with 50 neutral. A dash means no signal is computed for this stock.',
-    group: 'signals',
-    source: 'signals',
-    numeric: true,
-    unit: 'points',
-    hideBelow: 'lg',
-    value: (row) => row.signal?.strength ?? null,
-  },
-  {
-    id: 'signalSetups',
-    label: 'Setups',
-    description: 'Named daily setups behind the signal, such as a golden cross',
-    group: 'signals',
-    source: 'signals',
-    numeric: false,
-    hideBelow: 'xl',
-    value: (row) => {
-      const setups = row.signal?.setups ?? [];
-      return setups.length === 0 ? null : setups.join(', ');
-    },
-  },
   {
     id: 'trend',
     label: 'Trend',
@@ -617,27 +566,9 @@ export function getColumn(id: string): WatchlistColumn | null {
 /** The one pinned column, which every layout starts with. */
 export const PINNED_COLUMN_ID = 'symbol';
 
-/**
- * Who may see a column. The daily engine's signals are admin-only (CLAUDE.md:
- * "Signals inside these pages stay admin-only"); the server sends no signal
- * data to anyone else, and these columns are not offered to them either — a
- * column that can only ever show a dash is noise, and a "Signal" heading on a
- * user's table would contradict what the product says it is.
- */
-export interface ColumnAccess {
-  readonly showSignals?: boolean;
-}
-
-export function isColumnVisible(column: WatchlistColumn, options: ColumnAccess = {}): boolean {
-  return column.source !== 'signals' || options.showSignals === true;
-}
-
-/** Drops ids the viewer may not see, keeping order. */
-export function visibleColumnIds(ids: readonly string[], options: ColumnAccess = {}): string[] {
-  return ids.filter((id) => {
-    const column = BY_ID.get(id);
-    return column !== undefined && isColumnVisible(column, options);
-  });
+/** Drops ids that are not (or no longer) columns, keeping order. */
+export function visibleColumnIds(ids: readonly string[]): string[] {
+  return ids.filter((id) => BY_ID.has(id));
 }
 
 /**
@@ -666,10 +597,7 @@ export const DEFAULT_COLUMN_IDS: readonly string[] = [
  * The pinned column is forced to the front whether or not it was stored, so a
  * layout saved before it was pinned still renders a ticker.
  */
-export function resolveColumns(
-  ids: readonly string[],
-  options: ColumnAccess = {},
-): WatchlistColumn[] {
+export function resolveColumns(ids: readonly string[]): WatchlistColumn[] {
   const pinned = BY_ID.get(PINNED_COLUMN_ID);
   const resolved: WatchlistColumn[] = pinned === undefined ? [] : [pinned];
   const seen = new Set<string>([PINNED_COLUMN_ID]);
@@ -677,7 +605,7 @@ export function resolveColumns(
   for (const id of ids) {
     if (seen.has(id)) continue;
     const column = BY_ID.get(id);
-    if (column === undefined || !isColumnVisible(column, options)) continue;
+    if (column === undefined) continue;
     seen.add(id);
     resolved.push(column);
   }
@@ -704,7 +632,7 @@ export interface ColumnGroupListing {
  * dropped — a search that matches nothing in Valuation should not render an
  * empty Valuation heading.
  */
-export function groupedColumns(query = '', options: ColumnAccess = {}): ColumnGroupListing[] {
+export function groupedColumns(query = ''): ColumnGroupListing[] {
   const q = query.trim().toLowerCase();
 
   const matches = (column: WatchlistColumn): boolean => {
@@ -717,11 +645,7 @@ export function groupedColumns(query = '', options: ColumnAccess = {}): ColumnGr
   const listings: ColumnGroupListing[] = [];
   for (const group of COLUMN_GROUP_ORDER) {
     const columns = COLUMNS.filter(
-      (column) =>
-        column.group === group &&
-        column.pinned !== true &&
-        isColumnVisible(column, options) &&
-        matches(column),
+      (column) => column.group === group && column.pinned !== true && matches(column),
     );
     if (columns.length === 0) continue;
     listings.push({ group, label: COLUMN_GROUP_LABEL[group], columns });

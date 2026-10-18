@@ -21,22 +21,19 @@ import {
   SectionTitle,
 } from '@/components/layout/page';
 import { PercentChange, Price } from '@/components/market/numeric';
-import { SetupTag, SignalBadge, SignalStrength } from '@/components/market/signal';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/typography';
-import type { DailyMarketBrief, SetupRowDto } from '@/lib/market-brief';
+import type { DailyMarketBrief } from '@/lib/market-brief';
 import { encodeFilter, stockHref } from '@/lib/screener-format';
 import { toneText } from '@/lib/tone';
 import { cn } from '@/lib/utils';
 import type { LeaderDto, MarketBreadthDto } from '@/server/market-breadth';
 import type { MarketBriefResponse, PersonalMoverDto } from '@/server/market-brief';
 import { HighsLowsChart, ParticipationChart } from './breadth-charts';
-import { FactorBreakdown } from './factor-breakdown';
 import {
   AddToWatchlist,
-  AttentionBadge,
   ConditionBadge,
   formatIstTimestamp,
   formatSessionDate,
@@ -119,10 +116,6 @@ export function MarketBriefView({
                 defaultWatchlistId={defaultWatchlistId}
               />
             </>
-          )}
-
-          {brief.signalsIncluded && (
-            <StrategyResearch brief={brief} defaultWatchlistId={defaultWatchlistId} />
           )}
 
           <PageDisclaimer>
@@ -343,7 +336,9 @@ function PersonalSection({
                     <ul className="flex flex-wrap gap-1">
                       {item.reasons.slice(0, 3).map((reason) => (
                         <li key={reason}>
-                          <SetupTag>{reason.replace(/\.$/, '')}</SetupTag>
+                          <Badge variant="outline" size="sm" className="font-normal">
+                            {reason.replace(/\.$/, '')}
+                          </Badge>
                         </li>
                       ))}
                     </ul>
@@ -618,144 +613,6 @@ function LeaderList({
             symbol={row.symbol}
             defaultWatchlistId={defaultWatchlistId}
             alreadyWatched={watchedSymbols.has(row.symbol)}
-          />
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-const SETUP_TABS = [
-  { id: 'bullish', label: 'Bullish' },
-  { id: 'bearish', label: 'Bearish' },
-  { id: 'breakout', label: 'Breakout' },
-  { id: 'breakdown', label: 'Breakdown' },
-] as const;
-
-function StrategyResearch({
-  brief,
-  defaultWatchlistId,
-}: {
-  brief: DailyMarketBrief;
-  defaultWatchlistId: number | null;
-}) {
-  const available = SETUP_TABS.filter((tab) => brief.setups[tab.id].length > 0);
-  const defaultSetup = available[0]?.id ?? 'bullish';
-  return (
-    <Section aria-labelledby="strategy-heading">
-      <SectionHeader>
-        <div>
-          <SectionTitle id="strategy-heading">Strategy research</SectionTitle>
-          <SectionDescription>
-            Admin-only · configured research universe · {brief.session.availableInstruments}{' '}
-            instruments
-          </SectionDescription>
-        </div>
-        <Badge variant="neutral">Admin</Badge>
-      </SectionHeader>
-
-      {brief.attention.length > 0 && (
-        <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {brief.attention.slice(0, 6).map((item) => (
-            <Card key={item.instrumentId} className="p-3">
-              <div className="flex items-start justify-between gap-2">
-                <StockName symbol={item.symbol} name={item.name} />
-                <AttentionBadge level={item.level} />
-              </div>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                {item.direction !== null && <SignalBadge direction={item.direction} compact />}
-                <Price paise={item.closePaise} size="sm" />
-                {item.sessionReturn !== null && (
-                  <PercentChange value={item.sessionReturn} size="sm" />
-                )}
-              </div>
-              <ul className="mt-2 flex flex-wrap gap-1">
-                {item.factors.map((factor) => (
-                  <li key={factor.id}>
-                    <SetupTag>{factor.label}</SetupTag>
-                  </li>
-                ))}
-              </ul>
-              <div className="mt-3 flex items-center justify-between">
-                <FactorBreakdown
-                  title={`${item.symbol} — why it's shown`}
-                  attentionFactors={item.factors}
-                  attentionTotal={item.score}
-                  signalFactors={item.signalFactors}
-                />
-                <AddToWatchlist
-                  symbol={item.symbol}
-                  defaultWatchlistId={defaultWatchlistId}
-                  alreadyWatched={item.watchlists.length > 0}
-                />
-              </div>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      {available.length > 0 && (
-        <Card>
-          <CardContent className="py-4">
-            <Tabs defaultValue={defaultSetup}>
-              <TabsList variant="pill" className="flex-wrap">
-                {available.map((tab) => (
-                  <TabsTrigger key={tab.id} value={tab.id}>
-                    {tab.label}{' '}
-                    <span className="ml-1 text-subtle-foreground">
-                      {brief.setups[tab.id].length}
-                    </span>
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-              {available.map((tab) => (
-                <TabsContent key={tab.id} value={tab.id}>
-                  <SetupList rows={brief.setups[tab.id]} defaultWatchlistId={defaultWatchlistId} />
-                </TabsContent>
-              ))}
-            </Tabs>
-          </CardContent>
-        </Card>
-      )}
-    </Section>
-  );
-}
-
-function SetupList({
-  rows,
-  defaultWatchlistId,
-}: {
-  rows: readonly SetupRowDto[];
-  defaultWatchlistId: number | null;
-}) {
-  return (
-    <ul className="divide-y divide-border">
-      {rows.map((row) => (
-        <li key={row.instrumentId} className="flex flex-wrap items-center gap-x-3 gap-y-2 py-2.5">
-          <StockName symbol={row.symbol} name={row.name} className="min-w-36 flex-1" />
-          {row.direction !== null && <SignalBadge direction={row.direction} compact />}
-          <Price paise={row.closePaise} size="sm" />
-          {row.sessionReturn !== null && <PercentChange value={row.sessionReturn} size="sm" />}
-          {row.strength !== null && (
-            <div className="w-28">
-              <SignalStrength
-                strength={row.strength}
-                direction={row.direction ?? undefined}
-                label={`${row.symbol} setup strength`}
-              />
-            </div>
-          )}
-          <p className="w-full text-muted-foreground text-xs sm:w-auto sm:flex-1">
-            {row.explanation}
-          </p>
-          <FactorBreakdown
-            title={`${row.symbol} — setup factors`}
-            signalFactors={row.signalFactors}
-          />
-          <AddToWatchlist
-            symbol={row.symbol}
-            defaultWatchlistId={defaultWatchlistId}
-            alreadyWatched={row.watchlists.length > 0}
           />
         </li>
       ))}

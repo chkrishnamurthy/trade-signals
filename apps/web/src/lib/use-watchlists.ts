@@ -722,6 +722,5 @@ function emptyDetail(): WatchlistDetailDto {
     missingQuotes: [],
     quotesStale: false,
     refreshAfterSeconds: 300,
-    showSignals: false,
   };
 }

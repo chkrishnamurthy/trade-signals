@@ -227,7 +227,11 @@ export function activeFilterChips(filters: WatchlistFilterStateDto): FilterChip[
 
   for (const [columnId, range] of Object.entries(filters.ranges ?? {})) {
     if (!isRangeActive(range)) continue;
-    const label = getColumn(columnId)?.label ?? columnId;
+    // A range saved on a retired column (e.g. the signal columns removed 2026-10-17)
+    // filters nothing, so it gets no chip either — same as an unknown flag.
+    const column = getColumn(columnId);
+    if (column === null) continue;
+    const label = column.label;
     const { min, max } = range;
     const text =
       min !== null && max !== null

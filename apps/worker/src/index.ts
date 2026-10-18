@@ -4,17 +4,12 @@ import { createContext, type WorkerContext } from './context.js';
 import { createJobFailureRecorder } from './job-failures.js';
 import { loadAmfiCategories } from './jobs/amfi-categories.js';
 import { authMaintenance } from './jobs/auth-maintenance.js';
-import {
-  calendarRefresh,
-  checkUnscheduledClosure,
-  isTradingSession,
-  sessionToday,
-} from './jobs/calendar-refresh.js';
+import { calendarRefresh, isTradingSession, sessionToday } from './jobs/calendar-refresh.js';
 import { computeIndicators } from './jobs/compute-indicators.js';
+import { createCredentialSelfHeal, probeProviderCredentials } from './jobs/credential-self-heal.js';
 import { crossCheckProviders } from './jobs/cross-check-bars.js';
 import { evaluateAlerts } from './jobs/evaluate-alerts.js';
 import { extractIpoRhp } from './jobs/extract-ipo-rhp.js';
-import { createFeedJob, type FeedJob } from './jobs/feed.js';
 import { ingestDailyCandles } from './jobs/ingest-daily.js';
 import {
   backfillFlowFeeds,
@@ -36,9 +31,7 @@ import {
   ingestSebiFilings,
   ipoHistoryFeedId,
 } from './jobs/ingest-ipos.js';
-import { createIntradayJobs } from './jobs/intraday-orb.js';
 import { marketCalendarSync } from './jobs/market-calendar-sync.js';
-import { createPaperJobs } from './jobs/paper.js';
 import { writePortfolioNotices } from './jobs/portfolio-notices.js';
 import {
   backfillIndexCloses,
@@ -194,6 +187,8 @@ const SCHEDULES = {
   marketCalendarSync: '35 6 * * *',
   /** Worker-backed cache for polled watchlist quote reads. */
   latestQuotes: '*/30 9-15 * * 1-6',
+  /** One authenticated call per provider, so a token killed mid-session is re-minted. */
+  credentialProbe: '*/5 9-15 * * 1-6',
   /** NSE posts the day's index closing file in the evening; the last week is re-read. */
   ingestIndexCloses: '20 19 * * 1-5',
   /** After each stock-analysis pass stores the day's closes; once-only, so twice is safe. */
@@ -204,16 +199,12 @@ const SCHEDULES = {
 
 interface Jobs {
   scheduler: Scheduler;
-  feed: FeedJob;
-  paper: ReturnType<typeof createPaperJobs>;
 }
 
 function buildScheduler(context: WorkerContext): Jobs {
-  const feed = createFeedJob(context, log.child('feed'));
-  const intraday = createIntradayJobs(context, log.child('intraday'), {
-    feedHealthy: () => feed.healthy(),
-  });
-  const paper = createPaperJobs(context, log.child('paper'));
+  // A token killed mid-session (a manual Fyers login) is re-minted on the next
+  // in-session provider failure instead of waiting for the morning refresh.
+  const healCredential = createCredentialSelfHeal(context, log.child('credential-self-heal'));
   /**
    * Calendar gating (plan §9.1): every in-session job first asks the exchange
    * calendar. A holiday, weekend or detected closure is a logged no-op — the
@@ -221,7 +212,7 @@ function buildScheduler(context: WorkerContext): Jobs {
    */
   let cached: { at: number; session: Awaited<ReturnType<typeof sessionToday>> } | null = null;
   const gated = (name: string, run: () => Promise<unknown>) => async (): Promise<void> => {
-    // The monitor asks every second; one calendar read a minute is plenty.
+    // One calendar read a minute is plenty.
     if (cached === null || Date.now() - cached.at > 60_000)
       cached = { at: Date.now(), session: await sessionToday(context) };
     const { session } = cached;
@@ -233,20 +224,12 @@ function buildScheduler(context: WorkerContext): Jobs {
   };
   const scheduler = createScheduler(
     [
-      // The exchange calendar: today's session row at 06:30, and the
-      // unscheduled-closure cross-check five minutes after the open.
+      // The exchange calendar: today's session row at 06:30.
       {
         name: 'calendar-refresh',
         schedule: '0 30 6 * * *',
         run: async () => {
           await calendarRefresh(context, log.child('calendar-refresh'));
-        },
-      },
-      {
-        name: 'calendar-check',
-        schedule: '0 20 9 * * 1-6',
-        run: async () => {
-          await checkUnscheduledClosure(context, log.child('calendar-check'));
         },
       },
       {
@@ -256,68 +239,24 @@ function buildScheduler(context: WorkerContext): Jobs {
           await marketCalendarSync(context, log.child('market-calendar-sync'));
         },
       },
-      // The live socket: open at 09:05, closed at 15:35. The quote sweep below
-      // stands down while the socket is healthy and takes over when it is not.
-      { name: 'feed-start', schedule: '0 5 9 * * 1-6', run: gated('feed-start', feed.start) },
-      { name: 'feed-stop', schedule: '0 35 15 * * 1-6', run: async () => feed.stop() },
-      // ORB-VC: warm up 1m history at 08:50, evaluate each closed 5m candle at
-      // +2s (and +17s for late bars), sample quotes every 5s for the lifecycle,
-      // and close anything the session left unresolved.
-      { name: 'intraday-reconcile', schedule: '20 * * * * *', run: intraday.reconcile },
-      {
-        name: 'intraday-quotes',
-        schedule: '*/5 * 9-15 * * 1-6',
-        run: gated('intraday-quotes', intraday.quoteCycle),
-      },
       {
         name: 'refresh-latest-quotes',
         schedule: SCHEDULES.latestQuotes,
-        run: gated('refresh-latest-quotes', () =>
-          refreshLatestQuotes(context, log.child('refresh-latest-quotes')),
-        ),
-      },
-      {
-        name: 'intraday-scan',
-        schedule: '2,17 */5 9-14 * * 1-6',
-        run: gated('intraday-scan', async () => {
-          await intraday.scan();
-          // Decisions follow the scan on the same tick, so an intent is decided
-          // before its next-candle entry window has moved on.
-          await paper.entries();
+        run: gated('refresh-latest-quotes', async () => {
+          try {
+            await refreshLatestQuotes(context, log.child('refresh-latest-quotes'));
+          } catch (error) {
+            await healCredential(error);
+            throw error;
+          }
         }),
       },
       {
-        name: 'intraday-warmup',
-        schedule: '0 50 8 * * 1-6',
-        run: gated('intraday-warmup', intraday.warmup),
-      },
-      // Per-user paper trading (plan §9.1).
-      {
-        name: 'paper-entries',
-        schedule: '30 * 9-14 * * 1-6',
-        run: gated('paper-entries', paper.entries),
-      },
-      {
-        name: 'paper-monitor',
-        schedule: '* * 9-15 * * 1-6',
-        run: gated('paper-monitor', paper.monitor),
-      },
-      {
-        name: 'paper-squareoff',
-        schedule: '*/15 15-59 15 * * 1-6',
-        run: gated('paper-squareoff', paper.squareOff),
-      },
-      {
-        name: 'paper-snapshot',
-        schedule: '0 */5 9-15 * * 1-6',
-        run: gated('paper-snapshot', paper.snapshot),
-      },
-      {
-        name: 'paper-reconcile',
-        schedule: '0 45 6,15 * * *',
-        run: async () => {
-          await paper.reconcile();
-        },
+        name: 'probe-credentials',
+        schedule: SCHEDULES.credentialProbe,
+        run: gated('probe-credentials', () =>
+          probeProviderCredentials(context, healCredential, log.child('probe-credentials')),
+        ),
       },
       {
         name: 'refresh-credential',
@@ -648,7 +587,7 @@ function buildScheduler(context: WorkerContext): Jobs {
     // A failed run is stored durably (throttled), not just printed to stdout.
     { onFailure: createJobFailureRecorder(context.db, log) },
   );
-  return { scheduler, feed, paper };
+  return { scheduler };
 }
 
 /** Confirms the database answers before scheduling anything against it. */
@@ -668,7 +607,6 @@ async function main(): Promise<void> {
 
   let shuttingDown = false;
   let scheduler: Scheduler | null = null;
-  let feed: FeedJob | null = null;
 
   /**
    * Graceful shutdown.
@@ -683,7 +621,6 @@ async function main(): Promise<void> {
     log.info('shutting down', { signal });
 
     scheduler?.stop();
-    feed?.stop();
     await scheduler?.drain();
     await context.close();
     log.info('stopped');
@@ -759,13 +696,7 @@ async function main(): Promise<void> {
           'load-fair-market-values-2018',
           'backfill-ipo-rhp',
           'calendar-refresh',
-          'calendar-check',
           'market-calendar-sync',
-          'paper-entries',
-          'paper-monitor',
-          'paper-squareoff',
-          'paper-snapshot',
-          'paper-reconcile',
           'refresh-latest-quotes',
         ],
       });
@@ -777,7 +708,6 @@ async function main(): Promise<void> {
     scheduler = jobs.scheduler;
     scheduler.stop(); // one-shot: do not also arm the schedules
     await scheduler.trigger(jobName);
-    jobs.feed.stop();
     await context.close();
     return;
   }
@@ -801,7 +731,6 @@ async function main(): Promise<void> {
 
   const jobs = buildScheduler(context);
   scheduler = jobs.scheduler;
-  feed = jobs.feed;
   log.info('worker running; ctrl-c to stop');
 
   // IPO history: until the history load has completed for the configured
@@ -842,23 +771,18 @@ async function main(): Promise<void> {
     }
   })();
 
-  // Restart recovery (plan §9.3): today's session row, then — if the session
-  // is under way — the socket, a decision pass for intents still inside their
-  // window, and the square-off in case the worker was down at 15:15. The
-  // monitor's checkpoint makes the observation replay idempotent.
+  // Restart recovery: today's session row, then — if the session is under
+  // way — a fresh quote cache, so a mid-session restart does not leave the
+  // watchlists' prices stale until the next scheduled refresh.
   try {
     const session = await calendarRefresh(context, log.child('calendar-refresh'));
-    const now = Date.now();
-    if (isTradingSession(session) && session.openAt !== null && session.closeAt !== null) {
-      if (now >= session.openAt - 10 * 60_000 && now < session.closeAt + 5 * 60_000)
-        await jobs.feed.start();
-      if (now >= session.openAt) {
-        await refreshLatestQuotes(context, log.child('refresh-latest-quotes'));
-        await jobs.paper.entries(now);
-        await jobs.paper.monitor(now);
-        await jobs.paper.squareOff(now);
-      }
-    }
+    if (
+      isTradingSession(session) &&
+      session.openAt !== null &&
+      session.closeAt !== null &&
+      Date.now() >= session.openAt
+    )
+      await refreshLatestQuotes(context, log.child('refresh-latest-quotes'));
   } catch (error) {
     log.warn('startup recovery incomplete', errorFields(error));
   }

@@ -18,7 +18,7 @@ A passing test is not evidence a formula is right. Establish where the fixture c
 ```
 /grill-me                  static review at Senior, then grilling
 /grill-me <level>          junior | mid | senior | staff | principal | incident
-/grill-me <area>           indicators | provider | signals | frontend | security | db | worker
+/grill-me <area>           indicators | provider | screener | frontend | security | db | worker
 ```
 
 Levels change which questions are asked and how much credit an answer earns
@@ -58,7 +58,7 @@ Use `git grep` for every sweep. It respects the index, so it skips `dist/`, `.ne
    `git log --all --diff-filter=A --name-only | grep -Ei '\.env|token'`. Confirm `.gitignore`
    covers them. `git grep -n NEXT_PUBLIC -- apps/web/src`.
 3. **The money path, read end to end**: `packages/shared/src/money.ts`,
-   `packages/core/src/indicators/*`, `packages/core/src/signals/*`. Every line of the math.
+   `packages/core/src/indicators/*`, `packages/core/src/screener/*`. Every line of the math.
 4. **The trust boundary, read end to end**: `packages/market-data/src/*`,
    `packages/providers-fyers/src/*`, `packages/fyers/src/*`.
 5. **The serving path**: `apps/web/src/app/api/**`, `apps/web/src/app/{login,callback}/route.ts`,
@@ -80,7 +80,7 @@ Use `git grep` for every sweep. It respects the index, so it skips `dist/`, `.ne
 
 Domain depth lives in `references/checklists.md`. For the three areas with their own
 enforcement discipline, call the Skill tool: "indicator-math" before judging any indicator,
-"closed-candles" before judging the signal engine or a backtest, "provider-boundary" before
+"closed-candles" before judging an indicator pass or a screener metric, "provider-boundary" before
 judging the adapter or anything importing `@equitywise/fyers`.
 
 **Phase 1 is complete when you can state all six of these as fact, from files you opened:**

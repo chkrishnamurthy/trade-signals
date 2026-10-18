@@ -1,14 +1,11 @@
 import type { LucideIcon } from 'lucide-react';
 import {
-  ActivityIcon,
   BellRingIcon,
   BookOpenIcon,
   BriefcaseIcon,
   CalendarDaysIcon,
   CalendarRangeIcon,
   DatabaseIcon,
-  FlaskConicalIcon,
-  HistoryIcon,
   InfoIcon,
   LandmarkIcon,
   LayoutGridIcon,
@@ -27,7 +24,7 @@ import type { Route } from 'next';
  * the "More" drawer and the account menu (`docs/planning/navigation-redesign-plan.md`).
  *
  * Shape, in one sentence: at most six primary destinations, one of which is a
- * menu ("Markets"), plus an admin-only "Lab" menu. Trading platforms people
+ * menu ("Markets"), plus an admin-only "Admin" menu. Trading platforms people
  * already trust (Kite, Groww, TradingView) all hold the primary row to about
  * five or six names; the old bar showed ten and had to fold half of them away
  * on ordinary laptops.
@@ -173,38 +170,14 @@ export const MARKETS_GROUP: NavMenuGroup = {
 };
 
 /**
- * The admin-only "Lab": strategies under evaluation. Their pages redirect a
- * non-admin and their APIs answer 403 (CLAUDE.md) — hiding the menu is a
- * courtesy, not the guard.
+ * The admin-only menu. The admin pages check the role themselves (CLAUDE.md);
+ * hiding the menu is a courtesy, not the guard.
  */
-export const LAB_GROUP: NavMenuGroup = {
-  id: 'lab',
-  label: 'Lab',
-  icon: FlaskConicalIcon,
+export const ADMIN_GROUP: NavMenuGroup = {
+  id: 'admin-menu',
+  label: 'Admin',
+  icon: ShieldIcon,
   items: [
-    {
-      id: 'intraday',
-      status: 'ready',
-      href: '/intraday',
-      label: 'Intraday strategies',
-      icon: ActivityIcon,
-      description: 'One rule-based intraday strategy, its signals and paper trades',
-    },
-    {
-      id: 'paper',
-      status: 'ready',
-      href: '/paper-trading',
-      label: 'Paper trading',
-      icon: FlaskConicalIcon,
-      description: 'Strategies simulated automatically on virtual capital',
-    },
-    {
-      id: 'backtests',
-      status: 'planned',
-      label: 'Backtests',
-      icon: HistoryIcon,
-      description: 'Replay a strategy version over past sessions',
-    },
     {
       id: 'admin',
       status: 'ready',
@@ -300,7 +273,7 @@ export const LANDING_SECTIONS: ReadonlyArray<{ readonly id: string; readonly lab
 // Arrangements
 // ---------------------------------------------------------------------------
 
-/** The desktop bar, left to right. Lab is appended for admins at render time. */
+/** The desktop bar, left to right. The Admin menu is appended for admins at render time. */
 export const PRIMARY_NAV: readonly PrimaryEntry[] = [
   { kind: 'link', item: MARKET_BRIEF },
   { kind: 'link', item: WATCHLISTS },
@@ -317,7 +290,7 @@ export const PRIMARY_NAV: readonly PrimaryEntry[] = [
  */
 export const MOBILE_TABS: readonly ReadyNavItem[] = [MARKET_BRIEF, WATCHLISTS, PORTFOLIO, SCREENER];
 
-/** What the "More" drawer lists, in order. Lab is appended for admins. */
+/** What the "More" drawer lists, in order. The Admin menu is appended for admins. */
 export const DRAWER_SECTIONS: readonly NavMenuGroup[] = [
   MARKETS_GROUP,
   { id: 'tools', label: 'Tools', icon: CalendarRangeIcon, items: [IPOS] },
@@ -349,7 +322,7 @@ export function isGroupActive(group: NavMenuGroup, pathname: string): boolean {
 /** Every ready destination, flattened — for tests and for anything that needs a lookup. */
 export function allReadyItems(includeAdmin: boolean): readonly ReadyNavItem[] {
   const groups: readonly NavMenuGroup[] = includeAdmin
-    ? [MARKETS_GROUP, LAB_GROUP]
+    ? [MARKETS_GROUP, ADMIN_GROUP]
     : [MARKETS_GROUP];
   const items: NavItem[] = [
     ...PRIMARY_NAV.flatMap((entry) => (entry.kind === 'link' ? [entry.item] : [])),

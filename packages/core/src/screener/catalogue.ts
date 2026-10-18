@@ -29,7 +29,6 @@ export const METRIC_CATEGORIES = [
   'ownership',
   'events',
   'classification',
-  'signals',
 ] as const;
 export type MetricCategory = (typeof METRIC_CATEGORIES)[number];
 
@@ -46,7 +45,6 @@ export const CATEGORY_LABELS: Readonly<Record<MetricCategory, string>> = {
   ownership: 'Ownership',
   events: 'Deals & events',
   classification: 'Classification',
-  signals: 'Signals',
 };
 
 /**
@@ -104,7 +102,7 @@ export interface MetricDefinition {
   /** Decimal places when displayed. */
   readonly decimals?: number;
   readonly options?: readonly MetricOption[];
-  /** Hidden from non-admins entirely (signals are admin-only, CLAUDE.md). */
+  /** Hidden from non-admins entirely (absent from their catalogue, not disabled). */
   readonly adminOnly?: boolean;
 }
 
@@ -217,9 +215,6 @@ export const METRIC_KEYS = [
   'series',
   'indexKeys',
   'sizeBucket',
-  // Signals (admin-only)
-  'signalDirection',
-  'signalStrength',
 ] as const;
 export type MetricKey = (typeof METRIC_KEYS)[number];
 
@@ -920,28 +915,6 @@ const DEFINITIONS: Readonly<Record<MetricKey, Def>> = {
     unit: 'enum',
     description: 'Large/mid/small/micro by NSE index membership, not by market cap.',
     options: SIZE_OPTIONS,
-  },
-
-  signalDirection: {
-    label: 'Signal direction',
-    category: 'signals',
-    unit: 'enum',
-    adminOnly: true,
-    description: 'Direction of the latest end-of-day EquityWise signal.',
-    options: [
-      { value: 'bullish', label: 'Bullish' },
-      { value: 'bearish', label: 'Bearish' },
-      { value: 'neutral', label: 'Neutral' },
-    ],
-  },
-  signalStrength: {
-    label: 'Signal strength',
-    category: 'signals',
-    unit: 'score',
-    decimals: 0,
-    adminOnly: true,
-    description:
-      'Strength of the latest end-of-day signal, with its factor breakdown on the stock page.',
   },
 };
 

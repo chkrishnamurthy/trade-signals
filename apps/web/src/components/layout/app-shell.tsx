@@ -27,7 +27,7 @@ import { Navbar } from './navbar';
  *
  * It owns the single `useIndexStrip()` subscription and hands the snapshot to
  * both the strip and the bar's market-status pill, so they cannot disagree.
- * It owns the session too, for the admin-only "Lab" menu.
+ * It owns the session too, for the admin-only "Admin" menu.
  */
 export function AppShell({
   children,

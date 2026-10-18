@@ -1,5 +1,5 @@
-import { config as loadEnv } from 'dotenv';
 import { createDatabase, getUserForLogin, setUserRole } from '@equitywise/db';
+import { config as loadEnv } from 'dotenv';
 
 /**
  * Promote or demote an account's role.

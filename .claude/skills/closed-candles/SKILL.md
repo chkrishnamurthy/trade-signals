@@ -1,53 +1,51 @@
 ---
 name: closed-candles
-description: Guard against lookahead bias when writing or reviewing the signal engine, a backtest, or any bar fetch. Use when the work touches BarsRequest, includeForming, bar indexing, entry/fill prices, or anything that decides at bar i.
+description: Guard against lookahead when writing or reviewing an indicator, a screener metric, an end-of-day pass, or any bar fetch. Use when the work touches BarsRequest, includeForming, bar indexing, or anything that stores a value for session i.
 ---
 
 # Closed candles
 
-Hard rule 2, and the one whose violation is hardest to see: a signal may only read
-**closed** bars, and the tradeable entry is the **next** bar's open.
+Hard rule 2, and the one whose violation is hardest to see: an indicator or screener
+metric stored for a session may only read **closed** bars from that session and before.
 
-Lookahead does not throw. It produces a backtest that prints profit the market never
-offered, and the number looks better than the honest one, so nobody questions it.
+Lookahead does not throw. It produces a value that looks plausible and is wrong — an RSI,
+a breakout flag or a 52-week extreme for a session that already "knew" a later price.
 
-## The three ways it gets in
+(The signal engine, backtests and paper fills that this skill once guarded were removed
+on 2026-10-17; the rule still holds for every calculation that remains.)
 
-1. **The forming bar reaches the engine.** `BarsRequest.includeForming` defaults to false
-   and `now` is injected so "is the last bar still finished" stays testable
+## The two ways it gets in
+
+1. **The forming bar reaches a calculation.** `BarsRequest.includeForming` defaults to
+   false and `now` is injected so "is the last bar still finished" stays testable
    (`packages/market-data/src/provider.ts`). A chart may pass `includeForming: true`.
-   The engine path never does. Trace the actual call site rather than trusting the default.
-2. **An index reaches `i` while deciding at `i`.** The decision at bar `i` may read
-   indicator values at `i` (those are computed from closes at or before `i`, which is
-   legitimate) but never a price at `i+1`, and never a "confirmation" from a later bar.
-3. **The fill price is `close[i]`.** A signal generated on bar `i` fills at `open[i+1]`.
-   Using `close[i]` as the fill assumes you traded at a price you only learned by the bar
-   ending. This is the most common backtest bug in existence.
+   The end-of-day passes (`compute-indicators`, `stock-analysis`) never do. Trace the
+   actual call site rather than trusting the default.
+2. **An index reaches past `i` while computing for `i`.** The value for bar `i` may read
+   closes at or before `i`, never a price at `i+1`, and never a "confirmation" from a
+   later bar.
 
 ## Checks before the work is done
 
 Answer each in a sentence, with a `file.ts:line`:
 
-- Which bar is the last element the engine sees, and what proves it is closed?
-- Does any array access in the decision path exceed the decision index?
-- What price does a backtest fill at, and is that price knowable at decision time?
-- With fewer bars than the strategy needs, what comes out? `MIN_BARS` is 30 in
-  `packages/core/src/signals/engine.ts`; `insufficientData` exists on `SignalReport`,
-  so the honest answer is a flagged neutral verdict, not a confident one off warm-up values.
-- Same input bars, evaluated twice: identical verdict? Purity (rule 1) is what makes this
-  true, so any clock or randomness reaching the engine breaks it.
+- Which bar is the last element the calculation sees, and what proves it is closed?
+- Does any array access exceed the index of the session being stored?
+- With fewer bars than the calculation needs, what comes out? The honest answer is
+  `null` (warm-up), not a confident number off too little data.
+- Same input bars, computed twice: identical value? Purity (rule 1) is what makes this
+  true, so any clock or randomness reaching `packages/core` breaks it.
 
 ## Tests that would actually catch it
 
-A test proving no lookahead feeds the engine a series, then feeds it the same series
-truncated one bar earlier, and asserts the verdict for the earlier bar is unchanged. If
-appending a future bar changes a past verdict, the engine is reading forward. Write that
-test alongside any change to the decision path.
+Feed the calculation a series, then the same series truncated one bar earlier, and assert
+the value for the earlier bar is unchanged. If appending a future bar changes a past value,
+the code is reading forward. Write that test alongside any change to the path.
 
 ## On finding a violation
 
 Report it with the line and the sequence that produces the wrong number, and stop. State
-which published or displayed results were produced by the affected path, because those are
-now suspect too. The author decides the fix.
+which stored or displayed values the affected path produced, because those are now suspect
+too. The author decides the fix.
 
 Invariant context: call the Skill tool with "signal-invariants".

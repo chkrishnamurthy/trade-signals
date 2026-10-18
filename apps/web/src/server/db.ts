@@ -9,9 +9,9 @@ import { createDatabase, type Database, type DatabaseHandle } from '@equitywise/
  * module-scoped pool would leak a fresh set of connections on each hot reload
  * until Postgres refused new ones.
  *
- * Reads only. Everything that writes intraday signals lives in `apps/worker`,
- * which is the only process that may be running the engine — two writers would
- * race on the live-signal unique index and duplicate timeline entries.
+ * Reads only for market data. Everything that writes derived market data lives
+ * in `apps/worker`, the only process that runs the nightly passes — two writers
+ * would race on the same rows.
  */
 
 const KEY = Symbol.for('signal.web.database');

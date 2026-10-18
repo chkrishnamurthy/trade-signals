@@ -37,7 +37,6 @@ function row(overrides: Partial<WatchlistRowDto> = {}): WatchlistRowDto {
     relativeVolume: null,
     previousVolume: null,
     returnCloses: {},
-    signal: null,
     ...overrides,
   };
 }

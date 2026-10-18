@@ -1,5 +1,4 @@
 import { cva } from 'class-variance-authority';
-import type { SignalDirection } from './dashboard-types';
 
 /**
  * Directional tone — the single source of truth for "is this green or red?".
@@ -33,12 +32,6 @@ export function invertedToneOf(value: number | null | undefined): Tone {
   const tone = toneOf(value);
   if (tone === 'bullish') return 'bearish';
   if (tone === 'bearish') return 'bullish';
-  return 'neutral';
-}
-
-export function toneOfDirection(direction: SignalDirection): Tone {
-  if (direction === 'strong_bullish' || direction === 'bullish') return 'bullish';
-  if (direction === 'strong_bearish' || direction === 'bearish') return 'bearish';
   return 'neutral';
 }
 

@@ -109,16 +109,4 @@ export interface StockPageDto {
     readonly reasons: readonly string[];
     readonly matched: boolean;
   } | null;
-  /** Admin-only: the latest signal with its full factor breakdown (hard rule 8). */
-  readonly signal: {
-    readonly date: string;
-    readonly direction: string;
-    readonly strength: number;
-    readonly factors: readonly {
-      label: string;
-      score: number;
-      weight: number;
-      detail: string | null;
-    }[];
-  } | null;
 }

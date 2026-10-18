@@ -4,7 +4,7 @@ import type {
   IpoLifecycleOverride,
   IpoStatus,
 } from '@equitywise/shared';
-import { sessionFor } from '../paper/calendar.js';
+import { sessionFor } from '../exchange-calendar.js';
 
 /**
  * Where an issue is in its life, and the dates ahead of it.

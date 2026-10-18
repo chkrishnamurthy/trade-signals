@@ -4,11 +4,7 @@
     {
       "name": "web",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": [
-        "--filter",
-        "web",
-        "dev"
-      ],
+      "runtimeArgs": ["--filter", "web", "dev"],
       "port": 3000,
       "autoPort": false
     },
@@ -80,22 +76,13 @@
     {
       "name": "tracker",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": [
-        "--dir",
-        "tracker",
-        "dev"
-      ],
+      "runtimeArgs": ["--dir", "tracker", "dev"],
       "port": 4321
     },
     {
       "name": "storybook",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": [
-        "--filter",
-        "@equitywise/web",
-        "storybook",
-        "--no-open"
-      ],
+      "runtimeArgs": ["--filter", "@equitywise/web", "storybook", "--no-open"],
       "port": 6006
     }
   ]

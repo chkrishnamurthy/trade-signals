@@ -29,7 +29,7 @@ import { cn } from '@/lib/utils';
  * theme, help & legal, and sign-out — the same corner, same order, as every
  * broker app.
  *
- * Admin destinations moved OUT of this menu into the bar's "Lab" menu: the
+ * Admin destinations moved OUT of this menu into the bar's "Admin" menu: the
  * account menu is about the account, and admins should not have to open it to
  * find a page.
  *

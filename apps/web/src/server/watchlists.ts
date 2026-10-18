@@ -8,10 +8,8 @@ import {
   ensureInstruments,
   getWatchlistLayout,
   getWatchlistMembers,
-  type InstrumentSignal,
   latestIndicatorsForInstruments,
   latestQuotesForInstruments,
-  latestSignalsForInstruments,
   listWatchlists,
   listWatchlistViews,
   removeWatchlistItems,
@@ -24,11 +22,9 @@ import {
   setWatchlistItemNote,
 } from '@equitywise/db';
 import type { InstrumentRef, Quote } from '@equitywise/market-data';
-import type { SignalDirection } from '@/lib/dashboard-types';
 import { withSessionExtremes } from '@/lib/market-math';
 import { type ReturnCloses, returnAnchors } from '@/lib/return-windows';
 import type {
-  RowSignalDto,
   SavedViewDto,
   WatchlistDetailDto,
   WatchlistFilterStateDto,
@@ -51,14 +47,12 @@ import { resolveSymbol, warmInstrumentCache } from './search';
  *
  *   quotes      `latest_quotes`, refreshed by the worker for watched symbols
  *   indicators  `daily_indicators`, written by the worker's end-of-day pass
- *   signals     the daily engine's stored verdict, read never recomputed
  *   returns     anchor closes from `daily_candles`, for the trailing windows
  *
  * The indicator half costs one indexed query rather than one history call per
  * symbol, which is the only reason a watchlist can show RSI and 52-week extremes
  * for arbitrary names without spending the provider's entire minute budget. It
- * also means the web app READS derived data instead of recomputing it, which is
- * the same split the intraday signals already use.
+ * also means the web app READS derived data instead of recomputing it.
  *
  * A row can have a quote and no indicators (a name the worker does not ingest,
  * or one added today), or indicators and no quote (the provider is down, the
@@ -77,10 +71,6 @@ const OPEN_QUOTE_STALE_MS = 2 * 60_000;
  * rejected here, the authoritative check.
  */
 async function requireOwnerId(): Promise<number> {
-  return (await requireOwner()).id;
-}
-
-async function requireOwner(): Promise<{ id: number; isAdmin: boolean }> {
   const user = await getSessionUser();
   if (user === null) {
     throw new MarketDataError('Not signed in.', {
@@ -89,7 +79,7 @@ async function requireOwner(): Promise<{ id: number; isAdmin: boolean }> {
       remedy: 'Sign in and try again.',
     });
   }
-  return { id: user.id, isAdmin: user.role === 'admin' };
+  return user.id;
 }
 
 export async function getWatchlists(): Promise<WatchlistSummaryDto[]> {
@@ -139,9 +129,7 @@ function defaultLayout(): WatchlistLayoutDto {
  */
 export async function getWatchlistDetail(id: number): Promise<WatchlistDetailDto | null> {
   const db = getDatabase();
-  const { id: ownerId, isAdmin } = await requireOwner();
-  // Signals are admin-only (CLAUDE.md); nobody else is sent them at all.
-  const showSignals = isAdmin;
+  const ownerId = await requireOwnerId();
 
   const summaries = await getWatchlists();
   const watchlist = summaries.find((entry) => entry.id === id);
@@ -187,16 +175,11 @@ export async function getWatchlistDetail(id: number): Promise<WatchlistDetailDto
         }));
 
   // The indicator read still decides whether this call succeeds, as it always
-  // has. The two added sources only enrich a column group each — no signals
-  // written yet, a candle table not backfilled that far — so each degrades to
-  // an empty map rather than taking a working watchlist down with it.
-  const [indicators, signals, returnCloses, quoteResult] = await Promise.all([
+  // has. The return closes only enrich a column group — a candle table not
+  // backfilled that far — so they degrade to an empty map rather than taking a
+  // working watchlist down with them.
+  const [indicators, returnCloses, quoteResult] = await Promise.all([
     latestIndicatorsForInstruments(db, instrumentIds),
-    showSignals
-      ? latestSignalsForInstruments(db, instrumentIds).catch(
-          () => new Map<number, InstrumentSignal>(),
-        )
-      : Promise.resolve(new Map<number, InstrumentSignal>()),
     closesAsOf(db, { instrumentIds, anchors: returnAnchors(now) }).catch(
       () => new Map<number, Map<string, number>>(),
     ),
@@ -252,7 +235,6 @@ export async function getWatchlistDetail(id: number): Promise<WatchlistDetailDto
       previousVolume: daily?.volume ?? null,
 
       returnCloses: toReturnCloses(returnCloses.get(member.instrumentId)),
-      signal: toRowSignal(signals.get(member.instrumentId)),
     };
   });
 
@@ -277,35 +259,6 @@ export async function getWatchlistDetail(id: number): Promise<WatchlistDetailDto
     missingQuotes,
     quotesStale,
     refreshAfterSeconds: market?.isOpen === true ? REFRESH_OPEN_SECONDS : REFRESH_CLOSED_SECONDS,
-    showSignals,
-  };
-}
-
-const SIGNAL_DIRECTIONS: readonly SignalDirection[] = [
-  'strong_bullish',
-  'bullish',
-  'neutral',
-  'bearish',
-  'strong_bearish',
-];
-
-/**
- * Narrows the stored direction string to the UI's closed set.
- *
- * The column is a badge with five states; a sixth value from a future engine
- * would render as an unstyled string rather than as a signal, so an
- * unrecognised direction is treated as no signal at all.
- */
-function toRowSignal(stored: InstrumentSignal | undefined): RowSignalDto | null {
-  if (stored === undefined) return null;
-  const direction = SIGNAL_DIRECTIONS.find((entry) => entry === stored.direction);
-  if (direction === undefined) return null;
-
-  return {
-    direction,
-    strength: stored.strength,
-    setups: stored.setups,
-    tradingDate: stored.tradingDate,
   };
 }
 
