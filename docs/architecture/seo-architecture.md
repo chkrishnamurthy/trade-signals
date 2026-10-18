@@ -1,5 +1,11 @@
 # EquityWise.io — SEO Architecture & Engineering Reference
 
+> **Partly aspirational (note added 2026-10-18).** The public discovery spine this document
+> describes — `/stocks`, `/stocks/[symbol]`, `/screener/[slug]`, `/sectors` with ISR — was
+> never built: every app page, `/stocks/[symbol]` and `/screener` included, is private and
+> `noindex`, and only the landing and trust pages are public. The as-built rules are the
+> `seo` skill (`.claude/skills/seo/SKILL.md`); read this file as design intent.
+
 A comprehensive architectural manual and guide for human engineers and AI coding assistants working on the Search Engine Optimization (SEO), indexation, crawling, structured data, and public programmatic discovery surfaces of EquityWise.io.
 
 ---

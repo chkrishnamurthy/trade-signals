@@ -1,0 +1,3 @@
+interface:
+  display_name: "SEO"
+  short_description: "apps/web public routes, noindex, sitemap, robots and JSON-LD conventions"

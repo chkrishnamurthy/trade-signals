@@ -1,43 +1,65 @@
 # EquityWise
 
-Technical analysis and decision support for NSE equities. It answers what the
-market is doing, which stocks deserve attention, and why — and it never places,
-manages or represents an order. See [CLAUDE.md](CLAUDE.md) for the hard rules
-that govern everything added on top.
+Tracking, analysis and screening for NSE equities. It shows what the market and
+each stock are doing — trend, breakouts, momentum, volume, delivery, ownership,
+events — from data, and lets each user screen and watch on conditions they choose.
+It describes; it never picks stocks, issues buy/sell signals, simulates trades, or
+places, manages or represents an order. See [CLAUDE.md](CLAUDE.md) for the hard
+rules that govern everything added on top, and [OVERVIEW.md](OVERVIEW.md) for a
+cold-read tour of the whole system.
 
 ## Layout
 
 ```
 apps/
-  web/            Next.js App Router + Tailwind
-  worker/         Node entrypoint; scheduler and jobs live here
+  web/              Next.js App Router + Tailwind — pages and the JSON API
+  worker/           croner scheduler — every job that ingests or computes market data
 packages/
-  shared/         paise + IST/market-time helpers — everything depends on this
-  core/           pure engines: indicators, screener metrics, exchange calendar
-  market-data/    the provider-neutral boundary everything above depends on
-  db/             Drizzle schema, client, migrations
-  fyers/          Fyers API v3 client
-  providers-fyers/ the adapter — the only place Fyers types and ours co-exist
-config/           versioned YAML: index constituents, exchange calendar, data sources
-docs/             what is built, what is not — see pending-features.md
+  shared/           paise + IST/market-time helpers — everything depends on this
+  core/             pure calculations: indicators, screener metrics, IPOs, portfolio,
+                    alerts, flows, exchange calendar, announcement interpretation
+  market-data/      the provider-neutral boundary (MarketDataProvider, routed provider)
+  db/               Drizzle schema, client, migrations, repositories
+  fyers/            Fyers API v3 client
+  providers-fyers/  the Fyers adapter — the only place Fyers types and ours co-exist
+  dhan/             Dhan API v2 client
+  providers-dhan/   the Dhan adapter
+config/             versioned YAML: indices, market calendar, IPO sources, screener presets
+docs/               architecture, operations, planning, design system — see docs/README.md
+scripts/            one-off operations and verification scripts
+test/               integration-test helpers and the Playwright release smoke
+tracker/            standalone Markdown work tracker; not part of the workspace
 ```
 
-[docs/planning/pending-features.md](docs/planning/pending-features.md) is the current backlog:
-which parts of the system are finished, which are built but unwired, and which
-are declared in the sidebar without an implementation behind them.
+[docs/planning/pending-features.md](docs/planning/pending-features.md) carries the
+code-verified status ledger: what is finished, what is built but unwired, and what
+is still a plan.
 
-## No signals, no paper trading
+## What is built
 
-The app describes the market and each stock from data; it never labels a stock
-BUY/SELL, scores a "setup" or simulates trades. The intraday strategy (`/intraday`),
-paper trading (`/paper-trading`) and the daily signal engine were removed on
-2026-10-17, with their tables (migration `0046`) — see
-[`docs/planning/signals-and-paper-removal-plan.md`](docs/planning/signals-and-paper-removal-plan.md).
+Every signed-in user gets:
 
-```bash
-pnpm --filter @equitywise/worker dev                               # schedule everything
-pnpm --filter @equitywise/worker dev -- --once refresh-credential  # mint a token now
-```
+| Page | What it shows |
+| --- | --- |
+| `/today` | Market Brief — a technical summary of the latest completed session |
+| `/watchlists` | per-user lists with configurable columns, saved views and live quotes |
+| `/screener` | the whole NSE EQ/BE/BZ universe filtered on ~95 nightly metrics; saved screens |
+| `/stocks/[symbol]` | one stock: price chart, ratio board, "What stands out" facts, dividends and its screener metrics |
+| `/markets/breadth` | advance/decline and participation across the universe |
+| `/flows` | institutional flow — FII/DII cash, bulk/block deals, delivery, participant OI |
+| `/announcements` | NSE/BSE corporate filings, categorised |
+| `/calendar` | market holidays, results, corporate actions and watchlist events |
+| `/ipos` | mainboard and SME IPOs from NSE, with an always-labelled unofficial GMP |
+| `/portfolio` | the user's own hand-typed or imported holdings, valued at the last price |
+| `/alerts` | price or RSI level crossings on a completed session |
+
+`/admin` (user administration, logs, IPO pipeline health) is restricted to the
+`admin` role. There are no fundamentals (P/E, ROE, market cap) — that needs a new
+data source.
+
+Signals, setups and paper trading were removed on 2026-10-17
+([plan and record](docs/planning/signals-and-paper-removal-plan.md)). The app
+states facts about the data; it never ranks stocks by its own conviction.
 
 ## Setup
 
@@ -45,7 +67,7 @@ pnpm --filter @equitywise/worker dev -- --once refresh-credential  # mint a toke
 pnpm install
 cp .env.example .env     # then fill in the two database connection strings
 pnpm build
-pnpm --filter @equitywise/worker dev   # connects to Postgres, prints the server version
+pnpm --filter @equitywise/worker dev   # schedules every job; never mints a credential
 ```
 
 `.env.example` documents each variable. The short version: both `DATABASE_URL`
@@ -53,127 +75,101 @@ and `DATABASE_URL_DIRECT` point at the self-hosted Postgres (identical on the VP
 and over a local SSH tunnel, since there is no pooler). Migrations run against
 `DATABASE_URL_DIRECT` — `drizzle.config.ts` refuses a pooled URL.
 
+Run one job now, or a deep history pull:
+
+```bash
+pnpm --filter @equitywise/worker dev -- --once ingest-daily
+pnpm --filter @equitywise/worker dev -- --backfill
+```
+
+**Never point a local worker at production.** It writes to the live database, and
+a credential mint kills the live Fyers token (one session per account). The `dev`
+script sets `WORKER_MINT_CREDENTIALS=false` for that reason; local web-only work
+against the VPS database is covered in
+[`docs/operations/deployment.md`](docs/operations/deployment.md).
+
 ## Deploying (single VPS)
 
 Both processes run on one Ubuntu VPS behind Nginx. Node 24 (see `.nvmrc`), pnpm,
 and PM2 keep the web app (`next start -p 3000`) and the worker alive; Nginx
 terminates SSL and reverse-proxies `:443 → :3000`. **Deploys are automatic — merge
-to `main` and GitHub Actions ships it.** The complete as-built reference — server,
+to `main` and GitHub Actions ships it**, then runs a post-deploy smoke
+(`scripts/post-deploy-smoke.sh`). The complete as-built reference — server,
 pipeline, self-hosted Postgres, credentials, backups, DNS/SSL, local dev, and
-operations — is **[`docs/operations/deployment.md`](docs/operations/deployment.md)**; this section is only
-the shape.
+operations — is **[`docs/operations/deployment.md`](docs/operations/deployment.md)**;
+this section is only the shape.
 
 Build with `pnpm build` (topological `tsc`, then `next build`), then start each
 process under PM2. `.env` is gitignored; on the VPS it lives outside the checkout,
 root-owned and `chmod 600`, and `next.config.ts` dotenv-loads the repo-root file.
 
-The web app reads exactly four values, and missing Clerk keys break every
-request rather than the build:
+The web app needs `DATABASE_URL`, the `AUTH_*` values (`AUTH_SESSION_SECRET` is
+required in production; sign-up refuses to write without it), `RESEND_API_KEY` /
+`AUTH_EMAIL_FROM` for account email, `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`
+when Google sign-in is on, and `MARKET_DATA_PROVIDER` plus the provider app IDs for
+live quotes. The login factors (`FYERS_ID`, `FYERS_TOTP_SECRET`, `FYERS_PIN`,
+`DHAN_PIN`, `DHAN_TOTP_SECRET`) belong to the worker only. `next build` succeeds
+without any of them — a missing value is a runtime failure, not a build error.
 
-| Variable | Missing it means |
-| --- | --- |
-| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | `clerkMiddleware` throws on **every** request — the whole site 500s, including `/sign-in` |
-| `CLERK_SECRET_KEY` | the same, one step later: sessions cannot be verified |
-| `DATABASE_URL` | pages render, no data |
-| `FYERS_APP_ID` | live quotes fail; stored end-of-day data still works |
+## Market-data credentials
 
-`next build` succeeds without any of them — a missing key is a runtime 500, not a
-build error. Nothing else belongs in the web app's environment — not
-`DATABASE_URL_DIRECT`, not `FYERS_SECRET_KEY`, not `FYERS_TOTP_SECRET`.
-Migrations, the OAuth handshake and the integration tests all run from the worker
-or a developer machine.
+Market-data tokens expire daily, and each new one starts from a 2FA login. Nobody
+does that by hand here.
 
-`FYERS_ACCESS_TOKEN` is absent from that table on purpose: the running app reads
-its credential from the database, not the environment. See below.
+The **worker** holds the login factors, mints tokens and writes them to
+`provider_credentials`. The **web app** reads that table and never mints anything.
 
-## The daily credential
-
-Market-data tokens expire every morning, and since the refresh-token flow was
-withdrawn on 1 April 2026 each new one starts from a 2FA login. Nobody does that
-by hand here.
-
-The **worker** holds `FYERS_ID`, `FYERS_TOTP_SECRET` and `FYERS_PIN`, mints a
-token at 08:30 IST on weekdays and at every startup, and writes it to
-`provider_credentials`. The **web app** reads that row and never mints anything.
+| Job | When (IST) | What it does |
+| --- | --- | --- |
+| `refresh-credential` | 07:05 weekdays, and at startup | mints every held provider's token after Fyers' 07:00 expiry |
+| `credential-rollover` | 01:35 daily | renews Dhan's 24-hour token in the middle of the night |
+| `probe-credentials` | every 5 min, 09:00–15:59 Mon–Sat | one authenticated call per provider; a rejected token is re-minted (at most once per 10 min) |
 
 That split is the security boundary, not an implementation detail. The TOTP seed
 is the same 2FA secret that protects the brokerage login, including the
 order-placing side this app deliberately has nothing to do with. It stays on a
-host you control. What reaches a deployed web app is a token that dies within the
-day and can only read market data — so a compromise of the deploy costs a day of
-quote access, not the account.
+host you control. What reaches the web app is a token that dies within the day and
+can only read market data — so a compromise of the deploy costs a day of quote
+access, not the account.
 
-Set the three values in the worker's environment and the refresh runs on its own.
-Setting only some of them is reported at startup rather than silently never
-refreshing. Leave all three blank and the old manual path still works: run
-`pnpm fyers:login`, which writes `FYERS_ACCESS_TOKEN` into `.env`.
+Setting only some of a provider's factors is reported at startup rather than
+silently never refreshing. A refresh failure is logged loudly and does **not** fall
+back to the stale token, because a request sent with an expired credential fails
+upstream as an opaque authorisation error that hides the real cause.
 
-`pnpm --filter @equitywise/worker dev -- --once refresh-credential` mints one now.
-A refresh failure is logged loudly and does **not** fall back to the stale token,
-because a request sent with an expired credential fails upstream as an opaque
-authorisation error that hides the real cause.
-
-### Running apps/worker
-
-The worker is a long-running `croner` process — it needs a host that stays up,
-which is why it runs under PM2 on the VPS alongside the web app. It needs
-`DATABASE_URL`, `FYERS_APP_ID`, `FYERS_SECRET_KEY` and the three login factors
-above. Without it running, nothing refreshes the token and nothing writes new
-candles, indicators or screener snapshots; the site serves whatever it last stored.
-
-### Clerk instance
-
-Until `equitywise.io` is pointed at the VPS, Clerk runs a **development**
-instance (`pk_test_` / `sk_test_`): a production instance requires a domain you
-own and DNS records you can add. Once the domain resolves to the VPS you can
-create the production instance, add Clerk's CNAME records, verify it, and swap
-`pk_test_` → `pk_live_` — that sequence, not flipping a setting.
-
-What that costs, and why the allowlist below is not optional: a development
-instance does not carry the session in a same-site cookie. It passes it as a
-`__clerk_db_jwt` querystring parameter, which Clerk itself calls "not secure
-enough for production use" because querystrings land in server logs and browser
-history. On a publicly reachable host, Clerk's sign-up restriction is therefore
-the real gate on this application, not a second layer behind one:
-
-The instance is therefore configured `sign_up_mode: "restricted"`: nobody can
-create an account at all, invitation or nothing. The single existing user signs
-in as before, because sign-in is not gated by the sign-up mode.
-
-Note that **`restricted` and the allowlist are mutually exclusive** — Clerk
-rejects `allowlist: true` with `sign_up_mode_restricted_invalid_value` when the
-mode is restricted. The allowlist is the weaker of the two: it applies to
-`public` sign-up and permits anyone holding a listed address. For a tool with
-exactly one user and that user already created, `restricted` is strictly
-stronger and needs no list. The allowlist entry for the owner's address is left
-in place, inert, so switching modes later does not lock anyone out.
-
-`/login` and `/callback` write the refreshed Fyers token to disk — which the
-VPS filesystem allows (a read-only serverless host could not). That path is only
-for a manual login, which the worker's daily refresh removes the need for; the
-running app reads its credential from the database instead.
+The manual paths still exist: `pnpm fyers:login` writes `FYERS_ACCESS_TOKEN` into
+`.env`, and an admin can run the Fyers OAuth handshake from the web app
+(`/api/fyers/connect` → `/callback`). The daily refresh removes the need for either.
 
 ## Scripts
 
 | Command | What it does |
 | --- | --- |
-| `pnpm dev` | every package in watch mode, plus `next dev` |
+| `pnpm dev` | every package in watch mode, plus `next dev` and the worker |
+| `pnpm dev:web` | the web app only |
 | `pnpm build` | topological `tsc` build, then `next build` |
 | `pnpm test` | Vitest across the workspace |
 | `pnpm test:coverage` | ditto, with a v8 coverage report |
+| `pnpm test:integration` | DB-backed suites against a throwaway TimescaleDB container |
+| `pnpm test:db:up` / `test:db:down` | start / drop that container |
+| `pnpm test:e2e` | Playwright release smoke (`test/e2e`) |
 | `pnpm lint` | Biome lint + format check |
 | `pnpm lint:fix` | Biome, writing fixes |
 | `pnpm typecheck` | `tsc --noEmit` per package |
 | `pnpm db:generate` | drizzle-kit: SQL migration from the schema |
 | `pnpm db:migrate` | drizzle-kit: apply migrations (direct endpoint) |
 | `pnpm db:studio` | drizzle-kit studio |
+| `pnpm fyers:login` | manual Fyers token mint into `.env` |
+| `pnpm dhan:probe` | read-only checks against the Dhan API |
 | `pnpm verify:adjustment` | check whether the provider back-adjusts split history |
+| `pnpm data:coverage` | report stored candle history and what recent ingestion runs did |
+| `pnpm data:seed-disclosures` | seed sample filings and flows into a dev database (never production) |
 
 ## Database integration tests
 
 Most of the suite is pure and needs nothing. The DB-backed suites — the ones that
 assert schema-level guarantees a mock could never catch (one default watchlist per
-user, no duplicate stock in a list, append-only candle history) — need a real
+user, no duplicate stock in a list, append-only alert history) — need a real
 Postgres they may migrate from empty and throw away.
 
 That database is **local and disposable**, run from `docker-compose.test.yml`:

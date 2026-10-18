@@ -43,6 +43,9 @@ Each one reports and stops on a violation; the fix is the author's call.
   TimescaleDB, the Fyers credential self-heal, backups, and local-dev safety. Fires on
   deploy/CI/server/backup work and on market-data/credential/rate-limit failures.
   Full reference: `docs/operations/deployment.md`.
+- [seo](seo/SKILL.md) — what is public (the middleware's list, sitemap, robots), `noindex`
+  on every private page, metadata, and JSON-LD through the `JsonLd` wrapper. Fires on
+  public-page, metadata, sitemap, robots and structured-data work.
 
 ## Conventions
 
@@ -54,4 +57,5 @@ Each one reports and stops on a violation; the fix is the author's call.
   description. Model-invoked skills carry a description written to trigger on real branches,
   and pay for it in permanent context on every turn.
 - `agents/openai.yaml` beside each `SKILL.md` mirrors the same choice for Codex.
+  Codex reads `.agents/skills/`, which is a symlink to this folder, so there is one copy.
   A skill is user-invoked in both harnesses or in neither.

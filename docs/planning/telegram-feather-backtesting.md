@@ -1,17 +1,22 @@
 ---
 name: Telegram backtests
-status: draft
+status: removed
 horizon: later
 created: 2026-09-04
-updated: 2026-09-13
+updated: 2026-10-18
 board: EW-060
 area: [core]
 confidence: 1
-summary: Telegram channel archives as a reproducible backtest source. Runtime (TS vs Perl) still open; downloader and run engine not built.
+summary: "Removed 2026-10-18: the product never simulates trades (2026-10-17), and packages/archive and the Perl probe were deleted. Kept as research history."
 owner: krishna
 ---
 
 # Telegram archives and reproducible backtesting
+
+> **Removed (2026-10-18).** Since 2026-10-17 the product never simulates trades
+> (CLAUDE.md, "Do not"), so backtesting is outside it. The probe (`scripts/archive/feather-probe.pl`)
+> and the `packages/archive` research package were deleted; both are in git history.
+> Board card EW-060 is dropped. The text below is the research as it stood on 2026-09-13.
 
 Status: discovery and initial format probe implemented; downloader, pages and run
 engine are not implemented. This is the current design against the September 2026

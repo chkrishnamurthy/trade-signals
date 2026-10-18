@@ -2,527 +2,533 @@
 
 > **Purpose of this document.** A single, self-contained overview of the EquityWise
 > application as it exists **today**, written to be read cold by an external AI tool
-> or a new engineer with no other context. It reconciles and supersedes the older,
-> partially-stale docs scattered under `docs/` (see [§18](#18-caveats--stale-docs)).
-> When this file and an older doc disagree about the *current* system, **this file
-> and the code win.**
+> or a new engineer with no other context. When this file and an older doc disagree
+> about the *current* system, **the code wins, then `CLAUDE.md`, then this file.**
+> Planning docs under `docs/planning/` describe intent; their frontmatter `status:`
+> says whether a plan is built, superseded or removed.
 >
-> Last reconciled against the codebase: 2026-09-12.
+> Last reconciled against the codebase: 2026-10-18.
 
 ---
 
 ## 1. What EquityWise is
 
-EquityWise is a **multi-user web tool for tracking and analysing NSE (National Stock
-Exchange of India) equities**. It surfaces technical setups worth attention —
-bullish/bearish setups, breakouts, breakdowns, momentum, trend changes, volume
-anomalies — as **decision support, not execution**.
+EquityWise is a **multi-user web tool for tracking, analysing and screening NSE
+(National Stock Exchange of India) equities**. It shows what the market and each stock
+are doing — trend, breakouts, momentum, volume, delivery, ownership, events — from
+data, and lets each user screen and watch on conditions they choose. **It describes;
+it never picks stocks.**
 
 It answers three questions and nothing else:
 
 1. **What is happening in the market?**
-2. **Which stocks deserve attention right now?**
-3. **Why does this stock deserve attention?**
+2. **Which stocks match the conditions I chose** (screener, watchlists, alerts)?
+3. **What do the facts say about this stock?**
 
 It is deployed publicly with **per-user accounts**: each user signs in and owns their
-own watchlists and data. It is multi-**user** (individuals), **not** multi-**tenant**
-(no organisations, teams, or shared workspaces).
+own watchlists, screens, alerts and portfolio. It is multi-**user** (individuals),
+**not** multi-**tenant** (no organisations, teams, or shared workspaces).
 
 ### What it is NOT
 
 - **Not a broker and not a trading terminal.** It never places, modifies, cancels,
-  manages, or represents an order. Orders are placed by hand on a separate platform.
-- **Not a Fyers client.** Fyers is only the upstream market-data provider. The UI
-  never presents itself as a Fyers product, and business logic never touches a Fyers
-  type (see [§9](#9-market-data-provider-boundary-fyers)).
-- **Not an investment adviser.** Signals are technical observations, not advice; a
-  score is *setup strength*, never a probability of profit. The app is not a SEBI
-  research analyst / investment adviser and says so in its disclaimer.
+  manages, or represents an order, and nothing is ever fetched from a broker account.
+- **Not a signal service.** Signals, setups, paper trading and the intraday strategy
+  were **removed on 2026-10-17** (`docs/planning/signals-and-paper-removal-plan.md`,
+  migration `0046`). The app never labels a stock BUY/SELL or a bullish/bearish
+  "setup", never ranks stocks by its own conviction, never names entry/target/stop
+  levels, and never simulates trades. Paid recommendations need SEBI Research Analyst
+  registration; bringing any of this back is a product decision, not a feature task.
+- **Not a Fyers or Dhan client.** Both are upstream market-data providers only. The UI
+  never presents itself as either, and business logic never touches a provider type
+  (see [§9](#9-market-data-providers)).
+- **No fundamentals.** P/E, ROE, market cap and the like need a new data source.
 
 ---
 
-## 2. Current scope — **watchlists only**
+## 2. Current scope
 
-This is the single most important thing to understand about the current codebase,
-because most of the older docs describe a much larger product that no longer exists
-in the tree.
+Every signed-in user gets the surfaces below. Navigation is data-driven from
+`apps/web/src/lib/navigation.ts`.
 
-**The app has been deliberately stripped down to the watchlists surface
-(`/watchlists`) plus the data spine that feeds it.** What remains:
+| Area | Routes | What it is |
+| --- | --- | --- |
+| Market Brief | `/today` | A technical summary of the latest completed session: the user's own stocks, participation over time, industry leadership and weakness, measured market activity |
+| Watchlists | `/watchlists` | Per-user lists with configurable columns, saved views, templates and live quotes |
+| Screener | `/screener` | The whole NSE EQ/BE/BZ universe filtered on ~95 nightly metrics; saved screens |
+| Stock page | `/stocks/[symbol]` | One stock in full: price chart, per-user ratio board, "What stands out" facts, dividends |
+| Breadth | `/markets/breadth` | Advance/decline and participation across the universe |
+| Institutional flow | `/flows` | FII/DII cash, bulk/block deals, delivery, participant-wise and stock-futures OI |
+| Announcements | `/announcements` | NSE/BSE corporate filings, interpreted into categories by rule |
+| Market calendar | `/calendar` | Holidays, results, corporate actions and watchlist events |
+| IPOs | `/ipos`, `/ipos/all`, `/ipos/calendar`, `/ipos/listings`, `/ipos/gmp`, `/ipos/pipeline`, `/ipos/[slug]` | Mainboard and SME issues from NSE; RHP sections quoted with pages; SEBI DRHPs listed separately; an **unofficial** GMP from InvestorGain, always labelled |
+| Portfolio | `/portfolio`, `/portfolio/[symbol]`, `/portfolio/analysis`, `/portfolio/notices` | The user's own hand-typed or file-imported holdings, valued at the last price; returns, risk, tax lots, statement check, corporate-action notices |
+| Alerts | `/alerts` | Price or RSI level crossings, evaluated on a completed session |
 
-- The **`/watchlists`** page — the one real product surface.
-- The **Fyers market-data provider** for live quotes.
-- **`/api/search`** to add names to a watchlist.
-- The **daily end-of-day pass** (worker) that computes the indicator / return / signal
-  columns shown on a watchlist.
-- A full **first-party auth system** and account/profile management.
-- Public marketing/legal pages (landing, about, methodology, disclaimer, etc.).
+**Admin only** (`role = 'admin'`): `/admin` (user administration — disable or change
+role), `/admin/logs` (the `event_log` viewer), `/admin/ipos` (IPO pipeline health).
 
-**What was removed** (code deleted, not just hidden):
+**Public:** the landing page `/`, `/about`, `/methodology`, `/data-sources`,
+`/disclaimer`, `/contact`, `/privacy`, `/terms`, and the `(auth)` pages.
 
-- Pages & APIs: the **dashboard**, **all-stocks / stock detail**, **screener**,
-  **sectors**, **intraday-signals**, **signal-performance**, and **backtests**.
-- The entire **intraday / backtest / paper-trading engine**
-  (`packages/core/src/intraday`, the worker's intraday cycle, the backtest scripts).
-  *This code no longer exists in the tree.*
-- (Most recently) the public **stocks / screener / sectors** research pages were
-  removed and the landing page rewritten to centre on watchlists.
-
-New feature pages are intended to be built on this base later. Where an older design
-doc describes the fuller original product, treat it as **historical intent**, not a
-description of the running system.
+`/ipos/mainboard` and `/ipos/sme` redirect to `/ipos/all`. There is no apply button,
+rating or opinion on any IPO, and the portfolio never advises.
 
 ---
 
 ## 3. The product's hard rules ("Do not")
 
-These are non-negotiable product constraints (from `CLAUDE.md` / `AGENTS.md`). They
-shape what may and may not be built.
+From `CLAUDE.md`, which is authoritative. They shape what may and may not be built.
 
-- **No order execution of any kind** — no place/modify/cancel order, no order book,
-  positions, funds, holdings, or broker portfolio. **Not even read-only.** There is no
-  order button, order ticket, or order-shaped affordance anywhere in the UI.
-- **BUY / SELL may label a signal's direction, and nothing else.** A direction badge
-  reads BUY or SELL because that is the fastest thing to scan. Every other word stays
-  technical: "Bullish setup", "Breakout candidate", "Technical entry zone",
-  "Invalidation level", "Watch". **Never** "ORDER", "ENTRY PRICE", "position", or
-  "quantity". An entry/exit level is a *technical price level* and is labelled as one.
+- **No order execution of any kind** — no place/modify/cancel order, order book, funds,
+  or broker portfolio. Holdings the user types in or uploads themselves are allowed.
+  There is no order button, ticket, or order-shaped affordance; never "ORDER",
+  "ENTRY PRICE", "position" or "quantity".
+- **No signals, setups, recommendations or paper trading** (see §1).
+- **Portfolio vocabulary:** "Added shares" / "Removed shares" (tax view: "Acquired" /
+  "Disposed"), "Number of shares", "Holding", "Average cost". Never "Buy", "Sell",
+  "Position", "Quantity", "Order", "Execute", "Rebalance", "Recommended",
+  "Underweight", "Overweight".
 - **No confidence number the factors cannot explain.** Every score renders with its
   component breakdown, or it does not render.
 - **Multi-user, not multi-tenant.** User / account / session tables and a **minimal
-  `user` vs `admin` role** are in scope. Still **out of scope** until explicitly
-  planned: organisation/team multi-tenancy, a full RBAC role system, and
-  subscriptions/billing.
-- **No admin CRUD UI** — configuration is versioned YAML (`config/*.yaml`), not a
-  database-backed admin panel.
+  `user` vs `admin` role** are in scope. Out of scope until explicitly planned:
+  organisation/team multi-tenancy, a full RBAC role system, subscriptions/billing.
+- **No admin CRUD UI** — configuration is versioned YAML (`config/*.yaml`).
 - **No Redis, Celery, Kubernetes, or Terraform.** No Python in the app.
 - **No third-party indicator library** (`technicalindicators` etc.). The core
   indicators are hand-written for auditability.
-- **No floating-point money** (see invariant 3 below).
+- **No floating-point money** (invariant 3 below).
 
 ---
 
-## 4. The eight engineering invariants
+## 4. The engineering invariants
 
-Violating any of these is considered a system-breaking bug. They are enforced by a
-mix of schema constraints, DB triggers, and convention.
+Violating any of these is a system-breaking bug. They are enforced by a mix of schema
+constraints, DB triggers, tests and convention.
 
 1. **`packages/core` is pure.** Every function takes *data + config* and returns a
    result. No DB, no `Date.now()`, no network, no `process.env`, no module-level
-   mutable state. (This is what lets a backtester and the live path run identical code.)
-2. **Signals are computed on CLOSED candles only** — never the forming candle. The
-   tradeable entry is the *next* candle's open. Any path that lets the engine see a
-   price at/after the entry timestamp is lookahead bias.
+   mutable state — so every calculation is testable against fixed fixtures.
+2. **Indicators and screener metrics use CLOSED candles only** — never the forming
+   candle. A value stored for a session is computed from that session's closed bars
+   and nothing later.
 3. **All prices are INTEGER PAISE everywhere internally.** ₹1,245.50 is `124550`.
    Never float rupees, never a decimal library. Convert to a display string only in
    React, via `formatPaise()` in `packages/shared`.
 4. **Store only 1m and 1d candles.** 5m/15m/30m/1h derive via `time_bucket` (origin
    aligned to 09:15 IST); weekly derives from daily. Never persist a derived timeframe.
-   *(In the current watchlists-only build only daily candles are actively used — see
-   [§7](#7-data-model).)*
 5. **Never mutate price history.** Corporate actions are rows with adjustment factors,
-   applied on read. No `UPDATE` on candles, ever (enforced by append-only triggers).
+   applied on read. No `UPDATE` on candles, ever (append-only triggers).
 6. **All timestamps are `TIMESTAMPTZ` in UTC in the database.** Convert to IST only at
    the presentation boundary. Never store a naive datetime; never use server local time.
-7. **Strategy config is immutable and versioned.** Changing a weight mints a new
-   `strategy_versions` row; never `UPDATE` an existing version.
-8. **Every signal writes its factor breakdown and indicator snapshot.** The
-   "Why this signal?" UI reads `signal_factors`; it never recomputes.
+7. **Portfolio data is private.** Every query is scoped by `owner_id` in the repository
+   layer. Holdings, shares and cost never reach logs, the event log, error reports or
+   URLs; no admin screen shows them; account deletion cascades. Uploaded files are
+   parsed and discarded — only the rows the user reviewed are stored.
 
 ---
 
 ## 5. Architecture & topology
 
-A **pnpm-workspace TypeScript monorepo**. Two runnable apps and six shared packages;
-everything runs on a single self-hosted VPS.
+A **pnpm-workspace TypeScript monorepo**: two runnable apps and eight packages, all on
+one self-hosted VPS.
 
 ```
 apps/
-  web/              Next.js (App Router) + Tailwind — the website & JSON API. READS data.
-  worker/           Long-running croner scheduler — the ONLY writer of market data.
+  web/              Next.js (App Router) + Tailwind — the website & JSON API.
+  worker/           Long-running croner scheduler — every job that ingests or computes market data.
 packages/
   shared/           paise + IST/market-time helpers; formatPaise(). Everything depends on it.
-  core/             Pure engines: indicators + daily swing signals. No IO. (invariant 1)
-  market-data/      Provider-neutral boundary (MarketDataProvider) everything above consumes.
+  core/             Pure calculations (invariant 1): indicators, screener metrics & breadth,
+                    IPOs, portfolio, alerts, flows, exchange calendar, announcement interpretation.
+  market-data/      Provider-neutral boundary: MarketDataProvider, the routed provider, config.
   db/               Drizzle schema, client, migrations, repositories.
-  fyers/             Fyers API v3 client (rate-limiter + circuit breaker live here).
-  providers-fyers/  The adapter — the ONLY place Fyers types and ours co-exist.
-config/             Versioned YAML: index constituents (indices.yaml).
-docs/               Architecture, planning, operations, design-system docs.
-scripts/            One-off ops/verification scripts (fyers-login, coverage, verify-adjustment).
-tracker/            (separate sub-project; not part of the main web/worker app)
+  fyers/            Fyers API v3 client (rate limiter + circuit breaker).
+  providers-fyers/  The Fyers adapter — the only place Fyers types and ours co-exist.
+  dhan/             Dhan API v2 client.
+  providers-dhan/   The Dhan adapter.
+config/             Versioned YAML: indices, NSE/market calendars, IPO sources/registrars/RHP
+                    overrides, screener presets.
+docs/               Architecture, operations, planning, reference, design system (docs/README.md).
+scripts/            One-off ops/verification scripts.
+test/               Integration-test helpers and the Playwright release smoke (test/e2e).
+tracker/            Standalone Markdown work tracker; not part of the workspace.
 ```
 
 ### The read/write boundary (important)
 
-- **`apps/worker` is the only process that writes market data** (candles, indicators,
-  signals, the Fyers credential). It runs on a schedule.
-- **`apps/web` only reads** that data (it does write *user* data — auth, profiles,
-  watchlists — via its API routes). The web app never mints a market-data token and
-  never ingests candles.
+- **`apps/worker` is the only process that writes market data** — candles, indicators,
+  screener snapshots, breadth, flows, filings, IPO data, quotes cache, and the provider
+  credentials. It runs on a schedule.
+- **`apps/web` only reads** that data. It writes *user* data — auth, profiles,
+  watchlists, saved screens, ratio layouts, alerts, portfolio entries — through its API
+  routes, and never mints a market-data token or ingests candles.
 
-This split is a security and correctness boundary, not an accident. See
-[§9](#9-market-data-provider-boundary-fyers).
+This split is a security and correctness boundary, not an accident (see
+[§9](#9-market-data-providers)).
 
 ---
 
 ## 6. Tech stack
 
-- **Runtime:** Node (`.nvmrc` pins the version; historically Node 22–24), TypeScript
-  `strict` (`noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`).
-- **Package manager:** pnpm workspaces (pnpm 10 via corepack).
-- **Web:** Next.js 15 (App Router), React 19, Tailwind CSS v4.
+- **Runtime:** Node 24 (`.nvmrc`), TypeScript `strict` (`noUncheckedIndexedAccess`,
+  `exactOptionalPropertyTypes`).
+- **Package manager:** pnpm 10 workspaces.
+- **Web:** Next.js 15 (App Router), React 19, Tailwind CSS v4, Storybook 10.
 - **Database:** self-hosted **PostgreSQL 17 + TimescaleDB** on the VPS (localhost-only,
   compression enabled). **Neon is retained only as a read-only fallback snapshot.**
-- **ORM / migrations:** Drizzle ORM + drizzle-kit.
+- **ORM / migrations:** Drizzle ORM + drizzle-kit (most migrations hand-written SQL).
 - **Scheduler:** `croner` inside `apps/worker` (never `pg_cron`).
-- **Validation:** Zod at every boundary (especially parsing Fyers responses).
-- **Auth hashing:** `@node-rs/argon2` (Argon2id).
-- **Testing:** Vitest. **Lint/format:** Biome.
-- **Market data:** Fyers API v3.
-- **No** Redis, Celery, Kubernetes, Terraform, or Python.
+- **Validation:** Zod at every boundary.
+- **Auth:** first-party; `@node-rs/argon2` (Argon2id); Resend for account email.
+- **Testing:** Vitest (unit + DB integration), Playwright (release smoke).
+  **Lint/format:** Biome.
+- **Market data:** Fyers API v3 and Dhan API v2, plus NSE/BSE/SEBI public files.
+- **No** Redis, Celery, Kubernetes, Terraform, or Python in the app.
 
 ---
 
 ## 7. Data model
 
 Drizzle schema lives in `packages/db/src/schema/` (each table must be re-exported from
-`schema/index.ts` or migrations silently omit it). Tables by domain:
+`schema/index.ts` or migrations silently omit it). Migrations are in
+`packages/db/drizzle/` (46 of them, up to `0046`; `meta/_journal.json` lists them). Tables by domain:
 
-**Auth & profile** (`schema/auth.ts`) — ordinary mutable rows; the append-only /
-integer-paise invariants do **not** apply here:
-- `auth_users` — integer PK, `email` (unique, lower-cased), `email_verified_at`
-  (null = unverified; verification never blocks login), `role` (`user` | `admin`,
-  never set from client input), `status` (`active` | `disabled`), `terms_accepted_at`.
-- `user_profiles` — 1:1 with user: `display_name`, `avatar_url` (a path to a file on
-  the VPS disk, never image bytes), `bio`, `timezone`, `locale`, `preferences` (jsonb).
-- `auth_credentials` — 1:1, holds the **Argon2id** `password_hash` (split out so a hash
-  never rides along on a user read) + `password_changed_at` (reset ⇒ logout everywhere).
-- `auth_sessions`, `auth_mfa` (TOTP 2FA), `auth_tokens` (email-verify / password-reset),
-  `auth_attempts` (lockout / rate-limit), `auth_audit` (security event log).
+**Auth & profile** (`auth.ts`) — ordinary mutable rows; the append-only and paise
+invariants do not apply:
+`auth_users` (email, `role` user|admin, `status` active|disabled), `user_profiles`,
+`auth_credentials` (Argon2id hash, split out so it never rides along on a user read),
+`auth_sessions`, `auth_identities` (Google sign-in), `auth_challenges` (short-lived
+login/MFA/recent-auth state), `auth_mfa` (TOTP), `auth_tokens` (email verify / reset),
+`auth_attempts` (lockout / rate limit), `event_log` (security and operations events).
 
-**Market data & signals** (append-only / integer-paise invariants DO apply):
-- `daily_candles` — OHLCV in integer paise, `TIMESTAMPTZ` UTC (TimescaleDB hypertable,
-  compressed). *Only daily candles are actively used in the current build.*
-- `instruments`, `corporate_actions` (adjustment factors, applied on read),
-  `ingestion_runs` (`schema/instruments.ts`).
-- `daily_indicators` — precomputed per-instrument indicator snapshot for a session.
-- `signals`, `signal_factors` (the factor breakdown behind every signal),
-  `strategy_versions` (immutable, versioned).
-- `provider_credentials` — the daily Fyers token row (written by the worker, read by web).
+**Market data** — append-only / paise / UTC invariants apply:
+- `candles.ts` — `daily_candles`, `minute_candles` (TimescaleDB hypertables, compressed).
+- `instruments.ts` — `instruments`, `corporate_actions` (adjustment factors, applied
+  on read), `ingestion_runs`.
+- `indicators.ts` — `daily_indicators`. `quotes.ts` — `latest_quotes` (worker cache).
+- `screener.ts` — `screener_snapshots` + `screener_snapshot_builds` (one row per stock
+  per night), `market_breadth_daily`, `index_memberships`, `instrument_reference`,
+  `dividends` (never applied to prices), and the per-user `saved_screens`,
+  `user_ratio_layouts`.
+- `flows.ts` — `delivery_stats`, `participant_oi`, `derivative_oi_daily`,
+  `feed_ingestion_runs`. `disclosures.ts` — `corporate_announcements`,
+  `bulk_block_deals`, `fii_dii_flows`, `shareholding_patterns`.
+- `announcement-research.ts` — `announcement_versions`, `announcement_user_state`,
+  `announcement_ingestion_runs`.
+- `ipos.ts` — `ipo_issues`, `ipo_source_records`, `ipo_documents`, `ipo_rhp_extracts`,
+  `ipo_subscription_snapshots`, `ipo_gmp_snapshots`, `ipo_listing_performance`,
+  `ipo_sebi_filings`.
+- `exchange-calendar.ts` — `exchange_sessions`. `market-events.ts` — `market_events`.
+- `credentials.ts` — `provider_credentials` (one row per provider; written by the
+  worker, read by web). `checkpoints.ts` — `worker_checkpoints`.
 
-**Watchlists** (`schema/watchlists.ts`) — the product surface, fully **per-user**:
-- `watchlists` — `owner_id` FK → `auth_users` (cascade). Name unique **per owner**; at
-  most one default list per owner (partial unique index); `position` for sidebar order.
-- `watchlist_items` — the names in a list.
-- `watchlist_layouts` — one row per list: the ordered array of visible column ids +
-  sort + filters (UI state, rewritten in place; unknown column ids ignored on read).
-- `watchlist_views` — saved views/presets for a list.
+**Per-user product data** — every row carries an `owner_id` FK to `auth_users`
+(cascade on delete):
+- `watchlists.ts` — `watchlists` (name unique per owner, one default per owner),
+  `watchlist_items`, `watchlist_layouts` (ordered column ids + sort + filters),
+  `watchlist_views`.
+- `alerts.ts` — `alerts`, `alert_events` (append-only; fires once per session).
+- `portfolio.ts` — `holding_entries`, `holding_notices`, `holding_notice_settings`,
+  `portfolio_usage`, plus reference data `amfi_categories` and
+  `fair_market_values_2018` (grandfathering for tax).
 
 ---
 
-## 8. The daily data pipeline (worker jobs)
+## 8. The data pipeline (worker jobs)
 
-`apps/worker` schedules everything with `croner`, all expressed in **IST**
-(`Asia/Kolkata`). Current jobs and cadence (`apps/worker/src/index.ts`):
+`apps/worker` schedules everything with `croner` in **IST** (`Asia/Kolkata`); the
+schedule table is `SCHEDULES` in `apps/worker/src/index.ts`. In-session jobs first ask
+the exchange calendar, so a holiday or closure is a logged no-op.
 
-| Job | Schedule (IST) | What it does |
-| --- | --- | --- |
-| `refresh-credential` | `07:05` weekdays **+ every startup** | Mint a fresh Fyers token into `provider_credentials`. |
-| `ingest-daily` | `16:15` weekdays | Pull the day's daily candles for the universe. |
-| `compute-indicators` | `16:45` weekdays | Compute `daily_indicators` (and signals) from closed candles. |
-| `ingest-retry` | `18:30` weekdays | Retry any ingestion that failed earlier. |
-| `auth-maintenance` | `03:30` daily | Prune expired sessions/tokens, housekeeping. |
+| Area | Jobs (IST, weekdays unless noted) |
+| --- | --- |
+| Credentials | `refresh-credential` 07:05 + startup · `credential-rollover` 01:35 daily · `probe-credentials` every 5 min in session |
+| Candles & indicators | `ingest-daily` 16:15 · `compute-indicators` 16:45 · `ingest-retry` 18:30 · `cross-check-bars` |
+| Stock analysis | `reference-universe-sync` 08:30 · `corporate-actions-sync` 08:40 · `stock-analysis-eod` 19:25 & 21:25 (bhavcopy → candles → `screener_snapshots` + breadth) · `build-screener-snapshot` (on demand) |
+| Flows & disclosures | `ingest-delivery`, `ingest-participant-oi` 19:10–20:20 · `ingest-futures-oi` 06:45 Tue–Sat · `ingest-fii-dii` 19:45 · `ingest-deals` 18:50 · `ingest-announcements` 4×/day incl. weekends · `ingest-shareholding` Sat + `shareholding-sweep` weekdays |
+| IPOs | calendar, details, subscriptions (live + final), listings, GMP (3×/day incl. weekends), SEBI filings, RHP extraction |
+| Calendars & indices | `calendar-refresh`, `market-calendar-sync` 06:35 daily · `ingest-index-closes` 19:20 |
+| Users | `evaluate-alerts` 17:15 · `portfolio-notices` 19:50 & 21:50 · `refresh-latest-quotes` every 30 min in session · `auth-maintenance` 03:30 daily |
+| Reference & backfills | `sync-instrument-metadata` 08:20 · `load-amfi-categories` Mon · `backfill-*` jobs (on demand, or once on start until done) |
 
 Notes:
-- A scheduled job that fails logs loudly and **does not** silently swallow the error in
-  a way that kills the process; connection failures retry with backoff.
-- Run a job once, now, for debugging:
-  `pnpm --filter @equitywise/worker dev -- --once <job-name>`
-  (e.g. `refresh-credential`, `ingest-daily`, `compute-indicators`, `ingest-retry`).
-- The **universe** the pipeline covers is defined in `config/indices.yaml`
-  (currently the NIFTY 50 constituents, plus headline index instruments
-  NIFTY 50 / BANK NIFTY / FIN NIFTY / INDIA VIX for the header tickers).
+- The stock-analysis universe is the **whole NSE EQ/BE/BZ list** from the bhavcopy,
+  split/bonus-adjusted via `corporate_actions`. `config/indices.yaml` defines the index
+  constituents and the headline index tickers.
+- A failing job logs loudly and never kills the process; connection failures retry
+  with backoff.
+- Run a job once, now: `pnpm --filter @equitywise/worker dev -- --once <job-name>`.
+  The `dev` script sets `WORKER_MINT_CREDENTIALS=false`, so a local worker never mints.
 
 ---
 
-## 9. Market-data provider boundary (Fyers)
+## 9. Market-data providers
 
-The app is **broker-independent**. All Fyers-specific detail — types, the `NSE:` /
-`-EQ` / `-INDEX` symbol formats, resolution codes, error classes, the rate limiter, and
-the circuit breaker — is confined to `packages/fyers` and `packages/providers-fyers`.
-Nothing in `apps/*`, `packages/core`, or any DTO may import `@equitywise/fyers` or name
-a Fyers symbol/resolution/field. Business logic consumes a normalised
+The app is **broker-independent**. All provider-specific detail — types, symbol
+formats, resolution codes, error classes, rate limiters, circuit breakers — is
+confined to `packages/fyers` + `packages/providers-fyers` and `packages/dhan` +
+`packages/providers-dhan`. Nothing in `apps/*`, `packages/core`, or any DTO may import
+a provider package or name a provider symbol/resolution/field; a boundary test in
+`packages/market-data/src/__tests__/` enforces it. Business logic consumes a normalised
 `MarketDataProvider` from `packages/market-data`.
 
-### The daily credential lifecycle
+`MARKET_DATA_PROVIDER=fyers|dhan|routed` selects the provider in both processes.
+`routed` is the intended production shape: daily bars, quotes, instruments and
+derivatives from Dhan; intraday bars, market status and the live socket from Fyers;
+each falling back to the other on auth/rate-limit/upstream failures. Per-capability
+overrides are the `MARKET_DATA_ROUTE_*` variables in `.env.example`. Public NSE, BSE,
+SEBI, AMFI and InvestorGain files are read by the worker's `sources/` modules.
 
-Fyers tokens **expire every morning (~07:00 IST)** and Fyers permits **one active
-session per account**. This is the part most likely to break.
+### The credential lifecycle
 
-- The **worker** holds the login factors (`FYERS_ID` + `FYERS_TOTP_SECRET` +
-  `FYERS_PIN`, plus `FYERS_APP_ID` / `FYERS_SECRET_KEY`), mints a token at 07:05 IST and
-  at startup, and writes it to `provider_credentials`. The **web app only reads** that
-  row and never mints anything. This split is the security boundary: what reaches the
-  deployed web app is a read-only, same-day-expiring quote token — a deploy compromise
-  costs a day of quote access, not the brokerage account.
-- **Single-session gotcha:** any *other* Fyers login with the same account (e.g. the
-  trading app, or a stray `pnpm fyers:login`) **invalidates the worker's token early.**
-- **Self-heal:** when a data pull fails because the token was rejected, the worker
-  expires the stored credential so the next run re-mints — at most once per ~10 min, so
-  a genuine upstream outage can't cause a login storm.
-- **Rate limit / circuit breaker:** a token-bucket limiter throttles outgoing calls; a
-  Fyers `429` trips a circuit that blocks upstream for the ban duration. A sustained
-  flood of failed calls can escalate to a multi-minute / ~1-hour Fyers account ban —
-  **wait it out; retrying extends it.**
-- **Force a fresh token now** (no restart needed — worker re-mints next cycle):
+- The **worker** holds the login factors (`FYERS_ID`, `FYERS_TOTP_SECRET`, `FYERS_PIN`;
+  `DHAN_CLIENT_ID`, `DHAN_PIN`, `DHAN_TOTP_SECRET`), mints tokens and writes them to
+  `provider_credentials`. The **web app only reads** that table. What reaches the web
+  app is a read-only, short-lived market-data token — a deploy compromise costs a day
+  of quote access, not the brokerage account.
+- **Fyers** tokens expire at 07:00 IST; `refresh-credential` mints at 07:05 and at
+  startup. **Dhan** tokens last 24 hours from mint; `credential-rollover` renews at
+  01:35 so the gap falls in the middle of the night.
+- **Single-session gotcha:** Fyers allows one session per account, so any other login
+  (the trading app, a stray `pnpm fyers:login`) kills the worker's token early.
+- **Self-heal:** `probe-credentials` makes one authenticated call per provider every
+  5 minutes in session; a rejected token is re-minted, at most once per 10 minutes, so
+  a genuine outage cannot cause a login storm.
+- **Rate limits:** a token-bucket limiter throttles outgoing calls; a `429` trips a
+  circuit that blocks upstream for the ban duration. Retrying a ban extends it.
+- **Force a fresh token now** (the worker re-mints on its next cycle):
   `UPDATE provider_credentials SET expires_at = now() - interval '1 minute' WHERE provider_id='fyers';`
-- **Practical rule of thumb:** "no signals / no data in the morning" is almost always
-  the expired or invalidated credential, not a bug in the engine.
+  (or `'dhan'`).
+- "No data in the morning" is almost always an expired or invalidated credential.
 
 ---
 
 ## 10. Authentication & multi-user (as-built)
 
-> The design doc `docs/architecture/auth-system-design.md` recommends **Better Auth**
-> and is **superseded** — it does *not* describe what was built. The real system is a
-> **bespoke, first-party** implementation. (Clerk, used earlier, was removed on
-> 2026-09-05; there is no third-party auth vendor now.)
+A **first-party** implementation; all data in the app's own Postgres. Clerk was removed
+on 2026-09-05. (`docs/architecture/auth-system-design.md` recommends Better Auth and is
+marked superseded; the as-built plan is `docs/planning/authentication-plan.md`.)
 
-- **Bespoke email + password auth**, all data in the app's own Postgres. No external
-  auth vendor.
-- **Password hashing:** Argon2id (`@node-rs/argon2`, OWASP baseline m ≈ 19 MiB, t = 2,
-  p = 1), with transparent rehash-on-login when params change.
-- **Sessions:** server-side, database-backed, **revocable**. The cookie holds an opaque
-  random token; the DB stores it hashed. Cookie is `HttpOnly`, `Secure`, `SameSite=Lax`,
-  `__Host-`-prefixed.
-- **Route gate:** `apps/web/src/middleware.ts` runs on the Edge runtime and only checks
-  for the presence of the session cookie (no DB/crypto there). The authoritative,
-  revocable check is `getSessionUser()` in the Node runtime, called by protected pages
-  and API routes. **Closed by default**; unauthenticated `/api/*` returns
-  `401 {code:"UNAUTHENTICATED"}`, unauthenticated pages redirect to `/login`.
-- **Public paths only:** `/` and the marketing/legal pages, the `(auth)` pages, and
-  `/api/auth/*` + `/api/search` + `robots.txt` / `sitemap.xml`.
-- **Implemented account features:** signup (with Terms acceptance), login with
-  **lockout / rate-limit** and no user-enumeration, logout, **email verification**
-  (optional — never blocks login), **password reset** by email, **TOTP 2FA** (`auth_mfa`),
-  active-session listing/revocation, email change (with confirmation), avatar upload,
-  profile editing, and a security **audit log** (`auth_audit`).
-- **Roles:** minimal `user` vs `admin` (`role` column, never set from client input).
-  Admins can list users and disable abusive accounts (`/api/admin/users`,
-  `/admin` page). No broader RBAC.
-- **Per-user data isolation:** watchlists (and their items/layouts/views) are scoped by
-  `owner_id`; every read/write authorises against the signed-in user.
-- Server auth code lives in `apps/web/src/server/auth/*`; the user-facing pages are the
-  `apps/web/src/app/(auth)/{login,signup,reset,verify}` route group.
+- **Sign-in methods:** email + password, and Google (`auth_identities`,
+  `AUTH_GOOGLE_ENABLED`; runbook `docs/operations/google-oauth.md`).
+- **Password hashing:** Argon2id (`@node-rs/argon2`, m = 19 MiB, t = 2, p = 1) with
+  rehash-on-login when parameters change. New passwords pass `validatePassword()`.
+- **Sessions:** server-side, database-backed, **revocable**. The cookie carries an
+  opaque random token signed with `AUTH_SESSION_SECRET`; the database stores only its
+  SHA-256 hash. `HttpOnly`, `SameSite=Lax`, and `__Host-session` (Secure) in production.
+  Idle timeout 7 days (rolling), absolute lifetime 30 days.
+- **Route gate:** `apps/web/src/middleware.ts` (Edge) refuses cross-site API
+  mutations (`403 CSRF_REJECTED`, against `AUTH_TRUSTED_ORIGINS`) and otherwise only
+  checks that the session cookie is present. The authoritative check runs in the Node runtime in every
+  protected page and API route. **Closed by default:** unauthenticated `/api/*` gets
+  `401`, unauthenticated pages redirect to `/login`.
+- **Public paths only:** `/`, the marketing/legal pages, the `(auth)` pages,
+  `/api/auth/*`, `/api/search`, the OG/Twitter images, `robots.txt` and `sitemap.xml`.
+- **Account features:** sign-up with Terms acceptance (`AUTH_ALLOW_SIGNUP`), login
+  with lockout / rate limit and no user enumeration, logout, optional email
+  verification, password reset by email, TOTP 2FA (secrets encrypted with
+  `AUTH_MFA_ENCRYPTION_KEY`), session listing and revocation, email change with
+  confirmation, linked identities, avatar upload, profile editing.
+- **Roles:** minimal `user` vs `admin`, never set from client input
+  (`pnpm tsx scripts/auth-set-role.ts` sets it from a shell). No broader RBAC.
+- **Per-user isolation:** every per-user table is scoped by `owner_id` in the
+  repository layer, and every route authorises against the signed-in user.
+- Server auth code: `apps/web/src/server/auth/*`. Pages:
+  `apps/web/src/app/(auth)/{login,signup,reset,verify}`.
 
 ---
 
 ## 11. Web app surface
 
-### Pages (`apps/web/src/app/*/page.tsx`)
-
-- **`/`** — public landing page (rewritten to centre on watchlists).
-- **`/watchlists`** — the one real product surface (see [§12](#12-the-watchlists-feature)).
-- **`(auth)`:** `/login`, `/signup`, `/reset`, `/verify`.
-- **Account:** `/profile`, `/account/verify-email`.
-- **Admin:** `/admin` (user administration; admin role only).
-- **Marketing / legal:** `/about`, `/contact`, `/methodology`, `/data-sources`,
-  `/disclaimer`, `/privacy`, `/terms`.
-
-### JSON API (`apps/web/src/app/api/*/route.ts`)
+Pages are listed in [§2](#2-current-scope). The JSON API lives under
+`apps/web/src/app/api/*/route.ts`:
 
 - **Auth:** `/api/auth/{sign-in,sign-up,sign-out,session,verify}`,
-  `/api/auth/reset/{request,confirm}`.
-- **Account:** `/api/account`, `/api/account/{password,email,email/confirm,verify,sessions}`.
-- **Profile:** `/api/profile`, `/api/profile/avatar`, `/api/avatars/[file]`.
-- **Watchlists:** `/api/watchlists`, `/api/watchlists/[id]`,
-  `/api/watchlists/[id]/{items,layout,views}`, `/api/watchlists/[id]/views/[viewId]`,
-  `/api/watchlists/default`, `/api/watchlists/reorder`.
-- **Market data (read):** `/api/search` (add names), `/api/history/[symbol]`.
-- **Fyers handshake:** `/api/fyers/connect` (+ `/callback` route) — the manual OAuth
+  `/api/auth/reset/{request,confirm}`, `/api/auth/google` (+ `/callback`),
+  `/api/auth/mfa/verify`.
+- **Account & profile:** `/api/account` and `/api/account/{password,email,
+  email/confirm,verify,sessions,mfa,identities}`, `/api/profile`,
+  `/api/profile/avatar`, `/api/avatars/[file]`.
+- **Watchlists:** `/api/watchlists` (+ `/default`, `/reorder`, `/templates`,
+  `/from-template`), `/api/watchlists/[id]` and its `items`, `layout`, `views`, `live`.
+- **Market data (read):** `/api/search` (+ `/resolve`), `/api/history/[symbol]`,
+  `/api/market/indices` (+ `/live`), `/api/market-brief/latest`,
+  `/api/market-calendar`, `/api/flows` (+ `/[symbol]`), `/api/announcements`
+  (+ `/[id]`), `/api/stocks/ratio-layout`.
+- **Screener:** `/api/screener/{run,counts,meta,screens}`, `/api/screener/screens/[id]`.
+- **IPOs:** `/api/ipos`, `/api/ipos/[slug]`, `/api/ipos/calendar`,
+  `/api/ipos/gmp-track-record`.
+- **Portfolio:** `/api/portfolio`, `/entries` (+ `/[id]`), `/import`,
+  `/statement-check`, `/realised`, `/tax` (+ `/lots`), `/notices` (+ `/count`,
+  `/read`, `/settings`), `/prefs/fifo-note`.
+- **Alerts:** `/api/alerts` (+ `/[id]`, `/acknowledge`).
+- **Admin:** `/api/admin/users` (+ `/[id]`), `/api/admin/logs`,
+  `/api/admin/ipos/health`.
+- **Fyers handshake (admin):** `/api/fyers/connect` → `/callback` — the manual OAuth
   path; normally unused because the worker self-refreshes.
-- **Admin:** `/api/admin/users`, `/api/admin/users/[id]`.
 
-API conventions (`docs`/skill `api-boundary`): Zod-validate at the boundary, delegate to
-the `apps/web/src/server/*` layer (routes stay thin), return the standard error shape,
-and rely on the middleware for auth.
-
----
-
-## 12. The watchlists feature
-
-The product's single surface today. A user builds one or more **watchlists** of NSE
-names; each list renders as a configurable table.
-
-- **Add names** via the header search (`/api/search`, backed by `config/indices.yaml`
-  and instruments).
-- **Columns** are driven by a column registry; the visible set, order, sort, and
-  filters are saved per-list in `watchlist_layouts` (an ordered array of column ids —
-  order and visibility are the same fact). **Saved views** live in `watchlist_views`.
-- Columns surface the **end-of-day data spine**: latest price/return columns, technical
-  **indicator** values, and **signal** state — all computed by the worker's daily pass
-  on closed candles, never recomputed in the browser.
-- Multiple lists per user, reorderable in the sidebar (`/api/watchlists/reorder`), with
-  exactly one **default** list per user.
-- Everything is **decision support**: a direction shows as a BUY/SELL badge with its
-  factor breakdown; there is no order affordance (see [§3](#3-the-products-hard-rules-do-not)).
+Route conventions (skill `api-boundary`): Zod-validate at the boundary, delegate to
+`apps/web/src/server/*` (routes stay thin), return the standard error shape, and rely
+on the middleware plus the server-side session check for auth.
 
 ---
 
-## 13. Core signal engine
+## 12. Core calculations
 
-`packages/core` is **pure** (invariant 1) and holds two things:
+`packages/core` is **pure** (invariant 1):
 
-- **Indicators** (`src/indicators/`, hand-written, each tested against independently
-  hand-computed fixtures): **RSI, moving averages (SMA/EMA), MACD, ATR, ADX, ROC,
-  VWAP**.
-- **Signals** (`src/signals/`): a **daily swing** signal engine (`swing.ts`,
-  `engine.ts`) driven by versioned config (`config.ts`). It runs on closed daily
-  candles and emits a signal plus the **factor breakdown** that produced its score
-  (persisted to `signal_factors`).
-
-The purity rule is what lets the same code run under a backtester and the live worker;
-even though the intraday/backtest surface was removed, the discipline remains.
+- `indicators/` — hand-written, each tested against independently hand-computed
+  fixtures: RSI, SMA/EMA, MACD, ATR, ADX, ROC, Bollinger Bands, Stochastic,
+  Supertrend, VWAP.
+- `screener/` — the metric catalogue (`catalogue.ts`, ~95 technical, delivery, F&O,
+  ownership and event metrics), filters, breadth, ratios, corporate-action adjustment,
+  dividends and "What stands out" key points.
+- `ipos/` — issue resolution across sources, timelines, issue size, GMP handling,
+  RHP section extraction.
+- `portfolio/` — derivation, returns, benchmark, risk, FIFO tax lots, CSV/statement
+  import, reconciliation, notices.
+- `alerts/` — alert rule evaluation on a completed session.
+- `flows.ts`, `exchange-calendar.ts`, `announcement-interpretation.ts`.
 
 ---
 
-## 14. Design system & UI
+## 13. Design system & UI
 
 - **Tailwind CSS v4**, tokens defined once in `apps/web/src/app/globals.css`. **Nothing
-  outside `globals.css` may name a raw colour, radius, or shadow** — components consume
-  semantic utilities (`bg-surface`, `text-bullish`, `rounded-lg`, `shadow-elevated`).
-  A raw `#hex`/`oklch()` in a component is a bug.
+  outside `globals.css` may name a raw colour, radius, or shadow** — components use
+  semantic utilities. A raw `#hex`/`oklch()` in a component is a bug
+  (`docs/design-system/tokens.md`).
 - **Theming is class-based:** a toggle writes `.dark` on `<html>` (`lib/theme.ts`); dark
-  is a *designed* palette, not an inversion. Both themes must be verified in the running
-  app for any visual change.
-- **Responsive is mandatory:** every screen must work at mobile and desktop widths.
-- **Storybook** is set up for component development (`docs/planning/storybook-plan.md`,
-  `docs/design-system/`).
-- Navigation is data-driven from `apps/web/src/lib/navigation.ts`; layout primitives
-  live in `apps/web/src/components/layout/` (`app-shell`, `sidebar`, `topbar`,
-  `public-header`, `public-footer`, `brand`).
+  is a designed palette, not an inversion. Verify both themes for any visual change.
+- **Responsive is mandatory:** every screen works at mobile and desktop widths.
+- **Loading states** follow `docs/design-system/loading-system.md`.
+- **Storybook 10** (`pnpm --filter @equitywise/web storybook`) holds component stories;
+  CI builds it.
+- Layout primitives live in `apps/web/src/components/layout/` (`app-shell`, `navbar`,
+  `nav-menu`, `mobile-nav`, `public-header`, `public-footer`, `brand`); shared
+  primitives in `components/ui/`.
 
 ---
 
-## 15. SEO
+## 14. SEO
 
-Public pages are built for search visibility (`docs/architecture/seo-architecture.md`):
-JSON-LD structured data (`lib/seo/schema.ts`), a generated `sitemap.ts` (static public
-pages only — the private app surface is excluded), and `robots.ts` (closed to `/api/`,
-`/watchlists`, `/profile`, `/admin`, and the auth pages). The private application
-surface is never advertised as crawlable.
+Public pages are built for search (`docs/architecture/seo-architecture.md`): JSON-LD
+structured data (`lib/seo/schema.ts`), a generated `sitemap.ts` (public pages only),
+OG/Twitter images, and `robots.ts`, which allows the marketing/legal pages and
+disallows `/api/`, `/admin`, the app surfaces (`/today`, `/watchlists`, `/flows`,
+`/announcements`, `/profile`…) and the auth pages. The private application is never
+advertised as crawlable.
 
 ---
 
-## 16. Deployment & operations
+## 15. Deployment & operations
 
 Full as-built reference: **`docs/operations/deployment.md`**. In short:
 
-- **One Hostinger VPS (Ubuntu 24.04)** runs everything: the Next.js web app, the worker,
-  and Postgres. Only **Nginx** (TLS, reverse-proxy `:443 → :3000`) is exposed; Postgres
-  listens on localhost only. Fyers is the only required external dependency.
+- **One Hostinger VPS (Ubuntu 24.04)** runs the web app, the worker and Postgres. Only
+  **Nginx** (TLS, `:443 → :3000`) is exposed; Postgres listens on localhost.
 - **Two PM2 processes:** `equitywise-web` (`next start -p 3000`) and
-  `equitywise-worker` (the croner scheduler). PM2 + systemd resurrect both on
-  crash/reboot.
-- **Deploys are automatic:** **merge to `main` → GitHub Actions → `deploy.sh` on the
-  VPS** (git reset → `pnpm install` → `db:migrate` → `pnpm build` → `pm2 restart all`).
-  A failed build leaves the previous version running. You never SSH in to deploy.
-- **Database:** self-hosted **PG 17 + TimescaleDB 2.29**, compression enabled
-  (candles ~90% smaller). Both `DATABASE_URL` and `DATABASE_URL_DIRECT` point at
-  `localhost:5432`; the pooled/direct split only mattered on the old Neon host.
-- **Backups:** nightly `pg_dump -Fc` (keep 14) + Hostinger weekly whole-VPS backups.
+  `equitywise-worker` (`node apps/worker/dist/index.js`). PM2 + systemd resurrect both.
+- **Deploys are automatic:** merge to `main` → GitHub Actions (`checks`, `db-tests`)
+  → `deploy` job runs `deploy.sh` over SSH (pull, install, migrate, build, restart) →
+  post-deploy smoke (`scripts/post-deploy-smoke.sh`). A failed build leaves the
+  previous version running.
+- **Database:** PG 17 + TimescaleDB 2.29, compression on. `DATABASE_URL` and
+  `DATABASE_URL_DIRECT` both point at `localhost:5432`.
+- **Backups:** nightly `pg_dump -Fc` at 02:30 plus Hostinger whole-VPS backups.
   TimescaleDB restores need the `timescaledb_pre_restore()` / `post_restore()` wrapper.
-- **Secrets:** repo-root `.env` (gitignored, `chmod 600`, root-owned on the VPS). The
-  web app needs only `DATABASE_URL` (+ `FYERS_APP_ID` for live quotes); all
-  minting/login factors are **worker-only**.
-- **One-minute health check:** `pm2 status` (both online), `systemctl is-active
-  postgresql nginx`, `df -h /`, and scan `pm2 logs equitywise-worker`.
+- **Secrets:** repo-root `.env` (gitignored, `chmod 600`, root-owned on the VPS). Login
+  factors are **worker-only**. Every variable is documented in `.env.example`.
+- **One-minute health check:** `pm2 status`, `systemctl is-active postgresql nginx`,
+  `df -h /`, and `pm2 logs equitywise-worker`.
+- Other runbooks: `docs/operations/ipo-pipeline.md`, `google-oauth.md`,
+  `security-incident-response.md`.
 
 ---
 
-## 17. Local development
+## 16. Local development
 
-- **Never run the full `pnpm dev` against production data.** It starts the worker, which
-  would write to the live DB *and* invalidate the live Fyers token (single-session).
-- **Safe web-only setup:** point the Mac's `.env` `DATABASE_URL` at `localhost:15432`, an
-  SSH tunnel to the VPS Postgres, then run only the web app:
-  ```bash
-  ssh -N -L 15432:localhost:5432 krishna@<vps>     # terminal 1, leave running
-  pnpm --filter @equitywise/web dev                # terminal 2 → localhost:3000
-  ```
-  This reads (and, for write features, mutates) the **live** database — take care.
-- **Never run `next build` while a `next dev`/`next start` is serving the same
-  directory** — it rewrites chunk hashes under the live process and 404s all CSS/JS.
-  Stop the server first, `pnpm clean`, then build.
-- **Fast checks that need no DB/Fyers:** `pnpm typecheck`, `pnpm lint`, `pnpm test` —
-  prefer these to verify most changes.
+- **Never point a local worker at production.** It writes to the live database, and a
+  mint kills the live Fyers token. `pnpm --filter @equitywise/worker dev` sets
+  `WORKER_MINT_CREDENTIALS=false`; `pnpm dev` starts the worker too.
+- **Web-only against the VPS database:** an SSH tunnel to the VPS Postgres, then
+  `pnpm dev:web` (details in `docs/operations/deployment.md`). It reads, and for write
+  features mutates, **live** data.
+- **Local databases:** `pnpm test:db:up` starts a disposable TimescaleDB on port 5433;
+  `.claude/launch.json` has web configurations pointed at local databases.
+- **Never run `next build` while `next dev`/`next start` serves the same directory** —
+  stop the server, `pnpm clean`, then build.
+- **Fast checks that need no DB or provider:** `pnpm typecheck`, `pnpm lint`,
+  `pnpm test`.
 
 ### Key scripts (root `package.json`)
 
 | Command | Does |
 | --- | --- |
-| `pnpm dev` | every package in watch mode + `next dev` (⚠ starts the worker) |
-| `pnpm dev:web` | web app only |
+| `pnpm dev` / `dev:web` | everything in watch mode / the web app only |
 | `pnpm build` | topological build across the workspace |
 | `pnpm test` / `test:coverage` | Vitest (+ v8 coverage) |
+| `pnpm test:integration` | DB suites against a throwaway TimescaleDB container |
+| `pnpm test:e2e` | Playwright release smoke |
 | `pnpm lint` / `lint:fix` | Biome check / write |
 | `pnpm typecheck` | `tsc --noEmit` per package |
 | `pnpm db:generate` / `db:migrate` / `db:studio` | drizzle-kit |
-| `pnpm fyers:login` | manual token mint into `.env` (fallback path) |
-| `pnpm verify:adjustment` | check whether the provider back-adjusts split history |
-| `pnpm data:coverage` | data-coverage report |
+| `pnpm fyers:login` | manual Fyers token mint into `.env` (fallback) |
+| `pnpm dhan:probe` | read-only Dhan API checks |
+| `pnpm verify:adjustment` | does the provider back-adjust split history? |
+| `pnpm data:coverage` | stored candle history and recent ingestion runs |
 
 ---
 
-## 18. Conventions & testing
+## 17. Conventions & testing
 
-- TypeScript `strict: true`, `noUncheckedIndexedAccess: true`, `exactOptionalPropertyTypes`.
-- **Zod schemas at every boundary**, especially when parsing Fyers responses.
+- TypeScript `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`.
+- **Zod schemas at every boundary**, especially provider responses.
 - **No `any`; no non-null assertions except in tests.**
-- Every indicator is tested against **independently hand-computed fixtures** (Vitest).
+- Every indicator is tested against **independently hand-computed fixtures**.
 - Config in `config/*.yaml`; secrets in `.env` (gitignored).
-- The DB schema suite runs against a **throwaway Neon branch** (it skips cleanly if
-  `NEON_API_KEY` is unset), because it migrates from empty and discards.
+- **DB integration suites** run against a local, disposable Postgres 17 + TimescaleDB
+  (`docker-compose.test.yml`, `pnpm test:integration`). `test/db.ts` refuses any URL
+  that is not local or whose database name does not end in `_test`. Unset locally they
+  skip; unset in CI they fail.
+- **CI** (`.github/workflows/ci.yml`): lint, typecheck, production build, Storybook
+  build, Playwright release smoke, then the DB suites; deploy runs only on `main`.
 
 ---
 
-## 19. Caveats — stale docs
+## 18. Caveats — older docs
 
-The `docs/` tree accreted over several product phases and some of it describes the older,
-larger product or superseded decisions. **When in doubt, trust the code and this file.**
-Known stale points to be aware of:
+The `docs/` tree accreted over several product phases. **When in doubt, trust the code
+and `CLAUDE.md`.**
 
-- **`README.md` (root):** still mentions **Clerk**, the **`/signals` intraday engine**,
-  **paper trades**, and **Neon as the primary DB** — all removed/superseded. Its Fyers
-  refresh time (08:30) is also out of date; the code schedules **07:05**.
-- **`docs/architecture/auth-system-design.md`:** marked **SUPERSEDED**; recommends
-  **Better Auth**, which was **not** built. The real auth is bespoke (see [§10](#10-authentication--multi-user-as-built)).
-- **`docs/operations/deployment.md`:** authoritative for infrastructure, but still names
-  **Clerk** as external auth and references an **`intraday-signals.ts`** worker job — both
-  gone. Its server/deploy/backup facts remain accurate.
-- **`docs/architecture/backtesting-architecture.md`** and much of `docs/planning/*`
-  (stock-research-platform, signals-page, market-data-scaling, upstox-provider, etc.)
-  describe **intended or removed** functionality, not the running system.
-- `CLAUDE.md` / `AGENTS.md` are the most current product-rule references, though their
-  "Stack" line still says "Neon" (now a fallback only) and their framing occasionally
-  still reads single-user in places the code has already made multi-user.
+- `docs/planning/*` carries a frontmatter `status:`. Plans marked `removed` or
+  `superseded` (intraday strategy, paper trading, signals pages, Storybook 8, Upstox)
+  describe code that no longer exists or was never built.
+- `docs/architecture/backtesting-architecture.md` is a proposal that was never
+  implemented; backtesting trade strategies is now outside the product.
+- `docs/architecture/auth-system-design.md` is superseded (see [§10](#10-authentication--multi-user-as-built)).
+- `docs/journal/` and `issues/` are a working log and board; some cards predate the
+  2026-10-17 removal.
 
 ---
 
-## 20. Where things live (quick map)
+## 19. Where things live (quick map)
 
 | You want… | Look in |
 | --- | --- |
-| Product rules & invariants | `CLAUDE.md`, `AGENTS.md` |
-| Pure indicators / signals | `packages/core/src/{indicators,signals}` |
-| DB schema & migrations | `packages/db/src/schema`, `packages/db/src/repositories` |
-| Fyers client / rate-limit / breaker | `packages/fyers` |
-| Provider adapter (only Fyers↔ours seam) | `packages/providers-fyers`, `packages/market-data` |
-| Scheduler & jobs | `apps/worker/src/index.ts`, `apps/worker/src/jobs/*` |
+| Product rules & invariants | `CLAUDE.md` |
+| Status of every feature | `docs/planning/pending-features.md` |
+| Pure calculations | `packages/core/src/{indicators,screener,ipos,portfolio,alerts}` |
+| DB schema, migrations, queries | `packages/db/src/schema`, `packages/db/drizzle`, `packages/db/src/repositories` |
+| Provider clients | `packages/fyers`, `packages/dhan` |
+| Provider seam | `packages/providers-fyers`, `packages/providers-dhan`, `packages/market-data` |
+| Scheduler & jobs | `apps/worker/src/index.ts`, `apps/worker/src/jobs/*`, `apps/worker/src/sources/*` |
 | Web pages & API | `apps/web/src/app/**` |
-| Server logic (auth, watchlists, search) | `apps/web/src/server/**` |
+| Server logic (auth, watchlists, screener…) | `apps/web/src/server/**` |
+| Navigation | `apps/web/src/lib/navigation.ts` |
 | Design tokens / theming | `apps/web/src/app/globals.css`, `docs/design-system/` |
-| Universe (NIFTY 50) | `config/indices.yaml` |
+| Universe & index constituents | NSE bhavcopy (worker), `config/indices.yaml` |
 | Deploy / ops / credential lifecycle | `docs/operations/deployment.md` |
-| Fyers credential mint job | `apps/worker/src/jobs/refresh-credential.ts` |
+| Credential jobs | `apps/worker/src/jobs/refresh-credential.ts`, `credential-self-heal.ts` |

@@ -1,3 +1,0 @@
-interface:
-  display_name: "Provider Boundary"
-  short_description: "Keep Fyers types behind the adapter and the product broker-independent"
