@@ -38,7 +38,6 @@ Unknown result counts, conditional warning banners, user-selected columns and em
 | `SkeletonRows`, `CardSkeleton`, `ChartSkeleton`, `TableSkeleton` | Announced standalone wrappers; existing `states.tsx` exports remain compatible |
 | `layout/page-skeletons.tsx` | Named route compositions built from visual primitives |
 | `ipos/ipo-loading-patterns.tsx` | IPO overview, list, section and issue compositions |
-| `intraday/intraday-skeleton.tsx`, `paper/paper-skeleton.tsx` | Shared route and client-initial-load compositions |
 | `auth/auth-loading.tsx` | Existing auth shell with non-interactive form placeholders |
 
 Compositions use visual-only primitives inside one `LoadingRegion`. Standalone wrappers own their region; do not wrap them in another loading region. No client hook or timer is required to render a skeleton. The existing client shell still owns session/index reads. API handlers, authentication rules, database operations and financial calculations are unchanged.
@@ -62,8 +61,6 @@ Compositions use visual-only primitives inside one `LoadingRegion`. Standalone w
 | `/portfolio/notices` | `NoticesLoading`: real portfolio navigation, controls and activity rows |
 | `/alerts` | `AlertsLoading`: creation-form structure, rule rows and recent activity |
 | `/profile` | `ProfileLoading`: identity, tabs, avatar card and details/preferences form |
-| `/intraday` | `IntradaySkeleton` at both route and client boundaries; overview/rules/signals structure |
-| `/paper-trading` | `PaperSkeleton` at both boundaries; controls, balances and study table |
 | `/admin` | `AdminLoading`: usage metrics, controls and account rows |
 | `/admin/logs` | `LogsLoading`: filters and event table |
 | `/admin/ipos` | `IpoHealthLoading`: feed health metrics and diagnostic tables |

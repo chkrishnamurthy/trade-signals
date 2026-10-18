@@ -698,6 +698,7 @@ async function main(): Promise<void> {
           'calendar-refresh',
           'market-calendar-sync',
           'refresh-latest-quotes',
+          'probe-credentials',
         ],
       });
       process.exitCode = 1;
