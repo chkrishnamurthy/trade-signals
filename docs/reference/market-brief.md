@@ -11,7 +11,8 @@ The old `/markets/breadth` URL is retained only as an authenticated compatibilit
 3. **Participation over time** — one-year percentage above the 200-day EMA and 60-session 52-week highs versus lows.
 4. **Industry leadership and weakness** — leading and weakening industries over 1D, 1W, 1M, or 3M, plus the complete table on demand.
 5. **Stocks worth a closer look** — non-empty tabs for unusual volume, delivery spikes, 52-week highs, 52-week lows, and long build-up. These are measured conditions, not recommendations.
-6. **Strategy research** — admin-only daily signal research with persisted factor explanations. It is absent, rather than zero-filled, for regular users.
+
+(The admin-only **Strategy research** section was removed on 2026-10-17 with the signal engine; see `docs/planning/signals-and-paper-removal-plan.md`.)
 
 This order answers “what is happening?” before asking the user to inspect individual names. Dense supporting detail is lower on the page or behind an explicit disclosure.
 
@@ -30,17 +31,16 @@ Market Brief is a primary navigation destination. Market Breadth is not listed s
 
 ## Data and freshness
 
-`apps/web/src/server/market-brief.ts` composes the response after authenticating the current user. It reads persisted end-of-day indicators, signals, signal factors, watchlist membership, index data, and the breadth snapshot. `apps/web/src/server/market-breadth.ts` reads the market-wide history, industry aggregates, activity counts, and leaders.
+`apps/web/src/server/market-brief.ts` composes the response after authenticating the current user. It reads persisted end-of-day indicators, watchlist membership, index data, and the breadth snapshot. `apps/web/src/server/market-breadth.ts` reads the market-wide history, industry aggregates, activity counts, and leaders.
 
-The request path does not call a market-data provider and does not recompute indicators or signals. Prices remain integer paise. The page describes a completed trading session and displays its session date, snapshot build time, and Complete/Stale/Unavailable state.
+The request path does not call a market-data provider and does not recompute indicators. Prices remain integer paise. The page describes a completed trading session and displays its session date, snapshot build time, and Complete/Stale/Unavailable state.
 
 `buildBreadthMarketRead()` is role-independent. It uses advances versus declines, percentages above the 20-, 50-, and 200-day EMAs, and the balance of new highs versus lows. It emits one of `bullish`, `bearish`, `mixed`, `transitional`, or `insufficient_data` plus a sentence naming the evidence. It does not expose a confidence score.
 
 ## Privacy and roles
 
 - Watchlist reads are scoped to the authenticated owner in the repository layer.
-- Regular users receive `signalsIncluded: false`; no strategy-derived counts or rows are shown.
-- Admins receive the same market-wide classification plus the Strategy research section. Role never changes the market condition.
+- Every user, admin or not, receives the same brief. Role never changes the market condition.
 - Stock activity uses technical language and links to research pages or pre-filled screener results. It does not place or imply an order.
 
 ## Main code paths

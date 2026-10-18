@@ -23,6 +23,14 @@
 > them; both are **in scope for the phone** (S11, S12). The `/api/signals*` and
 > `/api/paper-trades` routes were removed; the new intraday and paper-trading
 > surfaces are admin-only and **deferred for mobile** (S13).
+>
+> **Superseded 2026-10-17: signals and paper trading are removed from the product.**
+> The daily signal engine, the intraday strategy, paper trading and their tables,
+> routes, packages and config are gone (`docs/planning/signals-and-paper-removal-plan.md`).
+> The repo inventory below (§2) still lists them as they were on the audit date; read
+> it as history. S8 and S13 are closed as **never** — the phone shows no signal,
+> setup, score or BUY/SELL label, and push notifications are about facts (a filing,
+> an alert the user set), never a signal.
 
 ---
 
@@ -105,8 +113,8 @@ deploy = merge to `main` → Actions → forced-command SSH → `deploy.sh` → 
 | Watchlists | `/watchlists` | `GET/POST /api/watchlists`; `GET/PATCH/DELETE /:id`; `/:id/items` (POST/PUT/DELETE); `/:id/layout`; `/:id/views`, `/:id/views/:viewId`; `/default`; `/reorder`; `/templates`; `/from-template`; `/:id/live` (SSE) | Available |
 | Search | header | `GET /api/search?q=` (public); `POST /api/search/resolve` | Available |
 | Charts / history | stock drawer | `GET /api/history/:symbol?tf=1D\|5D\|1M\|3M\|6M\|1Y\|5Y` (paise OHLCV) | Available |
-| Signals | `/signals` | none — `/api/signals*` and `/api/paper-trades` were removed (`5a93607`, `cc49956`) | **Deferred for mobile (S8)** |
-| Intraday strategy, paper trading | `/intraday`, `/paper-trading` | `/api/intraday/*`, `/api/paper/*` | Admin-only (403 for users). **Deferred for mobile (S13)** — the app never calls them |
+| Signals | `/signals` | none — `/api/signals*` and `/api/paper-trades` were removed (`5a93607`, `cc49956`) | **Removed from the product (2026-10-17)** |
+| Intraday strategy, paper trading | `/intraday`, `/paper-trading` | `/api/intraday/*`, `/api/paper/*` | **Removed from the product (2026-10-17)** — pages and routes no longer exist |
 | Index strip | header | `GET /api/market/indices`, `/live` | Available |
 | Market Brief | `/today` | `GET /api/market-brief/latest` | Available |
 | Announcements | `/announcements` | `GET /api/announcements` (filters, paging); `GET/PATCH /:id` | Available |
@@ -249,7 +257,7 @@ in Next.js) · **New** (mobile-specific) · **Backend** (server change required)
 | Layer | Examples | Shared? | How a change reaches phones |
 | --- | --- | --- | --- |
 | Tokens (values) | bullish green, surface planes, spacing/type scales, radii, four-slot convention | Yes | Edit once in `packages/design-tokens`; web on next deploy, app on next release. JavaScript-only, so shippable over the air (EAS Update) without a Play review. |
-| Copy & rules | "Bullish setup", "Invalidation level", disclaimer, error/remedy text | Yes | Same, via `shared` / `api-contracts`. |
+| Copy & rules | Disclaimer, error/remedy text (no signal or setup copy — removed 2026-10-17) | Yes | Same, via `shared` / `api-contracts`. |
 | Components & layout | watchlist table, filter panel, stock drawer, `chart.tsx` | No | Rebuilt natively: table → card list, drawer → screen, popover → bottom sheet. Deliberate — the desktop layout shrunk to a phone is what we are not building. |
 
 The mobile design system (Phase 2 spec, Phases 3–5 build) mirrors the web one: same
@@ -326,7 +334,7 @@ stays.
 | Market data only via the backend | No provider dependency, no credential; single outbound host; Android network-security config enforces HTTPS. |
 | Worker is the writer | Push sending is a worker job reading a `push_devices` table the web API writes; the phone only registers/unregisters. |
 | UTC internally, IST for display | Wire instants stay UTC; `shared/time.ts` renders IST regardless of the device timezone. |
-| BUY / SELL is direction only | Same badge vocabulary; score renders with its breakdown or not at all; disclaimer is a first-run gate. |
+| No signals, setups or BUY / SELL (2026-10-17) | No such label anywhere in the app; any score renders with its breakdown or not at all; disclaimer is a first-run gate. |
 | No order affordance | Nothing can act on a price; Play's financial-features questionnaire answered "no trading, no brokerage". |
 
 ### Two monorepo facts that shape Phase 3
@@ -492,7 +500,7 @@ Same server logic, one change to the challenge binding:
 | G4 | **App Links** — serve `/.well-known/assetlinks.json` with the Play signing certificate SHA-256. | Nginx or `apps/web/public` | Phase 4 | Small |
 | G5 | **Live quotes over SSE** — RN's fetch cannot stream. (a) poll `GET /api/watchlists/:id` honouring `refreshAfterSeconds` — already supported; (b) `expo/fetch` streaming (SDK 52+) with an SSE parser. Do (a) first, (b) in Phase 6. | none for (a) | Phase 5.1 | None / Medium |
 | G6 | **Stock detail route** `GET /api/stocks/:symbol` exposing `server/stock-detail.ts` (paise, indicators, 52-week, corporate actions, peers). | new route | Phase 5.3 | Small |
-| G7 | **Push notifications** — `push_devices` table (user, Expo push token, platform, consent, updated_at); `POST/DELETE /api/push/devices`; worker job sending via Expo's push service (fronts FCM) on signal publish / key filing for a watched name; preferences in `user_profiles.preferences`. Needs a free Firebase project (S6). | db, web routes, worker | Phase 5.7 | Large |
+| G7 | **Push notifications** — `push_devices` table (user, Expo push token, platform, consent, updated_at); `POST/DELETE /api/push/devices`; worker job sending via Expo's push service (fronts FCM) on a key filing for a watched name or an alert the user set; preferences in `user_profiles.preferences`. Needs a free Firebase project (S6). | db, web routes, worker | Phase 5.7 | Large |
 | G8 | **App config / version gate** `GET /api/app-config` (public, cached): `minSupportedVersion`, `latestVersion`, `forceUpdate`, maintenance banner, feature flags. | new route, `config/app.yaml` | Phase 3 | Small |
 | G9 | **Client identification** — log `X-EquityWise-Client: android/1.2.0 (build 34)` per request; add to `auth_audit` detail. | `server/auth/request.ts`, logging | Phase 3 | Small |
 | G10 | **Avatar upload from a phone** — verify multipart with RN `FormData` + `expo-image-picker`. | verify only | Phase 5.6 | Small |
@@ -552,7 +560,7 @@ always a separate explicit command.
 | R4 | Provider single-session token — a morning outage looks like an app bug | Medium | Medium | Render `quotesStale` and provider errors honestly with the existing `remedy` text; never retry into a rate-limit ban. |
 | R5 | Scope creep from the web feature set | High | Medium | Phase 5 is one vertical at a time; v1.0 = watchlists, search, stock detail/charts, profile (S7). |
 | R6 | Live SSE parity expectations | Medium | Low | Polling on `refreshAfterSeconds` gives ~3 s updates in market hours; SSE later. |
-| R7 | Push notifications read as trading tips | Low | High — legal/policy | Technical, factual copy ("RELIANCE: BUY setup published, score 84"); opt-in per category; disclaimer accepted before enabling; Play financial declaration accurate. |
+| R7 | Push notifications read as trading tips | Low | High — legal/policy | Factual copy about the data only ("RELIANCE: new board-meeting filing"; never a signal, setup or score); opt-in per category; disclaimer accepted before enabling; Play financial declaration accurate. |
 | R8 | Legal copy diverges across website, app and Play Data Safety | Medium | Medium | Single versioned source; the app records the version accepted. |
 | R9 | Pre-existing Biome errors make lint gating awkward | High | Low | CI lint gate scoped to `apps/mobile` and the new packages. |
 | R11 | Google sign-in fails in release builds because the Play App Signing SHA-1 is not registered on the Android OAuth client (works in dev/preview, breaks for testers) | High | High — Google users cannot sign in | Register the EAS keystore SHA-1 in Phase 4 and the Play App Signing SHA-1 immediately after the first closed-test upload; closed-test checklist includes a Google sign-in on a Play-installed build. |
@@ -574,7 +582,7 @@ always a separate explicit command.
 | S5 | Build pipeline | EAS cloud builds; **every change verified on the phone before any push** | One dev client from EAS; changes stream over USB. Store submission is a separate explicit step. |
 | S6 | Push needs Firebase | Accepted | Free Firebase project for FCM; the worker sends via Expo's push service (G7, later phase). |
 | S7 | v1.0 scope | Watchlists · search · stock detail & charts · profile | Announcements, flows, push in v1.1+. |
-| S8 | Signals in the app | **Hidden for now** | No Signals tab, no paper journal in v1.0. (The old `/api/signals*` routes have since been removed; see S13.) Contracts stay shared for later. |
+| S8 | Signals in the app | **Never** (2026-10-17) | No Signals tab, no paper journal. Signals were removed from the product with their contracts; bringing them back is a product decision (SEBI RA), not a mobile task. |
 | S9 | iOS | Later | Nothing iOS-specific built or documented; nothing chosen blocks it. |
 | S10 | Biometric unlock | Optional, **off by default** | Settings toggle; a local gate over the Keystore token. |
 
@@ -584,7 +592,7 @@ always a separate explicit command.
 | --- | --- | --- | --- |
 | S11 | Google sign-in on the phone | **Yes, v1.0** | Native Credential Manager → server-verified ID token (§7.2, G13). Custom Tab + PKCE is the fallback, not the default. |
 | S12 | Session table for mobile; 2FA on the phone | **Recommended shape; 2FA in v1.0** | Add only `client` + `device_name`; reuse the provenance columns; rotation copies provenance and respects `securityVersion` (§7.1, G2, G3). 2FA challenge supported on the phone; enrolment/disable stays on the website for v1.0 (§7.3, G14). |
-| S13 | Signals, intraday, paper trading on the phone | **Later** | Not in v1.0. The app never calls `/api/intraday/*` or `/api/paper/*` (admin-only today); revisited as its own decision. |
+| S13 | Signals, intraday, paper trading on the phone | **Never** (2026-10-17) | Removed from the product; `/api/intraday/*` and `/api/paper/*` no longer exist. |
 
 ### Still open — awaiting explicit approval
 
@@ -672,7 +680,7 @@ paper trading in any form (S8, S13); 2FA enrolment in the app; the Play store li
   `packages/design-tokens`.
 - Screen inventory and navigation map (auth stack · tabs Home / Watchlists / Market /
   Profile · stacks for stock detail and, later, announcements and flows · modals for
-  search, add-to-list, disclaimer). Signals designed but hidden (S8).
+  search, add-to-list, disclaimer). No signals (S8).
 - Mobile design-system spec: tokens → theme mapping, component inventory (buttons,
   fields, cards, chips, price-movement cell, chart, skeletons, empty/error states),
   touch-target and contrast rules, Indian-market conventions (₹, lakh/crore, IST,

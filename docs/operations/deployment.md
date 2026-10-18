@@ -147,12 +147,15 @@ per account**. The worker owns this:
 - **Single-session gotcha**: any *other* Fyers login with the same account (e.g.
   logging into the Fyers app to place a manual trade) **invalidates the worker's
   token early**, before its recorded expiry.
-- **Self-heal** (`apps/worker/src/jobs/credential-self-heal.ts`, wired into the
-  in-session `refresh-latest-quotes` job): when the provider rejects the token, the
-  worker expires the stored credential and **re-mints immediately** — automatically,
-  at most once per 10 min per provider (so a genuine upstream outage can't cause a
-  login storm). It needs at least one watched stock, since that job only calls the
-  provider for watched names.
+- **Self-heal** (`apps/worker/src/jobs/credential-self-heal.ts`): when a provider
+  rejects the token, the worker expires the stored credential and **re-mints
+  immediately** — automatically, at most once per 10 min per provider (so a genuine
+  upstream outage can't cause a login storm). Two in-session jobs feed it: the
+  `probe-credentials` job (every 5 min, one market-status call per provider — an
+  authenticated request on Fyers, so a dead Fyers token is caught within ~5 min even
+  in `routed` mode where quotes go to Dhan), and `refresh-latest-quotes` (Dhan has
+  no status endpoint, so its token is proven by the quote calls, which need at least
+  one watched stock).
 - **Rate-limit / circuit breaker** (`packages/fyers`): a token-bucket limiter
   self-throttles outgoing calls; on a Fyers `429` a circuit trips and blocks
   upstream for the ban duration (`Blocked upstream for another Ns`). A sustained

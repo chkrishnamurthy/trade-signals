@@ -376,6 +376,10 @@ describe('filter chips', () => {
     expect(chip?.label).toBe('LTP ≥ ₹2,500');
   });
 
+  it('omits a range saved on a retired column', () => {
+    expect(activeFilterChips({ ranges: { signalStrength: { min: 60, max: null } } })).toEqual([]);
+  });
+
   it('omits a range with neither bound set', () => {
     expect(activeFilterChips({ ranges: { ltp: { min: null, max: null } } })).toEqual([]);
   });

@@ -6,7 +6,7 @@ import { loadAmfiCategories } from './jobs/amfi-categories.js';
 import { authMaintenance } from './jobs/auth-maintenance.js';
 import { calendarRefresh, isTradingSession, sessionToday } from './jobs/calendar-refresh.js';
 import { computeIndicators } from './jobs/compute-indicators.js';
-import { createCredentialSelfHeal } from './jobs/credential-self-heal.js';
+import { createCredentialSelfHeal, probeProviderCredentials } from './jobs/credential-self-heal.js';
 import { crossCheckProviders } from './jobs/cross-check-bars.js';
 import { evaluateAlerts } from './jobs/evaluate-alerts.js';
 import { extractIpoRhp } from './jobs/extract-ipo-rhp.js';
@@ -187,6 +187,8 @@ const SCHEDULES = {
   marketCalendarSync: '35 6 * * *',
   /** Worker-backed cache for polled watchlist quote reads. */
   latestQuotes: '*/30 9-15 * * 1-6',
+  /** One authenticated call per provider, so a token killed mid-session is re-minted. */
+  credentialProbe: '*/5 9-15 * * 1-6',
   /** NSE posts the day's index closing file in the evening; the last week is re-read. */
   ingestIndexCloses: '20 19 * * 1-5',
   /** After each stock-analysis pass stores the day's closes; once-only, so twice is safe. */
@@ -248,6 +250,13 @@ function buildScheduler(context: WorkerContext): Jobs {
             throw error;
           }
         }),
+      },
+      {
+        name: 'probe-credentials',
+        schedule: SCHEDULES.credentialProbe,
+        run: gated('probe-credentials', () =>
+          probeProviderCredentials(context, healCredential, log.child('probe-credentials')),
+        ),
       },
       {
         name: 'refresh-credential',

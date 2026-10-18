@@ -2,7 +2,7 @@
 #
 # Versioned config, not a database table (CLAUDE.md: config is YAML, no admin
 # CRUD). Zod-validated when the worker starts: an invalid file fails the boot,
-# like intraday-orb.yaml. Turning a source off is `enabled: false` and a worker
+# like the other config/*.yaml files. Turning a source off is `enabled: false` and a worker
 # restart — the IPO jobs then skip it as a logged no-op.
 #
 # kind:
