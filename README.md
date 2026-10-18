@@ -13,12 +13,12 @@ apps/
   worker/         Node entrypoint; scheduler and jobs live here
 packages/
   shared/         paise + IST/market-time helpers — everything depends on this
-  core/           pure engines: daily signals + intraday trade signals
+  core/           pure engines: indicators, screener metrics, exchange calendar
   market-data/    the provider-neutral boundary everything above depends on
   db/             Drizzle schema, client, migrations
   fyers/          Fyers API v3 client
   providers-fyers/ the adapter — the only place Fyers types and ours co-exist
-config/           versioned YAML: index constituents, intraday strategy config
+config/           versioned YAML: index constituents, exchange calendar, data sources
 docs/             what is built, what is not — see pending-features.md
 ```
 
@@ -26,30 +26,18 @@ docs/             what is built, what is not — see pending-features.md
 which parts of the system are finished, which are built but unwired, and which
 are declared in the sidebar without an implementation behind them.
 
-## Intraday strategy and paper trading (admin-only)
+## No signals, no paper trading
 
-`/intraday` shows one rule-based intraday strategy (opening-range breakout with
-VWAP and volume confirmation) on the NIFTY 50 and its signals for the day;
-`/paper-trading` simulates those signals automatically on a ₹2,00,000 virtual
-portfolio per account — no real orders, ever. **Both pages and their APIs are
-restricted to the `admin` role while the strategy is under evaluation**
-(`docs/planning/intraday-strategy-dhan-plan.md`, `docs/planning/paper-trading-plan.md`);
-a normal user is redirected to `/watchlists` and does not see them in the navigation.
-
-The engine (`packages/core/src/intraday`) is pure. The worker runs it every few
-minutes while the market is open and stores the results; the web app only reads.
+The app describes the market and each stock from data; it never labels a stock
+BUY/SELL, scores a "setup" or simulates trades. The intraday strategy (`/intraday`),
+paper trading (`/paper-trading`) and the daily signal engine were removed on
+2026-10-17, with their tables (migration `0046`) — see
+[`docs/planning/signals-and-paper-removal-plan.md`](docs/planning/signals-and-paper-removal-plan.md).
 
 ```bash
-pnpm --filter @equitywise/worker dev              # schedule everything, incl. the intraday loop
-pnpm --filter @equitywise/worker dev -- --once intraday-cycle   # one pass, now
+pnpm --filter @equitywise/worker dev                               # schedule everything
 pnpm --filter @equitywise/worker dev -- --once refresh-credential  # mint a token now
-pnpm verify:intraday --at "2026-08-21 13:30"  # replay any instant through the real engine
-pnpm verify:intraday --scan                   # score every symbol, write nothing
-pnpm verify:intraday --symbol RELIANCE        # full evidence for one symbol
 ```
-
-Signals are technical observations, not advice, and the score is setup strength
-— not a probability of profit.
 
 ## Setup
 
@@ -87,7 +75,7 @@ request rather than the build:
 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | `clerkMiddleware` throws on **every** request — the whole site 500s, including `/sign-in` |
 | `CLERK_SECRET_KEY` | the same, one step later: sessions cannot be verified |
 | `DATABASE_URL` | pages render, no data |
-| `FYERS_APP_ID` | live quotes fail; stored signals still work |
+| `FYERS_APP_ID` | live quotes fail; stored end-of-day data still works |
 
 `next build` succeeds without any of them — a missing key is a runtime 500, not a
 build error. Nothing else belongs in the web app's environment — not
@@ -131,7 +119,7 @@ The worker is a long-running `croner` process — it needs a host that stays up,
 which is why it runs under PM2 on the VPS alongside the web app. It needs
 `DATABASE_URL`, `FYERS_APP_ID`, `FYERS_SECRET_KEY` and the three login factors
 above. Without it running, nothing refreshes the token and nothing writes new
-candles, signals or paper trades; the site serves whatever it last stored.
+candles, indicators or screener snapshots; the site serves whatever it last stored.
 
 ### Clerk instance
 
@@ -179,14 +167,13 @@ running app reads its credential from the database instead.
 | `pnpm db:generate` | drizzle-kit: SQL migration from the schema |
 | `pnpm db:migrate` | drizzle-kit: apply migrations (direct endpoint) |
 | `pnpm db:studio` | drizzle-kit studio |
-| `pnpm verify:intraday` | replay the intraday engine at any instant and print the evidence |
 | `pnpm verify:adjustment` | check whether the provider back-adjusts split history |
 
 ## Database integration tests
 
 Most of the suite is pure and needs nothing. The DB-backed suites — the ones that
 assert schema-level guarantees a mock could never catch (one default watchlist per
-user, no duplicate stock in a list, append-only signal history) — need a real
+user, no duplicate stock in a list, append-only candle history) — need a real
 Postgres they may migrate from empty and throw away.
 
 That database is **local and disposable**, run from `docker-compose.test.yml`:

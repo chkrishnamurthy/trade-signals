@@ -9,6 +9,8 @@ summary: Audit of the signed-in navigation and its replacement — six primary d
 owner: krishna
 ---
 
+> **Update 2026-10-17:** `/intraday`, `/paper-trading` and the `/signals` redirect were removed with the signal engine (`signals-and-paper-removal-plan.md`); the admin-only "Lab" menu is now "Admin". Rows below that name them are history.
+
 # Navigation redesign — audit, system and spec
 
 > **Status:** live on `main` — Phase 2 (`b28ce45`, 2026-10-07) plus the Phase 2.1 fixes in §14.
