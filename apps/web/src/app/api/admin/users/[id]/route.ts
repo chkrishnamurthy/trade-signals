@@ -1,9 +1,9 @@
 import { deleteAllSessionsForUser, setUserRole, setUserStatus, writeAudit } from '@equitywise/db';
 import type { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { requireAdminUser } from '@/server/auth/guards';
 import { fail, json } from '@/server/auth/http';
 import { clientIp, isSameOrigin } from '@/server/auth/request';
-import { getAdminUser } from '@/server/auth/require-user';
 import { getDatabase } from '@/server/db';
 
 export const runtime = 'nodejs';
@@ -21,8 +21,9 @@ export async function PATCH(
 ): Promise<NextResponse> {
   if (!isSameOrigin(request)) return fail('Request blocked.', 403, { code: 'BAD_ORIGIN' });
 
-  const admin = await getAdminUser();
-  if (admin === null) return fail('Forbidden.', 403, { code: 'FORBIDDEN' });
+  const access = await requireAdminUser();
+  if (access.denied !== null) return access.denied;
+  const admin = access.user;
 
   const targetId = Number((await params).id);
   if (!Number.isInteger(targetId) || targetId <= 0) {

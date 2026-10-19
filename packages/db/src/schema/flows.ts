@@ -118,7 +118,7 @@ export const participantOi = pgTable(
  * `buildup` is the standard four-way read of price change × OI change
  * (`long_buildup`, `short_buildup`, `short_covering`, `long_unwinding`),
  * computed in `@equitywise/core` from two CLOSED sessions and stored — the
- * UI never recomputes it (the same discipline as `signal_factors`). Null on
+ * UI never recomputes it. Null on
  * the first session seen or when either delta is zero.
  */
 export const derivativeOiDaily = pgTable(

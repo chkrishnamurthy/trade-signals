@@ -26,20 +26,33 @@ import { useToast } from '@/components/ui/toast';
 import { API_ROUTES } from '@/lib/api-routes';
 import { sendJson } from './request';
 
-/** Permanent account deletion behind a re-auth + type-to-confirm dialog. */
-export function DangerZone() {
+/**
+ * Permanent account deletion behind a re-auth + type-to-confirm dialog.
+ *
+ * Re-authentication is the password when the account has one; an account
+ * created with Google has none, so it re-types its email address instead.
+ */
+export function DangerZone({ hasPassword, email }: { hasPassword: boolean; email: string }) {
   const [open, setOpen] = useState(false);
   const [password, setPassword] = useState('');
+  const [typedEmail, setTypedEmail] = useState('');
   const [confirm, setConfirm] = useState('');
   const [busy, setBusy] = useState(false);
   const { toast } = useToast();
 
-  const canDelete = password !== '' && confirm === 'DELETE' && !busy;
+  const reauthenticated = hasPassword
+    ? password !== ''
+    : typedEmail.trim().toLowerCase() === email.toLowerCase();
+  const canDelete = reauthenticated && confirm === 'DELETE' && !busy;
 
   async function remove() {
     if (!canDelete) return;
     setBusy(true);
-    const res = await sendJson(API_ROUTES.account, 'DELETE', { password, confirm });
+    const res = await sendJson(
+      API_ROUTES.account,
+      'DELETE',
+      hasPassword ? { password, confirm } : { email: typedEmail.trim(), confirm },
+    );
     if (res.ok) {
       // Account (and session) are gone — leave the app.
       window.location.href = '/signup';
@@ -55,7 +68,8 @@ export function DangerZone() {
         <CardHeading>
           <CardTitle className="text-destructive">Delete account</CardTitle>
           <CardDescription>
-            Permanently removes your account, watchlists, and saved views. This can't be undone.
+            Permanently removes your account and everything you created — watchlists, notes, alerts,
+            saved screens and portfolio. This can&rsquo;t be undone.
           </CardDescription>
         </CardHeading>
       </CardHeader>
@@ -74,22 +88,38 @@ export function DangerZone() {
             <DialogHeader>
               <DialogTitle>Delete your account?</DialogTitle>
               <DialogDescription>
-                This permanently deletes everything you own. Enter your password and type{' '}
-                <span className="font-medium text-foreground">DELETE</span> to confirm.
+                This permanently deletes everything you own.{' '}
+                {hasPassword ? 'Enter your password' : 'Enter this account’s email address'} and
+                type <span className="font-medium text-foreground">DELETE</span> to confirm.
               </DialogDescription>
             </DialogHeader>
             <div className="flex flex-col gap-4">
-              <FormField>
-                <FormLabel>Password</FormLabel>
-                <FormControl>
-                  <Input
-                    type="password"
-                    autoComplete="current-password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
-                </FormControl>
-              </FormField>
+              {hasPassword ? (
+                <FormField>
+                  <FormLabel>Password</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="password"
+                      autoComplete="current-password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                    />
+                  </FormControl>
+                </FormField>
+              ) : (
+                <FormField>
+                  <FormLabel>Email address of this account</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="email"
+                      autoComplete="off"
+                      placeholder={email}
+                      value={typedEmail}
+                      onChange={(e) => setTypedEmail(e.target.value)}
+                    />
+                  </FormControl>
+                </FormField>
+              )}
               <FormField>
                 <FormLabel>Type DELETE</FormLabel>
                 <FormControl>

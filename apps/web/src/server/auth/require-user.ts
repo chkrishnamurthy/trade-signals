@@ -1,5 +1,6 @@
 import 'server-only';
 import { type AuthSession, type AuthUser, getSessionContext, touchSession } from '@equitywise/db';
+import { cache } from 'react';
 import { getDatabase } from '@/server/db';
 import { readCurrentSessionToken } from './session';
 import { hashToken, SESSION_IDLE_MS } from './session-token';
@@ -18,7 +19,11 @@ import { hashToken, SESSION_IDLE_MS } from './session-token';
 /** How stale `last_used_at` may get before we bother writing a refresh. */
 const TOUCH_INTERVAL_MS = 5 * 60_000;
 
-export async function getSessionAuthContext(): Promise<{
+/**
+ * Memoised per request (React `cache`): the root layout, the page and a 404
+ * all ask, and the answer cannot change mid-request — one database lookup.
+ */
+export const getSessionAuthContext = cache(async function getSessionAuthContext(): Promise<{
   user: AuthUser;
   session: AuthSession;
 } | null> {
@@ -52,7 +57,7 @@ export async function getSessionAuthContext(): Promise<{
   }
 
   return { user, session };
-}
+});
 
 export async function getSessionUser(): Promise<AuthUser | null> {
   return (await getSessionAuthContext())?.user ?? null;

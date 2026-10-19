@@ -1,0 +1,44 @@
+[
+  {
+    "companyName": "Vishal Nirmiti Limited",
+    "issueEndDate": "05-Oct-2026",
+    "issuePrice": "Rs.208 to Rs.220",
+    "issueSize": "8471153",
+    "issueStartDate": "30-Sep-2026",
+    "series": "EQ",
+    "status": "Active",
+    "symbol": "VNL",
+    "category": "Total",
+    "noOfSharesOffered": "8471153.0",
+    "noOfTime": "0.4393630949647586",
+    "noOfsharesBid": "3721912.0",
+    "srNo": null
+  },
+  {
+    "companyName": "Nityas Gems and Jewellery Limited",
+    "issueEndDate": "05-Oct-2026",
+    "issuePrice": "Rs.70 to Rs.75",
+    "issueSize": "14456000",
+    "issueStartDate": "30-Sep-2026",
+    "series": "EQ",
+    "status": "Active",
+    "symbol": "NITYAS",
+    "category": "Total",
+    "noOfSharesOffered": "1.4456E7",
+    "noOfTime": "0.4291228555617045",
+    "noOfsharesBid": "6203400.0",
+    "srNo": null
+  },
+  {
+    "companyName": "Eventions Limited",
+    "isBse": "1",
+    "issueEndDate": "05-Oct-2026",
+    "issueStartDate": "30-Sep-2026",
+    "series": "SME",
+    "status": "Active",
+    "symbol": "EVENTIONS",
+    "noOfsharesBid": "5664000",
+    "noOfSharesOffered": "3230400",
+    "noOfTime": "1.75"
+  }
+]

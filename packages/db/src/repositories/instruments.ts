@@ -229,3 +229,62 @@ export async function getInstrumentBySymbol(
 
   return row ?? null;
 }
+
+export interface InstrumentMetadata {
+  readonly symbol: string;
+  readonly lotSize: number;
+  /** Paise. */
+  readonly tickSize: number;
+  readonly isin: string | null;
+}
+
+/**
+ * Corrects `lot_size` / `tick_size` (and fills a missing ISIN) on instruments that
+ * already exist.
+ *
+ * `ensureInstruments` and the NSE equity-list sync insert placeholders (lot 1,
+ * tick 5 paise) because they run before a provider listing is available. This
+ * writes the provider's real values over them. It touches nothing else — never
+ * `active`, never `name` — so a partial or odd listing cannot deactivate the
+ * universe the way a full `syncInstruments` can. Rows that do not exist are
+ * ignored, and unchanged rows are not rewritten.
+ *
+ * @returns how many rows changed.
+ */
+export async function updateInstrumentMetadata(
+  db: Database,
+  rows: readonly InstrumentMetadata[],
+  exchange = 'NSE',
+): Promise<number> {
+  const valid = rows.filter(
+    (row) =>
+      Number.isInteger(row.lotSize) &&
+      row.lotSize > 0 &&
+      Number.isInteger(row.tickSize) &&
+      row.tickSize > 0,
+  );
+  let changed = 0;
+  for (let i = 0; i < valid.length; i += UPSERT_CHUNK) {
+    const chunk = valid.slice(i, i + UPSERT_CHUNK);
+    const values = sql.join(
+      chunk.map(
+        (row) => sql`(${row.symbol}, ${row.lotSize}::int, ${row.tickSize}::int, ${row.isin}::text)`,
+      ),
+      sql`, `,
+    );
+    const result = await db.execute(sql`
+      update ${instruments} as i
+      set lot_size = v.lot_size,
+          tick_size = v.tick_size,
+          isin = coalesce(i.isin, v.isin)
+      from (values ${values}) as v(symbol, lot_size, tick_size, isin)
+      where i.symbol = v.symbol
+        and i.exchange = ${exchange}
+        and (i.lot_size is distinct from v.lot_size
+          or i.tick_size is distinct from v.tick_size
+          or (i.isin is null and v.isin is not null))
+    `);
+    changed += result.rowCount ?? 0;
+  }
+  return changed;
+}

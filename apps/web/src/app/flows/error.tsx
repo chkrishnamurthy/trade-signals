@@ -16,7 +16,7 @@ export default function FlowsError({ reset }: { error: Error; reset: () => void 
       <PageContainer>
         <PageHeader>
           <PageHeading>
-            <PageTitle>Institutional Flow</PageTitle>
+            <PageTitle>Institutional flow</PageTitle>
           </PageHeading>
         </PageHeader>
         <PageContent>

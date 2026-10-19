@@ -24,8 +24,7 @@ import type { WatchlistRowDto } from './watchlist-types';
  * ## Only columns with a data source
  *
  * Every column here is backed by something this application actually has —
- * the live quote, the end-of-day indicator pass, the stored daily signal, or a
- * derivation of those. Fundamentals (P/E, market cap, dividend yield…), circuit
+ * the live quote, the end-of-day indicator pass, or a derivation of those. Fundamentals (P/E, market cap, dividend yield…), circuit
  * limits, delivery percentages and indicators the daily pass does not compute
  * are NOT declared: CLAUDE.md is explicit that this product does not display a
  * figure it cannot substantiate, and a column that can only ever render an em
@@ -40,7 +39,6 @@ export type ColumnGroup =
   | 'volume'
   | 'range52w'
   | 'technical'
-  | 'signals'
   | 'market';
 
 export const COLUMN_GROUP_LABEL: Record<ColumnGroup, string> = {
@@ -50,7 +48,6 @@ export const COLUMN_GROUP_LABEL: Record<ColumnGroup, string> = {
   volume: 'Volume & Liquidity',
   range52w: '52-Week Position',
   technical: 'Technical Indicators',
-  signals: 'Trading Signals',
   market: 'Market Information',
 };
 
@@ -62,12 +59,11 @@ export const COLUMN_GROUP_ORDER: readonly ColumnGroup[] = [
   'volume',
   'range52w',
   'technical',
-  'signals',
   'market',
 ];
 
 /** Where a column's number comes from. */
-export type ColumnSource = 'quote' | 'indicators' | 'instrument' | 'signals' | 'derived';
+export type ColumnSource = 'quote' | 'indicators' | 'instrument' | 'derived';
 
 export interface WatchlistColumn {
   readonly id: string;
@@ -108,15 +104,6 @@ function positionIn(value: number | null, low: number | null, high: number | nul
   if (value === null || low === null || high === null || high === low) return null;
   return ((value - low) / (high - low)) * 100;
 }
-
-/** Sort order for the five signal directions: bearish low, bullish high. */
-const DIRECTION_RANK: Record<string, number> = {
-  strong_bearish: -2,
-  bearish: -1,
-  neutral: 0,
-  bullish: 1,
-  strong_bullish: 2,
-};
 
 /** Distance within which a name counts as sitting at its 52-week extreme. */
 const NEAR_52W_BAND = 0.05;
@@ -329,7 +316,7 @@ const COLUMNS: readonly WatchlistColumn[] = [
   {
     id: 'high52w',
     label: '52W High',
-    description: 'Highest close over the last 52 weeks',
+    description: 'Highest traded price over the last 52 weeks, including today',
     group: 'range52w',
     source: 'indicators',
     numeric: true,
@@ -340,7 +327,7 @@ const COLUMNS: readonly WatchlistColumn[] = [
   {
     id: 'low52w',
     label: '52W Low',
-    description: 'Lowest close over the last 52 weeks',
+    description: 'Lowest traded price over the last 52 weeks, including today',
     group: 'range52w',
     source: 'indicators',
     numeric: true,
@@ -501,47 +488,11 @@ const COLUMNS: readonly WatchlistColumn[] = [
       row.atr14 === null || row.ltp === null || row.ltp === 0 ? null : (row.atr14 / row.ltp) * 100,
   },
 
-  // --- Trading signals ------------------------------------------------------
-  {
-    id: 'signal',
-    label: 'Signal',
-    description: 'The daily engine’s latest direction for this name',
-    group: 'signals',
-    source: 'signals',
-    numeric: false,
-    // Ranked rather than alphabetical: sorting a signal column by the word
-    // "bearish" first is not what anyone means by sorting it.
-    value: (row) => (row.signal === null ? null : (DIRECTION_RANK[row.signal.direction] ?? null)),
-  },
-  {
-    id: 'signalStrength',
-    label: 'Signal Strength',
-    description: 'Conviction behind the daily signal, 0-100 with 50 neutral',
-    group: 'signals',
-    source: 'signals',
-    numeric: true,
-    unit: 'points',
-    hideBelow: 'lg',
-    value: (row) => row.signal?.strength ?? null,
-  },
-  {
-    id: 'signalSetups',
-    label: 'Setups',
-    description: 'Named daily setups behind the signal, such as a golden cross',
-    group: 'signals',
-    source: 'signals',
-    numeric: false,
-    hideBelow: 'xl',
-    value: (row) => {
-      const setups = row.signal?.setups ?? [];
-      return setups.length === 0 ? null : setups.join(', ');
-    },
-  },
   {
     id: 'trend',
     label: 'Trend',
     description: 'How many of the 20, 50 and 200 EMAs the price is above',
-    group: 'signals',
+    group: 'technical',
     source: 'derived',
     numeric: true,
     hideBelow: 'lg',
@@ -615,10 +566,15 @@ export function getColumn(id: string): WatchlistColumn | null {
 /** The one pinned column, which every layout starts with. */
 export const PINNED_COLUMN_ID = 'symbol';
 
+/** Drops ids that are not (or no longer) columns, keeping order. */
+export function visibleColumnIds(ids: readonly string[]): string[] {
+  return ids.filter((id) => BY_ID.has(id));
+}
+
 /**
  * The default view: dense enough to be useful, short enough to scan.
  *
- * Nine columns rather than the forty available. A default that shows everything
+ * Eight columns rather than the forty available. A default that shows everything
  * is not a more powerful product, it is one where the user's first action is
  * always to turn things off.
  */
@@ -631,7 +587,6 @@ export const DEFAULT_COLUMN_IDS: readonly string[] = [
   'averageVolume',
   'range52w',
   'rsi14',
-  'signal',
 ];
 
 /**

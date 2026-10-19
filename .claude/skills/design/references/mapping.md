@@ -6,12 +6,12 @@ worth borrowing (see `patterns.md`) is attached to a concept this product doesn'
 
 | Brokerage-app concept | This product's equivalent |
 |---|---|
-| Holdings summary card (total value, day P&L) | Watchlist summary tile — mover count, signal count, no monetary value. Confirmed against Groww's actual Holdings page and its dashboard "Your investments" card (2026-08-29 screenshots) — same card position/visual treatment (big number, returns-style rows), stats swapped for watchlist ones. |
-| Buy/Sell order-entry panel (tabs, Qty, Price Limit, Buy button — see Groww's stock-detail right rail) | Same visual slot, reinterpreted as a signal panel: BUY/SELL tabs → direction badge (`SignalBadge`), Qty/Price inputs → entry zone/target/invalidation levels, the Buy/"Add money" button → a "Why this signal?" link into the factor breakdown. Confirmed 2026-08-29 against a real screenshot of that exact panel. |
+| Holdings summary card (total value, day P&L) | Watchlist summary tile — mover count, breadth, no monetary value. Confirmed against Groww's actual Holdings page and its dashboard "Your investments" card (2026-08-29 screenshots) — same card position/visual treatment (big number, returns-style rows), stats swapped for watchlist ones. |
+| Buy/Sell order-entry panel (tabs, Qty, Price Limit, Buy button — see Groww's stock-detail right rail) | Same visual slot, holding facts instead: the ratio board, "What stands out", key levels such as the 52-week range. No direction badge, no entry/target/stop levels (signals removed 2026-10-17). |
 | Order pad / order entry form | Does not exist |
-| Portfolio P&L (₹) | Paper-trade performance panel — results in R, with margin of error, per `CLAUDE.md`'s `/signals/performance` rule |
-| Order history / order book | Signal history and paper-trade history — what the engine detected and how it resolved, not what the user did |
+| Portfolio P&L (₹) | The user's own `/portfolio`, valued at the last price — their numbers, never a recommendation |
+| Order history / order book | Does not exist (no trades, real or simulated) |
 | "Your holdings" list | The active watchlist(s) |
-| Explore / Discover tab (curated buy ideas) | Screener results / signal feed (setups worth attention, not buy ideas) |
+| Explore / Discover tab (curated buy ideas) | Screener results on conditions the user chose — never a curated or ranked list of ideas |
 | Watchlist | Watchlist — direct reuse, no translation needed |
-| Alerts (price, SIP, order-filled) | Alerts scoped to price, % movement, and signal/setup events only — never an order-lifecycle alert |
+| Alerts (price, SIP, order-filled) | Alerts scoped to price, % movement and indicator conditions — never an order-lifecycle alert |

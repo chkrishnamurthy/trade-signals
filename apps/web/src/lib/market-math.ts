@@ -34,6 +34,42 @@ export function rangePosition(ltp: number, low: number | null, high: number | nu
   return (ltp - low) / (high - low);
 }
 
+export interface YearExtremes {
+  readonly low52w: number | null;
+  readonly high52w: number | null;
+}
+
+/**
+ * The stored 52-week extremes, widened by the current session's low and high.
+ *
+ * `daily_indicators` is written once, after the close, so during the session
+ * its 52-week low is "lowest through yesterday". A stock trading below it is
+ * printing a new 52-week low right now, and a range that excludes today shows
+ * the price outside its own band. Folding the live session in is idempotent
+ * once the end-of-day pass has included that session (min/max of the same
+ * bar), so it is safe at every hour.
+ *
+ * A missing stored extreme stays missing: one session is not a 52-week range,
+ * and inventing one for a name the worker has never processed would be a lie.
+ * A non-positive session price is a pre-open placeholder, not a trade.
+ */
+export function withSessionExtremes(
+  stored: YearExtremes,
+  sessionLow: number | null,
+  sessionHigh: number | null,
+): YearExtremes {
+  return {
+    low52w:
+      stored.low52w === null || sessionLow === null || sessionLow <= 0
+        ? stored.low52w
+        : Math.min(stored.low52w, sessionLow),
+    high52w:
+      stored.high52w === null || sessionHigh === null || sessionHigh <= 0
+        ? stored.high52w
+        : Math.max(stored.high52w, sessionHigh),
+  };
+}
+
 /**
  * Where `ltp` sits between the 52-week low and high, 0–1.
  *

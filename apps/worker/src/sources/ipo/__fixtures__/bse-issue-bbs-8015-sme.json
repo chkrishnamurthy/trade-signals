@@ -1,0 +1,134 @@
+{
+  "IPONO_0": [
+    {
+      "DT_TM": "10/1/2026 5:00:00 PM",
+      "DT_TMC": "Thursday, October 01 ,  2026  5:00:00 PM",
+      "ISBID_Detail": "1",
+      "IPO_NO": "8015",
+      "ScripCode": "4865",
+      "ScripName": "Dove  Soft Limited",
+      "Security_Type": "Equity",
+      "Symbol": "DSL",
+      "Issue_Period": "30 Sep 2026 to 05 Oct 2026",
+      "IPO_Market_Timings": "",
+      "Post_Issue_Modification": "",
+      "DY1": "",
+      "Cut_off_time_for_UPI_Mandate_Confirmation": "",
+      "Issue_Size_No_of_shares": "6600000",
+      "Price_Band": "104.00-111.00",
+      "Price_Band_Advertisement": "https://www.bseindia.com/downloads/ipo/Price_Band_Advertisment_280920261523.pdf",
+      "Face_Value": "10.00",
+      "Tick_Size": "1.00",
+      "Market_Lot": "1200",
+      "Minimum_Bid_Quantity": "2400",
+      "Maximum_Bid_Quantity_For_Qualified_Institutional_Investors": "6270000",
+      "Maximum_Bid_Quantity_For_Qualified_Non_Institutional_Investors": "6205200",
+      "Rating": "",
+      "DY2": "",
+      "Book_Running_Lead_Manager": "Swastika Investmart Limited^Office No. 104, 1st Floor, KESHAVA\nCommercial Building, Plot No. C-5, E Block, Bandra\nKurla Complex, Opp GST Bhavan, Bandra (East),\nMumbai-400051, Maharashtra;||||||||mb@swastika.co.in|Mohit R. Goyal",
+      "Co_Book_Running_Lead_Manager": "",
+      "Syndicate_Member": "",
+      "Eligible_Banks": "",
+      "Registrar": "PURVA SHAREGISTRY INDIA PRIVATE LIMITED^Unit No. 9, Ground Floor, Shiv\nShakti Ind. Estt, J. R. Boricha Marg, Lower Parel East,\nMumbai- 400011, Maharashtra, India;||||||||newissue@purvashare.com",
+      "Sponsor_Bank": "AXIS BANK^Ground Floor, Sixth Sense Mall at Gokhale\nRoad, Elphiston Road & Sayani Road, Parel, Mumbai-\n400025||||||||Saurabh2.Rao@axis.bank.in,bhilasha.Kushwaha@axis.bank.in,Prathamesh2.Pawar@axis.bank.in,UPI_IPO_Onbo|Dilip Ramji Kanaujiya",
+      "DY3": "",
+      "Prospectus_GID": "https://www.bseindia.com/downloads/ipo/RHP&GID_Dove_280920261523.zip",
+      "Addendum": "",
+      "Corrigendum": "",
+      "Anchor_Details": "",
+      "Bank_ASBA_Form": "https://ibbseforms.bseindia.com/ASBAFORMS/BlankForms_New.aspx?ipo=4865",
+      "Online_ASBA_Form": "https://ibbseforms.bseindia.com/ASBAFORMS/BidEntryQuick_New.aspx?ipo=4865",
+      "Revised_Online_ASBA_Form": "https://ibbseforms.bseindia.com/ASBAFORMS/SrchBid.aspx?ipo=4865",
+      "Registrar_issue_share_Transfer_Agents_Depository": "https://www.bseindia.com/Static/PublicIssues/RtaDp.aspx ",
+      "DY4": "",
+      "Public_Notices": "",
+      "Notes": "",
+      "Remarks": "",
+      "Branches_of_SCSBs": "http://www.sebi.gov.in/sebiweb/other/OtherAction.do?doRecognisedFpi=yes&intmId=34",
+      "List_of_SCSBs": "http://www.sebi.gov.in/sebiweb/other/OtherAction.do?doRecognisedFpi=yes&intmId=35",
+      "Self_Certified_Syndicate_Banks_Eligible": "https://www.sebi.gov.in/sebiweb/other/OtherAction.do?doRecognisedFpi=yes&intmId=40",
+      "DY5": "",
+      "DY6": ""
+    }
+  ],
+  "IPONO_1": [
+    {
+      "NEW_ID": "0ae4e5b2-a0a6-4975-b3ef-0bbc9bb74058",
+      "IPO_NO": "8015",
+      "DYN_COLNAME": "",
+      "DYN_COLValue": "",
+      "INSERT_DTTM": "9/28/2026 3:23:48 PM",
+      "DYN_ORDER": "1"
+    },
+    {
+      "NEW_ID": "5343869c-2353-4704-a030-fa955d22e9cc",
+      "IPO_NO": "8015",
+      "DYN_COLNAME": "",
+      "DYN_COLValue": "",
+      "INSERT_DTTM": "9/28/2026 3:23:48 PM",
+      "DYN_ORDER": "2"
+    },
+    {
+      "NEW_ID": "104c58f8-b476-4568-b785-247b5e17e1fe",
+      "IPO_NO": "8015",
+      "DYN_COLNAME": "",
+      "DYN_COLValue": "",
+      "INSERT_DTTM": "9/28/2026 3:23:48 PM",
+      "DYN_ORDER": "3"
+    },
+    {
+      "NEW_ID": "0dce6616-dfb5-4a1d-8467-cf0689792447",
+      "IPO_NO": "8015",
+      "DYN_COLNAME": "",
+      "DYN_COLValue": "",
+      "INSERT_DTTM": "9/28/2026 3:23:48 PM",
+      "DYN_ORDER": "4"
+    },
+    {
+      "NEW_ID": "eaa3e786-ff69-4979-be67-8428a7f37829",
+      "IPO_NO": "8015",
+      "DYN_COLNAME": "",
+      "DYN_COLValue": "",
+      "INSERT_DTTM": "9/28/2026 3:23:48 PM",
+      "DYN_ORDER": "5"
+    },
+    {
+      "NEW_ID": "1a0db7aa-cd34-4759-b045-d3c19c6ca895",
+      "IPO_NO": "8015",
+      "DYN_COLNAME": "",
+      "DYN_COLValue": "",
+      "INSERT_DTTM": "9/28/2026 3:23:48 PM",
+      "DYN_ORDER": "6"
+    }
+  ],
+  "IPONO_2": [
+    {
+      "Price": "110.00",
+      "Quantity": "5752800",
+      "Price1": "110",
+      "process_dttm": "10/1/2026 5:02:37 PM"
+    },
+    {
+      "Price": "111.00",
+      "Quantity": "3024000",
+      "Price1": "111",
+      "process_dttm": "10/1/2026 5:02:37 PM"
+    }
+  ],
+  "IPONO_3": [
+    {
+      "Price": "110.00",
+      "Quantity": "5752800",
+      "Price1": "110",
+      "process_dttm": "10/1/2026 5:09:00 PM"
+    },
+    {
+      "Price": "111.00",
+      "Quantity": "3024000",
+      "Price1": "111",
+      "process_dttm": "10/1/2026 5:09:00 PM"
+    }
+  ],
+  "IPONO_4": [],
+  "status": "success"
+}

@@ -22,6 +22,67 @@
       "autoPort": false
     },
     {
+      "name": "web-localdb",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "DATABASE_URL=postgresql://equitywise:equitywise@localhost:5433/nse_signals_test",
+        "DATABASE_URL_DIRECT=postgresql://equitywise:equitywise@localhost:5433/nse_signals_test",
+        "RESEND_API_KEY=",
+        "AUTH_BASE_URL=http://localhost:3000",
+        "AUTH_GOOGLE_ENABLED=false",
+        "pnpm",
+        "--filter",
+        "web",
+        "dev"
+      ],
+      "port": 3000,
+      "autoPort": false
+    },
+    {
+      "name": "web-ipodev",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "DATABASE_URL=postgresql://equitywise:equitywise@localhost:5434/nse_signals_dev",
+        "DATABASE_URL_DIRECT=postgresql://equitywise:equitywise@localhost:5434/nse_signals_dev",
+        "RESEND_API_KEY=",
+        "AUTH_BASE_URL=http://localhost:3100",
+        "AUTH_GOOGLE_ENABLED=false",
+        "NEXT_DIST_DIR=.next-localdb",
+        "pnpm",
+        "--filter",
+        "web",
+        "exec",
+        "next",
+        "dev",
+        "--port",
+        "3100"
+      ],
+      "port": 3100,
+      "autoPort": false
+    },
+    {
+      "name": "web-localdb-alt",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "DATABASE_URL=postgresql://equitywise:equitywise@localhost:5433/nse_signals_test",
+        "DATABASE_URL_DIRECT=postgresql://equitywise:equitywise@localhost:5433/nse_signals_test",
+        "RESEND_API_KEY=",
+        "AUTH_BASE_URL=http://localhost:3100",
+        "AUTH_GOOGLE_ENABLED=false",
+        "NEXT_DIST_DIR=.next-localdb",
+        "pnpm",
+        "--filter",
+        "web",
+        "exec",
+        "next",
+        "dev",
+        "--port",
+        "3100"
+      ],
+      "port": 3100,
+      "autoPort": false
+    },
+    {
       "name": "web-live",
       "url": "http://localhost:3000"
     },

@@ -1,0 +1,404 @@
+{
+  "data": [
+    {
+      "instrument": "Equity",
+      "isin": "INE246R07947",
+      "listing_date": "01-Oct-2026",
+      "name": "NIIF Infrastructure Finance Limited",
+      "series": "N0",
+      "symbol": "818NIIF29"
+    },
+    {
+      "instrument": "Equity",
+      "isin": "INE0PTN01011",
+      "listing_date": "01-Oct-2026",
+      "name": "Moneyview Limited",
+      "series": "EQ",
+      "symbol": "MONEYVIEW"
+    },
+    {
+      "instrument": "Equity",
+      "isin": "INE0OTC01025",
+      "listing_date": "01-Oct-2026",
+      "name": "A-One Steels India Limited",
+      "series": "EQ",
+      "symbol": "AONESTEELS"
+    },
+    {
+      "instrument": "Equity",
+      "isin": "INE18UV08044",
+      "listing_date": "01-Oct-2026",
+      "name": "Bajaj Auto Credit Limited",
+      "series": "N0",
+      "symbol": "825BACL32"
+    },
+    {
+      "instrument": "Equity",
+      "isin": "INE246R07954",
+      "listing_date": "01-Oct-2026",
+      "name": "NIIF Infrastructure Finance Limited",
+      "series": "N0",
+      "symbol": "819NIIF32"
+    },
+    {
+      "instrument": "Equity",
+      "isin": "INE752E08817",
+      "listing_date": "30-Sep-2026",
+      "name": "Power Grid Corporation of India Limited",
+      "series": "N0",
+      "symbol": "774PGCIL36"
+    },
+    {
+      "instrument": "Equity",
+      "isin": "INE1QJA01015",
+      "listing_date": "30-Sep-2026",
+      "name": "Swastika Infra Limited",
+      "series": "BE",
+      "symbol": "SWASTIKAIN"
+    },
+    {
+      "instrument": "SME",
+      "isin": "INE1C2Q01017",
+      "listing_date": "30-Sep-2026",
+      "name": "Pooja Logistics Limited",
+      "series": "ST",
+      "symbol": "POOJALOGIS"
+    },
+    {
+      "instrument": "Equity",
+      "isin": "INE1TUG01013",
+      "listing_date": "30-Sep-2026",
+      "name": "GSPL Transmission Limited",
+      "series": "BE",
+      "symbol": "GSPLTRANS"
+    },
+    {
+      "instrument": "Equity",
+      "isin": "INE147X01013",
+      "listing_date": "30-Sep-2026",
+      "name": "Elevate Campuses Limited",
+      "series": "EQ",
+      "symbol": "ELEVATE"
+    },
+    {
+      "instrument": "SME",
+      "isin": "INE11ES01010",
+      "listing_date": "30-Sep-2026",
+      "name": "Coreintegra Consulting Services Limited",
+      "series": "ST",
+      "symbol": "COREIN"
+    },
+    {
+      "instrument": "Equity",
+      "isin": "INE0TWE01016",
+      "listing_date": "30-Sep-2026",
+      "name": "ArMee Infotech Limited",
+      "series": "EQ",
+      "symbol": "ARMEE"
+    },
+    {
+      "instrument": "Equity",
+      "isin": "INE505M01015",
+      "listing_date": "30-Sep-2026",
+      "name": "Adroit Industries (India) Limited",
+      "series": "BE",
+      "symbol": "ADROITIND"
+    },
+    {
+      "instrument": "Equity",
+      "isin": "INE511N08040",
+      "listing_date": "30-Sep-2026",
+      "name": "Axis Max Life Insurance Limited",
+      "series": "N0",
+      "symbol": "858AMLIL36"
+    },
+    {
+      "instrument": "Equity",
+      "isin": "INE033L07IW4",
+      "listing_date": "29-Sep-2026",
+      "name": "Tata Capital Housing Finance Limited",
+      "series": "N0",
+      "symbol": "820TCHFL29"
+    },
+    {
+      "instrument": "Equity",
+      "isin": "INE0M5301040",
+      "listing_date": "29-Sep-2026",
+      "name": "Varmora Granito Limited",
+      "series": "EQ",
+      "symbol": "VARMORA"
+    },
+    {
+      "instrument": "SME",
+      "isin": "INE06ZX20015",
+      "listing_date": "29-Sep-2026",
+      "name": "Party Cruisers Ltd-RE",
+      "series": "ST",
+      "symbol": "PARTY-RE"
+    },
+    {
+      "instrument": "Equity",
+      "isin": "INE02JD08023",
+      "listing_date": "29-Sep-2026",
+      "name": "Godrej Housing Finance Limited",
+      "series": "N0",
+      "symbol": "850GHFL36"
+    },
+    {
+      "instrument": "Equity",
+      "isin": "INE0RH707013",
+      "listing_date": "28-Sep-2026",
+      "name": "Achintya Securities Limited",
+      "series": "N0",
+      "symbol": "10ASL27"
+    },
+    {
+      "instrument": "Equity",
+      "isin": "INE00U801010",
+      "listing_date": "25-Sep-2026",
+      "name": "Parin Enterprises Limited",
+      "series": "EQ",
+      "symbol": "PARIN"
+    },
+    {
+      "instrument": "Equity",
+      "isin": "INE551B01012",
+      "listing_date": "25-Sep-2026",
+      "name": "Uday Jewellery Industries Limited",
+      "series": "EQ",
+      "symbol": "UDAYJEW"
+    },
+    {
+      "instrument": "SME",
+      "isin": "INE16J201028",
+      "listing_date": "25-Sep-2026",
+      "name": "Axiom Gas Engineering Limited",
+      "series": "ST",
+      "symbol": "AXIOMGAS"
+    },
+    {
+      "instrument": "Equity",
+      "isin": "INE0DZE07077",
+      "listing_date": "24-Sep-2026",
+      "name": "Kisetsu Saison Finance (India) Private Limited",
+      "series": "N0",
+      "symbol": "770KSFP28"
+    },
+    {
+      "instrument": "SME",
+      "isin": "INE0GAN01010",
+      "listing_date": "24-Sep-2026",
+      "name": "SpectraA Technology Solutions Limited",
+      "series": "ST",
+      "symbol": "SPECTRAA"
+    },
+    {
+      "instrument": "Equity",
+      "isin": "INE0LLZ01011",
+      "listing_date": "24-Sep-2026",
+      "name": "Sonaselection India Limited",
+      "series": "BE",
+      "symbol": "SONA"
+    },
+    {
+      "instrument": "SME",
+      "isin": "INE0HOL01013",
+      "listing_date": "24-Sep-2026",
+      "name": "Kheria Autocomp Limited",
+      "series": "ST",
+      "symbol": "KHERIAAUTO"
+    },
+    {
+      "instrument": "Equity",
+      "isin": "INE381Y08037",
+      "listing_date": "24-Sep-2026",
+      "name": "IndiaFirst Life Insurance Company Limited",
+      "series": "N0",
+      "symbol": "903IFL36"
+    },
+    {
+      "instrument": "Equity",
+      "isin": "INE222F01029",
+      "listing_date": "23-Sep-2026",
+      "name": "VTM Limited",
+      "series": "EQ",
+      "symbol": "VTMLTD"
+    },
+    {
+      "instrument": "Equity",
+      "isin": "INE1EQW01028",
+      "listing_date": "23-Sep-2026",
+      "name": "SS Retail Limited",
+      "series": "EQ",
+      "symbol": "SSRETAIL"
+    },
+    {
+      "instrument": "Equity",
+      "isin": "INE1DLO01028",
+      "listing_date": "23-Sep-2026",
+      "name": "Jindal Supreme (India) Limited",
+      "series": "BE",
+      "symbol": "JSIPL"
+    },
+    {
+      "instrument": "Equity",
+      "isin": "INE012G01022",
+      "listing_date": "23-Sep-2026",
+      "name": "Hero Motors Limited",
+      "series": "EQ",
+      "symbol": "HEROMOTORS"
+    },
+    {
+      "instrument": "Equity",
+      "isin": "INE202B07JZ7",
+      "listing_date": "23-Sep-2026",
+      "name": "Piramal Finance Limited",
+      "series": "N0",
+      "symbol": "857PFL29"
+    },
+    {
+      "instrument": "Equity",
+      "isin": "INE729N07115",
+      "listing_date": "23-Sep-2026",
+      "name": "Tvs Credit Services Limited",
+      "series": "N0",
+      "symbol": "792TCSL29"
+    },
+    {
+      "instrument": "Equity",
+      "isin": "INE119J08032",
+      "listing_date": "23-Sep-2026",
+      "name": "Care Health Insurance Limited",
+      "series": "N0",
+      "symbol": "10CHI36A"
+    },
+    {
+      "instrument": "Equity",
+      "isin": "INE02JD07074",
+      "listing_date": "22-Sep-2026",
+      "name": "Godrej Housing Finance Limited",
+      "series": "N0",
+      "symbol": "84GHFL31"
+    },
+    {
+      "instrument": "Equity",
+      "isin": "INE233A08220",
+      "listing_date": "22-Sep-2026",
+      "name": "Godrej Industries Limited",
+      "series": "N0",
+      "symbol": "850GIL32"
+    },
+    {
+      "instrument": "Equity",
+      "isin": "INE2C2R07011",
+      "listing_date": "21-Sep-2026",
+      "name": "Praveen Capital Private Limited",
+      "series": "N0",
+      "symbol": "12PCP28"
+    },
+    {
+      "instrument": "Equity",
+      "isin": "INE0KWF01020",
+      "listing_date": "21-Sep-2026",
+      "name": "Manika Plastech Limited",
+      "series": "BE",
+      "symbol": "MANIKA"
+    },
+    {
+      "instrument": "Equity",
+      "isin": "INE723X07331",
+      "listing_date": "21-Sep-2026",
+      "name": "Trust Investment Advisors Private Limited",
+      "series": "N0",
+      "symbol": "890TIAPL31"
+    },
+    {
+      "instrument": "Equity",
+      "isin": "INE338I07206",
+      "listing_date": "21-Sep-2026",
+      "name": "Motilal Oswal Financial Services Limited",
+      "series": "N0",
+      "symbol": "870MOFS31"
+    },
+    {
+      "instrument": "Equity",
+      "isin": "INE723X07349",
+      "listing_date": "21-Sep-2026",
+      "name": "Trust Investment Advisors Private Limited",
+      "series": "N0",
+      "symbol": "850TIAP28"
+    },
+    {
+      "instrument": "Equity",
+      "isin": "INE572E07316",
+      "listing_date": "21-Sep-2026",
+      "name": "PNB Housing Finance Limited",
+      "series": "N0",
+      "symbol": "8135PHFL31"
+    },
+    {
+      "instrument": "Equity",
+      "isin": "INE020B08GL7",
+      "listing_date": "18-Sep-2026",
+      "name": "REC Limited",
+      "series": "N0",
+      "symbol": "767REC31"
+    },
+    {
+      "instrument": "Equity",
+      "isin": "INE1JTV01015",
+      "listing_date": "18-Sep-2026",
+      "name": "Veegaland Developers Limited",
+      "series": "BE",
+      "symbol": "VEEGALAND"
+    },
+    {
+      "instrument": "Equity",
+      "isin": "INF789F1AH42",
+      "listing_date": "18-Sep-2026",
+      "name": "UTI Mutual Fund - UTI BSE India Sector Leaders Exchange Traded Fund",
+      "series": "EQ",
+      "symbol": "SECLEDBETA"
+    },
+    {
+      "instrument": "Equity",
+      "isin": "INE246R07939",
+      "listing_date": "18-Sep-2026",
+      "name": "NIIF Infrastructure Finance Limited",
+      "series": "N0",
+      "symbol": "810NIIF31"
+    },
+    {
+      "instrument": "Equity",
+      "isin": "INE115A07RK8",
+      "listing_date": "18-Sep-2026",
+      "name": "LIC Housing Finance Limited",
+      "series": "N0",
+      "symbol": "787LICH29"
+    },
+    {
+      "instrument": "Equity",
+      "isin": "INE020B08GM5",
+      "listing_date": "18-Sep-2026",
+      "name": "REC Limited",
+      "series": "N0",
+      "symbol": "773REC36"
+    },
+    {
+      "instrument": "Equity",
+      "isin": "INE002A08708",
+      "listing_date": "17-Sep-2026",
+      "name": "Reliance Industries Limited",
+      "series": "N0",
+      "symbol": "747RIL31"
+    },
+    {
+      "instrument": "Equity",
+      "isin": "INE148G01016",
+      "listing_date": "17-Sep-2026",
+      "name": "Asset Reconstruction Company (India) Limited",
+      "series": "EQ",
+      "symbol": "ARCIL"
+    }
+  ]
+}

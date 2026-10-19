@@ -40,9 +40,11 @@ export function VerifyEmailClient({ token }: { token: string | null }) {
 
   return (
     <Card className="w-full max-w-sm">
-      <CardContent className="flex flex-col items-center gap-4 p-6 text-center">
+      <CardContent className="flex min-h-48 flex-col items-center justify-center gap-4 p-6 text-center">
         {state.status === 'pending' ? (
-          <p className="text-muted-foreground text-sm">Confirming your new email…</p>
+          <p role="status" className="text-muted-foreground text-sm">
+            Confirming your new email…
+          </p>
         ) : state.status === 'ok' ? (
           <>
             <CheckCircle2Icon className="size-8 text-bullish-strong" />

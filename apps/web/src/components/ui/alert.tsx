@@ -16,7 +16,7 @@ const alertVariants = cva(
       variant: {
         default: 'border-border bg-surface text-foreground [&>svg]:text-muted-foreground',
         info: 'border-border bg-muted text-foreground [&>svg]:text-info',
-        warning: 'border-warning-line bg-warning-soft text-warning-foreground [&>svg]:text-warning',
+        warning: 'border-warning-line bg-warning-soft text-warning-strong [&>svg]:text-warning',
         destructive:
           'border-destructive-line bg-destructive-soft text-destructive [&>svg]:text-destructive',
       },
@@ -54,7 +54,7 @@ function AlertDescription({ className, ...props }: React.ComponentProps<'div'>) 
   return (
     <div
       data-slot="alert-description"
-      className={cn('col-start-2 text-sm opacity-90 [&_p]:leading-relaxed', className)}
+      className={cn('col-start-2 text-sm [&_p]:leading-relaxed', className)}
       {...props}
     />
   );

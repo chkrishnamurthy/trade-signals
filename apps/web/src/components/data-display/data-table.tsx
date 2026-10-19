@@ -8,7 +8,16 @@ import {
   ChevronsUpDownIcon,
   SettingsIcon,
 } from 'lucide-react';
-import { Fragment, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Fragment,
+  type HTMLAttributes,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -34,7 +43,7 @@ import { EmptyState, ErrorState, TableSkeleton } from './states';
 /**
  * The one financial data table.
  *
- * NIFTY 50, the screener, signals, watchlists, IPOs and movers all render
+ * NIFTY 50, the screener, watchlists, IPOs and movers all render
  * through this. Five separate table implementations is how a product ends up
  * with five different ideas of what a sorted column looks like.
  *
@@ -124,6 +133,12 @@ export interface DataTableProps<Row> {
   onSortChange?: ((columnId: string, additive: boolean) => void) | undefined;
   /** Trailing per-row cell, pinned to the right. For a row's action menu. */
   rowActions?: ((row: Row) => ReactNode) | undefined;
+  /**
+   * Extra attributes for a row's `<tr>` — drag-and-drop handlers, a drop-target
+   * class. Its `className` is merged with the table's own, its handlers are not
+   * wrapped. Keep it cheap: it runs for every visible row on every render.
+   */
+  getRowProps?: ((row: Row) => HTMLAttributes<HTMLTableRowElement>) | undefined;
   stickyHeader?: boolean | undefined;
   /** Omit for no pagination — the common case for a 50-row index. */
   pageSize?: number | undefined;
@@ -172,6 +187,7 @@ export function DataTable<Row>({
   sort: controlledSort,
   onSortChange,
   rowActions,
+  getRowProps,
   stickyHeader = false,
   pageSize,
   onRowClick,
@@ -266,7 +282,7 @@ export function DataTable<Row>({
           return { columnId, direction: 'desc' };
         }
         // Third click clears the sort and restores the feed's own ordering,
-        // which for movers and signals is itself meaningful.
+        // which for movers is itself meaningful.
         return current.direction === 'desc' ? { columnId, direction: 'asc' } : null;
       });
     },
@@ -289,7 +305,7 @@ export function DataTable<Row>({
     selection.onChange(next);
   }, [selection, rows, allSelected, getRowId]);
 
-  if (status === 'loading') {
+  if (status === 'loading' && data.length === 0) {
     return (
       <TableSkeleton
         rows={pageSize ?? 8}
@@ -322,7 +338,11 @@ export function DataTable<Row>({
   }
 
   return (
-    <div ref={rootRef} className={cn('flex min-w-0 flex-col', className)}>
+    <div
+      ref={rootRef}
+      aria-busy={status === 'loading' || undefined}
+      className={cn('flex min-w-0 flex-col', className)}
+    >
       {columnVisibility && (
         <div className="flex justify-end px-3 py-1.5">
           <ColumnVisibilityMenu columns={columns} hidden={hidden} onChange={setHidden} />
@@ -430,11 +450,16 @@ export function DataTable<Row>({
               const toggleExpand =
                 onToggleExpand === undefined ? undefined : () => onToggleExpand(row);
               const rowClick = toggleExpand ?? onRowClick;
+              const extraRowProps = getRowProps?.(row);
               return (
                 <Fragment key={id}>
                   <TableRow
+                    {...extraRowProps}
                     data-state={isSelected ? 'selected' : undefined}
-                    className={rowClick !== undefined ? 'cursor-pointer' : undefined}
+                    className={cn(
+                      rowClick !== undefined && 'cursor-pointer',
+                      extraRowProps?.className,
+                    )}
                     onClick={rowClick === undefined ? undefined : () => rowClick(row)}
                   >
                     {renderExpanded !== undefined && (

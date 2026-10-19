@@ -1,7 +1,7 @@
 import { listUsers } from '@equitywise/db';
 import type { NextResponse } from 'next/server';
-import { fail, json } from '@/server/auth/http';
-import { getAdminUser } from '@/server/auth/require-user';
+import { requireAdminUser } from '@/server/auth/guards';
+import { json } from '@/server/auth/http';
 import { getDatabase } from '@/server/db';
 
 export const runtime = 'nodejs';
@@ -9,8 +9,8 @@ export const dynamic = 'force-dynamic';
 
 /** GET /api/admin/users — the operator's account list. Admin only. */
 export async function GET(): Promise<NextResponse> {
-  const admin = await getAdminUser();
-  if (admin === null) return fail('Forbidden.', 403, { code: 'FORBIDDEN' });
+  const access = await requireAdminUser();
+  if (access.denied !== null) return access.denied;
 
   const users = await listUsers(getDatabase());
   return json({

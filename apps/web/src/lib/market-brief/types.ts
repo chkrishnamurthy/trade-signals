@@ -7,16 +7,11 @@
  * `null` means "not available", never zero.
  *
  * The brief is a READ MODEL: it is assembled from data the worker already
- * persisted (`daily_indicators`, `signals`, `signal_factors`, `daily_candles`)
+ * persisted (`daily_indicators`, `daily_candles`)
  * and the signed-in user's watchlists. Nothing here is recomputed from a
  * forming candle or from a live provider call, and no field is a probability,
  * a prediction, or an order.
  */
-
-import type { SignalDirection } from '@/lib/dashboard-types';
-
-/** The five directions a stored signal can carry, reused verbatim. */
-export type BriefDirection = SignalDirection;
 
 /** How complete/fresh the underlying session data is. */
 export type BriefStatus = 'complete' | 'partial' | 'stale' | 'unavailable';
@@ -29,34 +24,15 @@ export type MarketConditionLabel =
   | 'transitional'
   | 'insufficient_data';
 
-/** Categorical prioritisation — never a probability of profit. */
-export type AttentionLevel = 'high' | 'medium' | 'monitor';
-
 /** A named "what changed" event type, closed set. */
 export type ChangeEventType =
-  | 'new_bullish_setup'
-  | 'new_bearish_setup'
-  | 'bullish_invalidated'
-  | 'bearish_invalidated'
   | 'crossed_above_ma20'
   | 'crossed_below_ma20'
   | 'crossed_above_ma50'
   | 'crossed_below_ma50'
   | 'momentum_strengthened'
   | 'momentum_weakened'
-  | 'unusual_volume'
-  | 'breakout_appeared'
-  | 'breakdown_appeared';
-
-/** One stored factor line behind a signal (from `signal_factors`, verbatim). */
-export interface BriefSignalFactor {
-  readonly key: string;
-  readonly label: string;
-  /** −1 (bearish) … +1 (bullish). 0 means the factor was evaluated and did nothing. */
-  readonly score: number;
-  readonly weight: number;
-  readonly detail: string;
-}
+  | 'unusual_volume';
 
 /** A membership pointer — which of the user's watchlists holds an instrument. */
 export interface BriefWatchlistRef {
@@ -87,17 +63,6 @@ export interface SessionInstrumentFacts {
   readonly barCount: number;
 }
 
-/** The stored signal verdict for one instrument on a session. */
-export interface SessionSignalFacts {
-  readonly signalId: number;
-  readonly direction: BriefDirection;
-  /** 0–100, 50 neutral. Explained entirely by `factors`. */
-  readonly strength: number;
-  readonly setups: readonly string[];
-  readonly close: number;
-  readonly factors: readonly BriefSignalFactor[];
-}
-
 /** The whole input to {@link buildMarketBrief}. Deterministic; no clock inside. */
 export interface MarketBriefInput {
   /** The latest completed session, `YYYY-MM-DD` IST. */
@@ -116,11 +81,6 @@ export interface MarketBriefInput {
   readonly current: ReadonlyMap<number, SessionInstrumentFacts>;
   /** Per-instrument facts for the previous session. Empty when none. */
   readonly previous: ReadonlyMap<number, SessionInstrumentFacts>;
-  /** Stored signals for the latest session. */
-  readonly currentSignals: ReadonlyMap<number, SessionSignalFacts>;
-  /** Stored signals for the previous session. */
-  readonly previousSignals: ReadonlyMap<number, SessionSignalFacts>;
-
   /** Which of the user's watchlists hold each instrument. */
   readonly watchlistMembership: ReadonlyMap<number, readonly BriefWatchlistRef[]>;
   /** True when the user has at least one watchlist. */
@@ -175,8 +135,6 @@ export interface OverviewDto {
   readonly above20DayTotal: number | null;
   readonly above50DayAverage: number | null;
   readonly above50DayTotal: number | null;
-  readonly newBullishSetups: number;
-  readonly newBearishSetups: number;
 }
 
 export interface ChangeEventDto {
@@ -188,31 +146,6 @@ export interface ChangeEventDto {
   readonly explanation: string;
   readonly closePaise: number;
   readonly sessionReturn: number | null;
-  readonly watchlists: readonly BriefWatchlistRef[];
-}
-
-export interface AttentionFactorDto {
-  readonly id: string;
-  readonly label: string;
-  /** Points this factor added to the attention total. Always shown. */
-  readonly contribution: number;
-  readonly explanation: string;
-}
-
-export interface AttentionItemDto {
-  readonly instrumentId: number;
-  readonly symbol: string;
-  readonly name: string;
-  readonly level: AttentionLevel;
-  /** The integer attention total — every point is accounted for in `factors`. */
-  readonly score: number;
-  readonly direction: BriefDirection | null;
-  readonly closePaise: number;
-  readonly sessionReturn: number | null;
-  /** Deterministic attention factors (computed here). */
-  readonly factors: readonly AttentionFactorDto[];
-  /** Persisted signal factors (from `signal_factors`), for the "Why?" panel. */
-  readonly signalFactors: readonly BriefSignalFactor[];
   readonly watchlists: readonly BriefWatchlistRef[];
 }
 
@@ -232,34 +165,10 @@ export interface WatchlistBriefDto {
   readonly hasWatchlists: boolean;
   readonly watchedCount: number;
   readonly affectedCount: number;
-  readonly newBullishCount: number;
-  readonly newBearishCount: number;
   readonly strengthenedCount: number;
   readonly invalidatedCount: number;
   readonly transitionCount: number;
   readonly items: readonly WatchlistBriefItemDto[];
-}
-
-export interface SetupRowDto {
-  readonly instrumentId: number;
-  readonly symbol: string;
-  readonly name: string;
-  readonly direction: BriefDirection | null;
-  readonly closePaise: number;
-  readonly sessionReturn: number | null;
-  readonly strength: number | null;
-  readonly relativeVolume: number | null;
-  readonly explanation: string;
-  readonly signalFactors: readonly BriefSignalFactor[];
-  readonly watchlists: readonly BriefWatchlistRef[];
-}
-
-export interface SetupListsDto {
-  readonly bullish: readonly SetupRowDto[];
-  readonly bearish: readonly SetupRowDto[];
-  readonly breakout: readonly SetupRowDto[];
-  readonly breakdown: readonly SetupRowDto[];
-  readonly unusualVolume: readonly SetupRowDto[];
 }
 
 export interface DailyMarketBrief {
@@ -269,8 +178,6 @@ export interface DailyMarketBrief {
   readonly marketCondition: MarketConditionDto;
   readonly overview: OverviewDto;
   readonly changes: readonly ChangeEventDto[];
-  readonly attention: readonly AttentionItemDto[];
   readonly watchlists: WatchlistBriefDto;
-  readonly setups: SetupListsDto;
   readonly disclaimer: string;
 }

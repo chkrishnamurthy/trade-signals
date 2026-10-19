@@ -1,0 +1,374 @@
+{
+  "TableRows": [
+    {
+      "Label": "DT_TM",
+      "Label_flg": "DT_TM",
+      "Value": "10/1/2026 5:00:00 PM",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "DT_TMC",
+      "Label_flg": "DT_TMC",
+      "Value": "Thursday, October 01 ,  2026  5:00:00 PM",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "ISBID_Detail",
+      "Label_flg": "ISBID_Detail",
+      "Value": "1",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "IPO_NO",
+      "Label_flg": "IPO_NO",
+      "Value": "8,020",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "ScripCode",
+      "Label_flg": "ScripCode",
+      "Value": "4,870",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "ScripName",
+      "Label_flg": "ScripName",
+      "Value": "Vishal Nirmiti Limited",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "Security Type",
+      "Label_flg": "Security Type",
+      "Value": "Equity",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "Symbol",
+      "Label_flg": "Symbol",
+      "Value": "VNL",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "Issue Period",
+      "Label_flg": "Issue Period",
+      "Value": "30 Sep 2026 to 05 Oct 2026",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "IPO Market Timings",
+      "Label_flg": "IPO Market Timings",
+      "Value": "10.00 am to 5.00 pm",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "Cut-off time for UPI Mandate Confirmation",
+      "Label_flg": "Cut-off time for UPI Mandate Confirmation",
+      "Value": "05th Octomber 2026 (Upto 5.00 Pm)",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "Issue Size – No. of Shares",
+      "Label_flg": "Issue Size – No. of Shares",
+      "Value": "84,71,153",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "Price Band",
+      "Label_flg": "Price Band",
+      "Value": "208.00-220.00",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "Price-Band Advertisement",
+      "Label_flg": "Price-Band Advertisement",
+      "Value": "https://listing.bseindia.com/Download//PreAnchor/PBPublishedcopy_20260928145304.pdf",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "IPO Categories",
+      "Label_flg": "IPO Categories",
+      "Value": "FI, IC, MF, FII, OTH, CO, IND, NOH",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "UPI Categories",
+      "Label_flg": "UPI Categories",
+      "Value": "IND",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "Cut off Amount (Rs.)",
+      "Label_flg": "Cut off Amount (Rs.)",
+      "Value": " IND - 200000 , EMP - 500000",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "Face Value",
+      "Label_flg": "Face Value",
+      "Value": "10",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "Tick Size",
+      "Label_flg": "Tick Size",
+      "Value": "1",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "Market Lot",
+      "Label_flg": "Market Lot",
+      "Value": "68",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "Minimum Bid Quantity",
+      "Label_flg": "Minimum Bid Quantity",
+      "Value": "68",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "Maximum Bid Quantity for Qualified Institutional Investors",
+      "Label_flg": "Maximum Bid Quantity for Qualified Institutional Investors",
+      "Value": "84,71,100",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "Maximum Bid Quantity for Non-Institutional Investors",
+      "Label_flg": "Maximum Bid Quantity for Non-Institutional Investors",
+      "Value": "83,86,440",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "Book Running Lead Manager",
+      "Label_flg": "Book Running Lead Manager",
+      "Value": "Saffron Capital Advisors Private Limited^605, Center Point, 6th floor, J. B. Nagar, Andheri Kurla Road, Andheri (East), Mumbai - 400 059, Maharashtra, India||||||||satej@saffronadvisor.com|Satej Darde",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "Syndicate Member",
+      "Label_flg": "Syndicate Member",
+      "Value": "https://listing.bseindia.com/Download//PreAnchor/SubSyndicateMemberlist_20260928145304.zip",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "Eligible Banks",
+      "Label_flg": "Eligible Banks",
+      "Value": "https://listing.bseindia.com/Download//PreAnchor/SponsorBankUndertaking_20260928145304.pdf",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "Registrar",
+      "Label_flg": "Registrar",
+      "Value": "MUFG INTIME INDIA PRIVATE LIMITED^C-101, Embassy 247, L.B.S. Marg, Vikhroli (West), Mumbai - 400083, Maharashtra, India||||||||ipo.team@in.mpms.mufg.com",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "Sponsor Bank",
+      "Label_flg": "Sponsor Bank",
+      "Value": "HDFC BANK^Lodha – I Think Techno Campus, O-3 Level Next to Kanjurmarg Railway Station Kanjurmarg (East), Mumbai – 400042||||||||btiscsb@hdfcbank.com,btiops@hdfc.bank.in,vaibhav.gadge@hdfc.bank.in,pravin.teli2@hdfc.bank.in,eric.b|Eric Bacha",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "Prospectus & GID",
+      "Label_flg": "Prospectus & GID",
+      "Value": "https://listing.bseindia.com/Download/8888888/PreAnchor/RHP_20260928180139.zip",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "Blank ASBA Form",
+      "Label_flg": "Blank ASBA Form",
+      "Value": "https://ibbseforms.bseindia.com/ASBAFORMS/BlankForms_New.aspx?ipo=4870",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "Online ASBA Form",
+      "Label_flg": "Online ASBA Form",
+      "Value": "https://ibbseforms.bseindia.com/ASBAFORMS/BidEntryQuick_New.aspx?ipo=4870",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "Revised Online ASBA Form",
+      "Label_flg": "Revised Online ASBA Form",
+      "Value": "https://ibbseforms.bseindia.com/ASBAFORMS/SrchBid.aspx?ipo=4870",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "Registrars to an Issue and Share Transfer Agents/Depository Participants",
+      "Label_flg": "Registrars to an Issue and Share Transfer Agents/Depository Participants",
+      "Value": "https://www.bseindia.com/Static/PublicIssues/RtaDp.aspx ",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "Notes",
+      "Label_flg": "Notes",
+      "Value": "As per SEBI circular no SEBI/HO/CFD/DIL2/CIR/P/2019/76 dated June 28 2019 all are requested to comply with the provisions of the aforementioned circular which states as below: Intermediaries shall retain physical application forms submitted by retail individual investors with UPI as a payment mechanism, for a period of six months and thereafter forward the same to the issuer/ Registrar to Issue. However in case of Electronic forms printouts of such applications need not be retained or sent to the issuer. Intermediaries shall at all times maintain the electronic records relating to such forms for a minimum period of three years.",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "Branches of SCSBs where syndicate / sub syndicate member to submit ASBA form",
+      "Label_flg": "Branches of SCSBs where syndicate / sub syndicate member to submit ASBA form",
+      "Value": "http://www.sebi.gov.in/sebiweb/other/OtherAction.do?doRecognisedFpi=yes&intmId=34",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "List of SCSBs for Syndicate ASBA and under ASBA facility",
+      "Label_flg": "List of SCSBs for Syndicate ASBA and under ASBA facility",
+      "Value": "http://www.sebi.gov.in/sebiweb/other/OtherAction.do?doRecognisedFpi=yes&intmId=35",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    },
+    {
+      "Label": "Self Certified Syndicate Banks eligible as Issuer Banks for UPI",
+      "Label_flg": "Self Certified Syndicate Banks eligible as Issuer Banks for UPI",
+      "Value": "https://www.sebi.gov.in/sebiweb/other/OtherAction.do?doRecognisedFpi=yes&intmId=40",
+      "LinkText": null,
+      "LinkUrl": null,
+      "IsBold": true,
+      "IsMultiLine": false,
+      "MultilineValues": []
+    }
+  ]
+}

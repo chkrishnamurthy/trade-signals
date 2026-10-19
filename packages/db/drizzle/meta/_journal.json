@@ -187,8 +187,148 @@
     {
       "idx": 26,
       "version": "7",
-      "when": 1790208000000,
-      "tag": "0026_mobile_sessions",
+      "when": 1790899200000,
+      "tag": "0026_market_calendar",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1790913600000,
+      "tag": "0027_ipos",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1790935200000,
+      "tag": "0028_ipo_rhp_extracts",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1790938800000,
+      "tag": "0029_ipo_sebi_filings",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1791007200000,
+      "tag": "0030_ipo_data_repair",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1791014400000,
+      "tag": "0031_ipo_history_repair",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1791100800000,
+      "tag": "0032_stock_analysis",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1791187200000,
+      "tag": "0033_ipo_document_links",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1791190800000,
+      "tag": "0034_stock_header",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1791234000000,
+      "tag": "0035_latest_quotes",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1791277200000,
+      "tag": "0036_alerts",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1791450000000,
+      "tag": "0038_event_log",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1791536400000,
+      "tag": "0039_announcement_ingestion_error",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1791622800000,
+      "tag": "0040_portfolio",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1791709200000,
+      "tag": "0041_portfolio_usage",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1791795600000,
+      "tag": "0042_holding_acquired_on",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1791882000000,
+      "tag": "0043_fair_market_values_2018",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1791968400000,
+      "tag": "0044_holding_notices",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1792054800000,
+      "tag": "0045_amfi_categories",
+      "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1792141200000,
+      "tag": "0046_drop_signals_and_paper",
+      "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1792227600000,
+      "tag": "0047_mobile_sessions",
       "breakpoints": true
     }
   ]

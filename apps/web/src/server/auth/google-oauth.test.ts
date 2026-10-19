@@ -36,7 +36,9 @@ describe('google-oauth', () => {
     const extractedPayload = signedCookie.slice(0, dot);
     const extractedSignature = signedCookie.slice(dot + 1);
 
-    const expectedSignature = createHmac('sha256', secret).update(extractedPayload).digest('base64url');
+    const expectedSignature = createHmac('sha256', secret)
+      .update(extractedPayload)
+      .digest('base64url');
     expect(extractedSignature).toBe(expectedSignature);
 
     const decoded = JSON.parse(Buffer.from(extractedPayload, 'base64url').toString('utf8'));

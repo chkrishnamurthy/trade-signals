@@ -7,6 +7,9 @@ vi.mock('./provider', () => ({ getProvider: mock.provider }));
 // run is not; a one-index universe is enough to prove the symbol path.
 vi.mock('./indices', () => ({
   listIndexKeys: async () => ['nifty50'],
+  getHeadlineIndices: async () => [
+    { symbol: 'BANKNIFTY', name: 'BANK NIFTY', kind: 'index', exchange: 'NSE', display: 'index' },
+  ],
   getIndex: async () => ({
     ref: { symbol: 'NIFTY50', exchange: 'NSE', kind: 'index' },
     name: 'NIFTY 50',
@@ -104,5 +107,17 @@ describe('resolveImport', () => {
     const results = await fresh.resolveImport([{ symbol: 'RELIANCE' }, { isin: 'INE002A01018' }]);
     expect(results[0]?.status).toBe('matched');
     expect(results[1]?.status).toBe('unknown');
+  });
+});
+
+describe('resolveSymbol — strip indices', () => {
+  it('resolves a headline index that is not an `indices:` block, as an index', async () => {
+    const { resolveSymbol } = await import('./search');
+    expect(await resolveSymbol('banknifty')).toEqual({
+      symbol: 'BANKNIFTY',
+      name: 'BANK NIFTY',
+      sector: 'Index',
+      kind: 'index',
+    });
   });
 });

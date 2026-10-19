@@ -2,16 +2,18 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WorkerContext } from '../context.js';
 import type { CredentialMinter, CredentialStrategy, WorkerCredential } from '../credentials.js';
 import type { Logger } from '../log.js';
-import { refreshProviderCredential } from './refresh-credential.js';
+import { mintingDisabled, refreshProviderCredential } from './refresh-credential.js';
 
 const db = vi.hoisted(() => ({
   rows: new Map<string, WorkerCredential & { providerId: string; updatedAt: Date }>(),
   get: vi.fn(),
   save: vi.fn(),
+  logEvent: vi.fn(),
 }));
 vi.mock('@equitywise/db', () => ({
   getProviderCredential: db.get,
   saveProviderCredential: db.save,
+  logEvent: db.logEvent,
 }));
 
 const now = new Date('2026-09-17T01:35:00.000Z'); // 07:05 IST
@@ -198,5 +200,105 @@ describe('refreshProviderCredential', () => {
       ...logCalls.error.mock.calls,
     ]);
     expect(logged).not.toContain('dhan-minted');
+  });
+
+  describe('minting switch', () => {
+    it('reads WORKER_MINT_CREDENTIALS=false as off, anything else as on', () => {
+      expect(mintingDisabled({ WORKER_MINT_CREDENTIALS: 'false' })).toBe(true);
+      expect(mintingDisabled({ WORKER_MINT_CREDENTIALS: ' FALSE ' })).toBe(true);
+      expect(mintingDisabled({ WORKER_MINT_CREDENTIALS: 'true' })).toBe(false);
+      expect(mintingDisabled({})).toBe(false);
+    });
+
+    it('never logs in when disabled, and adopts the stored token instead', async () => {
+      const fyers = strategy('fyers');
+      db.rows.set('fyers', {
+        providerId: 'fyers',
+        accessToken: 'production-token',
+        expiresAt: later,
+        appId: 'app',
+        updatedAt: now,
+      });
+      const { context, log, tokens } = harness([fyers]);
+
+      const [result] = await refreshProviderCredential(context, log, {
+        now,
+        env: { WORKER_MINT_CREDENTIALS: 'false' },
+      });
+
+      expect(fyers.ensure).not.toHaveBeenCalled();
+      expect(db.save).not.toHaveBeenCalled();
+      expect(result).toMatchObject({ refreshed: false, skipped: true, via: 'stored' });
+      expect(tokens.get('fyers')).toBe('production-token');
+    });
+
+    it('still mints when the switch is unset (production)', async () => {
+      const fyers = strategy('fyers');
+      const { context, log } = harness([fyers]);
+
+      await refreshProviderCredential(context, log, { now, env: {} });
+
+      expect(fyers.ensure).toHaveBeenCalledOnce();
+    });
+  });
+});
+
+describe('credential lifecycle events', () => {
+  const eventsOf = () =>
+    db.logEvent.mock.calls.map(
+      (call) => call[1] as { category: string; event: string; detail: Record<string, unknown> },
+    );
+
+  it('stores credential_minted when a token is minted, without any token in the detail', async () => {
+    const { context, log } = harness([strategy('fyers')]);
+    await refreshProviderCredential(context, log, { now, env: {} });
+
+    const [event] = eventsOf();
+    expect(event).toMatchObject({ category: 'provider', event: 'credential_minted' });
+    expect(event?.detail).toMatchObject({ provider: 'fyers', via: 'minted' });
+    expect(JSON.stringify(event)).not.toContain('fyers-minted');
+  });
+
+  it('stores nothing when the stored token was still valid', async () => {
+    const { context, log } = harness([
+      strategy('fyers', {
+        ensure: async () => ({
+          credential: { accessToken: 't', expiresAt: later, appId: 'a' },
+          refreshed: false,
+          via: 'stored' as const,
+        }),
+      }),
+    ]);
+    await refreshProviderCredential(context, log, { now, env: {} });
+    expect(eventsOf()).toEqual([]);
+  });
+
+  it('marks the self-heal path as an invalidation first', async () => {
+    const { context, log } = harness([strategy('fyers')]);
+    await refreshProviderCredential(context, log, { now, env: {}, providerId: 'fyers' });
+    expect(eventsOf().map((e) => e.event)).toEqual(['credential_invalidated', 'credential_minted']);
+  });
+
+  it('stores credential_refresh_failed with a redacted reason, then rethrows', async () => {
+    const { context, log } = harness([
+      strategy('fyers', {
+        ensure: async () => {
+          throw new Error('login rejected: access_token=SECRET123');
+        },
+      }),
+    ]);
+    await expect(refreshProviderCredential(context, log, { now, env: {} })).rejects.toThrow();
+
+    const [event] = eventsOf();
+    expect(event?.event).toBe('credential_refresh_failed');
+    expect(JSON.stringify(event)).not.toContain('SECRET123');
+  });
+
+  it('does not fail the refresh when the event cannot be stored', async () => {
+    db.logEvent.mockRejectedValue(new Error('db down'));
+    const { context, log } = harness([strategy('fyers')]);
+    await expect(refreshProviderCredential(context, log, { now, env: {} })).resolves.toHaveLength(
+      1,
+    );
   });
 });

@@ -75,6 +75,17 @@ export const reorderItemsSchema = z.object({
   instrumentIds: z.array(z.number().int().positive()).min(1).max(1000),
 });
 
+export const itemNoteSchema = z.object({
+  instrumentId: z.number().int().positive(),
+  /** Empty or null clears the note. */
+  note: z
+    .string()
+    .trim()
+    .max(500, 'Keep notes under 500 characters.')
+    .nullable()
+    .transform((value) => (value === null || value === '' ? null : value)),
+});
+
 export const saveViewSchema = z.object({
   name: z.string().trim().min(1).max(60),
   /** True stores it against every watchlist rather than only this one. */

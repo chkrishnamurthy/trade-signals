@@ -46,6 +46,9 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // A second local dev server (e.g. against the Docker test DB) needs its own
+  // build folder; two `next dev` processes sharing `.next` corrupt each other.
+  distDir: process.env.NEXT_DIST_DIR || '.next',
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];
   },

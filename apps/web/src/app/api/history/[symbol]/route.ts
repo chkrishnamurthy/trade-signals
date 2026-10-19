@@ -1,5 +1,6 @@
 import type { Resolution } from '@equitywise/market-data';
 import { NextResponse } from 'next/server';
+import { requireSignedIn } from '@/server/auth/guards';
 import { MarketDataError, toMarketError } from '@/server/errors';
 import { getBars, latestSession } from '@/server/history';
 import { resolveSymbol } from '@/server/search';
@@ -35,6 +36,9 @@ export async function GET(
   request: Request,
   context: { params: Promise<{ symbol: string }> },
 ): Promise<NextResponse> {
+  const denied = await requireSignedIn();
+  if (denied !== null) return denied;
+
   const { symbol } = await context.params;
   const timeframe = new URL(request.url).searchParams.get('tf') ?? '1D';
   const spec = TIMEFRAMES[timeframe];

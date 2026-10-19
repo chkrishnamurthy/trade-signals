@@ -1,0 +1,28 @@
+{
+  "Table": [
+    {
+      "CompanyName": "Moneyview Limited",
+      "Company_Short_Name": "MONEYVIEW",
+      "IssuePrice": 34.0,
+      "ListedOn": "2026-10-01T00:00:00",
+      "ListingDayClose": 54.03,
+      "ListingDayGain": 20.03,
+      "CurrentPrice": 54.03,
+      "GainLoss": 20.03,
+      "Time": "2026-12-31T00:00:00",
+      "IMAGE": "https://www.bseindia.com/stock-share-price/moneyview-ltd/moneyview/544953/"
+    },
+    {
+      "CompanyName": "A-ONE STEELS INDIA LIMITED",
+      "Company_Short_Name": "AONESTEELS",
+      "IssuePrice": 405.0,
+      "ListedOn": "2026-10-01T00:00:00",
+      "ListingDayClose": 417.0,
+      "ListingDayGain": 12.0,
+      "CurrentPrice": 417.0,
+      "GainLoss": 12.0,
+      "Time": "2026-12-31T00:00:00",
+      "IMAGE": "https://www.bseindia.com/stock-share-price/a-one-steels-india-ltd/aonesteels/544952/"
+    }
+  ]
+}

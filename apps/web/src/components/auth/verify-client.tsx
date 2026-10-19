@@ -53,7 +53,9 @@ export function VerifyClient({ token }: { token: string | null }) {
       }
     >
       {state === 'working' ? (
-        <p className="text-sm text-muted-foreground">Verifying your email…</p>
+        <p role="status" className="text-sm text-muted-foreground">
+          Verifying your email…
+        </p>
       ) : state === 'done' ? (
         <Alert>
           <AlertDescription>Your email is verified. Thank you.</AlertDescription>

@@ -18,24 +18,23 @@ You type these. The agent never fires them on its own, so this list is the index
 The agent reaches for these on its own when a task fits, and they call each other.
 Each one reports and stops on a violation; the fix is the author's call.
 
-- [signal-invariants](signal-invariants/SKILL.md) — the eight hard rules and the mechanism
-  enforcing each. Some are DB triggers; three rest on convention. The shared reference the
+- [signal-invariants](signal-invariants/SKILL.md) — the hard rules and the mechanism
+  enforcing each, plus the no-signals product rule. Some are DB triggers; others rest on
+  convention. The shared reference the
   others cite.
 - [indicator-math](indicator-math/SKILL.md) — warm-up indices, Wilder versus `2/(period+1)`,
   null propagation, and fixture provenance. Fires on indicator and indicator-test work.
-- [closed-candles](closed-candles/SKILL.md) — lookahead guard for the signal engine,
-  backtests, and bar fetches. Fires on `includeForming`, bar indexing, and fill prices.
+- [closed-candles](closed-candles/SKILL.md) — lookahead guard for indicators, screener
+  metrics and bar fetches. Fires on `includeForming` and bar indexing.
 - [provider-boundary](provider-boundary/SKILL.md) — keeps Fyers types behind the adapter.
   Backed by a real test at `packages/market-data/src/__tests__/boundary.test.ts`.
 - [database](database/SKILL.md) — Neon/Drizzle/TimescaleDB conventions: connection
   strings, append-only triggers, migrations, repository patterns. Fires on
   `packages/db` and schema/migration work.
 - [worker](worker/SKILL.md) — `apps/worker` job conventions: scheduling, the write
-  boundary with `apps/web`, overlap prevention, shutdown, strategy versioning.
+  boundary with `apps/web`, overlap prevention, shutdown, holiday gating.
 - [api-boundary](api-boundary/SKILL.md) — `apps/web/src/app/api` route conventions:
   Zod validation, the `server/` delegation layer, error shape, auth via middleware only.
-- [paper-trading](paper-trading/SKILL.md) — the pessimistic grader's four assumptions,
-  the cost model, R-multiple/margin-of-error reporting, live-vs-backtest identity.
 - [architecture-guardrails](architecture-guardrails/SKILL.md) — the CLAUDE.md "do not
   build this" list applied product-wide (no RBAC/Redis/Celery/K8s/admin-CRUD/order
   execution) — the backend half of what `design/exclusions.md` covers for the UI.
@@ -44,6 +43,9 @@ Each one reports and stops on a violation; the fix is the author's call.
   TimescaleDB, the Fyers credential self-heal, backups, and local-dev safety. Fires on
   deploy/CI/server/backup work and on market-data/credential/rate-limit failures.
   Full reference: `docs/operations/deployment.md`.
+- [seo](seo/SKILL.md) — what is public (the middleware's list, sitemap, robots), `noindex`
+  on every private page, metadata, and JSON-LD through the `JsonLd` wrapper. Fires on
+  public-page, metadata, sitemap, robots and structured-data work.
 
 ## Conventions
 
@@ -55,4 +57,5 @@ Each one reports and stops on a violation; the fix is the author's call.
   description. Model-invoked skills carry a description written to trigger on real branches,
   and pay for it in permanent context on every turn.
 - `agents/openai.yaml` beside each `SKILL.md` mirrors the same choice for Codex.
+  Codex reads `.agents/skills/`, which is a symlink to this folder, so there is one copy.
   A skill is user-invoked in both harnesses or in neither.

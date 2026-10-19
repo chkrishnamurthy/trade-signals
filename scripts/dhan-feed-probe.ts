@@ -1,6 +1,7 @@
 /**
- * Phase 0 of docs/planning/paper-trading-plan.md: measure the Dhan live feed
- * before the paper-trading engine is allowed to trust it as the live tier.
+ * Measure the Dhan live feed before it is trusted as the live tier — the
+ * evidence for setting `MARKET_DATA_ROUTE_STREAM=dhan` (5,000 symbols per
+ * socket against Fyers' 200; docs/planning/dhan-provider-plan.md).
  *
  * Connects one socket for the NIFTY 50 universe (plus the index) using the
  * worker-minted token, then for `--minutes` records, per symbol and overall:

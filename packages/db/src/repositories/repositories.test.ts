@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { applyAdjustments, type StoredBar } from './candles.js';
-import { hashStrategyConfig } from './signals.js';
 
 /**
  * Expected values here are computed by hand, not by running the code under
@@ -88,28 +87,5 @@ describe('applyAdjustments', () => {
     expect(b.high).toBeGreaterThanOrEqual(b.close);
     expect(b.low).toBeLessThanOrEqual(b.open);
     expect(b.low).toBeLessThanOrEqual(b.close);
-  });
-});
-
-describe('hashStrategyConfig', () => {
-  it('is stable across property order', () => {
-    expect(hashStrategyConfig({ a: 1, b: { c: 2, d: 3 } })).toBe(
-      hashStrategyConfig({ b: { d: 3, c: 2 }, a: 1 }),
-    );
-  });
-
-  it('changes when any weight changes', () => {
-    // The whole point of rule 7: a different strategy must be a different row.
-    expect(hashStrategyConfig({ weights: { rsi: 1 } })).not.toBe(
-      hashStrategyConfig({ weights: { rsi: 1.25 } }),
-    );
-  });
-
-  it('distinguishes an absent key from a zero value', () => {
-    expect(hashStrategyConfig({ a: 1 })).not.toBe(hashStrategyConfig({ a: 1, b: 0 }));
-  });
-
-  it('preserves array order, which is meaningful', () => {
-    expect(hashStrategyConfig({ x: [1, 2] })).not.toBe(hashStrategyConfig({ x: [2, 1] }));
   });
 });

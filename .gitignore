@@ -1,10 +1,12 @@
 node_modules/
 dist/
 .next/
+.next-*/
 out/
 coverage/
 storybook-static/
 *.tsbuildinfo
+apps/.web-preview/
 
 .env
 .firebase/
@@ -25,3 +27,8 @@ storybook-static/
 # User-uploaded files (avatars), served from disk
 /uploads/
 uploads/
+.pnpm-store/
+
+# Expo generates these on every start; never commit them.
+apps/mobile/.expo/
+apps/mobile/expo-env.d.ts

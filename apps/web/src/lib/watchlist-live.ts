@@ -1,3 +1,4 @@
+import { withSessionExtremes } from './market-math';
 import type { LiveQuoteDto, WatchlistRowDto } from './watchlist-types';
 
 /**
@@ -5,10 +6,11 @@ import type { LiveQuoteDto, WatchlistRowDto } from './watchlist-types';
  *
  * A tick carries the last traded price and, sometimes, the session's volume.
  * Everything derived from the price on the row — change, change %, the day's
- * high and low — is recomputed here from the row's own reference values so
- * the columns never disagree with the price beside them. Nothing a tick does
- * not carry is touched: previous close, open, indicators, signals all stay as
- * the last poll left them.
+ * high and low, and the 52-week extremes the price can break through — is
+ * recomputed here from the row's own reference values so the columns never
+ * disagree with the price beside them. Nothing a tick does not carry is
+ * touched: previous close, open, indicators, signals all stay as the last poll
+ * left them.
  *
  * Pure, and referentially careful: a row whose price did not change is
  * returned as the SAME object, so the table only re-renders the cells that
@@ -50,6 +52,8 @@ export function applyLiveQuote(row: WatchlistRowDto, quote: LiveQuoteDto): Watch
       ? row.changePercent
       : ((quote.ltp - previousClose) / previousClose) * 100;
 
+  const year = withSessionExtremes(row, quote.ltp, quote.ltp);
+
   return {
     ...row,
     ltp: quote.ltp,
@@ -58,6 +62,8 @@ export function applyLiveQuote(row: WatchlistRowDto, quote: LiveQuoteDto): Watch
     volume,
     dayHigh: row.dayHigh === null ? row.dayHigh : Math.max(row.dayHigh, quote.ltp),
     dayLow: row.dayLow === null ? row.dayLow : Math.min(row.dayLow, quote.ltp),
+    high52w: year.high52w,
+    low52w: year.low52w,
     quoteAt: quote.at,
   };
 }

@@ -11,12 +11,20 @@ import { trustedOrigins } from './env';
  * one, and either way we reject it.
  */
 
-/** Best-effort client IP, trusting the reverse proxy in front of us. */
+/**
+ * Best-effort client IP, trusting the single Nginx reverse proxy in front of us.
+ *
+ * Nginx's conventional `$proxy_add_x_forwarded_for` appends the socket peer to
+ * any client-supplied header. The right-most value is therefore the address
+ * observed by our trusted proxy; accepting the first value would let a caller
+ * choose the rate-limit/audit key by sending its own X-Forwarded-For header.
+ */
 export function clientIp(request: Request): string | null {
   const forwarded = request.headers.get('x-forwarded-for');
   if (forwarded !== null && forwarded !== '') {
-    const first = forwarded.split(',')[0]?.trim();
-    if (first !== undefined && first !== '') return first;
+    const hops = forwarded.split(',');
+    const observedByProxy = hops.at(-1)?.trim();
+    if (observedByProxy !== undefined && observedByProxy !== '') return observedByProxy;
   }
   return request.headers.get('x-real-ip');
 }

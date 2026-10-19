@@ -1,6 +1,7 @@
-import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import type { Database } from '../client.js';
 import {
+  holdingEntries,
   instruments,
   watchlistItems,
   watchlistLayouts,
@@ -220,11 +221,29 @@ export async function listOwnerWatchedInstrumentIds(
  */
 export async function listAllWatchedInstruments(
   db: Database,
-): Promise<{ id: number; symbol: string }[]> {
+): Promise<{ id: number; symbol: string; exchange: string; kind: string }[]> {
+  // Watchlist names plus every stock any user holds in their portfolio. Owner is
+  // deliberately absent from the result: the worker only needs which symbols to price.
   return db
-    .selectDistinct({ id: instruments.id, symbol: instruments.symbol })
-    .from(watchlistItems)
-    .innerJoin(instruments, eq(instruments.id, watchlistItems.instrumentId))
+    .select({
+      id: instruments.id,
+      symbol: instruments.symbol,
+      exchange: instruments.exchange,
+      kind: instruments.kind,
+    })
+    .from(instruments)
+    .where(
+      or(
+        inArray(
+          instruments.id,
+          db.select({ id: watchlistItems.instrumentId }).from(watchlistItems),
+        ),
+        inArray(
+          instruments.id,
+          db.select({ id: holdingEntries.instrumentId }).from(holdingEntries),
+        ),
+      ),
+    )
     .orderBy(instruments.symbol);
 }
 
@@ -353,6 +372,33 @@ export async function reorderWatchlistItems(
           ),
         );
     }
+  });
+}
+
+/**
+ * Sets or clears the note on one member of a watchlist the owner holds. Returns
+ * false when the list is not theirs or the stock is not on it.
+ */
+export async function setWatchlistItemNote(
+  db: Database,
+  ownerId: number,
+  watchlistId: number,
+  instrumentId: number,
+  note: string | null,
+): Promise<boolean> {
+  return db.transaction(async (tx) => {
+    if (!(await ownsWatchlist(tx, ownerId, watchlistId))) return false;
+    const rows = await tx
+      .update(watchlistItems)
+      .set({ note })
+      .where(
+        and(
+          eq(watchlistItems.watchlistId, watchlistId),
+          eq(watchlistItems.instrumentId, instrumentId),
+        ),
+      )
+      .returning({ instrumentId: watchlistItems.instrumentId });
+    return rows.length > 0;
   });
 }
 

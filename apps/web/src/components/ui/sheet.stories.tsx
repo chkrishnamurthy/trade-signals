@@ -37,7 +37,7 @@ function Demo({ side }: { side: 'right' | 'left' | 'top' | 'bottom' }) {
         </SheetHeader>
         <SheetBody>
           <p className="text-sm text-muted-foreground">
-            Detail content — indicators, returns and the "why this signal" breakdown.
+            Detail content — indicators, returns and recent filings.
           </p>
         </SheetBody>
         <SheetFooter>

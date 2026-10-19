@@ -70,5 +70,5 @@ the middle of a series.
 ## On finding a wrong formula
 
 Report the defect, the correct formula, and what it means for values already computed and
-stored, then stop. A math change invalidates persisted indicator rows and any signal derived
-from them; say so explicitly. The author decides.
+stored, then stop. A math change invalidates persisted indicator rows and every screener
+metric or alert derived from them; say so explicitly. The author decides.

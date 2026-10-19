@@ -1,66 +1,93 @@
 # EquityWise
 
-A **multi-user** tool for **tracking, analysing and screening NSE equities** to
-surface technical setups worth attention — bullish/bearish setups, breakouts,
-breakdowns, momentum, trend changes, volume anomalies. Decision support, not
-execution. **Deployed publicly, with per-user accounts** — each user signs in and
+A **multi-user** tool for **tracking, analysing and screening NSE equities**: it shows
+what the market and each stock are doing — trend, breakouts, momentum, volume, delivery,
+ownership, events — from data, and lets the user screen and watch on their own
+conditions. It describes; it never picks stocks, issues buy/sell signals or simulates
+trades (removed 2026-10-17, see "Do not"). **Deployed publicly, with per-user accounts** — each user signs in and
 owns their own watchlists and data (auth design: `docs/planning/authentication-plan.md`).
 Multi-*user* (individuals), not multi-*tenant* (no organisations/teams).
 
 > **Direction change (2026-09-06):** this was previously a single-user, never-public
-> personal tool. It is being made a multi-user product; the login system and
-> per-user data isolation are being designed in `docs/planning/authentication-plan.md`.
-> Some rules and prose below still reflect the old single-user framing and are being
-> updated as that work lands.
+> personal tool. It is now a multi-user product: the first-party login system and
+> per-user data isolation are built (`docs/planning/authentication-plan.md`). Prose
+> anywhere that still assumes a single user is out of date.
 
 **This is not a broker and not a trading terminal.** It never places, manages, or
 represents an order. Orders are placed by hand on a separate platform. The product
 answers three questions and nothing else:
 
 1. What is happening in the market?
-2. Which stocks deserve attention right now?
-3. Why does this stock deserve attention?
+2. Which stocks match the conditions I chose (screener, watchlists, alerts)?
+3. What do the facts say about this stock?
 
 **Fyers is a market-data provider, not the product.** The app is broker-independent:
 business logic consumes a normalised `MarketDataProvider`, never a Fyers type. The
 UI never presents itself as a Fyers client.
 
-**Current scope: watchlists only.** The app has been stripped to the watchlists
-surface (`/watchlists`) plus its data spine — the Fyers provider for live quotes,
-`/api/search` to add names, and the daily end-of-day pass that feeds the watchlist's
-indicator/return/signal columns. The dashboard, all-stocks, intraday-signals,
-signal-performance and backtests pages and APIs were removed, along with the whole
-intraday/backtest/paper-trading engine (`packages/core/src/intraday`, the worker's
-intraday cycle, and the backtest scripts). New feature pages will be built on this
-base later. The design docs above still describe the fuller original product as
-historical intent; that intraday code no longer exists in the tree.
+> **Update (2026-10-17): signals and paper trading are removed.** The intraday ORB-VC
+> strategy (`/intraday`), per-user paper trading (`/paper-trading`), the daily signal
+> engine and every surface that showed it (watchlist Signal/Setups columns and "Daily
+> signals" view, the stock page's Signal tab, screener signal metrics, the Market brief's
+> "Strategy research") are gone, with their tables (migration `0046`). Plan and record:
+> `docs/planning/signals-and-paper-removal-plan.md`. The admin-only menu is now "Admin".
 
-> **Update (2026-09-18):** an intraday strategy (`/intraday`, ORB-VC on Dhan data) and
-> per-user paper trading (`/paper-trading`) have since been built — see
-> `docs/planning/intraday-strategy-dhan-plan.md` and `docs/planning/paper-trading-plan.md`.
-> **Both are admin-only:** the pages redirect a non-admin, their APIs answer 403, and
-> they are not in the primary navigation. Do not expose them to users without a decision.
+> **Update (2026-10-02):** `/ipos` — Indian mainboard and SME IPOs — is built for **every
+> signed-in user** (in the "Markets" navigation menu). Since 2026-10-04 it is one section
+> with a shared header (board scope All boards/Mainboard/SME, section tabs): `/ipos` is the
+> Overview hub, `/ipos/all` the master table (`/ipos/mainboard`, `/ipos/sme` redirect there),
+> `/ipos/calendar`, `/ipos/listings`, `/ipos/gmp` (unofficial) and `/ipos/pipeline` are its
+> sections, and `/ipos/[slug]` is one issue in full. Official facts come from NSE's
+> public IPO data and end-of-day file; an **unofficial** grey-market premium (GMP) comes
+> from InvestorGain, always labelled, attributed and kept out of every official field.
+> RHP sections are quoted from the document with their pages (figures stay the
+> document's text), and DRHPs filed with SEBI are listed on their own, never as issues.
+> No apply button, no rating, no opinion of any issue. Plan: `docs/planning/ipos-plan.md`;
+> runbook: `docs/operations/ipo-pipeline.md`.
 
-Design & architecture docs: `docs/README.md`, `docs/architecture.md` (topology & stack),
-`docs/domain-and-contracts.md` (schema, indicators & invariants), `docs/api-reference.md`,
-`docs/operations-runbook.md`, and `docs/planning/storybook-plan.md`.
+> **Update (2026-10-05):** `/portfolio` — a hand-typed or file-imported record of the
+> signed-in user's own shares, valued at the last price, for **every signed-in user**.
+> Never connected to a broker; no orders; describes, never advises. Plan:
+> `docs/planning/holdings-plan.md`. Phase 1 (MVP) first; later phases are gated on data.
+
+> **Update (2026-10-03):** stock analysis — `/screener`, `/stocks/[symbol]` and
+> `/markets/breadth` (the "Screener" tab and the "Markets" menu) — is built for **every signed-in user**
+> from Dhan, Fyers and data EquityWise already collects. The whole NSE EQ/BE/BZ universe
+> comes from the bhavcopy (split/bonus-adjusted via `corporate_actions`); the worker
+> builds a nightly `screener_snapshots` row per stock (~95 technical, delivery, F&O,
+> ownership and event metrics; catalogue in `packages/core/src/screener/catalogue.ts`).
+> **No fundamentals** (P/E, ROE, market cap…) — those need a new source. Plan:
+> `docs/planning/screener-dhan-fyers-plan.md`.
+> The stock page header (2026-10-04) adds a per-user ratio board (`user_ratio_layouts`),
+> computed "What stands out" facts and a 12-month dividend yield from NSE corporate actions
+> (`dividends` table — never applied to prices). Plan: `docs/planning/stock-header-redesign-plan.md`.
+
+Design & architecture docs: `docs/README.md` (index), `docs/architecture/` (historical
+or partly aspirational: `backtesting-architecture.md` was never built, `auth-system-design.md`
+is superseded, `seo-architecture.md` describes an unbuilt public spine — the `seo` skill is
+the as-built rule),
+`docs/operations/deployment.md` (hosting, pipeline, credentials, backups, runbook),
+`docs/reference/` (as-built references, e.g. the market calendar and indices strip), and
+`docs/planning/` (plans; `pending-features.md` carries the code-verified status ledger).
+There is no single schema/API reference yet: the schema lives in `packages/db/src/schema`,
+the routes in `apps/web/src/app/api`.
 Android app (Expo / React Native, `apps/mobile`, on branch `feat/mobile-app`): `docs/mobile/README.md`.
 
 ## Stack
 
-Node 22 · TypeScript strict · pnpm workspaces · Neon Postgres 17 + timescaledb
+Node 24 · TypeScript strict · pnpm workspaces · self-hosted PostgreSQL 17 + TimescaleDB
 Drizzle ORM · Next.js (web) · croner (scheduler) · Zod · Vitest · Biome
-Fyers API v3 for market data. No Redis. No Celery. No Python in the app.
+Fyers API v3 and Dhan API v2 for market data. No Redis. No Celery. No Python in the app.
 
 ## Hard rules — violating these breaks the system
 
 1. **`packages/core` is pure.** Every function takes data plus config and returns a
    result. No DB, no `Date.now()`, no network, no module-level mutable state, no
-   `process.env`. This is what lets the backtester and the live path run identical code.
+   `process.env`. This is what makes every calculation testable against fixed fixtures.
 
-2. **Signals are computed on CLOSED candles only.** Never the forming candle. The
-   tradeable entry is the NEXT candle's open. Any path that lets the engine see a
-   price at or after the entry timestamp is lookahead bias and invalidates every backtest.
+2. **Indicators and screener metrics use CLOSED candles only.** Never the forming
+   candle. A value stored for a session is computed from that session's closed bars and
+   nothing later.
 
 3. **All prices are INTEGER PAISE everywhere internally.** ₹1,245.50 is `124550`.
    Never `number` rupees, never floats, never a decimal library. Convert to a display
@@ -78,11 +105,10 @@ Fyers API v3 for market data. No Redis. No Celery. No Python in the app.
    the presentation boundary. Never store a naive datetime. Never use the server's
    local timezone for anything.
 
-7. **Strategy config is immutable and versioned.** Changing a weight mints a new
-   `strategy_versions` row. Never UPDATE an existing version.
-
-8. **Every signal writes its factor breakdown and indicator snapshot.** The
-   "Why this signal?" UI reads `signal_factors`; it never recomputes.
+7. **Portfolio data is private.** Every query is scoped by `owner_id` in the repository
+   layer. Holdings, shares and cost are never written to logs, the event log, error
+   reports or URLs. No admin screen shows them. Account deletion cascades. Uploaded
+   files are parsed and discarded; only the rows the user reviewed are stored.
 
 ## Production hosting (self-hosted VPS)
 
@@ -142,15 +168,21 @@ operations — is **`docs/operations/deployment.md`**. Read it before touching i
   Fyers symbol, resolution, or field
 - Do not use floating point for money
 - **Do not build order execution of any kind** — no place/modify/cancel order, order
-  book, positions, funds, holdings, or broker portfolio. Not even read-only
-- **BUY / SELL may label a signal's direction, and nothing else.** The direction
-  badge on a trade signal reads BUY or SELL because that is the fastest thing to
-  scan. Every other word stays technical: "Bullish setup", "Breakout candidate",
-  "Technical entry zone", "Invalidation level", "Watch". Never "ORDER", never
-  "ENTRY PRICE", never "position", never "quantity". An entry or exit level is a
-  technical price level and is labelled as one
-- There is no order button, order ticket, or order-shaped affordance anywhere.
-  A direction label describes price structure; it is not an instruction, and the
-  UI must never imply the application could act on it
+  book, funds, or broker portfolio. Nothing is ever fetched from a broker account.
+  Holdings the user types in or uploads themselves ARE allowed (see "My portfolio")
+- **No signals, setups, recommendations or paper trading** (removed 2026-10-17). The app
+  never labels a stock BUY / SELL or bullish/bearish "setup", never ranks stocks by its
+  own conviction or "setup strength", never names entry, target or stop levels, and
+  never simulates trades. Paid stock recommendations need SEBI Research Analyst
+  registration; bringing any of this back is a product decision, not a feature task.
+  Users screen on conditions they choose; the app states facts about the data
+- There is no order button, order ticket, or order-shaped affordance anywhere. Never
+  "ORDER", "ENTRY PRICE", "position" or "quantity"; the UI must never imply the
+  application could act on anything
+- **Portfolio vocabulary.** On the portfolio page use "Added shares" / "Removed shares"
+  (tax view: "Acquired" / "Disposed"), "Number of shares", "Holding", "Average cost".
+  Never "Buy", "Sell", "Position", "Quantity", "Order", "Execute", "Rebalance",
+  "Recommended", "Underweight", "Overweight". A sentence about a holding states a fact
+  about the user's own numbers; it never tells them what to do
 - Do not display a confidence number the factors cannot explain. Every score renders
   with its component breakdown or it does not render

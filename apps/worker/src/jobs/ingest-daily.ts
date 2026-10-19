@@ -8,6 +8,7 @@ import {
 import type { InstrumentRef, MarketDataProvider } from '@equitywise/market-data';
 import { istDateKey } from '@equitywise/shared';
 import type { WorkerContext } from '../context.js';
+import { withIngestionRun } from '../ingestion-tracking.js';
 import { errorFields, type Logger } from '../log.js';
 import { loadUniverse } from '../universe.js';
 
@@ -40,6 +41,23 @@ export async function ingestDailyCandles(
   context: WorkerContext,
   log: Logger,
   options: { backfill?: boolean; now?: Date } = {},
+): Promise<IngestResult> {
+  const now = options.now ?? new Date();
+  // Recorded so a missed or failed night is a row, not a silent hole. A backfill
+  // loads history rather than one session, so it is not recorded as tonight's.
+  if (options.backfill === true) return runDailyIngest(context, log, options);
+  return withIngestionRun(
+    context.db,
+    log,
+    { job: 'daily_candles', tradingDate: istDateKey(now) },
+    () => runDailyIngest(context, log, options),
+  );
+}
+
+async function runDailyIngest(
+  context: WorkerContext,
+  log: Logger,
+  options: { backfill?: boolean; now?: Date },
 ): Promise<IngestResult> {
   const { db, provider, providerId } = context;
   const now = options.now ?? new Date();

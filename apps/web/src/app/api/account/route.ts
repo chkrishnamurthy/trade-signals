@@ -1,4 +1,11 @@
-import { deleteUser, getAvatarUrl, getUserForLogin, listUsers, writeAudit } from '@equitywise/db';
+import {
+  deleteUser,
+  getAvatarUrl,
+  getUserForLogin,
+  listAccountMethods,
+  listUsers,
+  writeAudit,
+} from '@equitywise/db';
 import type { NextResponse } from 'next/server';
 import { clearSessionCookie } from '@/server/auth/cookies';
 import { fail, json } from '@/server/auth/http';
@@ -16,7 +23,8 @@ export const dynamic = 'force-dynamic';
  * DELETE /api/account — permanently delete the signed-in user's own account.
  *
  * Re-authenticates with the password and requires the literal confirmation
- * string. Everything the user owns (profile, credential, sessions, tokens, and —
+ * string. An account with no password (created with Google) re-confirms by
+ * typing its own email address instead — otherwise it could never be deleted. Everything the user owns (profile, credential, sessions, tokens, and —
  * via `owner_id` cascade — watchlists and views) is removed; the append-only
  * audit row survives. Refuses if the account is the last admin, so the product
  * can never be left with no operator.
@@ -35,13 +43,25 @@ export async function DELETE(request: Request): Promise<NextResponse> {
   }
   const parsed = deleteAccountSchema.safeParse(raw);
   if (!parsed.success) {
-    return fail('Type DELETE and enter your password to confirm.', 400, { code: 'INVALID_BODY' });
+    return fail('Type DELETE to confirm.', 400, { code: 'INVALID_BODY' });
   }
 
   const db = getDatabase();
-  const login = await getUserForLogin(db, user.email);
-  if (login === null || !(await verifyPassword(login.passwordHash, parsed.data.password))) {
-    return fail('Password is incorrect.', 400, { code: 'BAD_CREDENTIALS' });
+  const { hasPassword } = await listAccountMethods(db, user.id);
+  if (hasPassword) {
+    const login = await getUserForLogin(db, user.email);
+    const password = parsed.data.password;
+    if (
+      login === null ||
+      password === undefined ||
+      !(await verifyPassword(login.passwordHash, password))
+    ) {
+      return fail('Password is incorrect.', 400, { code: 'BAD_CREDENTIALS' });
+    }
+  } else if (parsed.data.email?.toLowerCase() !== user.email.toLowerCase()) {
+    return fail('Type the email address of this account to confirm.', 400, {
+      code: 'BAD_CREDENTIALS',
+    });
   }
 
   if (user.role === 'admin') {

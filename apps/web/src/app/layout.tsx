@@ -3,7 +3,6 @@ import { Bricolage_Grotesque, Inter, JetBrains_Mono } from 'next/font/google';
 import type { ReactNode } from 'react';
 import { JsonLd } from '@/components/seo/json-ld';
 import { ToastProvider } from '@/components/ui/toast';
-import { NAV_INIT_SCRIPT } from '@/lib/nav-rail';
 import {
   generateOrganizationAndWebsiteSchema,
   SITE_DESCRIPTION,
@@ -11,6 +10,9 @@ import {
   SITE_URL,
 } from '@/lib/seo/schema';
 import { THEME_INIT_SCRIPT } from '@/lib/theme';
+import { SessionProvider, type SessionState } from '@/lib/use-session';
+import { signupEnabled } from '@/server/auth/env';
+import { getNavigationSession } from '@/server/auth/session-payload';
 import './globals.css';
 
 /**
@@ -98,11 +100,28 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+/**
+ * The session as this request sees it, handed to the client so the navigation
+ * paints the right account control (and an admin's Admin menu) on the first
+ * frame. Every page already checks the session server-side; the lookup is
+ * memoised per request, so this adds one profile read. A failure here must
+ * never take a page down: it degrades to "unknown" and the browser asks.
+ */
+async function initialSession(): Promise<SessionState | null> {
+  try {
+    const user = await getNavigationSession();
+    return user === null ? { status: 'signed-out' } : { status: 'signed-in', user };
+  } catch {
+    return null;
+  }
+}
+
+export default async function RootLayout({ children }: { children: ReactNode }) {
   const globalSchema = generateOrganizationAndWebsiteSchema();
+  const session = await initialSession();
 
   return (
-    // The theme and navigation scripts write to <html> before React sees the
+    // The theme script writes to <html> before React sees the
     // document, so the server markup and the hydrated markup differ here by
     // design.
     <html
@@ -117,16 +136,13 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             inline script is the only way to set the theme before first paint;
             the content is a module constant, never user input. */}
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
-        {/* biome-ignore lint/security/noDangerouslySetInnerHtml: same reason —
-            the navigation rail's width has to be right on the first frame, or
-            every page load shows the panel snapping shut after hydration. */}
-        <script dangerouslySetInnerHTML={{ __html: NAV_INIT_SCRIPT }} />
       </head>
       <body className="min-h-dvh bg-background text-foreground" suppressHydrationWarning>
-        {/* No auth gate at present — every route is open. A future login system
-            wraps {children} here for client context, and adds
-            apps/web/src/middleware.ts (Next.js convention) to gate routes. */}
-        <ToastProvider>{children}</ToastProvider>
+        {/* Routes are gated in middleware.ts; this only shares what the server
+            already knows about the visitor with client components. */}
+        <SessionProvider initial={session} signupOpen={signupEnabled()}>
+          <ToastProvider>{children}</ToastProvider>
+        </SessionProvider>
       </body>
     </html>
   );

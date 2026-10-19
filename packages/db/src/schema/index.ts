@@ -9,14 +9,12 @@
  *   - Candles are append-only; corrections are corporate_actions rows (rule 5)
  *   - All prices are integer paise (rule 3)
  *   - All timestamps are TIMESTAMPTZ in UTC (rule 6)
- *   - strategy_versions rows are immutable (rule 7)
- *   - Every signal writes its factor breakdown (rule 8)
  */
 
+export { alertEvents, alerts } from './alerts.js';
 export * from './announcement-research.js';
 export {
   authAttempts,
-  authAudit,
   authChallenges,
   authCredentials,
   authIdentities,
@@ -24,9 +22,11 @@ export {
   authSessions,
   authTokens,
   authUsers,
+  eventLog,
   userProfiles,
 } from './auth.js';
-export { dailyCandles } from './candles.js';
+export { dailyCandles, minuteCandles } from './candles.js';
+export { workerCheckpoints } from './checkpoints.js';
 export { providerCredentials } from './credentials.js';
 export {
   bulkBlockDeals,
@@ -34,6 +34,7 @@ export {
   fiiDiiFlows,
   shareholdingPatterns,
 } from './disclosures.js';
+export { exchangeSessions } from './exchange-calendar.js';
 export {
   deliveryStats,
   derivativeOiDaily,
@@ -43,29 +44,38 @@ export {
 export { dailyIndicators } from './indicators.js';
 export { corporateActions, ingestionRuns, instruments } from './instruments.js';
 export {
-  intradayScanRuns,
-  intradaySessionExclusions,
-  intradaySignalEvents,
-  intradaySignals,
-} from './intraday.js';
+  ipoDocuments,
+  ipoGmpSnapshots,
+  ipoIssues,
+  ipoListingPerformance,
+  ipoRhpExtracts,
+  ipoSebiFilings,
+  ipoSourceRecords,
+  ipoSubscriptionSnapshots,
+  type RhpTableData,
+} from './ipos.js';
+export { marketEvents } from './market-events.js';
 export {
-  exchangeSessions,
-  instrumentProviderRefs,
-  paperAuditEvents,
-  paperEquitySnapshots,
-  paperFills,
-  paperLedgerEntries,
-  paperOrders,
-  paperPortfolios,
-  paperPositionEvents,
-  paperPositions,
-  paperRiskEvents,
-  paperSettings,
-  paperStrategyAssignments,
-  workerCheckpoints,
-} from './paper.js';
-export { signalFactors, signals, strategyVersions } from './signals.js';
-export * from './vwap-signals.js';
+  amfiCategories,
+  fairMarketValues2018,
+  HOLDING_NOTICE_KINDS,
+  type HoldingNoticeKind,
+  holdingEntries,
+  holdingNoticeSettings,
+  holdingNotices,
+  portfolioUsage,
+} from './portfolio.js';
+export { latestQuotes } from './quotes.js';
+export {
+  dividends,
+  indexMemberships,
+  instrumentReference,
+  marketBreadthDaily,
+  savedScreens,
+  screenerSnapshotBuilds,
+  screenerSnapshots,
+  userRatioLayouts,
+} from './screener.js';
 export {
   watchlistItems,
   watchlistLayouts,

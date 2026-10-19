@@ -1,0 +1,81 @@
+{
+  "Table": [
+    {
+      "CompanyName": "Roopa Screen Limited",
+      "IssuePrice": 64.0,
+      "ListedOn": "2026-10-01T00:00:00",
+      "ListingDayClose": 115.52,
+      "ListingDayGain": 51.52,
+      "CurrentPrice": 115.52,
+      "GainLoss": 51.52,
+      "Time": "2026-12-31T00:00:00",
+      "IMAGE": "https://www.bseindia.com/stock-share-price/roopa-screen-ltd/roopa/544954/"
+    },
+    {
+      "CompanyName": "LIQVD DIGITAL INDIA LIMITED",
+      "IssuePrice": 54.0,
+      "ListedOn": "2026-09-30T00:00:00",
+      "ListingDayClose": 51.05,
+      "ListingDayGain": -2.95,
+      "CurrentPrice": 48.5,
+      "GainLoss": -5.5,
+      "Time": "2026-12-31T00:00:00",
+      "IMAGE": "https://www.bseindia.com/stock-share-price/liqvd-digital-india-ltd/liqvd/544946/"
+    },
+    {
+      "CompanyName": "Anand Seamless Limited",
+      "IssuePrice": 72.0,
+      "ListedOn": "2026-09-29T00:00:00",
+      "ListingDayClose": 72.1,
+      "ListingDayGain": 0.1,
+      "CurrentPrice": 72.0,
+      "GainLoss": 0.0,
+      "Time": "2026-12-31T00:00:00",
+      "IMAGE": "https://www.bseindia.com/stock-share-price/anand-seamless-ltd/anand/544944/"
+    },
+    {
+      "CompanyName": "UNITEC FIBRES LIMITED",
+      "IssuePrice": 88.0,
+      "ListedOn": "2026-09-30T00:00:00",
+      "ListingDayClose": 90.6,
+      "ListingDayGain": 2.6,
+      "CurrentPrice": 95.13,
+      "GainLoss": 7.13,
+      "Time": "2026-12-31T00:00:00",
+      "IMAGE": "https://www.bseindia.com/stock-share-price/unitec-fibres-ltd/unitec/544948/"
+    },
+    {
+      "CompanyName": "Peshwa Wheat Limited",
+      "IssuePrice": 101.0,
+      "ListedOn": "2026-10-01T00:00:00",
+      "ListingDayClose": 95.05,
+      "ListingDayGain": -5.95,
+      "CurrentPrice": 95.05,
+      "GainLoss": -5.95,
+      "Time": "2026-12-31T00:00:00",
+      "IMAGE": "https://www.bseindia.com/stock-share-price/peshwa-wheat-ltd/peshwa/544955/"
+    },
+    {
+      "CompanyName": "HIMALAYA NUTRAVEDICS INDIA LIMITED",
+      "IssuePrice": 106.0,
+      "ListedOn": "2026-09-29T00:00:00",
+      "ListingDayClose": 122.9,
+      "ListingDayGain": 16.9,
+      "CurrentPrice": 122.6,
+      "GainLoss": 16.6,
+      "Time": "2026-12-31T00:00:00",
+      "IMAGE": "https://www.bseindia.com/stock-share-price/himalaya-nutravedics-india-ltd/hnil/544943/"
+    },
+    {
+      "CompanyName": "S.K. OFFSET LIMITED",
+      "IssuePrice": 125.0,
+      "ListedOn": "2026-09-30T00:00:00",
+      "ListingDayClose": 126.35,
+      "ListingDayGain": 1.35,
+      "CurrentPrice": 120.05,
+      "GainLoss": -4.95,
+      "Time": "2026-12-31T00:00:00",
+      "IMAGE": "https://www.bseindia.com/stock-share-price/sk-offset-ltd/skoffset/544947/"
+    }
+  ]
+}

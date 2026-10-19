@@ -210,7 +210,7 @@ export function CategoryChips({
             className={cn(
               'rounded-full border px-2.5 py-0.5 text-xs transition-colors',
               on
-                ? 'border-primary bg-primary text-primary-foreground'
+                ? 'border-primary-strong bg-primary-strong text-primary-foreground'
                 : 'border-border bg-surface text-muted-foreground hover:text-foreground',
             )}
           >

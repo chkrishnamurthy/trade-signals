@@ -1,0 +1,197 @@
+# Screener presets (docs/planning/screener-dhan-fyers-plan.md §5.3).
+#
+# Versioned config, not a database table (CLAUDE.md: no admin CRUD UI). Each
+# preset is an ordinary filter tree in STORED units — prices in paise,
+# percentages as plain numbers (12.5 = 12.5%). The web server validates every
+# preset against the metric catalogue when it loads; an invalid preset is a
+# startup error, not a silent skip.
+#
+# Naming rule: a preset is named by its CONDITIONS. Never "multibaggers",
+# "undervalued", "buy now", "top picks" or anything that reads as advice.
+
+presets:
+  - id: momentum-delivery
+    group: Momentum
+    label: Momentum with delivery
+    description: Above the 200 EMA, strong relative strength, unusual volume with delivery above its average, and a fresh breakout or RSI push.
+    sort: rsRank:desc
+    filter:
+      op: and
+      children:
+        - { metric: closeVsEma200, cmp: gt, value: 0 }
+        - { metric: rsRank, cmp: gte, value: 70 }
+        - { metric: relVolume, cmp: gte, value: 1.5 }
+        - { metric: deliveryVsAvg, cmp: gt, value: 0 }
+        - op: or
+          children:
+            - { metric: breakout20d, cmp: is, value: true }
+            - { metric: rsiAbove60Days, cmp: within, value: 3 }
+
+  - id: strong-uptrend
+    group: Trend
+    label: Strong uptrend
+    description: EMAs stacked in order, ADX above 25 and relative strength in the top 30%.
+    sort: rsRank:desc
+    filter:
+      op: and
+      children:
+        - { metric: emaStack, cmp: is, value: bullish }
+        - { metric: adx14, cmp: gt, value: 25 }
+        - { metric: rsRank, cmp: gte, value: 70 }
+
+  - id: pullback-ema50
+    group: Trend
+    label: Pullback to EMA 50 in an uptrend
+    description: Stacked EMAs with the close within 2% of the 50 EMA and RSI cooling to 40–55.
+    sort: closeVsEma50:asc
+    filter:
+      op: and
+      children:
+        - { metric: emaStack, cmp: is, value: bullish }
+        - { metric: closeVsEma50, cmp: between, value: [-2, 2] }
+        - { metric: rsi14, cmp: between, value: [40, 55] }
+
+  - id: high-52w-volume
+    group: Breakout
+    label: 52-week high on volume
+    description: Closed above the 52-week high on at least twice the average volume.
+    sort: relVolume:desc
+    filter:
+      op: and
+      children:
+        - { metric: breakout52w, cmp: is, value: true }
+        - { metric: relVolume, cmp: gte, value: 2 }
+
+  - id: tight-range
+    group: Breakout
+    label: Tight range, volume dry-up
+    description: Narrowest range of 7 sessions, Bollinger width at a 6-month low and volume below 70% of average.
+    sort: bbWidth:asc
+    filter:
+      op: and
+      children:
+        - { metric: nr7, cmp: is, value: true }
+        - { metric: bbSqueeze, cmp: is, value: true }
+        - { metric: relVolume, cmp: lt, value: 0.7 }
+
+  - id: rsi-cross-60
+    group: Momentum
+    label: RSI crossing 60
+    description: RSI (14) crossed above 60 in the last session, with the close above the 50 EMA.
+    sort: rsi14:desc
+    filter:
+      op: and
+      children:
+        - { metric: rsiAbove60Days, cmp: within, value: 1 }
+        - { metric: closeVsEma50, cmp: gt, value: 0 }
+
+  - id: macd-cross-above-zero
+    group: Momentum
+    label: MACD bullish cross above zero
+    description: MACD crossed above its signal within 3 sessions while the histogram is rising.
+    sort: rsRank:desc
+    filter:
+      op: and
+      children:
+        - { metric: macdCrossUpDays, cmp: within, value: 3 }
+        - { metric: macdHistRising, cmp: is, value: true }
+        - { metric: closeVsEma200, cmp: gt, value: 0 }
+
+  - id: delivery-spike
+    group: Volume
+    label: Delivery spike
+    description: Delivery at least 1.5× its 20-session average on above-average volume, closing up.
+    sort: deliveryRatio:desc
+    filter:
+      op: and
+      children:
+        - { metric: deliveryRatio, cmp: gte, value: 1.5 }
+        - { metric: relVolume, cmp: gte, value: 1.5 }
+        - { metric: changePct, cmp: gt, value: 0 }
+
+  - id: unusual-volume
+    group: Volume
+    label: Unusual volume
+    description: Three times average volume with at least ₹10 crore traded.
+    sort: relVolume:desc
+    filter:
+      op: and
+      children:
+        - { metric: relVolume, cmp: gte, value: 3 }
+        - { metric: turnover, cmp: gte, value: 10000000000 }
+
+  - id: long-buildup
+    group: F&O
+    label: Long build-up
+    description: Futures open interest up at least 5% with the price up.
+    sort: futOiChgPct:desc
+    filter:
+      op: and
+      children:
+        - { metric: oiBuildup, cmp: is, value: long_buildup }
+        - { metric: futOiChgPct, cmp: gte, value: 5 }
+
+  - id: short-covering
+    group: F&O
+    label: Short covering
+    description: Price up while futures open interest falls.
+    sort: changePct:desc
+    filter: { metric: oiBuildup, cmp: is, value: short_covering }
+
+  - id: promoter-up
+    group: Ownership
+    label: Promoter holding up
+    description: Promoter holding rose in the latest quarter.
+    sort: promoterChgQoq:desc
+    filter: { metric: promoterChgQoq, cmp: gt, value: 0 }
+
+  - id: promoter-up-streak
+    group: Ownership
+    label: Promoter holding up two quarters running
+    description: Promoter holding rose in each of the last two quarters, above the 200 EMA.
+    sort: promoterChgQoq:desc
+    filter:
+      op: and
+      children:
+        - { metric: promoterStreak, cmp: gte, value: 2 }
+        - { metric: closeVsEma200, cmp: gt, value: 0 }
+
+  - id: below-200-lower-lows
+    group: Weakness
+    label: Below 200 EMA, EMAs inverted
+    description: Close under the 200 EMA with the EMA stack fully bearish.
+    sort: rsRank:asc
+    filter:
+      op: and
+      children:
+        - { metric: closeVsEma200, cmp: lt, value: 0 }
+        - { metric: emaStack, cmp: is, value: bearish }
+
+  - id: breakdown-52w
+    group: Weakness
+    label: 52-week low breakdown
+    description: Closed below the 52-week low on 1.5× average volume.
+    sort: relVolume:desc
+    filter:
+      op: and
+      children:
+        - { metric: breakdown52w, cmp: is, value: true }
+        - { metric: relVolume, cmp: gte, value: 1.5 }
+
+  - id: results-this-week
+    group: Events
+    label: Results this week
+    description: A board meeting to consider results within the next 7 days.
+    sort: resultsInDays:asc
+    filter: { metric: resultsInDays, cmp: within, value: 7 }
+
+  - id: recent-deals
+    group: Events
+    label: Recent bulk or block deal
+    description: At least one bulk or block deal in the last 4 weeks.
+    sort: relVolume:desc
+    filter:
+      op: or
+      children:
+        - { metric: bulkDeals20d, cmp: gte, value: 1 }
+        - { metric: blockDeals20d, cmp: gte, value: 1 }

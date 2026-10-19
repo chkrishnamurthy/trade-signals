@@ -8,42 +8,93 @@
 
 import type { DealDto, FiiDiiDayDto } from '@/lib/disclosure-types';
 
-export interface FlowPoint {
-  /** `YYYY-MM-DD` IST trading date. */
-  readonly date: string;
-  /** Net value in paise (positive = net buying). */
-  readonly value: number;
+/** One participant's cash-market figures, paise. */
+export interface FlowSide {
+  readonly buy: number;
+  readonly sell: number;
+  readonly net: number;
 }
 
 /**
- * A participant's daily net series, oldest → newest.
+ * One bar pair on the FII/DII chart: a single session, or a calendar month
+ * of sessions summed.
+ *
+ * A participant with no reported session in the bar is `null`, never zero —
+ * absent is not flat.
+ */
+export interface FlowBar {
+  /** `YYYY-MM-DD` for a session, `YYYY-MM` for a month. */
+  readonly key: string;
+  readonly firstDate: string;
+  readonly lastDate: string;
+  readonly sessions: number;
+  readonly fii: FlowSide | null;
+  readonly dii: FlowSide | null;
+}
+
+/**
+ * The latest `limit` sessions as bars, oldest → newest.
  *
  * `fiiDii` arrives newest-first (as the server returns it); a chart reads left
- * to right in time, so it is reversed here. Days where that participant has no
- * row are skipped rather than plotted as zero — absent is not flat.
+ * to right in time, so it is reversed here.
  */
-export function netSeries(
-  fiiDii: readonly FiiDiiDayDto[],
-  participant: 'fii' | 'dii',
-): FlowPoint[] {
-  const out: FlowPoint[] = [];
+export function sessionBars(fiiDii: readonly FiiDiiDayDto[], limit: number): FlowBar[] {
+  return fiiDii
+    .slice(0, Math.max(0, limit))
+    .reverse()
+    .map((day) => ({
+      key: day.tradingDate,
+      firstDate: day.tradingDate,
+      lastDate: day.tradingDate,
+      sessions: 1,
+      fii: day.fii,
+      dii: day.dii,
+    }));
+}
+
+/**
+ * Sessions summed into calendar months, oldest → newest. Buy, sell and net
+ * are each summed over the sessions the participant reported. The first and
+ * last months can be partial — history starts, or the month is still running
+ * — which is why each bar carries its session count.
+ */
+export function monthBars(fiiDii: readonly FiiDiiDayDto[]): FlowBar[] {
+  const out: {
+    key: string;
+    first: string;
+    last: string;
+    n: number;
+    fii: FlowSide | null;
+    dii: FlowSide | null;
+  }[] = [];
   for (let i = fiiDii.length - 1; i >= 0; i -= 1) {
     const day = fiiDii[i];
     if (day === undefined) continue;
-    const side = participant === 'fii' ? day.fii : day.dii;
-    if (side === null) continue;
-    out.push({ date: day.tradingDate, value: side.net });
+    const key = day.tradingDate.slice(0, 7);
+    let month = out.at(-1);
+    if (month === undefined || month.key !== key) {
+      month = { key, first: day.tradingDate, last: day.tradingDate, n: 0, fii: null, dii: null };
+      out.push(month);
+    }
+    month.last = day.tradingDate;
+    month.n += 1;
+    month.fii = addSide(month.fii, day.fii);
+    month.dii = addSide(month.dii, day.dii);
   }
-  return out;
+  return out.map((m) => ({
+    key: m.key,
+    firstDate: m.first,
+    lastDate: m.last,
+    sessions: m.n,
+    fii: m.fii,
+    dii: m.dii,
+  }));
 }
 
-/** Running total of a net series, same dates. */
-export function cumulativeSeries(series: readonly FlowPoint[]): FlowPoint[] {
-  let running = 0;
-  return series.map((point) => {
-    running += point.value;
-    return { date: point.date, value: running };
-  });
+function addSide(total: FlowSide | null, day: FlowSide | null): FlowSide | null {
+  if (day === null) return total;
+  if (total === null) return { buy: day.buy, sell: day.sell, net: day.net };
+  return { buy: total.buy + day.buy, sell: total.sell + day.sell, net: total.net + day.net };
 }
 
 export interface ClientFlow {

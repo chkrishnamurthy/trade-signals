@@ -618,8 +618,12 @@ export function MarketChart({
           )}
 
           <ChartLegend className="mt-1 justify-between">
-            <IndexLevel paise={geometry.min} size="xs" className="text-subtle-foreground" />
-            <IndexLevel paise={geometry.max} size="xs" className="text-subtle-foreground" />
+            <li>
+              <IndexLevel paise={geometry.min} size="xs" className="text-subtle-foreground" />
+            </li>
+            <li>
+              <IndexLevel paise={geometry.max} size="xs" className="text-subtle-foreground" />
+            </li>
           </ChartLegend>
         </div>
       )}

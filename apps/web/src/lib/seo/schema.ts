@@ -7,6 +7,18 @@
 
 export const SITE_URL = 'https://equitywise.io';
 export const SITE_NAME = 'EquityWise';
+/**
+ * The share card (`app/opengraph-image.tsx`). A page that sets its own
+ * `openGraph` replaces the layout's whole object, image included, so every
+ * such page lists this image explicitly.
+ */
+export const SHARE_IMAGE = {
+  url: '/opengraph-image',
+  width: 1200,
+  height: 630,
+  alt: 'EquityWise — plain-English research on NSE stocks. Not investment advice.',
+} as const;
+
 export const SITE_DESCRIPTION =
   'Technical analysis, tracking, and screening platform for National Stock Exchange (NSE) equities.';
 

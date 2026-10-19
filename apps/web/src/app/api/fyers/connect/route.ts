@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { authorizationUrl, readAuthConfig } from '@equitywise/providers-fyers';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { requireAdminAccess } from '@/server/auth/guards';
 import { toMarketError } from '@/server/errors';
 
 /**
@@ -31,6 +32,12 @@ export const OAUTH_STATE_COOKIE = 'signal.oauth.state';
 const STATE_TTL_SECONDS = 10 * 60;
 
 export async function GET(): Promise<NextResponse> {
+  // Admin only: completing this handshake replaces the shared market-data
+  // credential for every user, and the edge middleware cannot tell a real
+  // session from a made-up cookie.
+  const denied = await requireAdminAccess();
+  if (denied !== null) return denied;
+
   let config: ReturnType<typeof readAuthConfig>;
   try {
     config = readAuthConfig(process.env);

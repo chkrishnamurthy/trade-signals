@@ -1,0 +1,634 @@
+{
+  "companyName": "VNL",
+  "metaInfo": {},
+  "bidDetails": [
+    {
+      "category": "Qualified Institutional Buyers(QIBs)",
+      "noOfSharesOffered": "84710",
+      "noOfTime": "0.955259119348365",
+      "noOfsharesBid": "80920",
+      "srNo": "1"
+    },
+    {
+      "category": "Foreign Institutional Investors(FIIs)",
+      "noOfSharesOffered": "",
+      "noOfTime": "",
+      "noOfsharesBid": "0",
+      "srNo": "1(a)"
+    },
+    {
+      "category": "Domestic Financial Institutions(Banks/ Financial Institutions(FIs)/ Insurance Companies)",
+      "noOfSharesOffered": "",
+      "noOfTime": "",
+      "noOfsharesBid": "0",
+      "srNo": "1(b)"
+    },
+    {
+      "category": "Mutual funds",
+      "noOfSharesOffered": "",
+      "noOfTime": "",
+      "noOfsharesBid": "0",
+      "srNo": "1(c)"
+    },
+    {
+      "category": "Others",
+      "noOfSharesOffered": "",
+      "noOfTime": "",
+      "noOfsharesBid": "80920",
+      "srNo": "1(d)"
+    },
+    {
+      "category": "Non Institutional Investors",
+      "noOfSharesOffered": "2456635",
+      "noOfTime": "0.6784125439880161",
+      "noOfsharesBid": "1666612",
+      "srNo": "2"
+    },
+    {
+      "category": "Non Institutional Investors(Bid amount of more than Ten Lakh Rupees)",
+      "noOfSharesOffered": "1637757",
+      "noOfTime": "0.9132783434905178",
+      "noOfsharesBid": "1495728",
+      "srNo": "2.1"
+    },
+    {
+      "category": "Corporates",
+      "noOfSharesOffered": "",
+      "noOfTime": "",
+      "noOfsharesBid": "4556",
+      "srNo": "2.1(a)"
+    },
+    {
+      "category": "Individuals(Other than RIIs)",
+      "noOfSharesOffered": "",
+      "noOfTime": "",
+      "noOfsharesBid": "1358164",
+      "srNo": "2.1(b)"
+    },
+    {
+      "category": "Others",
+      "noOfSharesOffered": "",
+      "noOfTime": "",
+      "noOfsharesBid": "133008",
+      "srNo": "2.1(c)"
+    },
+    {
+      "category": "Non Institutional Investors(Bid amount of more than Two Lakh Rupees upto Ten Lakh Rupees)",
+      "noOfSharesOffered": "818878",
+      "noOfTime": "0.2086806581688603",
+      "noOfsharesBid": "170884",
+      "srNo": "2.2"
+    },
+    {
+      "category": "Corporates",
+      "noOfSharesOffered": "",
+      "noOfTime": "",
+      "noOfsharesBid": "0",
+      "srNo": "2.2(a)"
+    },
+    {
+      "category": "Individuals(Other than RIIs)",
+      "noOfSharesOffered": "",
+      "noOfTime": "",
+      "noOfsharesBid": "168980",
+      "srNo": "2.2(b)"
+    },
+    {
+      "category": "Others",
+      "noOfSharesOffered": "",
+      "noOfTime": "",
+      "noOfsharesBid": "1904",
+      "srNo": "2.2(c)"
+    },
+    {
+      "category": "Retail Individual Investors(RIIs)",
+      "noOfSharesOffered": "5929808",
+      "noOfTime": "0.33295850388410553",
+      "noOfsharesBid": "1974380",
+      "srNo": "3"
+    },
+    {
+      "category": "Cut Off",
+      "noOfSharesOffered": "",
+      "noOfTime": "",
+      "noOfsharesBid": "1665728",
+      "srNo": "3(a)"
+    },
+    {
+      "category": "Price bids",
+      "noOfSharesOffered": "",
+      "noOfTime": "",
+      "noOfsharesBid": "308652",
+      "srNo": "3(b)"
+    },
+    {
+      "category": "Total",
+      "noOfSharesOffered": "8471153.0",
+      "noOfTime": "0.4393630949647586",
+      "noOfsharesBid": "3721912.0",
+      "srNo": null
+    }
+  ],
+  "issueInfo": {
+    "dataList": [
+      { "title": "Vishal Nirmiti Limited", "value": "" },
+      {
+        "title": null,
+        "value": "\"*As per SEBI circular no SEBI/HO/CFD/DIL2/CIR/P/2019/76 dated 28 June 28 2019 all are requested to comply with the provisions of the aforementioned circular which states as below: Intermediaries shall retain physical application forms submitted by retail individual investors with UPI as a payment mechanism, for a period of six months and thereafter forward the same to the issuer/ Registrar to Issue. However in case of Electronic forms printouts of such applications need not be retained or sent to the issuer. Intermediaries shall at all times maintain the electronic records relating to such forms for a minimum period of three years.\""
+      },
+      { "title": "Symbol", "value": "VNL" },
+      { "title": "Issue Period", "value": "30-Sep-2026 to 05-Oct-2026" },
+      {
+        "title": "Cut-off time for UPI Mandate Confirmation",
+        "value": "\"05-Oct-2026 (upto 5:00 PM) The new cut-off time for UPI mandate acceptance is 05:00 PM on last day of IPO bidding. Further bids with confirmed status of mandate amount blocked (RC100) shall be considered as valid applications and hence, investors are advised to submit their UPI applications in IPO well in advance to avoid any last minute technical/systemic constraints that may hamper their ability to participate in IPOs by successfully accepting the mandate.\""
+      },
+      {
+        "title": "Issue Size",
+        "value": "\"Initial Public Offering comprising fresh issue aggregating up to 14500 lakhs and offer for sale up to 15,00,000 Equity Shares\""
+      },
+      { "title": "Issue Type", "value": "Book Building" },
+      { "title": "Price Range", "value": "Rs. 208 to Rs. 220 per equity shares" },
+      { "title": "Discount", "value": "NA" },
+      { "title": "Face Value", "value": "Rs. 10 per Equity Share" },
+      { "title": "Tick Size", "value": "Re. 1" },
+      { "title": "Bid Lot", "value": "68 Equity Shares and in multiples thereof" },
+      { "title": "Minimum Order Quantity", "value": "68 Equity Shares" },
+      { "title": "Maximum Subscription Amount for Retail Investor", "value": "\"Rs. 2,00,000\"" },
+      { "title": "IPO Market Timings", "value": "10.00 a.m. to 5.00 p.m." },
+      {
+        "title": "Book Running Lead Managers",
+        "value": "Saffron Capital Advisors Private Limited"
+      },
+      { "title": "Sponsor Bank", "value": "HDFC Bank Limited" },
+      { "title": "Categories", "value": "\"FI, IC, MF, FII, OTH, CO, IND, and NOH\"" },
+      { "title": "Sub-Categories applicable for UPI", "value": "IND (upto 5 Lakhs)" },
+      { "title": "Name of the Registrar", "value": "MUFG Intime India Private Limited " },
+      {
+        "title": "Address of the Registrar",
+        "value": "\"C-101, Embassy, 247 L.B.S. Marg, Vikhroli (West) Mumbai 400 083 Maharashtra, India\""
+      },
+      {
+        "title": "Contact person name number and Email id",
+        "value": "\"Shanti Gopalkrishna , +91 810 811 4949, vishalnirmiti.ipo@in.mpms.mufg.com \""
+      },
+      { "title": "e-form link", "value": "https://bidcollection.nseindia.com/asba" },
+      {
+        "title": "Branches of Self Certified Syndicate Banks (SCSBs) where syndicate / sub syndicate member to submit ASBA form",
+        "value": "<a href=http://www.sebi.gov.in/sebiweb/other/OtherAction.do?doRecognisedFpi=yes&intmId=35 target=new>SCSB List</a>"
+      },
+      {
+        "title": "Ratios / Basis of Issue Price",
+        "value": "https://nsearchives.nseindia.com/content/ipo/RATIOS_VNL.zip"
+      },
+      {
+        "title": "Red Herring Prospectus",
+        "value": "https://nsearchives.nseindia.com/content/ipo/RHP_VNL.zip"
+      },
+      {
+        "title": "Bidding Centers",
+        "value": "https://nsearchives.nseindia.com/content/ipo/BIDDING_CENTERS_VNL.zip"
+      },
+      {
+        "title": "Sample Application Forms",
+        "value": "https://nsearchives.nseindia.com/content/ipo/FORMS_VNL.zip"
+      },
+      {
+        "title": "Security Parameters ",
+        "value": "https://nsearchives.nseindia.com/content/ipo/LIVE_PARAMETERS_VNL.zip"
+      },
+      {
+        "title": "Processing of ASBA Applications",
+        "value": "<a href=https://archives.nseindia.com/content/circulars/IPO53197.pdf target=new>NSE Circular on ASBA Application Processing</a>"
+      },
+      {
+        "title": "Remark",
+        "value": "\"The dedicated window provided for bid modification (modification of selected fields viz. DP ID/Client ID or Pan ID, Bank code and Location code) on T+1 day (T being last day of bidding) shall not be available now. The bid modification of selected fields shall be allowed during bidding period of IPO only.\""
+      },
+      {
+        "title": "List of mobile applications accepting UPI as Payment Option",
+        "value": "<a href=https://www.sebi.gov.in/sebiweb/other/OtherAction.do?doRecognisedFpi=yes&intmId=43 target=new>Mobile APP for UPI</a>"
+      },
+      {
+        "title": "Video link  for UPI based ASBA process",
+        "value": "<a href=https://youtu.be/UJ394m2Q3rg target=new>UPI Based ASBA Process</a>"
+      },
+      {
+        "title": "Video link  for BHIM UPI Registration",
+        "value": "<a href=https://youtu.be/cIUJOIH0x4c target=new>BHIM UPI Registration</a>"
+      }
+    ],
+    "symbol": "VNL"
+  },
+  "activeCat": {
+    "dataList": [
+      {
+        "category": "Category",
+        "noOfShareOffered": "No.of shares offered/reserved",
+        "noOfSharesBid": "No. of shares bid for",
+        "noOfTotalMeant": "No. of times of total meant for the category",
+        "srNo": "Sr.No."
+      },
+      {
+        "category": "Qualified Institutional Buyers(QIBs)",
+        "noOfShareOffered": "84710",
+        "noOfSharesBid": "80920",
+        "noOfTotalMeant": "0.955259119348365",
+        "srNo": "1"
+      },
+      {
+        "category": "Foreign Institutional Investors(FIIs)",
+        "noOfShareOffered": "",
+        "noOfSharesBid": "0",
+        "noOfTotalMeant": "",
+        "srNo": "1(a)"
+      },
+      {
+        "category": "Domestic Financial Institutions(Banks/ Financial Institutions(FIs)/ Insurance Companies)",
+        "noOfShareOffered": "",
+        "noOfSharesBid": "0",
+        "noOfTotalMeant": "",
+        "srNo": "1(b)"
+      },
+      {
+        "category": "Mutual funds",
+        "noOfShareOffered": "",
+        "noOfSharesBid": "0",
+        "noOfTotalMeant": "",
+        "srNo": "1(c)"
+      },
+      {
+        "category": "Others",
+        "noOfShareOffered": "",
+        "noOfSharesBid": "80920",
+        "noOfTotalMeant": "",
+        "srNo": "1(d)"
+      },
+      {
+        "category": "Non Institutional Investors",
+        "noOfShareOffered": "2456635",
+        "noOfSharesBid": "1975196",
+        "noOfTotalMeant": "0.8040250179615612",
+        "srNo": "2"
+      },
+      {
+        "category": "Non Institutional Investors(Bid amount of more than Ten Lakh Rupees)",
+        "noOfShareOffered": "1637757",
+        "noOfSharesBid": "1723120",
+        "noOfTotalMeant": "1.052121895983348",
+        "srNo": "2.1"
+      },
+      {
+        "category": "Corporates",
+        "noOfShareOffered": "",
+        "noOfSharesBid": "9112",
+        "noOfTotalMeant": "",
+        "srNo": "2.1(a)"
+      },
+      {
+        "category": "Individuals(Other than RIIs)",
+        "noOfShareOffered": "",
+        "noOfSharesBid": "1562708",
+        "noOfTotalMeant": "",
+        "srNo": "2.1(b)"
+      },
+      {
+        "category": "Others",
+        "noOfShareOffered": "",
+        "noOfSharesBid": "151300",
+        "noOfTotalMeant": "",
+        "srNo": "2.1(c)"
+      },
+      {
+        "category": "Non Institutional Investors(Bid amount of more than Two Lakh Rupees upto Ten Lakh Rupees)",
+        "noOfShareOffered": "818878",
+        "noOfSharesBid": "252076",
+        "noOfTotalMeant": "0.3078309589462655",
+        "srNo": "2.2"
+      },
+      {
+        "category": "Corporates",
+        "noOfShareOffered": "",
+        "noOfSharesBid": "952",
+        "noOfTotalMeant": "",
+        "srNo": "2.2(a)"
+      },
+      {
+        "category": "Individuals(Other than RIIs)",
+        "noOfShareOffered": "",
+        "noOfSharesBid": "249220",
+        "noOfTotalMeant": "",
+        "srNo": "2.2(b)"
+      },
+      {
+        "category": "Others",
+        "noOfShareOffered": "",
+        "noOfSharesBid": "1904",
+        "noOfTotalMeant": "",
+        "srNo": "2.2(c)"
+      },
+      {
+        "category": "Retail Individual Investors(RIIs)",
+        "noOfShareOffered": "5929808",
+        "noOfSharesBid": "2779092",
+        "noOfTotalMeant": "0.4686647527204928",
+        "srNo": "3"
+      },
+      {
+        "category": "Cut Off",
+        "noOfShareOffered": "",
+        "noOfSharesBid": "2430116",
+        "noOfTotalMeant": "",
+        "srNo": "3(a)"
+      },
+      {
+        "category": "Price bids",
+        "noOfShareOffered": "",
+        "noOfSharesBid": "348976",
+        "noOfTotalMeant": "",
+        "srNo": "3(b)"
+      },
+      {
+        "category": "Total",
+        "noOfShareOffered": "8471153.0",
+        "noOfSharesBid": "4835208.0",
+        "noOfTotalMeant": "0.5707851103621904",
+        "srNo": null
+      }
+    ],
+    "heading": null,
+    "symbol": null,
+    "updateTime": "Updated as on 01-Oct-2026 17:00:00"
+  },
+  "demandGraph": {
+    "noOfShare": "Cumulative Demand(no. of shares in lakhs)",
+    "note": "Cumulative (NSE) bid quantity at each price point includes the quantity (NSE) bidded at that relevant price point and all valid bids above that price point.",
+    "totalBidAtCutOff": "1665728",
+    "heading1": "Vishal Nirmiti Limited- Graphical display of bids received *",
+    "TOTAL_BIDS": "3721912",
+    "totalIssueSize": "8471153",
+    "heading2": "(* indicates bids position and not necessarily the subscription to the issue)",
+    "plotData": {
+      "208": "37,21,912",
+      "209": "24,00,400",
+      "210": "23,99,788",
+      "211": "23,96,660",
+      "212": "23,96,116",
+      "213": "23,95,776",
+      "214": "23,95,572",
+      "215": "23,95,300",
+      "216": "23,93,668",
+      "218": "23,93,464",
+      "219": "23,93,396",
+      "220": "23,93,328",
+      "Cut-Off": "16,65,728"
+    },
+    "noOfTimesIssueSubscribed": "0.44",
+    "graphData": [
+      { "type": "208", "value": "13.215" },
+      { "type": "209", "value": "0.006" },
+      { "type": "210", "value": "0.031" },
+      { "type": "211", "value": "0.005" },
+      { "type": "212", "value": "0.003" },
+      { "type": "213", "value": "0.002" },
+      { "type": "214", "value": "0.003" },
+      { "type": "215", "value": "0.016" },
+      { "type": "216", "value": "0.002" },
+      { "type": "218", "value": "0.001" },
+      { "type": "219", "value": "0.001" },
+      { "type": "220", "value": "7.276" },
+      { "type": "Cut-off", "value": "16.657" }
+    ],
+    "graphLogic": "https://nsearchives.nseindia.com/content/ipo/ipo_graph_logic.pdf",
+    "totalBidRecieved": "3721912",
+    "timestamp": "As on 01-Oct-2026 17:00:03 IST"
+  },
+  "demandDataNSE": [
+    {
+      "company": "Vishal Nirmiti Limited",
+      "cumQty": "16,65,728",
+      "price": "Cut-Off",
+      "symbol": "VNL",
+      "timestamp": "01-Oct-2026 17:00:03"
+    },
+    {
+      "company": "Vishal Nirmiti Limited",
+      "cumQty": "23,93,328",
+      "price": "220",
+      "symbol": "VNL",
+      "timestamp": "01-Oct-2026 17:00:03"
+    },
+    {
+      "company": "Vishal Nirmiti Limited",
+      "cumQty": "23,93,396",
+      "price": "219",
+      "symbol": "VNL",
+      "timestamp": "01-Oct-2026 17:00:03"
+    },
+    {
+      "company": "Vishal Nirmiti Limited",
+      "cumQty": "23,93,464",
+      "price": "218",
+      "symbol": "VNL",
+      "timestamp": "01-Oct-2026 17:00:03"
+    },
+    {
+      "company": "Vishal Nirmiti Limited",
+      "cumQty": "23,93,668",
+      "price": "216",
+      "symbol": "VNL",
+      "timestamp": "01-Oct-2026 17:00:03"
+    },
+    {
+      "company": "Vishal Nirmiti Limited",
+      "cumQty": "23,95,300",
+      "price": "215",
+      "symbol": "VNL",
+      "timestamp": "01-Oct-2026 17:00:03"
+    },
+    {
+      "company": "Vishal Nirmiti Limited",
+      "cumQty": "23,95,572",
+      "price": "214",
+      "symbol": "VNL",
+      "timestamp": "01-Oct-2026 17:00:03"
+    },
+    {
+      "company": "Vishal Nirmiti Limited",
+      "cumQty": "23,95,776",
+      "price": "213",
+      "symbol": "VNL",
+      "timestamp": "01-Oct-2026 17:00:03"
+    },
+    {
+      "company": "Vishal Nirmiti Limited",
+      "cumQty": "23,96,116",
+      "price": "212",
+      "symbol": "VNL",
+      "timestamp": "01-Oct-2026 17:00:03"
+    },
+    {
+      "company": "Vishal Nirmiti Limited",
+      "cumQty": "23,96,660",
+      "price": "211",
+      "symbol": "VNL",
+      "timestamp": "01-Oct-2026 17:00:03"
+    },
+    {
+      "company": "Vishal Nirmiti Limited",
+      "cumQty": "23,99,788",
+      "price": "210",
+      "symbol": "VNL",
+      "timestamp": "01-Oct-2026 17:00:03"
+    },
+    {
+      "company": "Vishal Nirmiti Limited",
+      "cumQty": "24,00,400",
+      "price": "209",
+      "symbol": "VNL",
+      "timestamp": "01-Oct-2026 17:00:03"
+    },
+    {
+      "company": "Vishal Nirmiti Limited",
+      "cumQty": "37,21,912",
+      "price": "208",
+      "symbol": "VNL",
+      "timestamp": "01-Oct-2026 17:00:03"
+    }
+  ],
+  "demandDataBSE": [
+    {
+      "company": "Vishal Nirmiti Limited",
+      "cumQty": "24,35,624",
+      "price": "Cut-Off",
+      "symbol": "VNL",
+      "timestamp": "01-Oct-2026 17:00:00"
+    },
+    {
+      "company": "Vishal Nirmiti Limited",
+      "cumQty": "33,65,796",
+      "price": "220",
+      "symbol": "VNL",
+      "timestamp": "01-Oct-2026 17:00:00"
+    },
+    {
+      "company": "Vishal Nirmiti Limited",
+      "cumQty": "33,65,864",
+      "price": "219",
+      "symbol": "VNL",
+      "timestamp": "01-Oct-2026 17:00:00"
+    },
+    {
+      "company": "Vishal Nirmiti Limited",
+      "cumQty": "33,66,884",
+      "price": "218",
+      "symbol": "VNL",
+      "timestamp": "01-Oct-2026 17:00:00"
+    },
+    {
+      "company": "Vishal Nirmiti Limited",
+      "cumQty": "33,67,156",
+      "price": "216",
+      "symbol": "VNL",
+      "timestamp": "01-Oct-2026 17:00:00"
+    },
+    {
+      "company": "Vishal Nirmiti Limited",
+      "cumQty": "33,69,332",
+      "price": "215",
+      "symbol": "VNL",
+      "timestamp": "01-Oct-2026 17:00:00"
+    },
+    {
+      "company": "Vishal Nirmiti Limited",
+      "cumQty": "33,69,808",
+      "price": "214",
+      "symbol": "VNL",
+      "timestamp": "01-Oct-2026 17:00:00"
+    },
+    {
+      "company": "Vishal Nirmiti Limited",
+      "cumQty": "33,70,216",
+      "price": "213",
+      "symbol": "VNL",
+      "timestamp": "01-Oct-2026 17:00:00"
+    },
+    {
+      "company": "Vishal Nirmiti Limited",
+      "cumQty": "33,71,168",
+      "price": "212",
+      "symbol": "VNL",
+      "timestamp": "01-Oct-2026 17:00:00"
+    },
+    {
+      "company": "Vishal Nirmiti Limited",
+      "cumQty": "33,71,848",
+      "price": "211",
+      "symbol": "VNL",
+      "timestamp": "01-Oct-2026 17:00:00"
+    },
+    {
+      "company": "Vishal Nirmiti Limited",
+      "cumQty": "33,76,268",
+      "price": "210",
+      "symbol": "VNL",
+      "timestamp": "01-Oct-2026 17:00:00"
+    },
+    {
+      "company": "Vishal Nirmiti Limited",
+      "cumQty": "33,76,948",
+      "price": "209",
+      "symbol": "VNL",
+      "timestamp": "01-Oct-2026 17:00:00"
+    },
+    {
+      "company": "Vishal Nirmiti Limited",
+      "cumQty": "48,42,484",
+      "price": "208",
+      "symbol": "VNL",
+      "timestamp": "01-Oct-2026 17:00:00"
+    }
+  ],
+  "demandGraphALL": {
+    "noOfShare": "Cumulative Demand(no. of shares in lakhs)",
+    "note": "Cumulative bid quantity at each price point includes the quantity bid at that relevant price point and all valid bids at the next higher price point.  The graph is updated every hour.",
+    "totalBidAtCutOff": "2435624",
+    "heading1": "Vishal Nirmiti Limited- Graphical display of bids received *",
+    "TOTAL_BIDS": "4842484",
+    "totalIssueSize": "8471153",
+    "heading2": "(* indicates bids position and not necessarily the subscription to the issue)",
+    "plotData": {
+      "208": "48,42,484",
+      "209": "33,76,948",
+      "210": "33,76,268",
+      "211": "33,71,848",
+      "212": "33,71,168",
+      "213": "33,70,216",
+      "214": "33,69,808",
+      "215": "33,69,332",
+      "216": "33,67,156",
+      "218": "33,66,884",
+      "219": "33,65,864",
+      "220": "33,65,796",
+      "Cut-Off": "24,35,624"
+    },
+    "noOfTimesIssueSubscribed": "0.57",
+    "graphData": [
+      { "type": "208", "value": "14.655" },
+      { "type": "209", "value": "0.007" },
+      { "type": "210", "value": "0.044" },
+      { "type": "211", "value": "0.007" },
+      { "type": "212", "value": "0.01" },
+      { "type": "213", "value": "0.004" },
+      { "type": "214", "value": "0.005" },
+      { "type": "215", "value": "0.022" },
+      { "type": "216", "value": "0.003" },
+      { "type": "218", "value": "0.01" },
+      { "type": "219", "value": "0.001" },
+      { "type": "220", "value": "9.302" },
+      { "type": "Cut-off", "value": "24.356" }
+    ],
+    "graphLogic": "https://nsearchives.nseindia.com/content/ipo/ipo_graph_logic.pdf",
+    "totalBidRecieved": "4842484",
+    "timestamp": "As on 01-Oct-2026 17:00:00 IST"
+  }
+}

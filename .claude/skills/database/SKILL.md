@@ -34,8 +34,9 @@ side is safe only because `createDatabase()` never reads `DATABASE_URL_DIRECT` a
 Migrations are drizzle-kit generated (`drizzle.config.ts:22-29`, schema at
 `src/schema/index.ts`, casing `snake_case`). Two files are hand-written and say so at the
 top: `0001_hypertables.sql` (drizzle-kit doesn't model hypertables) and
-`0002_guards.sql`/`0004_intraday_guards.sql` (drizzle-kit doesn't model CHECK constraints
-or triggers). If a change needs a hypertable, a CHECK, or a trigger, it's a hand-written
+`0002_guards.sql` (drizzle-kit doesn't model CHECK constraints or triggers). Since
+`0018`, most migrations are hand-written SQL plus a `meta/_journal.json` entry —
+`src/__tests__/migrations-static.test.ts` checks the journal and files agree. If a change needs a hypertable, a CHECK, or a trigger, it's a hand-written
 migration in this same style — not something to coax out of `drizzle-kit generate`.
 
 Workflow: `pnpm db:generate` / `db:migrate` / `db:studio` at the repo root, proxying to
@@ -44,23 +45,16 @@ Workflow: `pnpm db:generate` / `db:migrate` / `db:studio` at the repo root, prox
 ## The guards that actually exist
 
 - **Append-only**: a `reject_mutation()` trigger function (`0002_guards.sql:10-16`) raises
-  on any `UPDATE` to `daily_candles`, `minute_candles`, or `strategy_versions`
-  (`0002_guards.sql:19-23,26-30,36-48`). A correction is a new row (`corporate_actions`
-  for prices, a new `strategy_versions` row for config), never an `UPDATE` — the trigger
-  will reject it either way, so this isn't a style preference to remember, it's a wall.
+  on any `UPDATE` to `daily_candles` or `minute_candles` (`0002_guards.sql:19-23,26-30`).
+  A correction is a new `corporate_actions` row, never an `UPDATE` — the trigger will
+  reject it either way, so this isn't a style preference to remember, it's a wall.
+  (`strategy_versions` and its trigger were dropped in `0046`.)
 - **Price sanity**: CHECK constraints require `open/high/low/close > 0`, `volume >= 0`,
   and OHLC coherence (`high >= low`, `high >= open`, etc.) on both candle tables
   (`0002_guards.sql:53-60,63-65`).
-- **Intraday signal shape**: `0004_intraday_guards.sql:62-66` — a CHECK ties `ended_at
-  IS NOT NULL` to exactly the terminal states (`invalidated`/`expired`/`target_met`), so a
-  signal can't be half-closed. Also positive prices and `entry_high >= entry_low`
-  (`:33-43`), and enum-style CHECKs on `quality`/`direction`/`state` (`:13-29`).
 - **Single default watchlist**: a partial unique index, not a trigger —
   `uniqueIndex('watchlists_single_default_idx').on(table.isDefault).where(sql\`${table.isDefault}\`)`
   (`schema/watchlists.ts:914`).
-- **Immutable strategy config**: `strategy_versions` has a unique `configHash`
-  (`schema/signals.ts:783`) on top of the append-only trigger — the same config never
-  mints two rows, and no row ever changes.
 
 Every timestamp column across every schema file is `timestamp({ withTimezone: true })` —
 no naive datetime exists anywhere in `packages/db/src/schema/`.
@@ -69,9 +63,7 @@ no naive datetime exists anywhere in `packages/db/src/schema/`.
 
 Every repository function takes `db: Database` as its first parameter — none holds its
 own connection. Multi-write operations that must be atomic use `db.transaction(async
-(tx) => {...})`: signal + factor breakdown together (`repositories/signals.ts:109`, this
-is rule 8 — the breakdown is written in the same transaction as the signal, never after),
-intraday signal create/update, and most of `watchlists.ts`'s mutations.
+(tx) => {...})`, e.g. most of `watchlists.ts`'s mutations.
 
 Bulk inserts are chunked to stay under Postgres's 65535 bind-parameter limit:
 `INSERT_CHUNK = 2_000` (`candles.ts:38`), `UPSERT_CHUNK = 1_000` (`instruments.ts:32`),

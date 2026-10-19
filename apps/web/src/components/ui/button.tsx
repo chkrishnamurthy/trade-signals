@@ -11,15 +11,17 @@ import { cn } from '@/lib/utils';
  * page-specific button style anywhere in the product.
  */
 const buttonVariants = cva(
-  'inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-md text-sm font-medium transition-colors outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*=size-])]:size-4',
+  'inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-md text-sm font-medium transition-colors outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*=size-])]:size-4',
   {
     variants: {
       variant: {
-        default: 'bg-primary text-primary-foreground shadow-subtle hover:bg-primary/90',
+        default:
+          // primary-strong: white text on plain `primary` is 4.1:1 in light, under AA.
+          'bg-primary-strong text-primary-foreground shadow-subtle hover:bg-primary-strong/90',
         secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
         outline: 'border border-border bg-surface hover:bg-accent hover:text-accent-foreground',
         ghost: 'hover:bg-accent hover:text-accent-foreground',
-        link: 'text-primary underline-offset-4 hover:underline',
+        link: 'text-primary-strong underline-offset-4 hover:underline',
         destructive:
           'bg-destructive text-destructive-foreground shadow-subtle hover:bg-destructive/90',
       },

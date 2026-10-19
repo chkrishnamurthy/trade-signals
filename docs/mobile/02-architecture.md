@@ -35,7 +35,7 @@
 | `GET /api/app-config` (version gate, sign-up/Google switches, terms version) | `config/app.yaml`, `server/app-config.ts` |
 | `GET /api/stocks/:symbol` (G6) | `api/stocks/[symbol]` |
 | `GET /api/auth/session` reports `mfaEnabled`; sessions list returns `client`, `deviceName`, `authenticationMethod`; the web shows the phone's name | the matching routes, `components/profile/sessions-list.tsx` |
-| Migration `0026_mobile_sessions` (additive): `auth_sessions.client` + `device_name`, `auth_users.terms_version`, `google_native` challenge purpose | `packages/db/drizzle/0026_mobile_sessions.sql` |
+| Migration `0047_mobile_sessions` (additive): `auth_sessions.client` + `device_name`, `auth_users.terms_version`, `google_native` challenge purpose | `packages/db/drizzle/0047_mobile_sessions.sql` |
 
 Web behaviour is unchanged for cookie users. The only exception is that new web accounts now also record `terms_version`.
 

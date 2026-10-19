@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { requireSignedIn } from '@/server/auth/guards';
 import { clearStaleSessionCookie } from '@/server/auth/http';
 import {
   canServeStale,
@@ -23,6 +24,9 @@ export const dynamic = 'force-dynamic';
 const NO_STORE = { 'Cache-Control': 'no-store' } as const;
 
 export async function GET(): Promise<NextResponse> {
+  const denied = await requireSignedIn();
+  if (denied !== null) return denied;
+
   try {
     return NextResponse.json(await getIndexStrip(), { headers: NO_STORE });
   } catch (error) {

@@ -2,17 +2,18 @@ import { describe, expect, it } from 'vitest';
 import type { DealDto, FiiDiiDayDto } from '@/lib/disclosure-types';
 import {
   aggregateByClient,
-  cumulativeSeries,
   type DealFilters,
   filterDeals,
-  netSeries,
+  monthBars,
+  sessionBars,
 } from './flow-analytics';
 
+/** A session whose gross buy is 100 and sell is 100 − net, so sums are checkable. */
 function day(date: string, fiiNet: number | null, diiNet: number | null): FiiDiiDayDto {
   return {
     tradingDate: date,
-    fii: fiiNet === null ? null : { buy: 0, sell: 0, net: fiiNet },
-    dii: diiNet === null ? null : { buy: 0, sell: 0, net: diiNet },
+    fii: fiiNet === null ? null : { buy: 100, sell: 100 - fiiNet, net: fiiNet },
+    dii: diiNet === null ? null : { buy: 100, sell: 100 - diiNet, net: diiNet },
   };
 }
 
@@ -35,28 +36,43 @@ function deal(partial: Partial<DealDto>): DealDto {
   };
 }
 
-describe('netSeries', () => {
-  it('reverses to oldest→newest and skips absent participants', () => {
-    // Input is newest-first.
-    const fiiDii = [day('2026-09-12', 200, null), day('2026-09-11', 100, -50)];
-    const fii = netSeries(fiiDii, 'fii');
-    expect(fii.map((p) => p.date)).toEqual(['2026-09-11', '2026-09-12']);
-    expect(fii.map((p) => p.value)).toEqual([100, 200]);
+describe('sessionBars', () => {
+  // Newest-first, as the server sends it.
+  const fiiDii = [day('2026-09-14', 30, 3), day('2026-09-11', 20, null), day('2026-09-10', 10, -1)];
 
-    const dii = netSeries(fiiDii, 'dii');
-    // Only 09-11 has a DII row.
-    expect(dii).toEqual([{ date: '2026-09-11', value: -50 }]);
+  it('takes the latest sessions and orders them oldest → newest', () => {
+    const bars = sessionBars(fiiDii, 2);
+    expect(bars.map((b) => b.key)).toEqual(['2026-09-11', '2026-09-14']);
+    expect(bars.map((b) => b.fii?.net)).toEqual([20, 30]);
+    expect(bars.every((b) => b.sessions === 1)).toBe(true);
+  });
+
+  it('keeps an absent participant as null, not zero', () => {
+    expect(sessionBars(fiiDii, 3)[1]?.dii).toBeNull();
   });
 });
 
-describe('cumulativeSeries', () => {
-  it('accumulates the running total', () => {
-    const out = cumulativeSeries([
-      { date: 'a', value: 100 },
-      { date: 'b', value: -30 },
-      { date: 'c', value: 50 },
-    ]);
-    expect(out.map((p) => p.value)).toEqual([100, 70, 120]);
+describe('monthBars', () => {
+  // Newest-first: two September sessions, one October.
+  const fiiDii = [day('2026-10-01', 40, 4), day('2026-09-30', 30, null), day('2026-09-29', 20, -2)];
+
+  it('sums buy, sell and net per calendar month, oldest first', () => {
+    const months = monthBars(fiiDii);
+    expect(months.map((m) => m.key)).toEqual(['2026-09', '2026-10']);
+    expect(months[0]).toMatchObject({
+      firstDate: '2026-09-29',
+      lastDate: '2026-09-30',
+      sessions: 2,
+      // FII: buys 100 + 100, sells (100 − 20) + (100 − 30), net 20 + 30.
+      fii: { buy: 200, sell: 150, net: 50 },
+      // DII reported only on 29 Sep.
+      dii: { buy: 100, sell: 102, net: -2 },
+    });
+    expect(months[1]?.sessions).toBe(1);
+  });
+
+  it('is null for a participant with no session in the month', () => {
+    expect(monthBars([day('2026-09-30', 30, null)])[0]?.dii).toBeNull();
   });
 });
 

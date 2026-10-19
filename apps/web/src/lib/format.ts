@@ -63,7 +63,7 @@ export function quantity(units: number | null): string {
 }
 
 /**
- * Large money in paise -> "₹1.24 Cr".
+ * Large money in paise -> "₹1.24 Cr", "₹13,263.31 Cr".
  *
  * Turnover and market capitalisation both run to twelve digits; a scale suffix
  * is the only readable form in a table cell.
@@ -71,9 +71,51 @@ export function quantity(units: number | null): string {
 export function largeCurrency(paise: number | null): string {
   if (paise === null || !Number.isFinite(paise)) return DASH;
   const rupees = paise / 100;
-  if (Math.abs(rupees) >= 1e7) return `₹${(rupees / 1e7).toFixed(2)} Cr`;
-  if (Math.abs(rupees) >= 1e5) return `₹${(rupees / 1e5).toFixed(2)} L`;
+  if (Math.abs(rupees) >= 1e7) return `₹${groupedTwo(rupees / 1e7)} Cr`;
+  if (Math.abs(rupees) >= 1e5) return `₹${groupedTwo(rupees / 1e5)} L`;
   return formatPaise(paise, { decimals: 0 });
+}
+
+const PAISE_PER_CRORE = 1_000_000_000;
+
+/** Indian digit grouping at two decimals: 13263.31 -> "13,263.31". */
+function groupedTwo(value: number): string {
+  return value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+/**
+ * A signed money flow, always in crore so a column of them lines up:
+ * "+₹4,210.80 Cr", "−₹5,027.40 Cr". `unit: false` drops the " Cr" where a
+ * column header already names it. Zero carries no sign.
+ */
+export function signedCrore(
+  paise: number | null,
+  options: { readonly unit?: boolean } = {},
+): string {
+  if (paise === null || !Number.isFinite(paise)) return DASH;
+  const text = `₹${groupedTwo(Math.abs(paise) / PAISE_PER_CRORE)}${options.unit === false ? '' : ' Cr'}`;
+  if (text.startsWith('₹0.00')) return text;
+  return `${paise > 0 ? '+' : '−'}${text}`;
+}
+
+/**
+ * A money-axis tick in crore, without the symbol or unit, which the axis
+ * names once: 1_20_00_00_00_000 paise -> "1,200", and "−1,200" below zero.
+ *
+ * Decimals appear only when the axis step is finer than a crore — the fewest
+ * (at most two) that print the step exactly, so a 0.25 Cr scale reads 0.25 and
+ * a tick never claims precision the scale does not have.
+ */
+export function croreTick(paise: number, stepPaise: number): string {
+  const stepCrore = Math.abs(stepPaise) / PAISE_PER_CRORE;
+  const decimals =
+    [0, 1, 2].find((d) => Math.abs(Math.round(stepCrore * 10 ** d) - stepCrore * 10 ** d) < 1e-9) ??
+    2;
+  const text = (Math.abs(paise) / PAISE_PER_CRORE).toLocaleString('en-IN', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+  return paise < 0 && text.replace(/[0.,]/g, '') !== '' ? `−${text}` : text;
 }
 
 /** Traded value for the session. */

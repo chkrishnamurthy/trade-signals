@@ -36,16 +36,7 @@ const VIEWS: readonly QuickView[] = [
     id: 'overview',
     label: 'Overview',
     description: 'The default balance of price, volume and trend',
-    columns: [
-      'ltp',
-      'changePercent',
-      'dayRange',
-      'volume',
-      'averageVolume',
-      'range52w',
-      'rsi14',
-      'signal',
-    ],
+    columns: ['ltp', 'changePercent', 'dayRange', 'volume', 'averageVolume', 'range52w', 'rsi14'],
     sort: [],
     filters: {},
   },
@@ -139,20 +130,13 @@ const VIEWS: readonly QuickView[] = [
     sort: [{ columnId: 'return1m', direction: 'desc' }],
     filters: {},
   },
-  {
-    id: 'daily_signals',
-    label: 'Daily signals',
-    description: 'The daily engine’s latest verdict, strongest first',
-    columns: ['ltp', 'changePercent', 'signal', 'signalStrength', 'signalSetups', 'trend', 'rsi14'],
-    sort: [{ columnId: 'signalStrength', direction: 'desc' }],
-    filters: {},
-  },
 ];
 
 export const QUICK_VIEWS = VIEWS;
 
 const BY_ID = new Map(VIEWS.map((view) => [view.id, view]));
 
+/** A quick view by id; null for an unknown (or retired) one. */
 export function getQuickView(id: string): QuickView | null {
   return BY_ID.get(id) ?? null;
 }

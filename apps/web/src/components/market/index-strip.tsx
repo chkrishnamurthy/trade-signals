@@ -3,9 +3,10 @@
 import type * as React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { IndexCell, IndexCellSkeleton } from '@/components/market/index-cell';
+import { IndexDrawer } from '@/components/market/index-drawer';
 import { LiveIndicator } from '@/components/market/market-status';
 import * as fmt from '@/lib/format';
-import type { IndexStripDto, MarketPhase } from '@/lib/market-types';
+import type { IndexSnapshotDto, IndexStripDto, MarketPhase } from '@/lib/market-types';
 import { type IndexStripState, useIndexStrip } from '@/lib/use-index-strip';
 import { cn } from '@/lib/utils';
 import type { LiveSourceState } from '@/lib/watchlist-types';
@@ -53,6 +54,12 @@ export function IndexStripView({
 }) {
   const scroller = useRef<HTMLDivElement>(null);
   const overflowing = useOverflows(scroller);
+  // Held by symbol, not by snapshot, so the open drawer keeps following live ticks.
+  const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
+  const selected: IndexSnapshotDto | null =
+    selectedSymbol === null || state.status !== 'ready'
+      ? null
+      : (state.data.indices.find((index) => index.symbol === selectedSymbol) ?? null);
   return (
     <div
       data-slot="index-strip"
@@ -72,21 +79,32 @@ export function IndexStripView({
           <>
             <div
               ref={scroller}
+              aria-busy={state.status === 'loading' || undefined}
               className={cn(
                 'flex min-w-0 flex-1 snap-x snap-mandatory items-baseline overflow-x-auto scrollbar-none',
                 overflowing && EDGE_FADE,
               )}
             >
-              {state.status === 'loading'
-                ? SKELETON_SLOTS.map((slot) => <IndexCellSkeleton key={slot} />)
-                : state.data.indices.map((index) => (
-                    <IndexCell
-                      key={index.symbol}
-                      index={index}
-                      stale={state.data.stale !== undefined}
-                      className="snap-start"
-                    />
+              {state.status === 'loading' ? (
+                <>
+                  <span role="status" className="sr-only">
+                    Loading market indices
+                  </span>
+                  {SKELETON_SLOTS.map((slot) => (
+                    <IndexCellSkeleton key={slot} />
                   ))}
+                </>
+              ) : (
+                state.data.indices.map((index) => (
+                  <IndexCell
+                    key={index.symbol}
+                    index={index}
+                    stale={state.data.stale !== undefined}
+                    onSelect={(picked) => setSelectedSymbol(picked.symbol)}
+                    className="snap-start"
+                  />
+                ))
+              )}
             </div>
             {state.status === 'ready' && (
               <StripStatus data={state.data} liveState={liveState} className="shrink-0" />
@@ -94,6 +112,7 @@ export function IndexStripView({
           </>
         )}
       </div>
+      <IndexDrawer index={selected} onClose={() => setSelectedSymbol(null)} />
     </div>
   );
 }

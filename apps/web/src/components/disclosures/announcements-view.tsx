@@ -59,7 +59,7 @@ export function AnnouncementsView({
       <PageContainer>
         <PageHeader>
           <PageHeading>
-            <PageTitle>Corporate Announcements</PageTitle>
+            <PageTitle>Announcements</PageTitle>
             <PageDescription>
               Company disclosures, with facts, context and unknowns.
             </PageDescription>
@@ -68,35 +68,15 @@ export function AnnouncementsView({
         </PageHeader>
 
         <PageContent>
-          <div
-            role="status"
-            className="space-y-1 rounded-lg border border-border bg-muted p-3 text-sm"
-          >
-            <p className="font-medium">
-              {data.coverage.failed
-                ? 'Latest ingestion failed'
-                : data.coverage.stale
-                  ? 'Ingestion is stale or unverified'
-                  : 'Latest ingestion succeeded — partial coverage'}
+          {(data.coverage.failed || data.coverage.stale) && (
+            <p role="status" className="rounded-lg border border-border bg-muted px-3 py-2 text-sm">
+              {coverageNotice(data.coverage)}
             </p>
-            <p>
-              Current source: BSE. NSE announcement ingestion is not connected. Complete coverage is
-              not verified.
-            </p>
-            <p className="text-muted-foreground">
-              Last successful ingestion:{' '}
-              {data.coverage.lastSuccess
-                ? `${formatDateTimeIst(data.coverage.lastSuccess)} IST`
-                : 'Not recorded'}{' '}
-              · Latest attempt:{' '}
-              {data.coverage.latestAttempt
-                ? `${formatDateTimeIst(data.coverage.latestAttempt)} IST`
-                : 'Not recorded'}
-            </p>
-            <p className="text-muted-foreground">
-              Existing filings remain available when a source fails. Attachments are not analysed.
-            </p>
-          </div>
+          )}
+          <p className="text-muted-foreground text-xs" data-slot="announcement-source">
+            Source: BSE filings, matched to NSE symbols by ISIN. Companies listed only on BSE show
+            as BSE:TICKER. Attachments are not analysed.
+          </p>
           {data.rows.some((row) => row.onWatchlist) && (
             <p className="text-sm">
               On this page, {data.rows.filter((row) => row.onWatchlist).length} filings relate to
@@ -239,6 +219,20 @@ export function AnnouncementsView({
       </PageContainer>
     </AppShell>
   );
+}
+
+/** The one-line notice shown only when the feed failed or has gone stale. */
+function coverageNotice(coverage: AnnouncementsPageDto['coverage']): string {
+  const lastUpdate =
+    coverage.lastSuccess === null
+      ? 'No update has succeeded yet.'
+      : `Last updated ${formatDateTimeIst(coverage.lastSuccess)} IST.`;
+  if (coverage.failed && coverage.latestAttempt !== null) {
+    return `Announcements couldn't be refreshed at ${formatDateTimeIst(coverage.latestAttempt)} IST. ${lastUpdate}`;
+  }
+  return coverage.lastSuccess === null
+    ? 'Announcements have not been refreshed yet.'
+    : `Announcements may be out of date. ${lastUpdate}`;
 }
 
 // ---------------------------------------------------------------------------

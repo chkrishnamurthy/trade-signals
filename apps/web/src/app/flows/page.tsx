@@ -3,7 +3,7 @@ import { FlowView } from '@/components/disclosures/flow-view';
 import { getInstitutionalFlow } from '@/server/disclosures';
 
 export const metadata: Metadata = {
-  title: 'Institutional Flow — EquityWise',
+  title: 'Institutional flow',
   description:
     'FII/DII flows, futures positioning, delivery and bulk & block deals from the exchanges.',
   robots: { index: false, follow: false },

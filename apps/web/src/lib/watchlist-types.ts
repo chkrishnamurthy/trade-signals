@@ -13,24 +13,7 @@
  * rest of the list has yesterday's.
  */
 
-import type { SignalDirection } from './dashboard-types';
 import type { ReturnCloses } from './return-windows';
-
-/**
- * The daily engine's latest verdict on a name.
- *
- * Read from stored `signals` rows — the web app never recomputes one (hard
- * rule 8). `tradingDate` is the CLOSED session it describes, which is not
- * necessarily the session the indicators on the same row describe.
- */
-export interface RowSignalDto {
-  readonly direction: SignalDirection;
-  /** 0-100, 50 neutral. Explained by the stored factor breakdown. */
-  readonly strength: number;
-  /** Named setups, e.g. "Golden cross". */
-  readonly setups: readonly string[];
-  readonly tradingDate: string;
-}
 
 export interface WatchlistRowDto {
   readonly instrumentId: number;
@@ -91,9 +74,6 @@ export interface WatchlistRowDto {
    * A missing key means no session that far back — never zero.
    */
   readonly returnCloses: ReturnCloses;
-
-  // --- Signals --------------------------------------------------------------
-  readonly signal: RowSignalDto | null;
 }
 
 /**
@@ -196,14 +176,16 @@ export interface WatchlistDetailDto {
   readonly savedViews: readonly SavedViewDto[];
   readonly market: { readonly isOpen: boolean; readonly phase: string };
   readonly fetchedAt: string;
+  /** Worker cache fetch time for the newest quote snapshot in this response. */
+  readonly quoteSnapshotAt: string | null;
   /** Members the provider returned no quote for. Shown, never dropped. */
   readonly missingQuotes: readonly string[];
   /**
-   * True when the quote half could not be fetched at all.
+   * True when the quote half could not be fetched or is too old for an open session.
    *
-   * The table still renders — indicator columns are worth reading on their
-   * own — but the price columns must be labelled stale rather than left to
-   * look live.
+   * The table still renders because indicator columns remain useful. The UI
+   * presents this as a delay only during continuous trading; after the market
+   * closes, an unchanged final price is expected rather than stale.
    */
   readonly quotesStale: boolean;
   readonly refreshAfterSeconds: number;

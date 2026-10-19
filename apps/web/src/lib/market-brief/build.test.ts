@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildMarketBrief, countSessionsBehind, expectedLatestSession } from './build';
-import type { MarketBriefInput, SessionInstrumentFacts, SessionSignalFacts } from './types';
+import type { MarketBriefInput, SessionInstrumentFacts } from './types';
 
 // A Friday, 18:30 IST — after the end-of-day pass completes.
 const FRIDAY_EVENING = new Date('2026-09-11T13:00:00Z');
@@ -26,31 +26,6 @@ function mkFacts(
   };
 }
 
-function mkSignal(
-  id: number,
-  direction: SessionSignalFacts['direction'],
-  partial: Partial<SessionSignalFacts> = {},
-): SessionSignalFacts {
-  return {
-    signalId: id,
-    direction,
-    strength:
-      direction === 'strong_bullish'
-        ? 80
-        : direction === 'bullish'
-          ? 65
-          : direction === 'bearish'
-            ? 35
-            : direction === 'strong_bearish'
-              ? 20
-              : 50,
-    setups: [],
-    close: 100_00,
-    factors: [{ key: 'x', label: 'Factor', score: 0.5, weight: 1, detail: 'detail' }],
-    ...partial,
-  };
-}
-
 interface ScenarioOpts {
   advancing: number;
   declining: number;
@@ -58,28 +33,17 @@ interface ScenarioOpts {
   above20: number;
   above50: number;
   total: number;
-  bullSignals: number;
-  bearSignals: number;
   expected: number;
 }
 
 function scenario(opts: ScenarioOpts): MarketBriefInput {
   const current = new Map<number, SessionInstrumentFacts>();
-  const currentSignals = new Map<number, SessionSignalFacts>();
 
   for (let i = 0; i < opts.total; i += 1) {
     const changePercent = i < opts.advancing ? 1.5 : i < opts.advancing + opts.declining ? -1.5 : 0;
     const sma20 = i < opts.above20 ? 90_00 : 110_00;
     const sma50 = i < opts.above50 ? 90_00 : 110_00;
     current.set(i, mkFacts(i, { changePercent, sma20, sma50, close: 100_00 }));
-
-    const direction =
-      i < opts.bullSignals
-        ? 'bullish'
-        : i < opts.bullSignals + opts.bearSignals
-          ? 'bearish'
-          : 'neutral';
-    currentSignals.set(i, mkSignal(i, direction));
   }
 
   return {
@@ -90,8 +54,6 @@ function scenario(opts: ScenarioOpts): MarketBriefInput {
     expectedInstruments: opts.expected,
     current,
     previous: new Map(),
-    currentSignals,
-    previousSignals: new Map(),
     watchlistMembership: new Map(),
     hasWatchlists: false,
     indexReturnPercent: null,
@@ -109,8 +71,6 @@ describe('buildMarketBrief — market condition', () => {
         above20: 45,
         above50: 42,
         total: 50,
-        bullSignals: 40,
-        bearSignals: 5,
         expected: 50,
       }),
     );
@@ -127,8 +87,6 @@ describe('buildMarketBrief — market condition', () => {
         above20: 6,
         above50: 8,
         total: 50,
-        bullSignals: 5,
-        bearSignals: 40,
         expected: 50,
       }),
     );
@@ -144,8 +102,6 @@ describe('buildMarketBrief — market condition', () => {
         above20: 26,
         above50: 24,
         total: 50,
-        bullSignals: 22,
-        bearSignals: 20,
         expected: 50,
       }),
     );
@@ -161,8 +117,6 @@ describe('buildMarketBrief — market condition', () => {
         above20: 40,
         above50: 15,
         total: 50,
-        bullSignals: 20,
-        bearSignals: 20,
         expected: 50,
       }),
     );
@@ -178,8 +132,6 @@ describe('buildMarketBrief — market condition', () => {
         above20: 12,
         above50: 10,
         total: 20,
-        bullSignals: 12,
-        bearSignals: 2,
         expected: 50,
       }),
     );
@@ -199,8 +151,6 @@ describe('buildMarketBrief — overview & denominators', () => {
         above20: 30,
         above50: 25,
         total: 50,
-        bullSignals: 20,
-        bearSignals: 10,
         expected: 50,
       }),
     );
@@ -224,12 +174,9 @@ describe('buildMarketBrief — overview & denominators', () => {
         above20: 0,
         above50: 0,
         total: 0,
-        bullSignals: 0,
-        bearSignals: 0,
         expected: 2,
       }),
       current,
-      currentSignals: new Map(),
     };
     const brief = buildMarketBrief(input);
     expect(brief.overview.directionCovered).toBe(1);
@@ -250,12 +197,9 @@ describe('buildMarketBrief — overview & denominators', () => {
         above20: 0,
         above50: 0,
         total: 0,
-        bullSignals: 0,
-        bearSignals: 0,
         expected: 50,
       }),
       current,
-      currentSignals: new Map(),
     };
     const brief = buildMarketBrief(input);
     expect(brief.overview.above20DayAverage).toBeNull();
@@ -273,23 +217,17 @@ describe('buildMarketBrief — what changed', () => {
       above20: 0,
       above50: 0,
       total: 0,
-      bullSignals: 0,
-      bearSignals: 0,
       expected: 3,
     });
 
     const current = new Map<number, SessionInstrumentFacts>();
     const previous = new Map<number, SessionInstrumentFacts>();
-    const currentSignals = new Map<number, SessionSignalFacts>();
-    const previousSignals = new Map<number, SessionSignalFacts>();
 
-    // 1: newly bullish (was neutral), also crossed above its 20-day MA.
+    // 1: crossed above its 20-day MA and its MACD histogram turned positive.
     previous.set(1, mkFacts(1, { close: 89_00, sma20: 90_00, macdHistogram: -5 }));
     current.set(1, mkFacts(1, { close: 95_00, sma20: 90_00, macdHistogram: 5, changePercent: 3 }));
-    previousSignals.set(1, mkSignal(1, 'neutral'));
-    currentSignals.set(1, mkSignal(1, 'bullish', { setups: ['Golden cross alignment'] }));
 
-    // 2: a fresh breakout appears with unusual volume.
+    // 2: unusual volume, nothing else.
     previous.set(2, mkFacts(2, { close: 100_00, sma20: 95_00, macdHistogram: 3 }));
     current.set(
       2,
@@ -301,104 +239,29 @@ describe('buildMarketBrief — what changed', () => {
         changePercent: 4,
       }),
     );
-    previousSignals.set(2, mkSignal(2, 'bullish', { setups: [] }));
-    currentSignals.set(2, mkSignal(2, 'strong_bullish', { setups: ['Breakout'] }));
 
-    // 3: bullish setup invalidated (was bullish, now neutral).
+    // 3: MACD histogram turned negative.
     previous.set(3, mkFacts(3, { close: 100_00, macdHistogram: 2 }));
-    current.set(3, mkFacts(3, { close: 98_00, macdHistogram: 1, changePercent: -1 }));
-    previousSignals.set(3, mkSignal(3, 'bullish'));
-    currentSignals.set(3, mkSignal(3, 'neutral'));
+    current.set(3, mkFacts(3, { close: 98_00, macdHistogram: -1, changePercent: -1 }));
 
-    return { ...base, current, previous, currentSignals, previousSignals };
+    return { ...base, current, previous };
   }
 
-  it('detects new setups, breakouts, MA crosses, momentum and invalidations', () => {
+  it('detects MA crosses, momentum flips and unusual volume', () => {
     const brief = buildMarketBrief(twoSession());
     const types = new Set(brief.changes.map((c) => c.eventType));
-    expect(types).toContain('new_bullish_setup');
     expect(types).toContain('crossed_above_ma20');
-    expect(types).toContain('breakout_appeared');
     expect(types).toContain('momentum_strengthened');
+    expect(types).toContain('momentum_weakened');
     expect(types).toContain('unusual_volume');
-    expect(types).toContain('bullish_invalidated');
-  });
-
-  it('counts new setups with the correct denominators', () => {
-    const brief = buildMarketBrief(twoSession());
-    // Instrument 1 (neutral→bullish) is the only NEW bullish setup;
-    // instrument 2 was already bullish.
-    expect(brief.overview.newBullishSetups).toBe(1);
   });
 
   it('orders changes by salience then move size then symbol', () => {
     const brief = buildMarketBrief(twoSession());
-    // new_bullish_setup (priority 1) must precede unusual_volume (priority 7).
-    const firstNew = brief.changes.findIndex((c) => c.eventType === 'new_bullish_setup');
+    // crossed_above_ma20 (priority 4) must precede unusual_volume (priority 7).
+    const firstCross = brief.changes.findIndex((c) => c.eventType === 'crossed_above_ma20');
     const firstVol = brief.changes.findIndex((c) => c.eventType === 'unusual_volume');
-    expect(firstNew).toBeLessThan(firstVol);
-  });
-});
-
-describe('buildMarketBrief — attention', () => {
-  it('ranks a high-signal name and explains every factor', () => {
-    const base = scenario({
-      advancing: 0,
-      declining: 0,
-      unchanged: 0,
-      above20: 0,
-      above50: 0,
-      total: 0,
-      bullSignals: 0,
-      bearSignals: 0,
-      expected: 2,
-    });
-    const current = new Map<number, SessionInstrumentFacts>();
-    const previous = new Map<number, SessionInstrumentFacts>();
-    const currentSignals = new Map<number, SessionSignalFacts>();
-    const previousSignals = new Map<number, SessionSignalFacts>();
-
-    current.set(
-      1,
-      mkFacts(1, {
-        relativeVolume: 3,
-        macdHistogram: 5,
-        close: 108_00,
-        sma20: 100_00,
-        changePercent: 5,
-      }),
-    );
-    previous.set(1, mkFacts(1, { macdHistogram: -1, close: 99_00, sma20: 100_00 }));
-    currentSignals.set(1, mkSignal(1, 'strong_bullish', { setups: ['Breakout'], strength: 82 }));
-    previousSignals.set(1, mkSignal(1, 'neutral'));
-
-    // A quiet name with nothing notable — should not appear.
-    current.set(2, mkFacts(2, { relativeVolume: 1, changePercent: 0.2, macdHistogram: 4 }));
-    previous.set(2, mkFacts(2, { macdHistogram: 4 }));
-    currentSignals.set(2, mkSignal(2, 'neutral'));
-    previousSignals.set(2, mkSignal(2, 'neutral'));
-
-    const brief = buildMarketBrief({
-      ...base,
-      current,
-      previous,
-      currentSignals,
-      previousSignals,
-    });
-
-    expect(brief.attention).toHaveLength(1);
-    const top = brief.attention[0];
-    expect(top?.symbol).toBe('SYM001');
-    expect(top?.level).toBe('high');
-    // The score equals the sum of the itemised factor contributions.
-    const summed = (top?.factors ?? []).reduce((sum, f) => sum + f.contribution, 0);
-    expect(top?.score).toBe(summed);
-    // Every attention factor carries a human explanation.
-    for (const factor of top?.factors ?? []) {
-      expect(factor.explanation.length).toBeGreaterThan(0);
-    }
-    // The persisted signal factors ride along for the "Why?" panel.
-    expect(top?.signalFactors.length).toBeGreaterThan(0);
+    expect(firstCross).toBeLessThan(firstVol);
   });
 });
 
@@ -412,8 +275,6 @@ describe('buildMarketBrief — watchlist brief', () => {
         above20: 30,
         above50: 25,
         total: 50,
-        bullSignals: 20,
-        bearSignals: 10,
         expected: 50,
       }),
     );
@@ -430,91 +291,37 @@ describe('buildMarketBrief — watchlist brief', () => {
       above20: 0,
       above50: 0,
       total: 0,
-      bullSignals: 0,
-      bearSignals: 0,
       expected: 3,
     });
     const current = new Map<number, SessionInstrumentFacts>();
-    const currentSignals = new Map<number, SessionSignalFacts>();
-    const previousSignals = new Map<number, SessionSignalFacts>();
+    const previous = new Map<number, SessionInstrumentFacts>();
 
-    current.set(1, mkFacts(1, { changePercent: 3 }));
-    currentSignals.set(1, mkSignal(1, 'bullish'));
-    previousSignals.set(1, mkSignal(1, 'neutral')); // new bullish setup
+    // 1 (watched): crossed above its 20-day MA (the 50-day stays below both closes).
+    previous.set(1, mkFacts(1, { close: 89_00, sma20: 90_00, sma50: 80_00 }));
+    current.set(1, mkFacts(1, { close: 95_00, sma20: 90_00, sma50: 80_00, changePercent: 3 }));
+    // 2 (watched): no change.
+    previous.set(2, mkFacts(2));
     current.set(2, mkFacts(2, { changePercent: 1 }));
-    currentSignals.set(2, mkSignal(2, 'neutral')); // no change
+    // 3 (not watched): crossed too, but is not the user's.
+    previous.set(3, mkFacts(3, { close: 89_00, sma20: 90_00 }));
+    current.set(3, mkFacts(3, { close: 95_00, sma20: 90_00, changePercent: 3 }));
 
     const brief = buildMarketBrief({
       ...base,
       current,
-      currentSignals,
-      previousSignals,
+      previous,
       hasWatchlists: true,
-      watchlistMembership: new Map([[1, [{ watchlistId: 7, name: 'Core' }]]]),
+      watchlistMembership: new Map([
+        [1, [{ watchlistId: 7, name: 'Core' }]],
+        [2, [{ watchlistId: 7, name: 'Core' }]],
+      ]),
     });
 
     expect(brief.watchlists.hasWatchlists).toBe(true);
     expect(brief.watchlists.affectedCount).toBe(1);
-    expect(brief.watchlists.newBullishCount).toBe(1);
+    expect(brief.watchlists.transitionCount).toBe(1);
     expect(brief.watchlists.items[0]?.symbol).toBe('SYM001');
     expect(brief.watchlists.items[0]?.watchlists[0]?.name).toBe('Core');
-  });
-});
-
-describe('buildMarketBrief — setup lists', () => {
-  it('bins bullish, bearish, breakout, breakdown and unusual-volume rows', () => {
-    const base = scenario({
-      advancing: 0,
-      declining: 0,
-      unchanged: 0,
-      above20: 0,
-      above50: 0,
-      total: 0,
-      bullSignals: 0,
-      bearSignals: 0,
-      expected: 4,
-    });
-    const current = new Map<number, SessionInstrumentFacts>();
-    const currentSignals = new Map<number, SessionSignalFacts>();
-
-    current.set(1, mkFacts(1, { relativeVolume: 2.2 }));
-    currentSignals.set(1, mkSignal(1, 'strong_bullish', { setups: ['Breakout'] }));
-    current.set(2, mkFacts(2));
-    currentSignals.set(2, mkSignal(2, 'strong_bearish', { setups: ['Breakdown'] }));
-    current.set(3, mkFacts(3));
-    currentSignals.set(3, mkSignal(3, 'bullish'));
-    current.set(4, mkFacts(4));
-    currentSignals.set(4, mkSignal(4, 'neutral'));
-
-    const brief = buildMarketBrief({ ...base, current, currentSignals });
-    expect(brief.setups.bullish.map((r) => r.symbol)).toEqual(['SYM001', 'SYM003']);
-    expect(brief.setups.bearish.map((r) => r.symbol)).toEqual(['SYM002']);
-    expect(brief.setups.breakout.map((r) => r.symbol)).toEqual(['SYM001']);
-    expect(brief.setups.breakdown.map((r) => r.symbol)).toEqual(['SYM002']);
-    expect(brief.setups.unusualVolume.map((r) => r.symbol)).toEqual(['SYM001']);
-  });
-
-  it('orders bullish setups by strength, strongest first', () => {
-    const base = scenario({
-      advancing: 0,
-      declining: 0,
-      unchanged: 0,
-      above20: 0,
-      above50: 0,
-      total: 0,
-      bullSignals: 0,
-      bearSignals: 0,
-      expected: 2,
-    });
-    const current = new Map<number, SessionInstrumentFacts>();
-    const currentSignals = new Map<number, SessionSignalFacts>();
-    current.set(1, mkFacts(1));
-    currentSignals.set(1, mkSignal(1, 'bullish', { strength: 62 }));
-    current.set(2, mkFacts(2));
-    currentSignals.set(2, mkSignal(2, 'strong_bullish', { strength: 88 }));
-
-    const brief = buildMarketBrief({ ...base, current, currentSignals });
-    expect(brief.setups.bullish.map((r) => r.symbol)).toEqual(['SYM002', 'SYM001']);
   });
 });
 
@@ -554,8 +361,6 @@ describe('freshness helpers', () => {
       expectedInstruments: 50,
       current: new Map(),
       previous: new Map(),
-      currentSignals: new Map(),
-      previousSignals: new Map(),
       watchlistMembership: new Map(),
       hasWatchlists: false,
       indexReturnPercent: null,
@@ -574,10 +379,27 @@ function scenarioForStale(): MarketBriefInput {
     above20: 30,
     above50: 25,
     total: 50,
-    bullSignals: 20,
-    bearSignals: 10,
     expected: 50,
   });
   // Latest completed session is old relative to "now".
   return { ...base, sessionDate: '2026-08-28', now: new Date('2026-09-14T13:00:00Z') };
 }
+
+describe('buildMarketBrief — no signals', () => {
+  it('never speaks of setups or signals', () => {
+    const brief = buildMarketBrief(
+      scenario({
+        advancing: 30,
+        declining: 15,
+        unchanged: 5,
+        above20: 30,
+        above50: 25,
+        total: 50,
+        expected: 50,
+      }),
+    );
+    expect(brief.headline).not.toMatch(/setup|signal/i);
+    expect(brief.disclaimer).not.toMatch(/setup strength/i);
+    expect(brief.marketCondition.factors.some((f) => f.id === 'setups')).toBe(false);
+  });
+});

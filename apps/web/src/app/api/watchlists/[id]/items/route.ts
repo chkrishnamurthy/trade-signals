@@ -1,11 +1,17 @@
 import type { NextResponse } from 'next/server';
 import { handle, jsonError, ok, parseBody, parseId } from '@/server/watchlist-routes';
-import { addItemsSchema, removeItemsSchema, reorderItemsSchema } from '@/server/watchlist-schemas';
-import { addSymbols, removeSymbols, reorderSymbols } from '@/server/watchlists';
+import {
+  addItemsSchema,
+  itemNoteSchema,
+  removeItemsSchema,
+  reorderItemsSchema,
+} from '@/server/watchlist-schemas';
+import { addSymbols, removeSymbols, reorderSymbols, saveItemNote } from '@/server/watchlists';
 
 /**
  * POST   /api/watchlists/:id/items — add symbols.
  * PUT    /api/watchlists/:id/items — rewrite member order.
+ * PATCH  /api/watchlists/:id/items — set or clear one member's note.
  * DELETE /api/watchlists/:id/items — remove by instrument id.
  *
  * POST answers with what happened to each symbol — added, already there, or not
@@ -39,6 +45,21 @@ export async function PUT(request: Request, { params }: Params): Promise<NextRes
 
     await reorderSymbols(id, body.data.instrumentIds);
     return ok({ reordered: true });
+  });
+}
+
+export async function PATCH(request: Request, { params }: Params): Promise<NextResponse> {
+  return handle(async () => {
+    const id = parseId((await params).id);
+    if (id === null) return jsonError('Not a watchlist id.', 400, { code: 'INVALID_ID' });
+
+    const body = await parseBody(request, itemNoteSchema);
+    if (!body.ok) return body.response;
+
+    if (!(await saveItemNote(id, body.data.instrumentId, body.data.note))) {
+      return jsonError('That stock is not on this watchlist.', 404, { code: 'NOT_FOUND' });
+    }
+    return ok({ saved: true });
   });
 }
 

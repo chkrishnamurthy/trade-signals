@@ -41,10 +41,11 @@ and the VPS before trusting a specific value.
   reads it. **Never run a second thing that logs into Fyers** with the same account
   (a second worker, `pnpm fyers:login` elsewhere) — Fyers is single-session and the
   new login invalidates the old token.
-- The worker **self-heals** a token invalidated early: on a wholesale cycle failure
-  it calls `invalidateProviderCredential` so the next cycle re-mints (cooldown-guarded
-  against mint-storms). Preserve that behaviour when touching `intraday-signals.ts` or
-  the credential path.
+- The worker **self-heals** a token invalidated early: on an `auth` failure in an
+  in-session job it calls `invalidateProviderCredential` and re-mints (at most once per
+  provider per 10 min, against mint-storms). The `probe-credentials` job proves each
+  provider's token every 5 min in session. Preserve that behaviour when touching
+  `apps/worker/src/jobs/credential-self-heal.ts` or the credential path.
 - `Blocked upstream for another Ns` is the circuit breaker honoring a Fyers `429` ban.
   **Do not retry harder** — it extends the ban. Fix the cause (dead-token cascade,
   too-frequent calls, duplicate consumers), then wait it out.

@@ -8,6 +8,7 @@ import {
   reorderColumnIds,
   resolveColumns,
   toStoredColumnIds,
+  visibleColumnIds,
   WATCHLIST_COLUMNS,
 } from './watchlist-columns';
 import {
@@ -19,7 +20,7 @@ import {
 } from './watchlist-filters';
 import { exchangesIn, sectorsIn, sortRows, summarise, toggleSort } from './watchlist-summary';
 import type { WatchlistRowDto } from './watchlist-types';
-import { QUICK_VIEWS } from './watchlist-views';
+import { getQuickView, QUICK_VIEWS } from './watchlist-views';
 
 /**
  * The watchlist model.
@@ -67,12 +68,6 @@ function row(overrides: Partial<WatchlistRowDto> = {}): WatchlistRowDto {
       returnYtd: 210000,
       return1y: 190000,
     },
-    signal: {
-      direction: 'bullish',
-      strength: 68,
-      setups: ['Golden cross'],
-      tradingDate: '2026-08-23',
-    },
     ...overrides,
   };
 }
@@ -116,24 +111,39 @@ describe('column registry', () => {
   });
 
   it('groups every column under a group the panel actually lists', () => {
-    const listed = new Set(groupedColumns().flatMap((group) => group.columns.map((c) => c.id)));
+    const listed = new Set(groupedColumns('').flatMap((group) => group.columns.map((c) => c.id)));
     for (const column of WATCHLIST_COLUMNS) {
       if (column.pinned === true) continue;
       expect(listed.has(column.id), `${column.id} is in no listed group`).toBe(true);
     }
   });
 
-  it('offers each of the seven advertised groups', () => {
-    const labels = groupedColumns().map((group) => group.label);
+  it('offers each of the six advertised groups', () => {
+    const labels = groupedColumns('').map((group) => group.label);
     expect(labels).toEqual([
       'Price',
       'Performance',
       'Volume & Liquidity',
       '52-Week Position',
       'Technical Indicators',
-      'Trading Signals',
       'Market Information',
     ]);
+  });
+
+  it('has no signal columns, and drops retired ids from stored layouts', () => {
+    const labels = groupedColumns().map((group) => group.label);
+    expect(labels).not.toContain('Trading Signals');
+    const ids = groupedColumns().flatMap((group) => group.columns.map((c) => c.id));
+    for (const id of ['signal', 'signalStrength', 'signalSetups']) expect(ids).not.toContain(id);
+    expect(ids).toContain('trend');
+    expect(DEFAULT_COLUMN_IDS).not.toContain('signal');
+    expect(resolveColumns(['ltp', 'signal', 'signalStrength']).map((c) => c.id)).toEqual([
+      'symbol',
+      'ltp',
+    ]);
+    expect(visibleColumnIds(['signal', 'rsi14'])).toEqual(['rsi14']);
+    expect(getQuickView('daily_signals')).toBeNull();
+    expect(QUICK_VIEWS.some((view) => view.id === 'daily_signals')).toBe(false);
   });
 
   it('forces the pinned column to the front even when a stored layout omits it', () => {
@@ -263,24 +273,6 @@ describe('derived column values', () => {
     expect(nearLow.value(row({ ltp: 260000, low52w: 200000 }))).toBe(0);
   });
 
-  it('ranks the signal column by direction rather than alphabetically', () => {
-    const signal = getColumn('signal')!;
-    const at = (direction: string): number | string | null =>
-      signal.value(
-        row({
-          signal: {
-            direction: direction as never,
-            strength: 50,
-            setups: [],
-            tradingDate: '2026-08-23',
-          },
-        }),
-      );
-    expect(at('strong_bullish')).toBeGreaterThan(at('bullish') as number);
-    expect(at('bearish')).toBeLessThan(at('neutral') as number);
-    expect(signal.value(row({ signal: null }))).toBeNull();
-  });
-
   it('counts EMAs the price is above', () => {
     const trend = getColumn('trend')!;
     expect(trend.value(row({ ltp: 250000 }))).toBe(3);
@@ -382,6 +374,10 @@ describe('filter chips', () => {
   it('formats a paise bound as rupees', () => {
     const [chip] = activeFilterChips({ ranges: { ltp: { min: 250000, max: null } } });
     expect(chip?.label).toBe('LTP ≥ ₹2,500');
+  });
+
+  it('omits a range saved on a retired column', () => {
+    expect(activeFilterChips({ ranges: { signalStrength: { min: 60, max: null } } })).toEqual([]);
   });
 
   it('omits a range with neither bound set', () => {

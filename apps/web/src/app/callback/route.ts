@@ -1,16 +1,20 @@
 import { timingSafeEqual } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { saveProviderCredential } from '@equitywise/db';
 import {
   type AuthorizedCredential,
   CREDENTIAL_ENV_VAR,
   completeAuthorization,
+  PROVIDER_ID as FYERS,
   persistCredential,
   readAuthConfig,
 } from '@equitywise/providers-fyers';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { API_ROUTES } from '@/lib/api-routes';
+import { getAdminUser } from '@/server/auth/require-user';
+import { getDatabase, isDatabaseConfigured } from '@/server/db';
 import { toMarketError } from '@/server/errors';
 import { OAUTH_STATE_COOKIE } from '../api/fyers/connect/route';
 
@@ -99,10 +103,23 @@ a{display:inline-block;margin-top:1.25rem;padding:.5rem 1rem;
 /**
  * Writes the credential to the token cache and to .env.
  *
+ * In the deployed app the provider reads the shared `provider_credentials` row
+ * written by the worker, so a manual browser re-authorisation must update that
+ * same row as well. The disk/env writes stay as the local fallback.
+ *
  * Also sets it on the live process, because route handlers read env on every
  * request — so re-authorisation takes effect without a restart.
  */
 async function persist(credential: AuthorizedCredential): Promise<void> {
+  if (isDatabaseConfigured()) {
+    await saveProviderCredential(getDatabase(), {
+      providerId: FYERS,
+      appId: credential.appId,
+      accessToken: credential.accessToken,
+      expiresAt: credential.expiresAt,
+    });
+  }
+
   await persistCredential(TOKEN_CACHE, credential);
 
   const contents = await readFile(ENV_PATH, 'utf8');
@@ -117,6 +134,16 @@ async function persist(credential: AuthorizedCredential): Promise<void> {
 }
 
 export async function GET(request: Request): Promise<NextResponse> {
+  // Admin only: this saves the shared market-data credential. The state cookie
+  // alone is not enough — /api/fyers/connect hands one to anyone who asks.
+  if ((await getAdminUser()) === null) {
+    return page(
+      'Not allowed',
+      '<p>Only an administrator can connect the market-data source.</p><a href="/login">Sign in</a>',
+      false,
+    );
+  }
+
   const url = new URL(request.url);
   const authCode = url.searchParams.get('auth_code');
   const message = url.searchParams.get('message');

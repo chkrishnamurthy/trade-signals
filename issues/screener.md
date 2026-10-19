@@ -2,12 +2,13 @@
 id: EW-102
 title: Screener
 type: feature
-stage: ideas
+stage: done
 priority: high
 area: [web]
 created: 2026-08-24
-updated: 2026-09-06
-stage_since: 2026-09-06
+updated: 2026-10-05
+stage_since: 2026-10-05
+done_at: 2026-10-05
 tier: "1.2"
 source: docs/planning/pending-features.md
 ---
@@ -24,3 +25,5 @@ technical filters", `status: 'planned'`).
 **Done when.** `GET /api/screener` with a Zod-validated query, and a `/screener`
 page reusing `stocks-table.tsx`. The filter vocabulary must stay technical per
 the BUY/SELL rule — "above 200 EMA", never "buy candidates".
+
+**Closed 2026-10-05 after a code audit.** `/screener` is built (nightly `screener_snapshots`, ~95 metrics, presets, saved screens). See `docs/planning/screener-dhan-fyers-plan.md`.

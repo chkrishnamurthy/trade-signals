@@ -23,7 +23,7 @@ function SelectTrigger({
       data-slot="select-trigger"
       className={cn(
         'flex h-8 w-fit items-center justify-between gap-2 rounded-md border border-input bg-surface px-2.5 py-1 text-sm whitespace-nowrap shadow-subtle transition-colors outline-none',
-        'hover:bg-accent focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-50',
+        'hover:bg-accent focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50',
         'data-[placeholder]:text-subtle-foreground aria-invalid:border-destructive',
         '*:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-1.5',
         className,

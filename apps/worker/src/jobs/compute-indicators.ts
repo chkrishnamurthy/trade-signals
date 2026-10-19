@@ -1,32 +1,22 @@
-import {
-  atr,
-  type Bar,
-  DEFAULT_STRATEGY,
-  ema,
-  evaluateSignals,
-  macd,
-  rsi,
-  sma,
-} from '@equitywise/core';
+import { atr, type Bar, ema, macd, rsi, sma } from '@equitywise/core';
 import {
   getDailyBars,
+  getLatestDailyCandleTime,
   type IndicatorUpsert,
   listActiveInstruments,
-  registerStrategy,
-  saveSignal,
   upsertDailyIndicators,
 } from '@equitywise/db';
 import { istDateKey } from '@equitywise/shared';
 import type { WorkerContext } from '../context.js';
+import { checkSessionIngested, withIngestionRun } from '../ingestion-tracking.js';
 import { errorFields, type Logger } from '../log.js';
 
 /**
- * End-of-day indicator and signal pass.
+ * End-of-day indicator pass.
  *
  * Reads CLOSED daily candles from the database — adjusted for corporate
- * actions on the way out — runs the pure engine over them, and stores both the
- * indicator row (for the screener) and the signal with its factor breakdown
- * (for the "why?" UI, hard rule 8).
+ * actions on the way out — runs the pure indicators over them, and stores one
+ * indicator row per instrument (for the watchlists, screener and alerts).
  *
  * No network calls: everything here comes from what ingestion already stored.
  * That is what makes it cheap enough to re-run after an engine fix.
@@ -41,11 +31,17 @@ const SESSIONS_52W = 250;
 /** Bars pulled per instrument. Enough for a 200-EMA plus a year of extremes. */
 const LOOKBACK_BARS = 400;
 
+/** Indicator parameters. The stored column names (`rsi14`, `atr14`) depend on them. */
+const MACD_PERIODS = { fast: 12, slow: 26, signal: 9 } as const;
+const RSI_PERIOD = 14;
+const ATR_PERIOD = 14;
+/** Prior sessions in the average-volume baseline. */
+const VOLUME_LOOKBACK = 20;
+
 export interface IndicatorPassResult {
   readonly requested: number;
   readonly computed: number;
   readonly skipped: string[];
-  readonly signalsWritten: number;
   readonly tradingDate: string | null;
 }
 
@@ -54,22 +50,42 @@ export async function computeIndicators(
   log: Logger,
   options: { now?: Date } = {},
 ): Promise<IndicatorPassResult> {
-  const { db } = context;
   const now = options.now ?? new Date();
-
-  const strategyVersionId = await registerStrategy(
-    db,
-    'default',
-    DEFAULT_STRATEGY,
-    'Built-in strategy from packages/core',
+  const pass = await withIngestionRun(
+    context.db,
+    log,
+    { job: 'indicators', tradingDate: istDateKey(now) },
+    async () => {
+      const result = await runIndicatorPass(context, log, now);
+      return {
+        ...result,
+        succeeded: result.computed,
+        rowsWritten: result.computed,
+        failed: [] as string[],
+      };
+    },
   );
+  const { succeeded: _s, rowsWritten: _r, failed: _f, ...result } = pass;
+  return result;
+}
+
+async function runIndicatorPass(
+  context: WorkerContext,
+  log: Logger,
+  now: Date,
+): Promise<IndicatorPassResult> {
+  const { db } = context;
+
+  // Indicators computed across a session that was never loaded look plausible and
+  // are wrong, so ask the ingestion bookkeeping first. Before anything is written.
+  const newest = await getLatestDailyCandleTime(db);
+  if (newest !== null) await checkSessionIngested(db, log, istDateKey(newest));
 
   const active = await listActiveInstruments(db, 'equity');
-  log.info('starting', { instruments: active.length, strategyVersionId });
+  log.info('starting', { instruments: active.length });
 
   const rows: IndicatorUpsert[] = [];
   const skipped: string[] = [];
-  let signalsWritten = 0;
   let latestDate: string | null = null;
 
   for (const instrument of active) {
@@ -96,31 +112,6 @@ export async function computeIndicators(
       if (latestDate === null || tradingDate > latestDate) latestDate = tradingDate;
 
       rows.push(buildIndicatorRow(instrument.id, tradingDate, bars));
-
-      // The engine sees exactly the same bars, so the stored signal and the
-      // stored indicators can never describe different inputs.
-      const report = evaluateSignals(bars, DEFAULT_STRATEGY);
-      if (!report.insufficientData) {
-        await saveSignal(db, {
-          instrumentId: instrument.id,
-          strategyVersionId,
-          tradingDate,
-          direction: report.direction,
-          strength: report.strength,
-          bias: report.bias,
-          setups: report.setups,
-          close: report.indicators.close,
-          indicatorSnapshot: report.indicators,
-          factors: report.factors.map((factor) => ({
-            key: factor.key,
-            label: factor.label,
-            score: factor.score,
-            weight: factor.weight,
-            detail: factor.detail,
-          })),
-        });
-        signalsWritten += 1;
-      }
     } catch (error) {
       skipped.push(instrument.symbol);
       log.warn('instrument failed', { symbol: instrument.symbol, ...errorFields(error) });
@@ -132,7 +123,6 @@ export async function computeIndicators(
     requested: active.length,
     computed,
     skipped: skipped.length,
-    signalsWritten,
     tradingDate: latestDate,
   });
 
@@ -140,7 +130,6 @@ export async function computeIndicators(
     requested: active.length,
     computed,
     skipped,
-    signalsWritten,
     tradingDate: latestDate,
   };
 }
@@ -160,12 +149,12 @@ function buildIndicatorRow(
   const previous = bars[bars.length - 2];
   if (last === undefined) throw new Error('buildIndicatorRow: empty bar series');
 
-  const macdResult = macd(closes, DEFAULT_STRATEGY.macd);
+  const macdResult = macd(closes, MACD_PERIODS);
 
   // The volume average deliberately EXCLUDES the current session — comparing
   // today's volume to an average that already contains it damps exactly the
   // spike relative volume exists to detect.
-  const lookback = Math.min(DEFAULT_STRATEGY.volumeLookback, bars.length - 1);
+  const lookback = Math.min(VOLUME_LOOKBACK, bars.length - 1);
   const priorVolumes = bars.slice(-1 - lookback, -1).map((bar) => bar.volume);
   const averageVolume =
     priorVolumes.length === 0
@@ -186,11 +175,11 @@ function buildIndicatorRow(
     ema200: paise(latestOf(ema(closes, 200))),
     sma20: paise(latestOf(sma(closes, 20))),
     sma50: paise(latestOf(sma(closes, 50))),
-    rsi14: latestOf(rsi(closes, DEFAULT_STRATEGY.rsiPeriod)),
+    rsi14: latestOf(rsi(closes, RSI_PERIOD)),
     macd: paise(latestOf(macdResult.macd)),
     macdSignal: paise(latestOf(macdResult.signal)),
     macdHistogram: paise(latestOf(macdResult.histogram)),
-    atr14: paise(latestOf(atr(bars, DEFAULT_STRATEGY.atrPeriod))),
+    atr14: paise(latestOf(atr(bars, ATR_PERIOD))),
     averageVolume,
     relativeVolume:
       averageVolume === null || averageVolume === 0 ? null : last.volume / averageVolume,

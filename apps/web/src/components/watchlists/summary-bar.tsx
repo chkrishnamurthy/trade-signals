@@ -124,7 +124,7 @@ export function SummaryBar({
         <>
           <Divider className="hidden sm:block" />
           <Stat label="No quote">
-            <span className="figure text-base font-medium text-warning-foreground">{unquoted}</span>
+            <span className="figure text-base font-medium text-warning-strong">{unquoted}</span>
           </Stat>
         </>
       )}

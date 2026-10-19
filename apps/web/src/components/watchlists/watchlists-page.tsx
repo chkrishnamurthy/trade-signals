@@ -2,7 +2,13 @@
 
 import { RefreshCwIcon } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
-import { CardSkeleton, ErrorState, TableSkeleton } from '@/components/data-display/states';
+import {
+  LoadingRegion,
+  SkeletonSummary,
+  SkeletonTable,
+  SkeletonToolbar,
+} from '@/components/data-display/loading';
+import { ErrorState } from '@/components/data-display/states';
 import { ActiveFilters, SearchInput } from '@/components/forms/filter-bar';
 import { AppShell } from '@/components/layout/app-shell';
 import {
@@ -11,12 +17,11 @@ import {
   PageContainer,
   PageContent,
   PageDescription,
-  PageDisclaimer,
   PageHeader,
   PageHeading,
   PageTitle,
 } from '@/components/layout/page';
-import { LiveIndicator } from '@/components/market/market-status';
+import { DataFreshness, LiveIndicator } from '@/components/market/market-status';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardToolbar } from '@/components/ui/card';
@@ -33,12 +38,13 @@ import { Text } from '@/components/ui/typography';
 import { StockDetailDrawer } from '@/components/watchlists/stock-drawer';
 import type { MoverDto } from '@/lib/dashboard-types';
 import { useWatchlists } from '@/lib/use-watchlists';
-import { DEFAULT_COLUMN_IDS } from '@/lib/watchlist-columns';
+import { DEFAULT_COLUMN_IDS, visibleColumnIds } from '@/lib/watchlist-columns';
 import {
   activeFilterChips,
   applyWatchlistFilters,
   removeWatchlistFilter,
 } from '@/lib/watchlist-filters';
+import { quoteUpdatesDelayed } from '@/lib/watchlist-freshness';
 import { exchangesIn, sectorsIn, sortRows, summarise, toggleSort } from '@/lib/watchlist-summary';
 import type { SavedViewDto, WatchlistFilterStateDto, WatchlistRowDto } from '@/lib/watchlist-types';
 import { getQuickView } from '@/lib/watchlist-views';
@@ -82,6 +88,8 @@ export function WatchlistsPage() {
     addSymbols,
     addSymbolsTo,
     removeSymbols,
+    reorderMembers,
+    saveNote,
     setLayout,
     saveView,
     deleteView,
@@ -118,7 +126,13 @@ export function WatchlistsPage() {
   const layout = data?.layout ?? { columns: [], sort: [], filters: {}, quickView: null };
 
   // An empty stored layout means "the registry default", not "no columns".
-  const columnIds = layout.columns.length > 0 ? layout.columns : DEFAULT_COLUMN_IDS.slice(1);
+  // Ids that are no longer columns are dropped — a layout saved before a
+  // column was retired must still render.
+  const columnIds = useMemo(
+    () =>
+      visibleColumnIds(layout.columns.length > 0 ? layout.columns : DEFAULT_COLUMN_IDS.slice(1)),
+    [layout.columns],
+  );
 
   const allRows = data?.rows ?? [];
   const filtered = useMemo(
@@ -189,7 +203,7 @@ export function WatchlistsPage() {
         <PageContainer width="narrow">
           <PageHeader>
             <PageHeading>
-              <PageTitle>My watchlists</PageTitle>
+              <PageTitle>Watchlists</PageTitle>
               <PageDescription>
                 Live prices and daily technical readings for the names you follow.
               </PageDescription>
@@ -208,6 +222,8 @@ export function WatchlistsPage() {
 
   const hasFilters = chips.length > 0;
   const hasList = activeId !== null && data !== null && data.watchlist.id !== 0;
+  const showQuoteDelay = data !== null && quoteUpdatesDelayed(data);
+  const canReorderRows = layout.sort.length === 0 && !hasFilters;
   // Covers both the very first load (no watchlist chosen yet) and switching
   // between watchlists (a new `activeId` restarts `detail` at 'loading') —
   // the two moments this page has no data to show yet but isn't empty either.
@@ -222,10 +238,8 @@ export function WatchlistsPage() {
             which section they are in, which is exactly what it is for. */}
         <PageHeader>
           <PageHeading>
-            {hasList && (
-              <PageBreadcrumb trail={[{ label: 'My watchlists', href: '/watchlists' }]} />
-            )}
-            <PageTitle>{hasList ? data.watchlist.name : 'My watchlists'}</PageTitle>
+            {hasList && <PageBreadcrumb trail={[{ label: 'Watchlists', href: '/watchlists' }]} />}
+            <PageTitle>{hasList ? data.watchlist.name : 'Watchlists'}</PageTitle>
             <PageDescription>
               {hasList
                 ? 'Live prices and daily technical readings for the names on this list.'
@@ -250,6 +264,13 @@ export function WatchlistsPage() {
                 }
                 className="mr-1"
               />
+              {(data.quoteSnapshotAt !== null || showQuoteDelay) && (
+                <DataFreshness
+                  state={showQuoteDelay ? 'stale' : liveState === 'streaming' ? 'live' : 'cached'}
+                  at={data.quoteSnapshotAt}
+                  className="mr-1"
+                />
+              )}
               {/* Refreshing THIS list's prices is page functionality, so it sits
                   with the page's own actions. The header bar owns market state,
                   not per-page reloads. */}
@@ -318,12 +339,20 @@ export function WatchlistsPage() {
             <>
               <SummaryBar performance={performance} filtered={hasFilters} />
 
-              {data.quotesStale && (
+              {showQuoteDelay && (
                 <Alert variant="warning">
-                  <AlertTitle>Prices are not live</AlertTitle>
+                  <AlertTitle>Price updates are delayed</AlertTitle>
                   <AlertDescription>
-                    The market-data provider did not answer, so the price columns are empty.
-                    Indicator columns still show the last session the worker computed.
+                    {data.quoteSnapshotAt === null
+                      ? 'Current prices are not available yet.'
+                      : `Showing the latest available prices from ${new Date(
+                          data.quoteSnapshotAt,
+                        ).toLocaleTimeString('en-IN', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          timeZone: 'Asia/Kolkata',
+                        })}.`}{' '}
+                    Technical indicators are based on the latest completed session.
                   </AlertDescription>
                 </Alert>
               )}
@@ -398,6 +427,14 @@ export function WatchlistsPage() {
                   </div>
                 )}
 
+                {!canReorderRows && allRows.length > 1 && (
+                  <div className="border-b border-border bg-muted/35 px-4 py-2">
+                    <Text variant="caption" className="text-muted-foreground">
+                      Manual order is available after clearing active sorts and filters.
+                    </Text>
+                  </div>
+                )}
+
                 <CardContent flush>
                   <WatchlistTable
                     rows={rows}
@@ -436,19 +473,22 @@ export function WatchlistsPage() {
                     onRemove={setPendingRemove}
                     onOpenDetail={setSelected}
                     onAddToList={(watchlistId, symbol) => void addSymbolsTo(watchlistId, [symbol])}
+                    canReorder={canReorderRows}
+                    onReorder={(ids) => void reorderMembers(ids)}
+                    onSaveNote={async (row, note) => {
+                      const result = await saveNote(row.instrumentId, note);
+                      return result.ok ? { ok: true } : { ok: false, error: result.error.error };
+                    }}
                   />
                 </CardContent>
               </Card>
             </>
           )}
-
-          <PageDisclaimer />
         </PageContent>
       </PageContainer>
 
       <StockDetailDrawer
         quote={selected === null ? null : toMoverDto(selected)}
-        signal={null}
         isLive={data?.market.isOpen ?? false}
         onClose={() => setSelected(null)}
       />
@@ -485,19 +525,16 @@ export function WatchlistsPage() {
   );
 }
 
-/**
- * Mirrors the real layout so nothing jumps once the list's data lands —
- * same shape and the same `CardSkeleton`/`TableSkeleton` primitives every
- * other page's loading state is built from (see `DashboardSkeleton` in
- * `dashboard.tsx`), not a bespoke skeleton for this one page.
- */
+/** The list keeps its navigation while summary and rows arrive. */
 function WatchlistPageSkeleton() {
   return (
-    <div aria-busy="true">
-      <CardSkeleton className="h-20" />
-      <TableSkeleton className="mt-4" />
-      <span className="sr-only">Loading watchlist</span>
-    </div>
+    <LoadingRegion label="Loading watchlist">
+      <div className="space-y-4">
+        <SkeletonSummary />
+        <SkeletonToolbar />
+        <SkeletonTable columns={7} />
+      </div>
+    </LoadingRegion>
   );
 }
 

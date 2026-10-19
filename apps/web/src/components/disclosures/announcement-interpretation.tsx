@@ -9,6 +9,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { z } from 'zod';
+import { SkeletonRows } from '@/components/data-display/loading';
 import { Button } from '@/components/ui/button';
 import {
   Sheet,
@@ -172,12 +173,7 @@ function History({ id }: { id: number }) {
         </Button>
       </div>
     );
-  if (history === null)
-    return (
-      <p role="status" className="text-sm text-muted-foreground">
-        Loading stored versions…
-      </p>
-    );
+  if (history === null) return <SkeletonRows rows={3} label="Loading stored versions" />;
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">

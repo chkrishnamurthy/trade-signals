@@ -2,12 +2,13 @@
 id: EW-101
 title: Serve daily signals from the database
 type: feature
-stage: next
+stage: done
 priority: high
 area: [web, worker]
 created: 2026-08-24
-updated: 2026-09-06
-stage_since: 2026-09-06
+updated: 2026-10-05
+stage_since: 2026-10-05
+done_at: 2026-10-05
 tier: "1.1"
 source: docs/planning/pending-features.md
 ---
@@ -37,3 +38,5 @@ module-level `Map`.
 **Done when.** `apps/web/src/server/signals.ts` reads `getSignalsForDate` /
 `getSignalFactors`, the provider fetch is deleted, and a stale-data state is
 rendered when the worker has not run rather than silently recomputing.
+
+**Closed 2026-10-05 after a code audit.** `apps/web/src/server/signals.ts` no longer exists; nothing in `apps/web` calls `evaluateSignals`/`scanSwing`. Watchlists read stored signals (`latestSignalsForInstruments`) and the stock page reads `getSignalsForDate`/`getSignalFactors`. The web app reads; the worker computes.

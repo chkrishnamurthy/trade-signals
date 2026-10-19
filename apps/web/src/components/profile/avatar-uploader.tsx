@@ -89,7 +89,7 @@ export function AvatarUploader({
           className="size-16 shrink-0 rounded-full object-cover ring-1 ring-border"
         />
       ) : (
-        <span className="grid size-16 shrink-0 place-items-center rounded-full bg-primary/15 font-medium text-lg text-primary ring-1 ring-border">
+        <span className="grid size-16 shrink-0 place-items-center rounded-full bg-primary/15 font-medium text-lg text-primary-strong ring-1 ring-border">
           {initialsOf(displayName)}
         </span>
       )}

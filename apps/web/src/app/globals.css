@@ -54,7 +54,8 @@
   /* Neutral text ramp: primary / secondary / muted. */
   --muted: oklch(0.962 0.006 253);
   --muted-foreground: oklch(0.502 0.018 257);
-  --subtle-foreground: oklch(0.617 0.017 257);
+  /* 0.53: lowest-emphasis text still clears 4.5:1 on the page background (2026-10-07). */
+  --subtle-foreground: oklch(0.53 0.017 257);
 
   /* Lines. `border` is the default hairline; `border-strong` is for separating
      major regions (topbar, sidebar) where the hairline disappears. Darkened
@@ -73,6 +74,9 @@
      hue for "trust" the way the old ink-blue was. */
   --primary: oklch(0.56 0.16 166);
   --primary-foreground: oklch(0.99 0.005 166);
+  /* Filled controls that carry white text. `primary` measures 4.1:1 against
+     white, under AA's 4.5:1 for body-size text; this measures 5.3:1. */
+  --primary-strong: oklch(0.5 0.15 166);
   --secondary: oklch(0.953 0.007 253);
   --secondary-foreground: oklch(0.278 0.022 258);
   --accent: oklch(0.947 0.009 253);
@@ -87,10 +91,17 @@
   --success-foreground: oklch(0.99 0 0);
   --warning: oklch(0.672 0.148 71);
   --warning-foreground: oklch(0.23 0.05 71);
+  /* Warning TEXT on a page or a warning-soft fill. `-foreground` is for text on
+     the solid `warning` fill, which is dark in both themes; using it on
+     warning-soft in dark mode put near-black text on dark amber (2026-10-07). */
+  --warning-strong: oklch(0.46 0.11 64);
   --warning-soft: oklch(0.968 0.043 82);
   --warning-line: oklch(0.876 0.076 79);
   --info: oklch(0.548 0.122 244);
   --info-foreground: oklch(0.99 0 0);
+  --info-strong: oklch(0.46 0.12 244);
+  --info-soft: oklch(0.955 0.025 244);
+  --info-line: oklch(0.86 0.05 244);
 
   /* ---- Financial semantics -----------------------------------------------
    * Four slots per direction:
@@ -104,7 +115,7 @@
    * for bullish, since Groww's brand color and its "up" color are the same
    * green. */
   --bullish: oklch(0.62 0.17 166);
-  --bullish-strong: oklch(0.5 0.15 166);
+  --bullish-strong: oklch(0.48 0.15 166);
   --bullish-soft: oklch(0.94 0.05 166);
   --bullish-line: oklch(0.82 0.09 166);
 
@@ -131,7 +142,7 @@
   --market-open: var(--bullish);
   --market-pre: var(--warning);
   --market-closed: var(--neutral);
-  --market-unknown: oklch(0.638 0.163 52);
+  --market-unknown: oklch(0.55 0.15 52);
 
   /* Charts. Ordered for categorical series; 1 is the primary series. */
   --chart-1: oklch(0.512 0.118 252);
@@ -141,6 +152,14 @@
   --chart-5: oklch(0.548 0.108 157);
   --chart-grid: oklch(0.922 0.006 253);
   --chart-axis: oklch(0.652 0.015 257);
+  /* A filled tile (treemap): how much of the series colour, and the text on it. */
+  --chart-fill: 46%;
+  --chart-fill-ink: var(--foreground);
+  /* Institutional flow: one fixed hue per participant class, blue and orange
+     so they separate under every colour-vision deficiency. Validated against
+     the light and dark chart surfaces (lightness band, CVD ΔE ≥ 23, ≥ 3:1). */
+  --flow-fii: oklch(0.512 0.118 252);
+  --flow-dii: oklch(0.65 0.145 62);
 
   /* Shadows — four steps, used sparingly. Data UIs get depth from borders,
      but a card still gets a slight lift so it doesn't read as flat artwork
@@ -174,7 +193,7 @@
 
   --muted: oklch(0.248 0.013 259);
   --muted-foreground: oklch(0.688 0.014 257);
-  --subtle-foreground: oklch(0.572 0.014 257);
+  --subtle-foreground: oklch(0.65 0.014 257);
 
   /* Darkened alongside `background`/`surface` (2026-08-29) — see the light
      theme's matching comment. */
@@ -187,12 +206,14 @@
      comment for why. */
   --primary: oklch(0.68 0.15 166);
   --primary-foreground: oklch(0.16 0.03 166);
+  /* Dark text on the brighter dark-theme primary already clears AA. */
+  --primary-strong: var(--primary);
   --secondary: oklch(0.262 0.014 259);
   --secondary-foreground: oklch(0.941 0.006 253);
   --accent: oklch(0.282 0.015 259);
   --accent-foreground: oklch(0.951 0.005 253);
 
-  --destructive: oklch(0.652 0.184 25);
+  --destructive: oklch(0.69 0.184 25);
   --destructive-foreground: oklch(0.152 0.02 25);
   --destructive-soft: oklch(0.272 0.068 25);
   --destructive-line: oklch(0.412 0.104 25);
@@ -200,10 +221,14 @@
   --success-foreground: oklch(0.162 0.03 158);
   --warning: oklch(0.782 0.142 78);
   --warning-foreground: oklch(0.192 0.04 78);
+  --warning-strong: oklch(0.86 0.11 82);
   --warning-soft: oklch(0.292 0.058 78);
   --warning-line: oklch(0.432 0.086 78);
   --info: oklch(0.702 0.112 244);
   --info-foreground: oklch(0.162 0.03 244);
+  --info-strong: oklch(0.8 0.09 244);
+  --info-soft: oklch(0.28 0.05 244);
+  --info-line: oklch(0.42 0.08 244);
 
   --bullish: oklch(0.72 0.16 166);
   --bullish-strong: oklch(0.8 0.14 166);
@@ -229,6 +254,10 @@
   --chart-5: oklch(0.702 0.108 157);
   --chart-grid: oklch(0.278 0.013 259);
   --chart-axis: oklch(0.568 0.014 257);
+  --chart-fill: 84%;
+  --chart-fill-ink: oklch(0.16 0.012 257);
+  --flow-fii: oklch(0.64 0.12 252);
+  --flow-dii: oklch(0.665 0.14 62);
 
   --shadow-subtle: 0 1px 3px 0 oklch(0 0 0 / 0.38);
   --shadow-elevated: 0 1px 2px 0 oklch(0 0 0 / 0.32), 0 8px 20px -10px oklch(0 0 0 / 0.62);
@@ -271,6 +300,7 @@
 
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-primary-strong: var(--primary-strong);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-accent: var(--accent);
@@ -284,10 +314,14 @@
   --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
+  --color-warning-strong: var(--warning-strong);
   --color-warning-soft: var(--warning-soft);
   --color-warning-line: var(--warning-line);
   --color-info: var(--info);
   --color-info-foreground: var(--info-foreground);
+  --color-info-strong: var(--info-strong);
+  --color-info-soft: var(--info-soft);
+  --color-info-line: var(--info-line);
 
   --color-bullish: var(--bullish);
   --color-bullish-strong: var(--bullish-strong);
@@ -319,6 +353,8 @@
   --color-chart-5: var(--chart-5);
   --color-chart-grid: var(--chart-grid);
   --color-chart-axis: var(--chart-axis);
+  --color-flow-fii: var(--flow-fii);
+  --color-flow-dii: var(--flow-dii);
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -346,6 +382,25 @@
 @layer base {
   * {
     border-color: var(--border);
+  }
+
+  /* Reduced motion (WCAG 2.3.3): when the visitor asks for less motion, menus,
+     sheets, toasts and pulses appear and disappear without animating, and
+     in-page jumps do not glide. Loading spinners keep turning — a frozen
+     spinner reads as a hung page — and nothing that carries information moves. */
+  @media (prefers-reduced-motion: reduce) {
+    *:not(.animate-spin),
+    *::before,
+    *::after {
+      /* biome-ignore lint/complexity/noImportantStyles: must beat every utility's own duration. */
+      animation-duration: 0.01ms !important;
+      /* biome-ignore lint/complexity/noImportantStyles: as above. */
+      animation-iteration-count: 1 !important;
+      /* biome-ignore lint/complexity/noImportantStyles: as above. */
+      transition-duration: 0.01ms !important;
+      /* biome-ignore lint/complexity/noImportantStyles: as above. */
+      scroll-behavior: auto !important;
+    }
   }
 
   body {
@@ -377,117 +432,34 @@
 }
 
 /* ---------------------------------------------------------------------------
- * NAVIGATION RAIL
+ * NAVIGATION
  *
- * Open or closed is ONE attribute on <html>, written before the first paint by
- * the script in the layout (see `lib/nav-rail.ts`). Everything below reads it.
- * React renders the same markup either way — the labels are always in the DOM
- * — which is what lets a restored preference paint correctly on load instead
- * of snapping to width a frame after hydration.
+ * Sizes of the app chrome (docs/planning/navigation-redesign-plan.md §7).
+ * Components read these through Tailwind's `h-(--nav-bar-height)` form, so a
+ * height changes here once rather than in four files.
  *
- * The motion is a decision, not decoration:
- *
- *   THE ICONS NEVER MOVE. Both states put the icon in a 40px slot centred in
- *   the 56px rail, so opening reads as text arriving beside fixed icons rather
- *   than the whole navigation sliding sideways. The eye keeps its place.
- *
- *   OPENING CASCADES. Each row carries its index in `--nav-i`, so the labels
- *   arrive top to bottom, a beat behind the widening panel. It looks like the
- *   panel is being filled rather than revealed.
- *
- *   CLOSING DOES NOT. Every label leaves at once, in a third of the time and
- *   with no stagger. Generous to open, immediate to dismiss — a deliberate
- *   asymmetry, because dismissing is the impatient gesture.
- *
- *   THE GROUP HEADINGS BECOME THE DIVIDERS. Closed, "Market" and "Analysis"
- *   have no room, but the grouping still matters; the heading fades out as a
- *   hairline grows from its centre, so the structure survives the collapse.
- *
- * Anyone who has asked the OS to stop moving things gets the instant swap.
+ *   --nav-bar-height     the sticky top bar (Navbar). The indices strip's
+ *                        `top` offset in index-strip.tsx must equal it.
+ *   --nav-strip-height   the sticky market indices strip under it.
+ *   --nav-bottom-height  the fixed bottom tab bar below `lg` (MobileNav),
+ *                        before the device's safe-area inset.
+ *   --bottom-chrome      how much of the screen's bottom edge app chrome
+ *                        covers: the tab bar plus safe area on pages that
+ *                        show it (phones/tablets inside AppShell), else 0.
+ *                        Anything pinned to the bottom — toasts, sticky save
+ *                        bars — offsets by it so the tab bar never hides it.
  * -------------------------------------------------------------------------*/
-@layer components {
+@layer base {
   :root {
-    --nav-width: 14rem;
-    --nav-width-rail: 3.5rem;
-    /* A hard ease-out: most of the distance is covered early, so the panel
-       feels pulled open rather than played back. */
-    --nav-ease: cubic-bezier(0.32, 0.72, 0, 1);
-    --nav-duration: 380ms;
-    --nav-stagger-step: 26ms;
+    --nav-bar-height: 3.5rem;
+    --nav-strip-height: 2.25rem;
+    --nav-bottom-height: 3.5rem;
+    --bottom-chrome: 0px;
   }
 
-  :root[data-nav="collapsed"] {
-    --nav-width: var(--nav-width-rail);
-  }
-
-  [data-nav-rail] {
-    width: var(--nav-width);
-    transition: width var(--nav-duration) var(--nav-ease);
-  }
-
-  /* Anything that only exists when there is room for words. */
-  [data-nav-rail] [data-nav-label] {
-    white-space: nowrap;
-    opacity: 1;
-    transform: translateX(0);
-    transition:
-      opacity 240ms var(--nav-ease) calc(var(--nav-i, 0) * var(--nav-stagger-step) + 110ms),
-      transform 300ms var(--nav-ease) calc(var(--nav-i, 0) * var(--nav-stagger-step) + 110ms);
-  }
-
-  :root[data-nav="collapsed"] [data-nav-rail] [data-nav-label] {
-    opacity: 0;
-    transform: translateX(-0.375rem);
-    pointer-events: none;
-    transition-duration: 110ms;
-    transition-delay: 0ms;
-  }
-
-  [data-nav-rail] [data-nav-heading] {
-    opacity: 1;
-    transition: opacity 200ms var(--nav-ease)
-      calc(var(--nav-i, 0) * var(--nav-stagger-step) + 110ms);
-  }
-
-  :root[data-nav="collapsed"] [data-nav-rail] [data-nav-heading] {
-    opacity: 0;
-    transition-duration: 100ms;
-    transition-delay: 0ms;
-  }
-
-  /* Unscoped, unlike the rest: the divider is the COLLAPSED form of a heading,
-     so it must stay hidden everywhere else — including the mobile drawer,
-     which renders this same markup outside the rail. */
-  [data-nav-divider] {
-    opacity: 0;
-    transform: scaleX(0);
-    transition:
-      opacity 140ms var(--nav-ease),
-      transform 240ms var(--nav-ease);
-  }
-
-  :root[data-nav="collapsed"] [data-nav-rail] [data-nav-divider] {
-    opacity: 1;
-    transform: scaleX(1);
-    transition-delay: 90ms;
-  }
-
-  /* Points at what the click will do: left while open, right while closed. */
-  [data-nav-rail] [data-nav-chevron] {
-    transition: transform var(--nav-duration) var(--nav-ease);
-  }
-
-  :root[data-nav="collapsed"] [data-nav-rail] [data-nav-chevron] {
-    transform: rotate(180deg);
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    [data-nav-rail],
-    [data-nav-rail] [data-nav-label],
-    [data-nav-rail] [data-nav-heading],
-    [data-nav-rail] [data-nav-divider],
-    [data-nav-rail] [data-nav-chevron] {
-      transition: none;
+  @media (width < 64rem) {
+    :root:has([data-mobile-nav]) {
+      --bottom-chrome: calc(var(--nav-bottom-height) + env(safe-area-inset-bottom));
     }
   }
 }
@@ -543,4 +515,39 @@
 }
 @utility price-flash-down {
   animation: price-flash-down 900ms ease-out;
+}
+
+/* Keep short waits visually silent. A skeleton becomes visible only when the
+   request is still pending after 300ms; there is no minimum display duration. */
+@keyframes loading-visual-reveal {
+  to {
+    opacity: 1;
+  }
+}
+[data-slot="loading-visual"] {
+  opacity: 0;
+  animation: loading-visual-reveal 1ms step-end 300ms forwards;
+}
+
+/* Loading shapes share a quiet opacity pulse, never a sweeping highlight. */
+@keyframes skeleton-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+.skeleton-shape {
+  opacity: 0;
+  animation: skeleton-breathe 2.4s ease-in-out 300ms infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-shape {
+    animation-name: loading-visual-reveal;
+    animation-timing-function: step-end;
+    animation-delay: 300ms;
+    animation-fill-mode: forwards;
+  }
 }

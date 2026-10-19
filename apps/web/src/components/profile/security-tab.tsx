@@ -44,7 +44,7 @@ export function SecurityTab({
       <TwoFactor initiallyEnabled={mfaEnabled} />
       <SessionsList />
       <div className="md:col-span-2">
-        <DangerZone />
+        <DangerZone hasPassword={hasPassword} email={email} />
       </div>
     </div>
   );

@@ -1,0 +1,427 @@
+import { randomUUID } from 'node:crypto';
+import { sql } from 'drizzle-orm';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { resolveTestDatabaseUrl } from '../../../../test/db';
+import { createDatabase, type DatabaseHandle } from '../client.js';
+import { getDailyBars, getDailyBarsForInstruments } from '../repositories/candles.js';
+import { ensureInstruments } from '../repositories/instruments.js';
+import {
+  corporateHistoryFrom,
+  dailyClosesBetween,
+  deleteAllHoldingEntries,
+  deleteHoldingEntry,
+  dividendsBetween,
+  holdingReference,
+  latestDailyCloses,
+  listHoldingEntries,
+  listShareChanges,
+  portfolioUsageSummary,
+  recordPortfolioUsage,
+  upcomingHoldingEvents,
+  updateHoldingEntry,
+  writeHoldingEntries,
+} from '../repositories/portfolio.js';
+import { listAllWatchedInstruments } from '../repositories/watchlists.js';
+
+/**
+ * Portfolio entries against a real Postgres: per-owner isolation, the all-or-nothing
+ * validation hook, replace-on-snapshot, duplicate trade ids, cascade on account
+ * deletion, and the worker's quote union picking up held stocks.
+ */
+
+const url = resolveTestDatabaseUrl();
+const suite = url === undefined ? describe.skip : describe;
+const tag = randomUUID().slice(0, 8);
+const SETUP_TIMEOUT_MS = 30_000;
+
+suite('portfolio entries', () => {
+  let handle: DatabaseHandle;
+  let owner: number;
+  let stranger: number;
+  let a: number;
+  let b: number;
+  const symA = `PFA${tag}`.toUpperCase();
+  const symB = `PFB${tag}`.toUpperCase();
+
+  beforeAll(async () => {
+    if (url === undefined) return;
+    handle = createDatabase({ connectionString: url, max: 4 });
+    const users = await handle.db.execute<{ id: number }>(
+      sql`insert into auth_users(email) values
+        (${`pf-owner-${tag}@test.example`}), (${`pf-stranger-${tag}@test.example`}) returning id`,
+    );
+    owner = users.rows[0]!.id;
+    stranger = users.rows[1]!.id;
+    const ids = await ensureInstruments(handle.db, 'test', [
+      { symbol: symA, name: 'Portfolio A', kind: 'equity' },
+      { symbol: symB, name: 'Portfolio B', kind: 'equity' },
+    ]);
+    a = ids.get(symA)!;
+    b = ids.get(symB)!;
+  }, SETUP_TIMEOUT_MS);
+
+  afterAll(async () => {
+    await handle?.close();
+  }, SETUP_TIMEOUT_MS);
+
+  const add = (
+    instrumentId: number,
+    over: Partial<{
+      kind: 'opening' | 'add' | 'remove';
+      shares: number;
+      tradeId: string | null;
+      tradeDate: string;
+    }> = {},
+  ) => ({
+    instrumentId,
+    kind: 'add' as const,
+    tradeDate: '2026-01-02',
+    shares: 10,
+    amountPaise: 1_000_000,
+    source: 'manual' as const,
+    ...over,
+  });
+
+  it('keeps one owner’s entries out of another’s reach', async () => {
+    const written = await writeHoldingEntries(handle.db, owner, { rows: [add(a)] });
+    expect(written).toMatchObject({ ok: true, value: { inserted: 1 } });
+    expect(await listHoldingEntries(handle.db, stranger)).toEqual([]);
+    const mine = await listHoldingEntries(handle.db, owner);
+    expect(mine).toHaveLength(1);
+    expect(mine[0]).toMatchObject({
+      symbol: symA,
+      shares: 10,
+      amountPaise: 1_000_000,
+      kind: 'add',
+    });
+  });
+
+  it('cannot delete another owner’s entry by id', async () => {
+    const [mine] = await listHoldingEntries(handle.db, owner);
+    expect(await deleteHoldingEntry(handle.db, stranger, mine!.id)).toEqual({
+      ok: true,
+      value: false,
+    });
+    expect(await listHoldingEntries(handle.db, owner)).toHaveLength(1);
+  });
+
+  it('rolls back the whole write when the validator objects', async () => {
+    const before = (await listHoldingEntries(handle.db, owner)).length;
+    const result = await writeHoldingEntries(handle.db, owner, {
+      rows: [add(b), add(b, { kind: 'remove', shares: 99, tradeDate: '2026-02-01' })],
+      validate: () => 'You removed more shares than you held.',
+    });
+    expect(result).toEqual({
+      ok: false,
+      reason: 'rejected',
+      message: 'You removed more shares than you held.',
+    });
+    expect((await listHoldingEntries(handle.db, owner)).length).toBe(before);
+  });
+
+  it('skips a repeated broker trade id instead of double counting', async () => {
+    const row = add(b, { tradeId: `T-${tag}`, tradeDate: '2026-03-01' });
+    const first = await writeHoldingEntries(handle.db, owner, { rows: [row] });
+    const second = await writeHoldingEntries(handle.db, owner, { rows: [row] });
+    expect(first).toMatchObject({ ok: true, value: { inserted: 1, skippedDuplicates: 0 } });
+    expect(second).toMatchObject({ ok: true, value: { inserted: 0, skippedDuplicates: 1 } });
+    // The same trade id belongs to a different owner independently.
+    const other = await writeHoldingEntries(handle.db, stranger, { rows: [row] });
+    expect(other).toMatchObject({ ok: true, value: { inserted: 1 } });
+  });
+
+  it('only ever adds: writing a snapshot entry keeps every earlier entry', async () => {
+    const before = await listHoldingEntries(handle.db, owner);
+    const result = await writeHoldingEntries(handle.db, owner, {
+      rows: [add(b, { kind: 'opening', shares: 7, tradeDate: '2026-10-05' })],
+    });
+    expect(result).toEqual({ ok: true, value: { inserted: 1, skippedDuplicates: 0 } });
+    const after = await listHoldingEntries(handle.db, owner);
+    expect(after).toHaveLength(before.length + 1);
+    for (const entry of before) expect(after.some((e) => e.id === entry.id)).toBe(true);
+  });
+
+  it('lets a delete be vetoed, leaving the row in place', async () => {
+    const [target] = (await listHoldingEntries(handle.db, owner)).filter(
+      (e) => e.instrumentId === a,
+    );
+    const vetoed = await deleteHoldingEntry(
+      handle.db,
+      owner,
+      target!.id,
+      () => 'A later removal depends on this.',
+    );
+    expect(vetoed).toMatchObject({ ok: false, reason: 'rejected' });
+    expect((await listHoldingEntries(handle.db, owner)).some((e) => e.id === target!.id)).toBe(
+      true,
+    );
+  });
+
+  it('refuses a non-positive share count or a negative amount at the database', async () => {
+    await expect(
+      writeHoldingEntries(handle.db, owner, { rows: [add(a, { shares: 0 })] }),
+    ).rejects.toThrow();
+    await expect(
+      writeHoldingEntries(handle.db, owner, { rows: [{ ...add(a), amountPaise: -1 }] }),
+    ).rejects.toThrow();
+  });
+
+  it('adds held stocks to the quote refresh union without naming an owner', async () => {
+    const watched = await listAllWatchedInstruments(handle.db);
+    const symbols = watched.map((w) => w.symbol);
+    expect(symbols).toContain(symA);
+    expect(symbols).toContain(symB);
+    expect(Object.keys(watched[0] ?? {}).sort()).toEqual(['exchange', 'id', 'kind', 'symbol']);
+  });
+
+  it('reads splits and bonuses for held stocks and ignores dividends', async () => {
+    await handle.db.execute(
+      sql`insert into corporate_actions(instrument_id, kind, ex_date, ratio) values
+        (${a}, 'split', '2026-06-01', 0.2), (${a}, 'dividend', '2026-06-02', 0.99)`,
+    );
+    const changes = await listShareChanges(handle.db, [a, b]);
+    expect(changes).toEqual([{ instrumentId: a, kind: 'split', exDate: '2026-06-01', ratio: 0.2 }]);
+    expect(await listShareChanges(handle.db, [])).toEqual([]);
+  });
+
+  it('edits an entry in place, only for its owner, and lets a validator veto', async () => {
+    const [target] = (await listHoldingEntries(handle.db, owner)).filter(
+      (e) => e.instrumentId === a,
+    );
+    const patch = { tradeDate: '2026-01-05', shares: 12, amountPaise: 1_200_000 };
+    expect(await updateHoldingEntry(handle.db, stranger, target!.id, patch)).toEqual({
+      ok: true,
+      value: false,
+    });
+    expect(
+      await updateHoldingEntry(handle.db, owner, target!.id, patch, () => 'No.'),
+    ).toMatchObject({ ok: false, reason: 'rejected' });
+    expect(
+      (await listHoldingEntries(handle.db, owner)).find((e) => e.id === target!.id)?.shares,
+    ).toBe(target!.shares);
+    expect(await updateHoldingEntry(handle.db, owner, target!.id, patch)).toEqual({
+      ok: true,
+      value: true,
+    });
+    expect(
+      (await listHoldingEntries(handle.db, owner)).find((e) => e.id === target!.id),
+    ).toMatchObject({ shares: 12, tradeDate: '2026-01-05', amountPaise: 1_200_000, kind: 'add' });
+  });
+
+  it('finds the newest and previous daily close as a fallback price', async () => {
+    await handle.db.execute(
+      sql`insert into daily_candles(instrument_id, ts, open, high, low, close, volume, provider_id) values
+        (${a}, now() - interval '3 days', 100, 110, 90, 105, 10, 'test'),
+        (${a}, now() - interval '2 days', 105, 115, 95, 111, 10, 'test')`,
+    );
+    const closes = await latestDailyCloses(handle.db, [a, b]);
+    expect(closes.get(a)).toMatchObject({ closePaise: 111, previousClosePaise: 105 });
+    expect(closes.has(b)).toBe(false);
+    expect((await latestDailyCloses(handle.db, [])).size).toBe(0);
+  });
+
+  it('stores an optional purchase date, and refuses one after the entry date', async () => {
+    const ok = await writeHoldingEntries(handle.db, owner, {
+      rows: [add(a, { kind: 'opening', tradeDate: '2026-10-05', tradeId: `ACQ-${tag}` })],
+    });
+    expect(ok.ok).toBe(true);
+    const [row] = (await listHoldingEntries(handle.db, owner)).filter(
+      (e) => e.tradeDate === '2026-10-05' && e.instrumentId === a,
+    );
+    expect(row?.acquiredOn).toBeNull();
+    const dated = await writeHoldingEntries(handle.db, owner, {
+      rows: [{ ...add(a, { kind: 'opening', tradeDate: '2026-10-05' }), acquiredOn: '2019-04-01' }],
+    });
+    expect(dated.ok).toBe(true);
+    expect(
+      (await listHoldingEntries(handle.db, owner)).some((e) => e.acquiredOn === '2019-04-01'),
+    ).toBe(true);
+    await expect(
+      writeHoldingEntries(handle.db, owner, {
+        rows: [
+          { ...add(a, { kind: 'opening', tradeDate: '2026-10-05' }), acquiredOn: '2026-10-06' },
+        ],
+      }),
+    ).rejects.toThrow();
+    const [entry] = (await listHoldingEntries(handle.db, owner)).filter(
+      (e) => e.acquiredOn === '2019-04-01',
+    );
+    expect(
+      await updateHoldingEntry(handle.db, owner, entry!.id, {
+        tradeDate: '2026-10-05',
+        shares: 10,
+        amountPaise: 1,
+        acquiredOn: null,
+      }),
+    ).toEqual({ ok: true, value: true });
+    expect(
+      (await listHoldingEntries(handle.db, owner)).find((e) => e.id === entry!.id)?.acquiredOn,
+    ).toBeNull();
+  });
+
+  it('reads raw closes by IST session date, one per day, oldest first', async () => {
+    // 03:45 UTC is 09:15 IST on the same calendar day.
+    await handle.db.execute(sql`insert into daily_candles(instrument_id, ts, open, high, low, close, volume, provider_id) values
+      (${b}, '2025-03-03T03:45:00Z', 200, 200, 200, 200, 1, 'test'),
+      (${b}, '2025-03-04T03:45:00Z', 210, 210, 210, 210, 1, 'test'),
+      (${b}, '2025-03-10T03:45:00Z', 230, 230, 230, 230, 1, 'test')`);
+    const closes = await dailyClosesBetween(handle.db, [b], '2025-03-03', '2025-03-05');
+    expect(closes.get(b)).toEqual([
+      { date: '2025-03-03', closePaise: 200 },
+      { date: '2025-03-04', closePaise: 210 },
+    ]);
+    expect((await dailyClosesBetween(handle.db, [], '2025-01-01', '2025-12-31')).size).toBe(0);
+  });
+
+  it('lists dividends in a range, with unknown amounts kept as null', async () => {
+    await handle.db.execute(sql`insert into dividends(instrument_id, ex_date, kind, amount_paise, subject, source) values
+      (${b}, '2025-03-05', 'interim', null, 'Interim Dividend', 'test')`);
+    const rows = await dividendsBetween(handle.db, [b], '2025-01-01', '2025-12-31');
+    expect(rows).toEqual([
+      { instrumentId: b, exDate: '2025-03-05', kind: 'interim', amountPaise: null },
+    ]);
+  });
+
+  it('says how far back corporate actions are on record', async () => {
+    const from = await corporateHistoryFrom(handle.db);
+    expect(from).not.toBeNull();
+    expect(from! <= '2026-06-01').toBe(true);
+  });
+
+  it('deletes everything an owner entered, and only theirs', async () => {
+    const removed = await deleteAllHoldingEntries(handle.db, owner);
+    expect(removed).toBeGreaterThan(0);
+    expect(await listHoldingEntries(handle.db, owner)).toEqual([]);
+    expect((await listHoldingEntries(handle.db, stranger)).length).toBeGreaterThan(0);
+  });
+
+  it('counts use without storing anything about holdings, and adds a day only once', async () => {
+    await recordPortfolioUsage(handle.db, owner, 'view');
+    await recordPortfolioUsage(handle.db, owner, 'view');
+    await recordPortfolioUsage(handle.db, owner, 'import');
+    await recordPortfolioUsage(handle.db, owner, 'add');
+    const row = await handle.db.execute<Record<string, unknown>>(
+      sql`select * from portfolio_usage where owner_id = ${owner}`,
+    );
+    expect(Object.keys(row.rows[0] ?? {}).sort()).toEqual([
+      'active_days',
+      'entries_added',
+      'first_seen_at',
+      'imports',
+      'last_seen_at',
+      'owner_id',
+      'views',
+    ]);
+    expect(row.rows[0]).toMatchObject({ views: 2, imports: 1, entries_added: 1, active_days: 1 });
+    // A visit on a later day counts as a second active day, and as a 30-day return.
+    await handle.db.execute(
+      sql`update portfolio_usage set first_seen_at = now() - interval '40 days', last_seen_at = now() - interval '40 days' where owner_id = ${owner}`,
+    );
+    await recordPortfolioUsage(handle.db, owner, 'view');
+    const again = await handle.db.execute<{ active_days: number }>(
+      sql`select active_days from portfolio_usage where owner_id = ${owner}`,
+    );
+    expect(again.rows[0]?.active_days).toBe(2);
+    const summary = await portfolioUsageSummary(handle.db);
+    expect(summary.users).toBeGreaterThanOrEqual(1);
+    expect(summary.returnedAfter30Days).toBeGreaterThanOrEqual(1);
+    expect(summary.eligibleFor30DayReturn).toBeGreaterThanOrEqual(summary.returnedAfter30Days);
+  });
+
+  it('reads industry and current index memberships, leaving old memberships out', async () => {
+    await handle.db.execute(
+      sql`insert into instrument_reference(instrument_id, series, industry) values (${a}, 'EQ', 'Banks')`,
+    );
+    await handle.db.execute(sql`insert into index_memberships(index_key, instrument_id, effective_from, effective_to, source) values
+      ('nifty100', ${a}, '2026-01-01', null, 'test'), ('niftymidcap150', ${a}, '2025-01-01', '2025-12-31', 'test')`);
+    const ref = await holdingReference(handle.db, [a, b]);
+    expect(ref.get(a)).toEqual({ industry: 'Banks', indexKeys: ['nifty100'], amfiCategory: null });
+    expect(ref.get(b)).toEqual({ industry: null, indexKeys: [], amfiCategory: null });
+    expect((await holdingReference(handle.db, [])).size).toBe(0);
+
+    // AMFI's official category, matched by ISIN once the stock is on its list.
+    const isin = `INE${tag.slice(0, 6)}01${tag.slice(0, 2)}1`.slice(0, 12).toUpperCase();
+    await handle.db.execute(sql`update instruments set isin = ${isin} where id = ${a}`);
+    await handle.db.execute(
+      sql`insert into amfi_categories(isin, nse_symbol, category, period_end) values (${isin}, ${symA}, 'mid', '2026-06-30')`,
+    );
+    const withList = await holdingReference(handle.db, [a, b]);
+    expect(withList.get(a)?.amfiCategory).toBe('mid');
+    expect(withList.get(b)?.amfiCategory).toBeNull();
+    await handle.db.execute(sql`delete from amfi_categories where isin = ${isin}`);
+  });
+
+  it('lists upcoming events for held stocks with dividend amounts, inside the window only', async () => {
+    await handle.db.execute(sql`insert into market_events(instrument_id, symbol, event_type, title, event_date) values
+      (${a}, ${symA}, 'dividend', 'Final dividend', '2026-10-16'),
+      (${a}, ${symA}, 'result', 'Q2 results', '2026-10-20'),
+      (${a}, ${symA}, 'board_meeting', 'Board meeting for results', '2026-10-20'),
+      (${b}, ${symB}, 'dividend', 'Interim dividend', '2026-11-03'),
+      (${a}, ${symA}, 'ipo', 'Not for holders', '2026-10-18'),
+      (${b}, ${symB}, 'result', 'Outside window', '2027-03-01')`);
+    await handle.db.execute(sql`insert into dividends(instrument_id, ex_date, kind, amount_paise, subject, source) values
+      (${a}, '2026-10-16', 'final', 2100, 'Final Dividend - Rs 21', 'test'),
+      (${b}, '2026-11-02', 'interim', 500, 'Interim Dividend - Rs 5', 'test')`);
+    const events = await upcomingHoldingEvents(handle.db, [a, b], '2026-10-05', '2026-12-04');
+    expect(
+      events.map((e) => [
+        e.instrumentId === a ? 'A' : 'B',
+        e.eventType,
+        e.eventDate,
+        e.dividendPaise,
+      ]),
+    ).toEqual([
+      ['A', 'dividend', '2026-10-16', 2100],
+      ['A', 'result', '2026-10-20', null],
+      ['B', 'dividend', '2026-11-03', 500],
+    ]);
+  });
+
+  it('applies a split or bonus only once its ex-date has arrived, in holdings and in charts', async () => {
+    const symC = `PFC${tag}`.toUpperCase();
+    const c = (
+      await ensureInstruments(handle.db, 'test', [
+        { symbol: symC, name: 'Portfolio C', kind: 'equity' },
+      ])
+    ).get(symC)!;
+    // One split already in effect and one announced for next month (the nightly sync
+    // records announced ones up to a month ahead).
+    await handle.db.execute(sql`
+      insert into corporate_actions(instrument_id, kind, ex_date, ratio, note) values
+        (${c}, 'split', current_date - 30, 0.5, 'in effect'),
+        (${c}, 'bonus', current_date + 20, 0.5, 'announced')`);
+    const changes = await listShareChanges(handle.db, [c]);
+    expect(changes.map((c) => c.kind)).toEqual(['split']);
+
+    // One bar before the in-effect split, one after it: only the split restates the old bar.
+    await handle.db.execute(sql`
+      insert into daily_candles(instrument_id, ts, open, high, low, close, volume, provider_id) values
+        (${c}, (current_date - 40)::timestamp at time zone 'UTC', 20000, 20000, 20000, 20000, 100, 'test'),
+        (${c}, (current_date - 5)::timestamp at time zone 'UTC', 10000, 10000, 10000, 10000, 200, 'test')`);
+    const bars = await getDailyBars(handle.db, {
+      instrumentId: c,
+      from: new Date(Date.now() - 60 * 86_400_000),
+      to: new Date(),
+    });
+    expect(bars.map((bar) => bar.close)).toEqual([10_000, 10_000]);
+    const many = await getDailyBarsForInstruments(handle.db, {
+      instrumentIds: [c],
+      to: new Date(),
+      limit: 10,
+    });
+    expect(many.get(c)?.map((bar) => bar.close)).toEqual([10_000, 10_000]);
+  });
+
+  it('cascades when the account is deleted', async () => {
+    await handle.db.execute(sql`delete from auth_users where id = ${stranger}`);
+    const left = await handle.db.execute<{ n: number }>(
+      sql`select count(*)::int as n from holding_entries where owner_id = ${stranger}`,
+    );
+    expect(left.rows[0]?.n).toBe(0);
+    await handle.db.execute(sql`delete from auth_users where id = ${owner}`);
+    const usage = await handle.db.execute<{ n: number }>(
+      sql`select count(*)::int as n from portfolio_usage where owner_id = ${owner}`,
+    );
+    expect(usage.rows[0]?.n).toBe(0);
+  });
+});

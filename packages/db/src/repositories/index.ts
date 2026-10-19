@@ -1,3 +1,27 @@
+export type {
+  AlertEventRow,
+  AlertFiring,
+  AlertRow,
+  AlertSession,
+  CreateAlertResult,
+  EnabledAlert,
+} from './alerts.js';
+export {
+  acknowledgeAlertEvents,
+  countUnacknowledgedAlertEvents,
+  createAlert,
+  deleteAlert,
+  getLatestIndicatorDate,
+  getLatestTwoSessions,
+  listAlertEvents,
+  listAlerts,
+  listEnabledAlertsForWorker,
+  MAX_ALERTS_PER_USER,
+  markAlertEventEmailed,
+  markAlertsEvaluated,
+  recordAlertFiring,
+  setAlertEnabled,
+} from './alerts.js';
 export * from './announcement-research.js';
 export type {
   AdminUserRow,
@@ -75,18 +99,14 @@ export {
   savePendingMfaEnrollment,
 } from './auth-mfa.js';
 export type {
-  BriefFactorRow,
   BriefIndicatorRow,
-  BriefSignalRow,
   IndicatorSession,
   WatchlistMembershipRef,
 } from './brief.js';
 export {
-  factorsForSignals,
   indicatorsForInstrumentsOnDate,
   ownerHasWatchlists,
   recentIndicatorSessions,
-  signalsForInstrumentsOnDate,
   watchlistMembershipForOwner,
 } from './brief.js';
 export type { BarQuery, CandleInput, CloseAnchor, StoredBar } from './candles.js';
@@ -98,6 +118,7 @@ export {
   getStoredSessionDates,
   insertDailyCandles,
 } from './candles.js';
+export * from './checkpoints.js';
 export type { CredentialInput, StoredCredential } from './credentials.js';
 export {
   getProviderCredential,
@@ -123,11 +144,28 @@ export {
   getRecentFiiDii,
   latestShareholdingForInstruments,
   listAnnouncementCategories,
+  listAnnouncementsWithScripCodeSymbols,
   upsertAnnouncements,
   upsertDeals,
   upsertFiiDiiFlows,
   upsertShareholding,
 } from './disclosures.js';
+export type {
+  ActorType,
+  EventCategory,
+  EventFilter,
+  EventInput,
+  EventRow,
+} from './event-log.js';
+export {
+  ACTOR_TYPES,
+  categoryForEvent,
+  EVENT_CATEGORIES,
+  listEventNames,
+  listEvents,
+  logEvent,
+} from './event-log.js';
+export * from './exchange-calendar.js';
 export type {
   DealAggregateRow,
   DeliveryHistoryRow,
@@ -176,7 +214,21 @@ export {
   screen,
   upsertDailyIndicators,
 } from './indicators.js';
-export type { CorporateActionRow, InstrumentRow, InstrumentUpsert } from './instruments.js';
+export type { IngestionJob, IngestionRunRow, IngestionStatus } from './ingestion-runs.js';
+export {
+  finishIngestionRun,
+  getLatestDailyCandleTime,
+  hasAnyIngestionRun,
+  hasSuccessfulIngestionRun,
+  listIngestionRuns,
+  startIngestionRun,
+} from './ingestion-runs.js';
+export type {
+  CorporateActionRow,
+  InstrumentMetadata,
+  InstrumentRow,
+  InstrumentUpsert,
+} from './instruments.js';
 export {
   ensureInstruments,
   getInstrumentBySymbol,
@@ -185,11 +237,101 @@ export {
   listInstrumentsById,
   resolveInstrumentIds,
   syncInstruments,
+  updateInstrumentMetadata,
 } from './instruments.js';
-export * from './intraday.js';
-export * from './minute-bars.js';
-export * from './paper.js';
-export * from './paper-ops.js';
+export type {
+  DocumentInput,
+  GmpSnapshotInput,
+  GmpSnapshotRow,
+  GmpTrackRow,
+  IpoDetailParts,
+  IpoDocumentRow,
+  IpoIdentityRow,
+  IpoIssuePatch,
+  IpoIssueRow,
+  IpoListFilters,
+  IpoListRow,
+  IpoWorkRow,
+  IpoYearStats,
+  IssueDocumentRow,
+  LatestGmpJson,
+  LatestSubscriptionJson,
+  ListingDayInput,
+  ListingJson,
+  ListingPerformanceRow,
+  NewIpoIssue,
+  RhpExtractInput,
+  RhpExtractionCounts,
+  RhpExtractRow,
+  RhpWorkRow,
+  SebiFilingInput,
+  SebiFilingRow,
+  SourceObservationInput,
+  SourceObservationRow,
+  SourceUsedRow,
+  SubscriptionSnapshotInput,
+  SubscriptionSnapshotRow,
+  UnmatchedRecordRow,
+} from './ipos.js';
+export {
+  attachSourceKey,
+  canonicalJson,
+  countIposByStatus,
+  countSebiFilingsSince,
+  createIpoIssue,
+  firstGmpObservedAt,
+  getIpoById,
+  getIpoBySlug,
+  gmpTrackRows,
+  hasIpoIssues,
+  insertGmpSnapshots,
+  insertSubscriptionSnapshot,
+  ipoDetailParts,
+  ipoFeedId,
+  ipoYearStats,
+  issuesWithListingDay,
+  issuesWithSubscription,
+  latestObservationsForIssue,
+  linkSebiFiling,
+  listIpos,
+  listIposAround,
+  listIpoYears,
+  listIssueDocuments,
+  listIssueIdentities,
+  listIssuesForDetail,
+  listIssuesListedSince,
+  listIssuesOpenedSince,
+  listIssuesWithConflicts,
+  listOpenIssues,
+  listRecentlyClosedIssues,
+  listRhpDocumentsToExtract,
+  listRhpExtracts,
+  listSebiFilings,
+  listUnlinkedSebiFilings,
+  listUnmatchedSourceRecords,
+  payloadHash,
+  recordListingDay,
+  recordRhpFailure,
+  recordSourceObservation,
+  rhpExtractionCounts,
+  saveRhpExtracts,
+  sebiFilingsForIssue,
+  sourceKeysFor,
+  statusCondition,
+  updateIpoIssue,
+  updateLatestClose,
+  upsertIpoDocuments,
+  upsertSebiFilings,
+} from './ipos.js';
+export type {
+  MarketEventQuery,
+  MarketEventRow,
+  MarketEventScope,
+  MarketEventUpsert,
+} from './market-events.js';
+export { listMarketEvents, marketEventSummary, upsertMarketEvents } from './market-events.js';
+export * from './portfolio.js';
+export * from './portfolio-notices.js';
 export type { ProfilePatch } from './profile.js';
 export {
   deleteOtherSessionsForUser,
@@ -199,20 +341,9 @@ export {
   updateProfile,
   updateUserEmail,
 } from './profile.js';
-export type {
-  InstrumentSignal,
-  SignalFactorInput,
-  SignalInput,
-  StoredSignal,
-} from './signals.js';
-export {
-  getSignalFactors,
-  getSignalsForDate,
-  hashStrategyConfig,
-  latestSignalsForInstruments,
-  registerStrategy,
-  saveSignal,
-} from './signals.js';
+export type { LatestQuoteInput, LatestQuoteRow } from './quotes.js';
+export { latestQuotesForInstruments, QUOTE_CACHE_FEED, upsertLatestQuotes } from './quotes.js';
+export * from './screener.js';
 export type {
   StoredLayout,
   StoredView,
@@ -238,4 +369,5 @@ export {
   saveWatchlistLayout,
   saveWatchlistView,
   setDefaultWatchlist,
+  setWatchlistItemNote,
 } from './watchlists.js';

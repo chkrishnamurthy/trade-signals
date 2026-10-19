@@ -15,12 +15,20 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 export TEST_DATABASE_URL="postgresql://equitywise:equitywise@localhost:5433/nse_signals_test"
+# The auth integration suite predates the shared TEST_DATABASE_URL guard. Point
+# it at the same disposable database so it cannot silently skip in the release
+# gate.
+export AUTH_TEST_DB="$TEST_DATABASE_URL"
 
 cleanup() {
   docker compose -f docker-compose.test.yml down -v >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
+# Start from empty even when a container is already up (e.g. after
+# `pnpm test:db:up`): the DB suites assume a fresh database, and reusing one
+# reads rows an earlier run left behind.
+cleanup
 docker compose -f docker-compose.test.yml up -d --wait
 
 pnpm vitest run "$@"

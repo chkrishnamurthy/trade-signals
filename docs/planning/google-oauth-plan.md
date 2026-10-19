@@ -1,8 +1,8 @@
 ---
 name: Google OAuth Authentication
-status: approved
+status: done
 created: 2026-09-20
-updated: 2026-09-20
+updated: 2026-10-05
 area: [web, db]
 summary: Direct Google OAuth 2.0 (OpenID Connect) authentication with PKCE and CSRF protection, retaining first-party users, sessions, and per-user data isolation on self-hosted PostgreSQL.
 owner: krishna

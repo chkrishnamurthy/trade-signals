@@ -185,7 +185,7 @@ export interface MarketTapeDto {
   /** Every participant × bucket for the latest session, for the positioning grid. */
   readonly participantOi: readonly ParticipantOiCellDto[];
   readonly participantOiDate: string | null;
-  /** Newest first, up to 30 sessions. */
+  /** Newest first, up to 126 sessions (about six months). */
   readonly fiiDii: readonly FiiDiiDayDto[];
 }
 

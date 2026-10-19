@@ -54,11 +54,12 @@ async function deliver(mail: Mail): Promise<void> {
       body: JSON.stringify({ from, to: mail.to, subject: mail.subject, text: mail.text }),
     });
     if (!res.ok) {
-      const detail = await res.text().catch(() => '');
-      console.error(`[auth-email] Resend delivery failed (${res.status}) to ${mail.to}: ${detail}`);
+      // Do not log the recipient or provider body: both can contain personal
+      // information. The status is enough for an operator to correlate in Resend.
+      console.error(`[auth-email] Resend delivery failed (${res.status}).`);
     }
-  } catch (error) {
-    console.error(`[auth-email] Resend request errored for ${mail.to}:`, error);
+  } catch {
+    console.error('[auth-email] Resend request failed.');
   }
 }
 

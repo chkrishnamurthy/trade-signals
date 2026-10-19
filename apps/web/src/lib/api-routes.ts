@@ -19,39 +19,6 @@ export interface SignOutOptions {
 }
 
 export const API_ROUTES = {
-  intradayToday: '/api/intraday/today',
-  intradayDay: (date: string): string => `/api/intraday/day/${date}`,
-  intradayRules: '/api/intraday/rules',
-  // ---------------------------------------------------------------------------
-  // Paper trading (/api/paper/*) — simulation only; nothing here places an order.
-  // ---------------------------------------------------------------------------
-  /** GET /api/paper/overview — settings, session, feed, balances, open paper trades. */
-  paperOverview: '/api/paper/overview',
-  /** GET/PUT /api/paper/settings — the paper toggle and limits (audited). */
-  paperSettings: '/api/paper/settings',
-  /** GET/PUT /api/paper/strategies — which strategies the portfolio runs. */
-  paperStrategies: '/api/paper/strategies',
-  /** POST /api/paper/emergency-stop — pause or resume new entries. */
-  paperEmergencyStop: '/api/paper/emergency-stop',
-  /** GET /api/paper/open-trades — open paper trades with marks. */
-  paperOpenTrades: '/api/paper/open-trades',
-  /** GET /api/paper/activity?date= — decisions and events for a session. */
-  paperActivity: (date?: string): string =>
-    date ? `/api/paper/activity?date=${encodeURIComponent(date)}` : '/api/paper/activity',
-  /** GET /api/paper/trades?… — closed paper trades, filtered and paged (format=csv streams). */
-  paperTrades: (query?: Record<string, string | number | undefined>): string => {
-    const sp = new URLSearchParams();
-    for (const [k, v] of Object.entries(query ?? {}))
-      if (v !== undefined && v !== '') sp.set(k, String(v));
-    const qs = sp.toString();
-    return `/api/paper/trades${qs ? `?${qs}` : ''}`;
-  },
-  /** GET /api/paper/performance?range=7d|30d|90d|all */
-  paperPerformance: (range = '30d'): string => `/api/paper/performance?range=${range}`,
-  /** GET /api/paper/audit — the user's own audit trail. */
-  paperAudit: '/api/paper/audit',
-  /** GET /api/admin/paper/health — operator view (admin). */
-  adminPaperHealth: '/api/admin/paper/health',
   // ---------------------------------------------------------------------------
   // Authentication & Session (/api/auth/*)
   // ---------------------------------------------------------------------------
@@ -257,6 +224,45 @@ export const API_ROUTES = {
    * Update user status ('active' | 'disabled') or role ('user' | 'admin') (Admin only).
    */
   adminUser: (id: number | string): string => `/api/admin/users/${id}`,
+
+  // ---------------------------------------------------------------------------
+  // IPOs (/api/ipos/*) — read-only; GMP is unofficial and labelled as such.
+  // ---------------------------------------------------------------------------
+
+  /** GET /api/ipos?status=&board=&exchange=&q=&page= — the IPOs page data. */
+  ipos: (query?: Record<string, string | number | undefined>): string => {
+    const sp = new URLSearchParams();
+    for (const [k, v] of Object.entries(query ?? {}))
+      if (v !== undefined && v !== '') sp.set(k, String(v));
+    const qs = sp.toString();
+    return `/api/ipos${qs ? `?${qs}` : ''}`;
+  },
+  /** GET /api/ipos/calendar?from=&to= — milestones per day (≤ 62 days). */
+  ipoCalendar: (from: string, to: string): string =>
+    `/api/ipos/calendar?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+  /** GET /api/ipos/gmp-track-record?months= — unofficial GMP vs actual listing gains. */
+  ipoGmpTrackRecord: (months = 12): string => `/api/ipos/gmp-track-record?months=${months}`,
+  /** GET /api/ipos/{slug} — one issue in full. */
+  ipo: (slug: string): string => `/api/ipos/${encodeURIComponent(slug)}`,
+  /** GET /api/admin/ipos/health — IPO pipeline health (Admin only). */
+  adminIpoHealth: '/api/admin/ipos/health',
+
+  // ---------------------------------------------------------------------------
+  // Screener (/api/screener/*) — reads the worker-built snapshot only
+  // ---------------------------------------------------------------------------
+
+  /** POST /api/screener/run — one page of a screen. */
+  screenerRun: '/api/screener/run',
+  /** POST /api/screener/counts — per-condition and cumulative match counts. */
+  screenerCounts: '/api/screener/counts',
+  /** GET /api/screener/meta — catalogue, presets, sessions, watchlists. */
+  screenerMeta: '/api/screener/meta',
+  /** GET/POST /api/screener/screens — the caller's saved screens. */
+  screenerScreens: '/api/screener/screens',
+  /** PATCH/DELETE /api/screener/screens/{id}. */
+  screenerScreen: (id: number): string => `/api/screener/screens/${id}`,
+  /** GET/PUT/DELETE /api/stocks/ratio-layout — the caller's stock-page ratio board. */
+  stockRatioLayout: '/api/stocks/ratio-layout',
 
   // ---------------------------------------------------------------------------
   // Market Data Provider Handshake (Fyers OAuth)

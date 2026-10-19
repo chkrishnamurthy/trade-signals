@@ -48,6 +48,8 @@ export const announcementIngestionRuns = pgTable(
     succeeded: boolean().notNull(),
     fetched: integer().notNull(),
     written: integer().notNull(),
+    /** Error name + message on failure; never a stack or a response body. */
+    error: text(),
     startedAt: timestamp({ withTimezone: true }).notNull(),
     completedAt: timestamp({ withTimezone: true }).notNull(),
   },

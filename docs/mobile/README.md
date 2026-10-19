@@ -18,7 +18,7 @@ document is written **before** that phase is implemented and updated as it lands
 | 02 | [02-architecture.md](02-architecture.md) | 2 — Architecture | Done. Decision record, server changes, app structure, verification, follow-ups |
 | 03 | [03-run-on-your-phone.md](03-run-on-your-phone.md) | 3 — Foundation | Built. Step-by-step: Mac tools, phone setup, EAS dev build, daily loop, Google sign-in keys, tester builds |
 | 04 | `04-authentication.md` | 4 — Auth | Implemented (see 02-architecture.md); doc not separate. Bearer sessions, secure storage, rotation, revocation, 2FA challenge, native Google sign-in, biometrics |
-| 05 | `05-features.md` | 5 — Product | v1.0 scope implemented (see 02-architecture.md). One vertical at a time: watchlists → search → stock detail & charts → profile (signals hidden, announcements/flows/push later) |
+| 05 | `05-features.md` | 5 — Product | v1.0 scope implemented (see 02-architecture.md). One vertical at a time: watchlists → search → stock detail & charts → profile (no signals — removed 2026-10-17; announcements/flows/push later) |
 | 06 | `06-hardening.md` | 6 — Hardening | Not started |
 | 07 | [07-play-store.md](07-play-store.md) | 7 — Release | Guide written (S19): personal account, `io.equitywise.app`, closed test, listing, Data Safety, account deletion |
 | 08 | `08-maintenance.md` | 8 — Maintenance | Not started |
@@ -35,8 +35,9 @@ a client that runs on a phone:
   `@equitywise/shared` is the only path to a rupee string.
 - Instants are **UTC** on the wire; IST only at render, via `@equitywise/shared`.
 - `packages/core` stays pure; the app may import it, never add IO to it.
-- **BUY / SELL** label a signal's direction and nothing else; every score renders
-  with its factor breakdown or not at all; nothing in the app can act on a price.
+- **No signals, setups or BUY / SELL labels** (removed from the product 2026-10-17);
+  any score renders with its factor breakdown or not at all; nothing in the app can
+  act on a price.
 - The worker remains the only writer of market data; push sending is a worker job.
 - No secret is ever bundled: only `EXPO_PUBLIC_*` values reach the phone, and none
   of them is private.

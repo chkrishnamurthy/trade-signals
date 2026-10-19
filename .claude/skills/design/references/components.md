@@ -95,7 +95,7 @@ the page.
 
 Both use **pill-in-track**, not underline: a `bg-muted rounded-md p-0.5` track, active
 item gets `bg-surface` + `shadow-subtle`. `ToggleGroup` is the shared control for "pick
-exactly one of a short list" — chart timeframes, signal direction filters, theme — so a
+exactly one of a short list" — chart timeframes, filter toggles, theme — so a
 new one-of-many control reaches for this, not a fresh radio-button treatment.
 
 **A second, separate tab pattern exists for switching between named, user-managed
@@ -147,12 +147,9 @@ shape of the layout it's about to become; a spinner collapses that layout to not
   positive/negative/zero → bullish/bearish/neutral, and **a glyph (▲/▼/→) always
   accompanies the color** so direction is never carried by color alone. A `tone` override
   exists for inverted-meaning metrics (VIX: down is the "bullish"-colored direction).
-- **`signal.tsx`** — one vocabulary for direction, deliberately free of BUY/SELL/ORDER
-  language. `SignalBadge` maps `strong_bullish|bullish|neutral|bearish|strong_bearish` to
-  the Badge financial tones, doubled glyph (`▲▲`) for the strong variants. `SignalScore`
-  **requires** a factor-breakdown `children` slot — it will not render a bare number; this
-  is the CLAUDE.md "no confidence score the factors can't explain" rule enforced in the
-  component's own type signature, not just a convention to remember.
+- **`volume-indicator.tsx`** — relative volume with an "unusual" label at the named 1.5×
+  threshold. (`signal.tsx` and its badges were removed with the signal engine on
+  2026-10-17.)
 - **`stock-identity.tsx`** — `StockAvatar` is a monogram, not a logo: no logo source
   exists for NSE equities and inventing one would mean shipping an asset that may not
   belong to the company. `StockIdentity` always gives the ticker more visual weight than

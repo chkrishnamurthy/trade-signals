@@ -1,3 +1,0 @@
-interface:
-  display_name: "Closed Candles"
-  short_description: "Lookahead-bias guard for the signal engine and backtests"

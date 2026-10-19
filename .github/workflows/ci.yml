@@ -1,17 +1,17 @@
 name: CI
 
-# Checks for the web app and the Android app. Kept separate from deploy.yml: this runs on pull
-# requests targeting main (the pre-merge gate) and on pushes to main (alongside
-# the deploy, as a record). Plain pushes to a feature branch with no PR open run
-# nothing.
+# Checks for the web app and the Android app. Validates pull requests targeting main and
+# validates main again before deploying the exact revision. Plain pushes to feature
+# branches with no PR open run nothing.
 #
-# `checks`   — typecheck + Storybook build (no secrets, no database).
+# `checks`   — lint, typecheck, production/Storybook builds, and browser smoke.
 # `db-tests` — the full Vitest suite against a real, ephemeral Postgres 17 +
 #              TimescaleDB service (the same stack the VPS runs). This is what
 #              exercises the DB-enforced invariants; TEST_DATABASE_URL is set, so
 #              those suites are REQUIRED here and cannot silently skip.
-# NOT run here (would be red for reasons unrelated to a given PR):
-#   - `pnpm lint`  — the repo has pre-existing Biome errors to clear first.
+# `deploy`   — runs only after both validation jobs pass, then verifies production.
+# Lint runs on `apps` and `packages` (`pnpm lint:app`). The root `pnpm lint` also covers
+# `tracker/`, a separate dev tool with its own older Biome errors; those are not a gate.
 # The Storybook interaction/a11y test run is not wired yet (see
 # docs/design-system/contributing.md — blocked upstream).
 
@@ -20,22 +20,25 @@ on:
     branches: [main]
   push:
     branches: [main]
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # PR checks may be replaced by a newer revision. Never interrupt a production
+  # deployment that has already started for main.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   checks:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
 
       - name: Install Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -49,11 +52,23 @@ jobs:
       - name: Build workspace dependencies
         run: pnpm --filter "@equitywise/web^..." build
 
-      - name: Typecheck (web)
-        run: pnpm --filter @equitywise/web typecheck
+      - name: Lint (apps, packages)
+        run: pnpm lint:app
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Production build
+        run: pnpm build
 
       - name: Build Storybook
         run: pnpm --filter @equitywise/web build-storybook
+
+      - name: Install browser for release smoke
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Browser release smoke
+        run: pnpm test:e2e
 
   mobile:
     # The Android app (apps/mobile) and the client-safe packages it uses. Lint is
@@ -88,7 +103,7 @@ jobs:
         run: pnpm vitest run apps/mobile packages/api-client packages/api-contracts packages/design-tokens packages/shared
 
   db-tests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     services:
       # Matches production and docker-compose.test.yml: PG 17 + TimescaleDB, so
       # the migrations' hypertables and CREATE EXTENSION run for real.
@@ -108,14 +123,15 @@ jobs:
     env:
       # Present, so the DB-backed suites are required and cannot silently skip.
       TEST_DATABASE_URL: postgresql://equitywise:equitywise@localhost:5433/nse_signals_test
+      AUTH_TEST_DB: postgresql://equitywise:equitywise@localhost:5433/nse_signals_test
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
 
       - name: Install Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -138,3 +154,29 @@ jobs:
 
       - name: Test
         run: pnpm test
+
+  deploy:
+    # A production deployment is now part of the same workflow and cannot begin
+    # until both the application checks and real-Postgres suite pass.
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    needs: [checks, db-tests]
+    runs-on: ubuntu-24.04
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Deploy over SSH
+        env:
+          SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s' "$SSH_KEY" | base64 -d > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh -i ~/.ssh/deploy_key \
+              -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=20 \
+              krishna@187.127.171.118 "deploy ${GITHUB_SHA}"
+
+      - name: Post-deploy smoke
+        run: bash scripts/post-deploy-smoke.sh https://equitywise.io

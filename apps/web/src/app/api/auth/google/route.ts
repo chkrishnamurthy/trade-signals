@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createGoogleAuthSession } from '@/server/auth/google-oauth';
 import { googleAuthEnabled } from '@/server/auth/env';
+import { createGoogleAuthSession } from '@/server/auth/google-oauth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';

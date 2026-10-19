@@ -109,10 +109,9 @@ export interface UniverseConstituent {
 /**
  * The constituents of one configured index.
  *
- * The intraday engine works a single, deliberately liquid index rather than
- * the whole universe: an intraday signal on an illiquid name is a pattern that
- * cannot be acted on at anything near the printed price, and every symbol
- * costs a history call against an account-wide per-minute budget.
+ * Used where a small, liquid sample beats the whole universe — the bar
+ * cross-check and the Dhan feed probe — since every symbol costs a history
+ * call against an account-wide per-minute budget.
  */
 export async function loadIndexConstituents(
   indexKey: string,

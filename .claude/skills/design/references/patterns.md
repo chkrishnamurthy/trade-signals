@@ -5,7 +5,7 @@ from `globals.css` and the existing primitives — never restated here.
 
 ## List-row anatomy
 
-Every stock row (watchlist, screener results, signal feed) follows the same skeleton:
+Every stock row (watchlist, screener results, market brief) follows the same skeleton:
 
 `[identity] ... [tabular value, right-aligned] [change, beneath or beside the value]`
 
@@ -43,7 +43,7 @@ For "Open / High / Low / Volume"-style definition data (`DefinitionGrid`,
 
 ## Summary tiles
 
-A screen's headline number (a watchlist's mover count, a signal's score, an account-free
+A screen's headline number (a watchlist's mover count, a breadth figure, an account-free
 performance figure) gets the largest type on the screen and sits alone at the top of its
 card, with supporting context (timeframe, count, freshness) beneath it in a smaller,
 muted weight. This is the "number first" pattern: the headline is legible from across the
@@ -63,7 +63,7 @@ this is a frequently-touched control and should not compete visually with the ch
   as the `-soft` tint on a small pill/badge, never as that row's full background. A list
   where every row is tinted green or red is unreadable at a glance; a list where only the
   number is colored is scannable in one pass.
-- A **singular** hero element — the one setup banner on a stock detail page, a page-level
+- A **singular** hero element — the one headline fact on a stock detail page, a page-level
   verdict card that appears once — may use the `-soft` tint as its own card background.
   It isn't tiling into visual noise because there's only one of it, and a page-level
   verdict is exactly the kind of thing that should read as colored at a glance. The test

@@ -67,10 +67,14 @@ interface FigureProps extends FigureVariants {
 function Figure({ text, loading, size, weight, mono, className, label, title }: FigureProps) {
   if (loading === true) {
     return (
-      <Skeleton
-        className={cn('inline-block align-middle', SKELETON_WIDTH[size ?? 'md'], className)}
-        aria-hidden
-      />
+      <>
+        <Skeleton
+          className={cn('inline-block align-middle', SKELETON_WIDTH[size ?? 'md'], className)}
+        />
+        <span role="status" className="sr-only">
+          Loading value
+        </span>
+      </>
     );
   }
 

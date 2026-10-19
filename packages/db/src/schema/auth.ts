@@ -259,15 +259,20 @@ export const authAttempts = pgTable(
 );
 
 /**
- * Append-only security log. Made insert-only by a trigger in the migration.
- * `detail` is redacted — never a password, token, or seed. `user_id` is nulled
- * (not cascaded away) when a user is deleted, so the audit trail survives.
+ * Append-only event log (docs/planning/logging-plan.md). Born as `auth_audit`; renamed
+ * and generalised in migration 0038. Made insert-only by a trigger.
+ *
+ * `category` is `auth` | `account` | `admin` | `worker` | `provider`; `actor_type` is
+ * `user` | `worker` | `system`. `detail` is redacted — never a password, token, or seed.
+ * `user_id` is not a foreign key, so the trail survives a user's deletion.
  */
-export const authAudit = pgTable(
-  'auth_audit',
+export const eventLog = pgTable(
+  'event_log',
   {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
     at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    category: text().notNull().default('auth'),
+    actorType: text().notNull().default('user'),
     event: text().notNull(),
     /**
      * The acting user's id, or null (e.g. a failed login for an unknown email).
@@ -281,7 +286,8 @@ export const authAudit = pgTable(
     detail: jsonb(),
   },
   (table) => [
-    index('auth_audit_at_idx').on(table.at),
-    index('auth_audit_user_idx').on(table.userId),
+    index('event_log_at_idx').on(table.at),
+    index('event_log_user_idx').on(table.userId),
+    index('event_log_category_at_idx').on(table.category, table.at.desc()),
   ],
 );
