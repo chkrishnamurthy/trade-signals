@@ -1,8 +1,8 @@
 import type { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { handle, ok, parseBody } from '@/server/api-response';
 import { requireSignedIn } from '@/server/auth/guards';
 import { resolveImport } from '@/server/search';
-import { handle, ok, parseBody } from '@/server/watchlist-routes';
 
 /**
  * POST /api/search/resolve — many pasted/imported rows to instruments at once.

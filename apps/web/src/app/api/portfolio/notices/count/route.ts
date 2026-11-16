@@ -1,6 +1,6 @@
 import type { NextResponse } from 'next/server';
+import { handle, ok } from '@/server/api-response';
 import { getUnreadNoticeCount } from '@/server/portfolio-notices';
-import { handle, ok } from '@/server/watchlist-routes';
 
 /** GET /api/portfolio/notices/count — unread notices for the header; 0 when signed out. */
 export const runtime = 'nodejs';

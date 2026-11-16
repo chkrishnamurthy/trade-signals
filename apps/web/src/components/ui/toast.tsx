@@ -34,6 +34,8 @@ export interface ToastOptions {
   readonly variant?: ToastVariant;
   /** Milliseconds before auto-dismiss. `0` keeps it until dismissed by hand. */
   readonly duration?: number;
+  /** One button that does something, e.g. "Reload" for a new app version. Dismisses the toast. */
+  readonly action?: { readonly label: string; readonly onClick: () => void };
 }
 
 interface ToastRecord extends ToastOptions {
@@ -152,6 +154,18 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 <p className="font-medium tracking-tight">{entry.title}</p>
                 {entry.description !== undefined && (
                   <p className="mt-0.5 text-xs opacity-90">{entry.description}</p>
+                )}
+                {entry.action !== undefined && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      entry.action?.onClick();
+                      dismiss(entry.id);
+                    }}
+                    className="mt-2 inline-flex min-h-9 items-center rounded-md bg-primary px-3 font-semibold text-primary-foreground text-xs transition-colors hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring"
+                  >
+                    {entry.action.label}
+                  </button>
                 )}
               </div>
               <button

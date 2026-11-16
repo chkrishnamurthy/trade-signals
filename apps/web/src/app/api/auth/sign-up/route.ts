@@ -1,4 +1,10 @@
-import { type AuthUser, createToken, createUser, writeAudit } from '@equitywise/db';
+import {
+  type AuthUser,
+  createToken,
+  createUser,
+  isUniqueViolation,
+  writeAudit,
+} from '@equitywise/db';
 import type { NextResponse } from 'next/server';
 import { sendVerificationEmail } from '@/server/auth/email';
 import { authSessionSecret, signupEnabled } from '@/server/auth/env';
@@ -131,13 +137,4 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   return json({ ok: true, signedIn: true }, 201);
-}
-
-function isUniqueViolation(error: unknown): boolean {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'code' in error &&
-    (error as { code?: unknown }).code === '23505'
-  );
 }

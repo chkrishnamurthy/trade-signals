@@ -1,11 +1,11 @@
 import type { NextResponse } from 'next/server';
+import { handle, ok, parseBody } from '@/server/api-response';
 import {
   getRatioLayoutForViewer,
   resetRatioLayoutForViewer,
   saveRatioLayoutForViewer,
 } from '@/server/ratio-layout';
 import { ratioLayoutSchema } from '@/server/screener-schemas';
-import { handle, ok, parseBody } from '@/server/watchlist-routes';
 
 /**
  * GET    /api/stocks/ratio-layout — the caller's ratio board tiles (or the default).

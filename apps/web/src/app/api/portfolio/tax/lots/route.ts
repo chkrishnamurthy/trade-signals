@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
+import { handle } from '@/server/api-response';
 import { getOpenLotsCsv } from '@/server/portfolio';
-import { handle } from '@/server/watchlist-routes';
 
 /**
  * GET /api/portfolio/tax/lots — every tax lot still held (acquired date, cost,

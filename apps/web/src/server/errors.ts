@@ -1,4 +1,5 @@
 import 'server-only';
+import { describeFailure } from '@equitywise/db';
 import { type MarketDataFailure, MarketDataProviderError } from '@equitywise/market-data';
 
 /**
@@ -66,11 +67,20 @@ export function toMarketError(error: unknown): MarketDataError {
     });
   }
 
-  return new MarketDataError(error instanceof Error ? error.message : String(error), {
+  // Anything else is a fault of ours, not something the user can act on. Its
+  // message stays on the server: a failed query's message is the SQL text and
+  // its parameters, which must reach neither a client nor (for the parameters)
+  // a log — see `describeFailure`.
+  console.error('[server] unexpected failure:', describeFailure(error));
+  return new MarketDataError(UNEXPECTED_FAILURE_MESSAGE, {
     code: 'UNKNOWN',
     status: 500,
+    remedy: 'Try again in a moment.',
   });
 }
+
+/** What a client is told when the failure is internal. */
+export const UNEXPECTED_FAILURE_MESSAGE = 'Something went wrong on our side.';
 
 /** True when showing the last good snapshot instead of an error is honest. */
 export function canServeStale(error: MarketDataError): boolean {

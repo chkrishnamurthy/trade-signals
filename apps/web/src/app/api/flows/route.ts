@@ -1,6 +1,6 @@
 import type { NextResponse } from 'next/server';
+import { handle, ok } from '@/server/api-response';
 import { getInstitutionalFlow } from '@/server/disclosures';
-import { handle, ok } from '@/server/watchlist-routes';
 
 /**
  * GET /api/flows — institutional flow (FII/DII, bulk & block deals,

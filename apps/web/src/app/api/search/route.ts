@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { jsonError } from '@/server/api-response';
 import { limitByIp } from '@/server/auth/request-limit';
 import { toMarketError } from '@/server/errors';
 import { searchSymbols } from '@/server/search';
@@ -24,9 +25,6 @@ export async function GET(request: Request): Promise<NextResponse> {
     );
   } catch (error) {
     const failure = toMarketError(error);
-    return NextResponse.json(
-      { error: failure.message, code: failure.code },
-      { status: failure.status },
-    );
+    return jsonError(failure.message, failure.status, { code: failure.code });
   }
 }

@@ -5,6 +5,11 @@ lives in this monorepo as `apps/mobile` and talks to the existing backend over
 HTTPS only. Documents are numbered in the order the work happens; each phase's
 document is written **before** that phase is implemented and updated as it lands.
 
+> **Paused (2026-11-16): PWA first.** The installable web app in
+> [`docs/planning/pwa-plan.md`](../planning/pwa-plan.md) runs ahead of this native
+> app. Reopen this plan only if Web Push or a Play listing through a Trusted Web
+> Activity proves insufficient. Everything below is the state when it paused.
+>
 > **Status (2026-09-24):** Phase 1 (discovery) is complete and approved in
 > principle, and was revised on 2026-09-24 for Google sign-in and two-factor login
 > (both in v1.0 on the phone — S11, S12). **No mobile code exists in the tree yet.**

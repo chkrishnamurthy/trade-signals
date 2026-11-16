@@ -1,6 +1,6 @@
 import type { NextResponse } from 'next/server';
+import { handle, ok } from '@/server/api-response';
 import { getScreenerMeta } from '@/server/screener';
-import { handle, ok } from '@/server/watchlist-routes';
 
 /**
  * GET /api/screener/meta — the metric catalogue the caller may use (signal

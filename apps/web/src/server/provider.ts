@@ -1,5 +1,7 @@
 import 'server-only';
-import { getProviderCredential } from '@equitywise/db';
+import { readFile, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { getProviderCredential, saveProviderCredential } from '@equitywise/db';
 import { createDataRateLimiter, createQuoteRateLimiter } from '@equitywise/dhan';
 import {
   createSdkTransport,
@@ -18,7 +20,17 @@ import {
   readRoutingConfig,
 } from '@equitywise/market-data';
 import { createDhanProvider, PROVIDER_ID as DHAN } from '@equitywise/providers-dhan';
-import { createFyersProvider, PROVIDER_ID as FYERS } from '@equitywise/providers-fyers';
+import {
+  type AuthorizedCredential,
+  authorizationUrl,
+  CREDENTIAL_ENV_VAR,
+  completeAuthorization,
+  createFyersProvider,
+  PROVIDER_ID as FYERS,
+  persistCredential,
+  readAuthConfig,
+  toProviderError,
+} from '@equitywise/providers-fyers';
 import { getDatabase, isDatabaseConfigured } from './db';
 
 /**
@@ -314,4 +326,96 @@ export async function getProvider(): Promise<MarketDataProvider> {
         ? await buildDhan()
         : await buildFyers();
   return cached.provider;
+}
+
+/**
+ * The manual credential handshake (`/api/fyers/connect` → `/callback`).
+ *
+ * Normally unused: the worker mints the credential itself. This is the
+ * operator's fallback, and it lives here — not in the routes — because naming a
+ * concrete provider is this module's job alone.
+ */
+
+const REPO_ENV_PATH = join(process.cwd(), '..', '..', '.env');
+const LOCAL_TOKEN_CACHE = join(process.cwd(), '..', '..', '.fyers-token.json');
+
+/**
+ * The provider's authorisation page, carrying the caller's one-shot `state`.
+ *
+ * @throws MarketDataProviderError with `failure: 'not_configured'` when the app
+ *   credentials are missing.
+ */
+export function providerAuthorisationUrl(state: string): string {
+  try {
+    return authorizationUrl(readAuthConfig(process.env), state);
+  } catch (error) {
+    throw toProviderError(error);
+  }
+}
+
+/**
+ * Exchanges the code the provider redirected back with for a credential, and
+ * saves it where `getProvider` will read it.
+ *
+ * @throws MarketDataProviderError when the exchange is refused or nothing is configured.
+ */
+export async function completeProviderAuthorisation(authCode: string): Promise<void> {
+  let credential: AuthorizedCredential;
+  try {
+    credential = await completeAuthorization(readAuthConfig(process.env), authCode);
+  } catch (error) {
+    throw toProviderError(error);
+  }
+  await persistAuthorisedCredential(credential);
+}
+
+/**
+ * Saves the credential where the provider will read it.
+ *
+ * The shared `provider_credentials` row is the store: the worker writes it and
+ * both processes read it, so a manual browser re-authorisation updates that same
+ * row. In production it is the ONLY store — a deployed web process does not
+ * rewrite its own secrets file, and a credential that could not be saved to the
+ * database is reported as a failure rather than left in a file nothing reads.
+ *
+ * In development the token cache and the repo-root .env are written as well, so
+ * a local run without a database still works. Those writes are best-effort: by
+ * then the credential is already saved, and a missing .env must not turn a
+ * successful authorisation into an error page.
+ *
+ * Also sets it on the live process and drops the cached token, so the new
+ * credential is used by the very next request rather than a minute later.
+ */
+async function persistAuthorisedCredential(credential: AuthorizedCredential): Promise<void> {
+  const production = process.env.NODE_ENV === 'production';
+  if (isDatabaseConfigured()) {
+    await saveProviderCredential(getDatabase(), {
+      providerId: FYERS,
+      appId: credential.appId,
+      accessToken: credential.accessToken,
+      expiresAt: credential.expiresAt,
+    });
+  } else if (production) {
+    throw new Error('No database is configured, so the credential could not be saved.');
+  }
+
+  process.env[CREDENTIAL_ENV_VAR] = credential.accessToken;
+  tokenCache.delete(FYERS);
+  if (production) return;
+
+  try {
+    await persistCredential(LOCAL_TOKEN_CACHE, credential);
+    const contents = await readFile(REPO_ENV_PATH, 'utf8');
+    const line = `${CREDENTIAL_ENV_VAR}="${credential.accessToken}"`;
+    const pattern = new RegExp(`^${CREDENTIAL_ENV_VAR}=.*$`, 'm');
+    const next = pattern.test(contents)
+      ? contents.replace(pattern, line)
+      : `${contents.trimEnd()}\n${line}\n`;
+    await writeFile(REPO_ENV_PATH, next, { encoding: 'utf8', mode: 0o600 });
+  } catch (error) {
+    console.warn(
+      '[provider] credential saved, but the local token cache or .env was not updated:',
+      error instanceof Error ? error.message : 'unknown',
+    );
+  }
 }

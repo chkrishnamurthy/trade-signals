@@ -57,8 +57,16 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],
-      include: ['packages/*/src/**/*.ts'],
-      exclude: ['**/*.{test,spec}.ts', '**/index.ts'],
+      // The apps too: most of the product's logic lives in apps/web/src/{server,lib}.
+      include: ['packages/*/src/**/*.ts', 'apps/{web,worker}/src/**/*.{ts,tsx}'],
+      exclude: [
+        '**/*.{test,spec}.ts',
+        '**/*.stories.tsx',
+        '**/__tests__/**',
+        '**/__fixtures__/**',
+        'apps/web/src/stories/**',
+        '**/index.ts',
+      ],
     },
   },
 });

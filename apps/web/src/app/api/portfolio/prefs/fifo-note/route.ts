@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { FIFO_NOTE_COOKIE } from '@/lib/portfolio-prefs';
+import { fail, unauthenticated } from '@/server/auth/http';
 import { isSameOrigin } from '@/server/auth/request';
 import { getSessionUser } from '@/server/auth/require-user';
 
@@ -14,10 +15,10 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request): Promise<NextResponse> {
   if (!isSameOrigin(request)) {
-    return NextResponse.json({ error: 'Request blocked.', code: 'BAD_ORIGIN' }, { status: 403 });
+    return fail('Request blocked.', 403, { code: 'BAD_ORIGIN' });
   }
   if ((await getSessionUser()) === null) {
-    return NextResponse.json({ error: 'Not signed in.', code: 'UNAUTHENTICATED' }, { status: 401 });
+    return unauthenticated();
   }
   const response = NextResponse.json({ ok: true });
   response.cookies.set(FIFO_NOTE_COOKIE, '1', {

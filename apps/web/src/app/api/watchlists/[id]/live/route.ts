@@ -1,7 +1,10 @@
-import { clearStaleSessionCookie } from '@/server/auth/http';
+import { jsonError, parseId } from '@/server/api-response';
+import { clearStaleSessionCookie, unauthenticated } from '@/server/auth/http';
+import { tooManyRequests } from '@/server/auth/request-limit';
+import { getSessionUser } from '@/server/auth/require-user';
 import { isUserAuthenticationError, MarketDataError } from '@/server/errors';
 import { type LiveBatch, liveQuoteHub } from '@/server/live-quotes';
-import { jsonError, parseId } from '@/server/watchlist-routes';
+import { createSlotPool } from '@/server/stream-slots';
 import { getWatchlistLiveRefs, toMarketError } from '@/server/watchlists';
 
 /**
@@ -15,6 +18,9 @@ import { getWatchlistLiveRefs, toMarketError } from '@/server/watchlists';
  * Auth is the gate every watchlist route has: an unowned or missing list is a
  * 404 before a single byte streams. The connection is torn down — and the
  * hub's subscription released — the moment the browser closes it.
+ *
+ * One account may hold a handful of streams at once (one per open tab); past
+ * that the answer is a 429 and the page keeps its polled prices.
  */
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -24,9 +30,25 @@ type Params = { params: Promise<{ id: string }> };
 /** Keep-alive comment cadence, so an idle proxy does not drop a quiet feed. */
 const PING_MS = 15_000;
 
+/** Open streams per user: enough for several tabs, not for a loop that opens them. */
+const MAX_STREAMS_PER_USER = 6;
+/** How long a refused client is told to wait before trying again. */
+const STREAM_RETRY_AFTER_SEC = 30;
+
+const KEY = Symbol.for('equitywise.web.live-stream-slots');
+/** On `globalThis` so a dev hot reload does not forget the streams still open. */
+function streamSlots(): ReturnType<typeof createSlotPool> {
+  const store = globalThis as unknown as { [KEY]?: ReturnType<typeof createSlotPool> };
+  store[KEY] ??= createSlotPool(MAX_STREAMS_PER_USER);
+  return store[KEY];
+}
+
 export async function GET(request: Request, { params }: Params): Promise<Response> {
   const id = parseId((await params).id);
   if (id === null) return jsonError('Not a watchlist id.', 400, { code: 'INVALID_ID' });
+
+  const user = await getSessionUser();
+  if (user === null) return unauthenticated();
 
   let refs: Awaited<ReturnType<typeof getWatchlistLiveRefs>>;
   try {
@@ -39,9 +61,24 @@ export async function GET(request: Request, { params }: Params): Promise<Respons
   if (refs === null)
     return jsonError('That watchlist no longer exists.', 404, { code: 'NOT_FOUND' });
 
+  // Taken only now, so a refused or missing list never holds a slot.
+  const releaseSlot = streamSlots().acquire(`user:${user.id}`);
+  if (releaseSlot === null) return tooManyRequests(STREAM_RETRY_AFTER_SEC);
+
   const encoder = new TextEncoder();
   let release: (() => void) | null = null;
   let ping: ReturnType<typeof setInterval> | null = null;
+
+  /** The one teardown: every way a stream ends comes through here, once or many times. */
+  const cleanup = (): void => {
+    if (ping !== null) {
+      clearInterval(ping);
+      ping = null;
+    }
+    release?.();
+    release = null;
+    releaseSlot();
+  };
 
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
@@ -53,16 +90,14 @@ export async function GET(request: Request, { params }: Params): Promise<Respons
           cleanup();
         }
       };
-      const cleanup = (): void => {
-        if (ping !== null) {
-          clearInterval(ping);
-          ping = null;
-        }
-        release?.();
-        release = null;
-      };
 
-      release = liveQuoteHub().subscribe(refs, send).release;
+      try {
+        release = liveQuoteHub().subscribe(refs, send).release;
+      } catch (error) {
+        // A stream that never started must not keep its slot.
+        cleanup();
+        throw error;
+      }
       ping = setInterval(() => {
         try {
           controller.enqueue(encoder.encode(': ping\n\n'));
@@ -71,19 +106,20 @@ export async function GET(request: Request, { params }: Params): Promise<Respons
         }
       }, PING_MS);
 
-      request.signal.addEventListener('abort', () => {
+      const onAbort = (): void => {
         cleanup();
         try {
           controller.close();
         } catch {
           // Already closed.
         }
-      });
+      };
+      // A request that was already aborted never fires the event.
+      if (request.signal.aborted) onAbort();
+      else request.signal.addEventListener('abort', onAbort, { once: true });
     },
     cancel() {
-      if (ping !== null) clearInterval(ping);
-      release?.();
-      release = null;
+      cleanup();
     },
   });
 

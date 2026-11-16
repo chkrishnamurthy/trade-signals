@@ -1,6 +1,6 @@
 import type { NextResponse } from 'next/server';
 import { createAlertSchema, createUserAlert, getAlertsOverview } from '@/server/alerts';
-import { handle, jsonError, ok, parseBody } from '@/server/watchlist-routes';
+import { handle, jsonError, ok, parseBody } from '@/server/api-response';
 
 /**
  * GET  /api/alerts — the signed-in user's rules, recent events and the limit.

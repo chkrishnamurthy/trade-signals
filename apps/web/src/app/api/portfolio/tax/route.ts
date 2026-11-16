@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { handle, jsonError, parseQuery } from '@/server/api-response';
 import { getTaxCsv } from '@/server/portfolio';
-import { handle, jsonError, parseQuery } from '@/server/watchlist-routes';
 
 /**
  * GET /api/portfolio/tax?year=2025-26 — one financial year's sales as CSV for

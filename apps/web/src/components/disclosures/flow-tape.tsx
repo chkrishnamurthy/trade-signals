@@ -109,7 +109,7 @@ function FuturesTile({ position }: { position: MarketTapeDto['fiiIndexFutures'] 
   return (
     <MetricCard
       label="FII index futures"
-      hint="Foreign institutions' open index-futures contracts, long minus short. Net short is a hedged or bearish book; the change is versus the previous session."
+      hint="Foreign institutions' open index-futures contracts, long minus short. A negative figure means more short contracts than long; the change is versus the previous session."
       value={
         <span className={cn('figure text-xl font-semibold', toneText({ tone }))}>
           {position.net > 0 ? 'Net long ' : position.net < 0 ? 'Net short ' : 'Flat '}

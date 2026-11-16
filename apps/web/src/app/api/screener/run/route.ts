@@ -1,7 +1,7 @@
 import type { NextResponse } from 'next/server';
+import { handle, ok, parseBody } from '@/server/api-response';
 import { runScreenForViewer } from '@/server/screener';
 import { runScreenSchema } from '@/server/screener-schemas';
-import { handle, ok, parseBody } from '@/server/watchlist-routes';
 
 /**
  * POST /api/screener/run — one page of a screen over the latest (or `asOf`)

@@ -1,7 +1,7 @@
 import type { NextResponse } from 'next/server';
+import { handle, ok, parseBody } from '@/server/api-response';
 import { screenCountsForViewer } from '@/server/screener';
 import { countsSchema } from '@/server/screener-schemas';
-import { handle, ok, parseBody } from '@/server/watchlist-routes';
 
 /**
  * POST /api/screener/counts — how many stocks each top-level condition keeps,

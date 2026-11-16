@@ -1,9 +1,10 @@
 import { randomBytes } from 'node:crypto';
-import { authorizationUrl, readAuthConfig } from '@equitywise/providers-fyers';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { jsonError } from '@/server/api-response';
 import { requireAdminAccess } from '@/server/auth/guards';
 import { toMarketError } from '@/server/errors';
+import { providerAuthorisationUrl } from '@/server/provider';
 
 /**
  * GET /api/fyers/connect — bounces to the market-data provider's authorisation page.
@@ -26,7 +27,7 @@ import { toMarketError } from '@/server/errors';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export const OAUTH_STATE_COOKIE = 'signal.oauth.state';
+export const OAUTH_STATE_COOKIE = 'provider_oauth_state';
 
 /** Long enough to log in and pass 2FA, short enough not to linger. */
 const STATE_TTL_SECONDS = 10 * 60;
@@ -38,18 +39,18 @@ export async function GET(): Promise<NextResponse> {
   const denied = await requireAdminAccess();
   if (denied !== null) return denied;
 
-  let config: ReturnType<typeof readAuthConfig>;
+  const state = randomBytes(16).toString('hex');
+  let target: string;
   try {
-    config = readAuthConfig(process.env);
+    target = providerAuthorisationUrl(state);
   } catch (error) {
     const failure = toMarketError(error);
-    return NextResponse.json(
-      { error: failure.message, code: failure.code, remedy: failure.remedy },
-      { status: failure.status },
-    );
+    return jsonError(failure.message, failure.status, {
+      code: failure.code,
+      ...(failure.remedy === undefined ? {} : { remedy: failure.remedy }),
+    });
   }
 
-  const state = randomBytes(16).toString('hex');
   const jar = await cookies();
   jar.set(OAUTH_STATE_COOKIE, state, {
     httpOnly: true,
@@ -60,5 +61,5 @@ export async function GET(): Promise<NextResponse> {
     secure: process.env.NODE_ENV === 'production',
   });
 
-  return NextResponse.redirect(authorizationUrl(config, state), { status: 302 });
+  return NextResponse.redirect(target, { status: 302 });
 }

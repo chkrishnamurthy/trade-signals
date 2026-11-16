@@ -1,6 +1,6 @@
 import type { NextResponse } from 'next/server';
+import { handle, ok } from '@/server/api-response';
 import { getMarketBrief } from '@/server/market-brief';
-import { handle, ok } from '@/server/watchlist-routes';
 
 /**
  * GET /api/market-brief/latest — the Daily Market Brief for the signed-in user.

@@ -12,5 +12,6 @@ export {
 } from './client.js';
 export type { DatabaseEnv } from './env.js';
 export { isPooledUrl, readDatabaseEnv } from './env.js';
+export { describeFailure, isUniqueViolation, violatedConstraint } from './errors.js';
 export * from './repositories/index.js';
 export * as schema from './schema/index.js';

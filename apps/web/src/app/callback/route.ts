@@ -1,21 +1,10 @@
 import { timingSafeEqual } from 'node:crypto';
-import { readFile, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
-import { saveProviderCredential } from '@equitywise/db';
-import {
-  type AuthorizedCredential,
-  CREDENTIAL_ENV_VAR,
-  completeAuthorization,
-  PROVIDER_ID as FYERS,
-  persistCredential,
-  readAuthConfig,
-} from '@equitywise/providers-fyers';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { API_ROUTES } from '@/lib/api-routes';
 import { getAdminUser } from '@/server/auth/require-user';
-import { getDatabase, isDatabaseConfigured } from '@/server/db';
 import { toMarketError } from '@/server/errors';
+import { completeProviderAuthorisation } from '@/server/provider';
 import { OAUTH_STATE_COOKIE } from '../api/fyers/connect/route';
 
 /**
@@ -25,14 +14,11 @@ import { OAUTH_STATE_COOKIE } from '../api/fyers/connect/route';
  * the daily re-authorisation painless: the dev server already owns port 3000,
  * so the provider can always redirect here.
  *
- * Single-user local tool, so persisting the credential to .env here is
- * appropriate. It would not be on a shared deployment.
+ * The exchange and the save are `completeProviderAuthorisation`'s; this route
+ * only checks the caller, the one-shot `state`, and renders the outcome.
  */
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-const ENV_PATH = join(process.cwd(), '..', '..', '.env');
-const TOKEN_CACHE = join(process.cwd(), '..', '..', '.fyers-token.json');
 
 /** Constant-time compare, so a mismatch cannot be found byte by byte. */
 function statesMatch(received: string | undefined, expected: string | undefined): boolean {
@@ -100,39 +86,6 @@ a{display:inline-block;margin-top:1.25rem;padding:.5rem 1rem;
   });
 }
 
-/**
- * Writes the credential to the token cache and to .env.
- *
- * In the deployed app the provider reads the shared `provider_credentials` row
- * written by the worker, so a manual browser re-authorisation must update that
- * same row as well. The disk/env writes stay as the local fallback.
- *
- * Also sets it on the live process, because route handlers read env on every
- * request — so re-authorisation takes effect without a restart.
- */
-async function persist(credential: AuthorizedCredential): Promise<void> {
-  if (isDatabaseConfigured()) {
-    await saveProviderCredential(getDatabase(), {
-      providerId: FYERS,
-      appId: credential.appId,
-      accessToken: credential.accessToken,
-      expiresAt: credential.expiresAt,
-    });
-  }
-
-  await persistCredential(TOKEN_CACHE, credential);
-
-  const contents = await readFile(ENV_PATH, 'utf8');
-  const line = `${CREDENTIAL_ENV_VAR}="${credential.accessToken}"`;
-  const pattern = new RegExp(`^${CREDENTIAL_ENV_VAR}=.*$`, 'm');
-  const next = pattern.test(contents)
-    ? contents.replace(pattern, line)
-    : `${contents.trimEnd()}\n${line}\n`;
-  await writeFile(ENV_PATH, next, { encoding: 'utf8', mode: 0o600 });
-
-  process.env[CREDENTIAL_ENV_VAR] = credential.accessToken;
-}
-
 export async function GET(request: Request): Promise<NextResponse> {
   // Admin only: this saves the shared market-data credential. The state cookie
   // alone is not enough — /api/fyers/connect hands one to anyone who asks.
@@ -173,9 +126,7 @@ export async function GET(request: Request): Promise<NextResponse> {
   }
 
   try {
-    const config = readAuthConfig(process.env);
-    const credential = await completeAuthorization(config, authCode);
-    await persist(credential);
+    await completeProviderAuthorisation(authCode);
     return page(
       'Data source connected',
       '<p>Credential saved. It expires tomorrow morning.</p><a href="/watchlists">Open your watchlists</a>',

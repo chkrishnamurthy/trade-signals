@@ -63,3 +63,19 @@ export const Mobile: Story = {
   globals: { viewport: { value: 'mobile', isRotated: false } },
   play: noSidewaysScroll,
 };
+
+/**
+ * Mobile, on a page below the tab level: the brand slot becomes "Back"
+ * (docs/planning/pwa-plan.md §4.2) and Screener stays lit.
+ */
+export const MobileDetailPage: Story = {
+  parameters: {
+    nextjs: { appDirectory: true, navigation: { pathname: '/stocks/RELIANCE' } },
+  },
+  globals: { viewport: { value: 'mobile', isRotated: false } },
+  play: async (context) => {
+    await noSidewaysScroll();
+    const back = context.canvasElement.ownerDocument.querySelector('[data-nav-back]');
+    await expect(back).not.toBeNull();
+  },
+};

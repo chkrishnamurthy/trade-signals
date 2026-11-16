@@ -20,6 +20,7 @@ import {
   MOBILE_TABS,
   type NavMenuGroup,
 } from '@/lib/navigation';
+import { useSoftKeyboardOpen } from '@/lib/use-pwa-environment';
 import { cn } from '@/lib/utils';
 import { NavItem } from './nav-item';
 import { DISCLAIMER } from './page';
@@ -51,14 +52,17 @@ export function MobileNav({
     : DRAWER_SECTIONS;
   const moreActive = sections.some((group) => isGroupActive(group, pathname));
   const close = () => setOpen(false);
+  // Hidden while the on-screen keyboard is up, so it never covers what is typed.
+  const keyboardOpen = useSoftKeyboardOpen();
 
   return (
     <>
       <nav
         aria-label="Primary"
         data-mobile-nav
+        hidden={keyboardOpen}
         className={cn(
-          'fixed inset-x-0 bottom-0 z-40 border-border border-t bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur supports-[backdrop-filter]:bg-surface/85 lg:hidden',
+          'fixed inset-x-0 bottom-0 z-40 border-border border-t bg-surface/95 pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] backdrop-blur supports-[backdrop-filter]:bg-surface/85 lg:hidden',
           className,
         )}
       >

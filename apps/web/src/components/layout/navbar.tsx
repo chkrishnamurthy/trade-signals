@@ -1,11 +1,13 @@
 'use client';
 
+import { usePathname } from 'next/navigation';
 import { UserMenu } from '@/components/auth/user-menu';
 import { StockSearch } from '@/components/market/stock-search';
 import { NoticesBell } from '@/components/portfolio/notices-bell';
-import { ADMIN_GROUP, HOME_HREF, PRIMARY_NAV } from '@/lib/navigation';
+import { ADMIN_GROUP, HOME_HREF, PRIMARY_NAV, parentOf } from '@/lib/navigation';
 import type { IndexStripState } from '@/lib/use-index-strip';
 import type { LiveSourceState } from '@/lib/watchlist-types';
+import { BackButton } from './back-button';
 import { Brand } from './brand';
 import { MarketStatusPill } from './market-status-pill';
 import { NavItem } from './nav-item';
@@ -36,11 +38,19 @@ export function Navbar({
   strip: { readonly state: IndexStripState; readonly liveState: LiveSourceState | null };
   isAdmin: boolean;
 }) {
+  // Below the tab level the brand slot becomes "Back" on phones, and at every
+  // width in an installed window (globals.css, "INSTALLED APP"), which has no
+  // browser back button of its own.
+  const parent = parentOf(usePathname());
+  const brandSwap = parent === null ? {} : { 'data-nav-brand': '' };
   return (
-    <header className="sticky top-0 z-40 h-(--nav-bar-height) border-border border-b bg-surface/85 backdrop-blur supports-[backdrop-filter]:bg-surface/75">
+    <header className="sticky top-0 z-40 h-(--nav-bar-offset) border-border border-b bg-surface/85 pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)] backdrop-blur supports-[backdrop-filter]:bg-surface/75">
       <div className="mx-auto flex h-full max-w-[1800px] items-center gap-3 px-4 sm:px-6 lg:gap-4">
-        <Brand href={HOME_HREF} showWordmark={false} className="shrink-0 2xl:hidden" />
-        <Brand href={HOME_HREF} className="hidden shrink-0 2xl:flex" />
+        {parent !== null && <BackButton parent={parent} className="flex lg:hidden" />}
+        <span {...brandSwap} className={parent === null ? 'contents' : 'hidden lg:contents'}>
+          <Brand href={HOME_HREF} showWordmark={false} className="shrink-0 2xl:hidden" />
+          <Brand href={HOME_HREF} className="hidden shrink-0 2xl:flex" />
+        </span>
 
         <nav aria-label="Primary" className="hidden h-full items-stretch lg:flex">
           <ul className="flex h-full items-stretch gap-0.5">

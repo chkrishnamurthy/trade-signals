@@ -46,7 +46,8 @@ export function toProviderError(error: unknown): MarketDataProviderError {
       return new MarketDataProviderError('The market-data credential has expired.', {
         failure: 'auth',
         providerId: PROVIDER_ID,
-        remedy: 'Visit /login to re-authorise. Credentials expire daily.',
+        remedy:
+          'An administrator can re-authorise at /api/fyers/connect. Credentials expire daily.',
         retryable: false,
         cause: error,
       });
@@ -63,7 +64,9 @@ export function toProviderError(error: unknown): MarketDataProviderError {
     return new MarketDataProviderError(error.message, {
       failure: 'not_configured',
       providerId: PROVIDER_ID,
-      remedy: (error as { remedy?: string }).remedy ?? 'Visit /login to connect a data source.',
+      remedy:
+        (error as { remedy?: string }).remedy ??
+        'An administrator can connect the data source at /api/fyers/connect.',
       retryable: false,
       cause: error,
     });
@@ -83,6 +86,7 @@ export class FyersNotConfiguredError extends Error {
   constructor(missing: readonly string[]) {
     super(`Market data is not configured: ${missing.join(' and ')} missing from .env`);
     this.name = 'FyersNotConfiguredError';
-    this.remedy = 'Visit /login to authorise, or run `pnpm fyers:login`.';
+    this.remedy =
+      'An administrator can authorise at /api/fyers/connect, or run `pnpm fyers:login`.';
   }
 }

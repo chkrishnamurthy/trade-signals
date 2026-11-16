@@ -1,4 +1,4 @@
-import { emailInUse, updateUserEmail, writeAudit } from '@equitywise/db';
+import { emailInUse, isUniqueViolation, updateUserEmail, writeAudit } from '@equitywise/db';
 import type { NextResponse } from 'next/server';
 import { sendEmailChangedNotice } from '@/server/auth/email';
 import { fail, json } from '@/server/auth/http';
@@ -57,7 +57,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     await updateUserEmail(db, user.id, claim.newEmail);
   } catch (error) {
     // Unique-violation race: taken between the check and the write.
-    if (typeof error === 'object' && error !== null && 'code' in error && error.code === '23505') {
+    if (isUniqueViolation(error)) {
       return fail('That email is already in use.', 409, { code: 'EMAIL_IN_USE' });
     }
     throw error;

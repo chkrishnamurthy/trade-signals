@@ -20,6 +20,7 @@ import {
   createSavedScreen,
   deleteSavedScreen,
   getWatchlistMembers,
+  isUniqueViolation,
   latestSnapshotBuild,
   listSavedScreens,
   listWatchlists,
@@ -434,11 +435,7 @@ function assertNameFree(rows: readonly SavedScreenRow[], name: string): void {
 
 /** A second screen with the same name is the user's to fix, not a fault. */
 function rethrowDuplicate(error: unknown): never {
-  const code =
-    typeof error === 'object' && error !== null && 'cause' in error
-      ? (error.cause as { code?: string } | undefined)?.code
-      : (error as { code?: string } | null)?.code;
-  if (code === '23505' || (error as { code?: string } | null)?.code === '23505') {
+  if (isUniqueViolation(error)) {
     throw new MarketDataError('You already have a screen with that name.', {
       code: 'DUPLICATE_NAME',
       status: 409,

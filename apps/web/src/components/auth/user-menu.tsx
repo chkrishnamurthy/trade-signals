@@ -1,7 +1,8 @@
 'use client';
 
-import { LifeBuoyIcon, LogOut, MonitorSmartphone, UserRound } from 'lucide-react';
+import { LifeBuoyIcon, LogOut, MonitorDownIcon, MonitorSmartphone, UserRound } from 'lucide-react';
 import Link from 'next/link';
+import * as React from 'react';
 import { LoadingRegion } from '@/components/data-display/loading';
 import { Button } from '@/components/ui/button';
 import {
@@ -20,7 +21,9 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { THEME_ICONS, THEME_LABELS, useThemePreference } from '@/components/ui/theme-toggle';
 import { HELP_LINKS } from '@/lib/navigation';
+import { INSTALL_HELP_EVENT, isIosDevice, isStandalone } from '@/lib/pwa';
 import { THEME_PREFERENCES } from '@/lib/theme';
+import { useInstallPrompt } from '@/lib/use-install-prompt';
 import { type SessionUser, signOut, useSession } from '@/lib/use-session';
 import { cn } from '@/lib/utils';
 
@@ -113,6 +116,8 @@ export function UserMenu({ className }: { className?: string | undefined }) {
           </DropdownMenuSubContent>
         </DropdownMenuSub>
 
+        <InstallAppItem />
+
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => void signOut(false)}>
           <LogOut /> Log out
@@ -141,5 +146,31 @@ function Avatar({ user }: { user: SessionUser | null }) {
     <span className="grid size-7 place-items-center rounded-full bg-primary/15 font-semibold text-[11px] text-foreground">
       {initials}
     </span>
+  );
+}
+
+/**
+ * "Install app" — always reachable here, whatever the banner's state
+ * (docs/planning/pwa-plan.md §5.1). Hidden when already installed or when this
+ * browser cannot install (no captured prompt and not iOS).
+ */
+function InstallAppItem() {
+  const { canPrompt, installed } = useInstallPrompt();
+  const [available, setAvailable] = React.useState(false);
+  React.useEffect(() => {
+    setAvailable(
+      !installed &&
+        !isStandalone() &&
+        (canPrompt || isIosDevice(navigator.userAgent, navigator.maxTouchPoints)),
+    );
+  }, [canPrompt, installed]);
+  if (!available) return null;
+  return (
+    <>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem onSelect={() => window.dispatchEvent(new Event(INSTALL_HELP_EVENT))}>
+        <MonitorDownIcon /> Install app
+      </DropdownMenuItem>
+    </>
   );
 }

@@ -87,10 +87,16 @@ describe('API route authentication', () => {
   }
 });
 
+/** Non-API route handlers that are public on purpose. Adding to this list needs a reason. */
+const PUBLIC_PAGE_ROUTES: Record<string, string> = {
+  'sw.js/route.ts':
+    'the PWA service worker script: static source, no data, must load before sign-in (docs/planning/pwa-plan.md)',
+};
+
 describe('non-API route handler authentication', () => {
   const routes = routeFiles(APP)
     .map((file) => ({ file, rel: relative(APP, file).split('\\').join('/') }))
-    .filter((route) => !route.rel.startsWith('api/'));
+    .filter((route) => !route.rel.startsWith('api/') && !(route.rel in PUBLIC_PAGE_ROUTES));
 
   it('covers the provider OAuth callback', () => {
     expect(routes.map((route) => route.rel)).toContain('callback/route.ts');

@@ -1,7 +1,7 @@
 import type { NextResponse } from 'next/server';
+import { handle, ok, parseBody } from '@/server/api-response';
 import { getSavedScreens, saveScreen } from '@/server/screener';
 import { savedScreenSchema } from '@/server/screener-schemas';
-import { handle, ok, parseBody } from '@/server/watchlist-routes';
 
 /**
  * GET  /api/screener/screens — the caller's saved screens.

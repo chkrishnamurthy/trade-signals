@@ -12,6 +12,7 @@ import {
   MOBILE_TABS,
   type NavItem,
   PRIMARY_NAV,
+  parentOf,
 } from './navigation';
 
 const APP_DIR = join(__dirname, '..', 'app');
@@ -94,5 +95,48 @@ describe('active matching', () => {
       description: 'Not built yet',
     };
     expect(isItemActive(planned, '/planned')).toBe(false);
+  });
+});
+
+describe('parentOf — where Back goes with no in-app history', () => {
+  it('has no parent on the four tab roots', () => {
+    for (const item of MOBILE_TABS) expect(parentOf(item.href)).toBeNull();
+  });
+
+  it.each([
+    ['/stocks/RELIANCE', '/screener'],
+    ['/portfolio/TCS', '/portfolio'],
+    ['/portfolio/analysis', '/portfolio'],
+    ['/portfolio/notices', '/portfolio'],
+    ['/ipos/some-issue', '/ipos'],
+    ['/ipos/calendar', '/ipos'],
+    ['/ipos', '/today'],
+    ['/flows', '/today'],
+    ['/announcements', '/today'],
+    ['/calendar', '/today'],
+    ['/alerts', '/today'],
+    ['/markets/breadth', '/today'],
+    ['/admin', '/today'],
+    ['/admin/logs', '/admin'],
+    ['/profile', '/today'],
+    ['/account/verify-email', '/today'],
+    ['/stocks/RELIANCE/', '/screener'],
+  ])('%s → %s', (path, href) => {
+    expect(parentOf(path)?.href).toBe(href);
+  });
+
+  it('every parent is a real page', () => {
+    const paths = ['/stocks/X', '/portfolio/X', '/ipos/X', '/admin/X', '/flows'];
+    for (const path of paths) {
+      const parent = parentOf(path);
+      expect(parent).not.toBeNull();
+      if (parent !== null) expect(routeExists(parent.href)).toBe(true);
+    }
+  });
+
+  it('leaves pages outside the signed-in app alone', () => {
+    expect(parentOf('/')).toBeNull();
+    expect(parentOf('/login')).toBeNull();
+    expect(parentOf('/methodology')).toBeNull();
   });
 });

@@ -28,6 +28,12 @@
  */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Installed app (PWA): THEME_INIT_SCRIPT sets data-display-mode before first
+   paint, so `standalone:` rules apply with no layout shift. */
+@custom-variant standalone (
+  &:where([data-display-mode="standalone"], [data-display-mode="standalone"] *)
+);
+
 /* ---------------------------------------------------------------------------
  * LIGHT THEME
  * -------------------------------------------------------------------------*/
@@ -443,6 +449,9 @@
  *   --nav-strip-height   the sticky market indices strip under it.
  *   --nav-bottom-height  the fixed bottom tab bar below `lg` (MobileNav),
  *                        before the device's safe-area inset.
+ *   --nav-bar-offset     the top bar plus the device's top safe-area inset
+ *                        (notched phones in landscape, `viewport-fit=cover`):
+ *                        the bar's rendered height and the strip's `top`.
  *   --bottom-chrome      how much of the screen's bottom edge app chrome
  *                        covers: the tab bar plus safe area on pages that
  *                        show it (phones/tablets inside AppShell), else 0.
@@ -452,6 +461,7 @@
 @layer base {
   :root {
     --nav-bar-height: 3.5rem;
+    --nav-bar-offset: calc(var(--nav-bar-height) + env(safe-area-inset-top, 0px));
     --nav-strip-height: 2.25rem;
     --nav-bottom-height: 3.5rem;
     --bottom-chrome: 0px;
@@ -462,6 +472,31 @@
       --bottom-chrome: calc(var(--nav-bottom-height) + env(safe-area-inset-bottom));
     }
   }
+}
+
+/* ---------------------------------------------------------------------------
+ * INSTALLED APP (PWA) — docs/planning/pwa-plan.md §4.4
+ *
+ * In its own window there is no browser chrome to rubber-band against: the
+ * bounce only reveals the page background behind the fixed bars, and the
+ * browser's own pull-to-refresh is replaced by PullToRefresh on tab roots.
+ * -------------------------------------------------------------------------*/
+@layer base {
+  html[data-display-mode="standalone"],
+  html[data-display-mode="standalone"] body {
+    overscroll-behavior-y: none;
+  }
+}
+
+/* Unlayered on purpose, so they win over Tailwind's layered `hidden` / `lg:*`
+   utilities: in an installed window the top bar shows "Back" instead of the
+   brand on every page below the tab level, at every width (desktop app
+   windows have no back button either). */
+html[data-display-mode="standalone"] [data-nav-back] {
+  display: flex;
+}
+html[data-display-mode="standalone"] [data-nav-brand] {
+  display: none;
 }
 
 /* ---------------------------------------------------------------------------

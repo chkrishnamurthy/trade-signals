@@ -1,3 +1,5 @@
+import { PWA_COLORS } from './pwa';
+
 /**
  * Theme preference: what the user asked for, which is not the same as what is
  * rendered. `system` defers to the OS, so it resolves to light or dark at read
@@ -48,16 +50,34 @@ export function writeStoredPreference(preference: ThemePreference): void {
   }
 }
 
-/** Single place that owns the class `globals.css` keys the `dark:` variant off. */
+/** The browser/status-bar colour for each resolved theme (the theme's `--surface`). */
+export const THEME_COLOR: Record<ResolvedTheme, string> = {
+  light: PWA_COLORS.lightSurface,
+  dark: PWA_COLORS.darkSurface,
+};
+
+/**
+ * Single place that owns the class `globals.css` keys the `dark:` variant off,
+ * and the `theme-color` meta, so an installed app's title bar follows the theme
+ * the user picked rather than only the OS setting.
+ */
 export function applyTheme(resolved: ResolvedTheme): void {
   document.documentElement.classList.toggle('dark', resolved === 'dark');
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta !== null) meta.setAttribute('content', THEME_COLOR[resolved]);
 }
 
 /**
  * Runs blocking in <head>, before first paint, so a dark-mode user never gets a
  * white flash while React hydrates. Kept in sync with the functions above by
  * hand — it cannot import them, because it executes before any bundle loads.
+ *
+ * It also sets `data-display-mode` ("standalone" when running as an installed
+ * app, else "browser") so CSS can key installed-only rules off it with no
+ * layout shift, and points the `theme-color` meta at the resolved theme.
  */
-export const THEME_INIT_SCRIPT = `(function(){try{var s=localStorage.getItem(${JSON.stringify(
+export const THEME_INIT_SCRIPT = `(function(){var h=document.documentElement;try{var sa=window.matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;h.setAttribute("data-display-mode",sa?"standalone":"browser");}catch(e){}try{var s=localStorage.getItem(${JSON.stringify(
   THEME_STORAGE_KEY,
-)});var d=s==="dark"||((s===null||s==="system")&&window.matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.classList.toggle("dark",d);}catch(e){}})();`;
+)});var d=s==="dark"||((s===null||s==="system")&&window.matchMedia("(prefers-color-scheme: dark)").matches);h.classList.toggle("dark",d);var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute("content",d?${JSON.stringify(
+  THEME_COLOR.dark,
+)}:${JSON.stringify(THEME_COLOR.light)});}catch(e){}})();`;

@@ -1,6 +1,8 @@
+import { describeFailure } from '@equitywise/db';
 import { NextResponse } from 'next/server';
 import { googleAuthEnabled } from '@/server/auth/env';
 import { createGoogleAuthSession } from '@/server/auth/google-oauth';
+import { fail } from '@/server/auth/http';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -11,10 +13,7 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET(request: Request): Promise<NextResponse> {
   if (!googleAuthEnabled()) {
-    return NextResponse.json(
-      { error: 'Google authentication is not available.', code: 'GOOGLE_AUTH_DISABLED' },
-      { status: 503 },
-    );
+    return fail('Google authentication is not available.', 503, { code: 'GOOGLE_AUTH_DISABLED' });
   }
 
   const { searchParams } = new URL(request.url);
@@ -24,7 +23,8 @@ export async function GET(request: Request): Promise<NextResponse> {
     const authUrl = await createGoogleAuthSession(next);
     return NextResponse.redirect(authUrl, { status: 302 });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to initialize Google login.';
-    return NextResponse.json({ error: message, code: 'AUTH_INIT_FAILED' }, { status: 500 });
+    // The cause (a missing secret, a database failure) is the operator's to read.
+    console.error('[google-auth] could not start sign-in:', describeFailure(error));
+    return fail('Google sign-in could not be started.', 500, { code: 'AUTH_INIT_FAILED' });
   }
 }

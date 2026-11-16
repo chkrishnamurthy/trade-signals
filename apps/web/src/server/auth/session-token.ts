@@ -7,8 +7,10 @@ import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypt
  * The raw token is a 256-bit random value that lives ONLY in the browser cookie.
  * The database stores its SHA-256 hash, so a database read alone cannot resurrect
  * a live session. The cookie value additionally carries an HMAC of the token, so
- * the (Edge-runtime) middleware can reject forged/absent cookies without a DB hit;
- * the authoritative revocable check is the hashed-token lookup in `requireUser`.
+ * a forged value is rejected before any database lookup. The Edge middleware
+ * does NOT verify it — it only checks that a cookie is present; the HMAC check
+ * and the authoritative, revocable hashed-token lookup are both in
+ * `getSessionAuthContext` (require-user.ts).
  */
 
 const TOKEN_BYTES = 32; // 256-bit

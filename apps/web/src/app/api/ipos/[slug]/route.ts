@@ -1,7 +1,7 @@
 import type { NextResponse } from 'next/server';
+import { handle, jsonError, ok } from '@/server/api-response';
 import { ipoSlugSchema } from '@/server/ipo-schemas';
 import { getIpoDetail } from '@/server/ipos';
-import { handle, jsonError, ok } from '@/server/watchlist-routes';
 
 /**
  * GET /api/ipos/:slug — one issue in full: facts with per-field sources,

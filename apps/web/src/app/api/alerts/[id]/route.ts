@@ -1,6 +1,6 @@
 import type { NextResponse } from 'next/server';
 import { removeUserAlert, setUserAlertEnabled, updateAlertSchema } from '@/server/alerts';
-import { handle, jsonError, ok, parseBody, parseId } from '@/server/watchlist-routes';
+import { handle, jsonError, ok, parseBody, parseId } from '@/server/api-response';
 
 /**
  * PATCH  /api/alerts/:id — switch a rule on or off.

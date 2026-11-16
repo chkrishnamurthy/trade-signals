@@ -103,6 +103,18 @@ export function NavItem({
     return (
       <Link
         {...shared}
+        // Re-tapping the tab you are on scrolls its page back to the top (the
+        // iOS / Material convention). On a page deeper in the tab — a stock
+        // page under Screener — the link does its normal job and goes to the
+        // tab's root.
+        onClick={(event) => {
+          if (pathname === item.href) {
+            event.preventDefault();
+            const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
+          }
+          onNavigate?.();
+        }}
         className={cn(
           FOCUS,
           'relative flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 text-2xs transition-colors',

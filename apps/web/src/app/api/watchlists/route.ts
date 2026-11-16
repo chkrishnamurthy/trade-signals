@@ -1,5 +1,5 @@
 import type { NextResponse } from 'next/server';
-import { handle, ok, parseBody } from '@/server/watchlist-routes';
+import { handle, ok, parseBody } from '@/server/api-response';
 import { createWatchlistSchema } from '@/server/watchlist-schemas';
 import { addWatchlist, getWatchlists } from '@/server/watchlists';
 

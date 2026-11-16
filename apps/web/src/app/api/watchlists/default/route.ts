@@ -1,5 +1,5 @@
 import type { NextResponse } from 'next/server';
-import { handle, ok } from '@/server/watchlist-routes';
+import { handle, ok } from '@/server/api-response';
 import { getDefaultWatchlistMembers } from '@/server/watchlists';
 
 /**

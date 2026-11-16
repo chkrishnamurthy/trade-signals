@@ -1,5 +1,5 @@
 import type { NextResponse } from 'next/server';
-import { handle, jsonError, ok, parseBody, parseId } from '@/server/watchlist-routes';
+import { handle, jsonError, ok, parseBody, parseId } from '@/server/api-response';
 import { layoutSchema } from '@/server/watchlist-schemas';
 import { saveLayout } from '@/server/watchlists';
 

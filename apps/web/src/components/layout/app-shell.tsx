@@ -1,13 +1,19 @@
 'use client';
 
 import type { Route } from 'next';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import type * as React from 'react';
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { IndexStripView } from '@/components/market/index-strip';
+import { InstallBanner } from '@/components/pwa/install-banner';
+import { OfflineBar } from '@/components/pwa/offline-bar';
+import { PullToRefresh } from '@/components/pwa/pull-to-refresh';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { recordNavigation } from '@/lib/in-app-history';
+import { MOBILE_TABS } from '@/lib/navigation';
 import { stockHref } from '@/lib/screener-format';
 import { useIndexStrip } from '@/lib/use-index-strip';
+import { useStandalone } from '@/lib/use-pwa-environment';
 import { useSession } from '@/lib/use-session';
 import { cn } from '@/lib/utils';
 import { AppFooter } from './app-footer';
@@ -24,6 +30,11 @@ import { Navbar } from './navbar';
  *   main            the page; its own header scrolls away with it
  *   AppFooter       not-advice line + help & legal links
  *   MobileNav       fixed bottom tab bar + "More" drawer (< lg)
+ *
+ * Installed-app pieces (docs/planning/pwa-plan.md): the offline line under the
+ * strip, pull-to-refresh on tab roots in an installed window, the install
+ * banner, and the in-app history that lets "Back" tell a real step back from a
+ * cold open.
  *
  * It owns the single `useIndexStrip()` subscription and hands the snapshot to
  * both the strip and the bar's market-status pill, so they cannot disagree.
@@ -47,6 +58,13 @@ export function AppShell({
   const strip = useIndexStrip();
   const session = useSession();
   const isAdmin = session.status === 'signed-in' && session.user.role === 'admin';
+  const pathname = usePathname();
+  const standalone = useStandalone();
+  const onTabRoot = MOBILE_TABS.some((item) => item.href === pathname);
+
+  useEffect(() => {
+    recordNavigation(pathname);
+  }, [pathname]);
 
   const handleSearchSelect = useCallback(
     (symbol: string) => {
@@ -71,6 +89,8 @@ export function AppShell({
 
         <Navbar onSearchSelect={handleSearchSelect} strip={strip} isAdmin={isAdmin} />
         <IndexStripView state={strip.state} liveState={strip.liveState} />
+        <OfflineBar />
+        <PullToRefresh enabled={standalone && onTabRoot} />
 
         <main id="main-content" tabIndex={-1} className="min-w-0 flex-1 outline-none">
           {children}
@@ -79,6 +99,7 @@ export function AppShell({
         {/* Clears the fixed tab bar below lg so it never covers the footer. */}
         <AppFooter className="pb-(--bottom-chrome)" />
         <MobileNav isAdmin={isAdmin} />
+        <InstallBanner />
       </div>
     </TooltipProvider>
   );

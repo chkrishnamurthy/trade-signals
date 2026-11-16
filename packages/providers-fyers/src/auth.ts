@@ -14,7 +14,7 @@ import { PROVIDER_ID, toProviderError } from './errors.js';
  * Provider authorisation, behind a neutral surface.
  *
  * The OAuth dance is entirely provider-specific, so it lives here with the rest
- * of the Fyers knowledge. The web app's /login and /callback routes drive it
+ * of the Fyers knowledge. The web app's /api/fyers/connect and /callback routes drive it
  * without importing `@equitywise/fyers` — which keeps the boundary test honest and
  * means a second provider's auth flow slots in the same way.
  */

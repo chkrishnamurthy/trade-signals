@@ -1,7 +1,7 @@
 import type { NextResponse } from 'next/server';
+import { handle, jsonError, ok } from '@/server/api-response';
 import { requireAdminAccess } from '@/server/auth/guards';
 import { eventLogQuerySchema, getEventLogPage } from '@/server/event-log';
-import { handle, jsonError, ok } from '@/server/watchlist-routes';
 
 /**
  * GET /api/admin/logs — the durable event log, newest first, filterable by category,

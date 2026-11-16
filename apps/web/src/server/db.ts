@@ -14,7 +14,7 @@ import { createDatabase, type Database, type DatabaseHandle } from '@equitywise/
  * would race on the same rows.
  */
 
-const KEY = Symbol.for('signal.web.database');
+const KEY = Symbol.for('equitywise.web.database');
 
 interface GlobalWithDatabase {
   [KEY]?: DatabaseHandle;

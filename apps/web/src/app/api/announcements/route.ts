@@ -1,6 +1,6 @@
 import type { NextResponse } from 'next/server';
+import { handle, ok } from '@/server/api-response';
 import { getAnnouncementsPage } from '@/server/disclosures';
-import { handle, ok } from '@/server/watchlist-routes';
 
 /**
  * GET /api/announcements — corporate announcements for the signed-in user.

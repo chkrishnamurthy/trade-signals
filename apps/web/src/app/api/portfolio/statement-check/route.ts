@@ -1,7 +1,7 @@
 import type { NextResponse } from 'next/server';
+import { handle, ok, parseBody } from '@/server/api-response';
 import { limitByIp } from '@/server/auth/request-limit';
 import { checkStatement, statementCheckSchema } from '@/server/portfolio';
-import { handle, ok, parseBody } from '@/server/watchlist-routes';
 
 /**
  * POST /api/portfolio/statement-check { asOf, holdings } — compares the user's

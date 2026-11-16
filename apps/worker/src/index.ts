@@ -620,11 +620,21 @@ async function main(): Promise<void> {
     shuttingDown = true;
     log.info('shutting down', { signal });
 
-    scheduler?.stop();
-    await scheduler?.drain();
-    await context.close();
-    log.info('stopped');
-    process.exit(0);
+    // A crash must not look like a clean stop to the process manager.
+    let exitCode = signal === 'uncaughtException' ? 1 : 0;
+    try {
+      scheduler?.stop();
+      await scheduler?.drain();
+      await context.close();
+      log.info('stopped');
+    } catch (error) {
+      // Without this a failed drain or pool close would reject unheard and leave
+      // a process that has stopped scheduling but never exits.
+      log.error('shutdown failed', errorFields(error));
+      exitCode = 1;
+    } finally {
+      process.exit(exitCode);
+    }
   };
 
   process.on('SIGINT', () => void shutdown('SIGINT'));

@@ -1,8 +1,8 @@
 import type { NextResponse } from 'next/server';
+import { handle, ok } from '@/server/api-response';
 import { parseQuery } from '@/server/ipo-routes';
 import { ipoListQuerySchema } from '@/server/ipo-schemas';
 import { getIposPage } from '@/server/ipos';
-import { handle, ok } from '@/server/watchlist-routes';
 
 /**
  * GET /api/ipos — the IPOs page data for the signed-in user.

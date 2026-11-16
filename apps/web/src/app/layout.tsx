@@ -1,8 +1,10 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Bricolage_Grotesque, Inter, JetBrains_Mono } from 'next/font/google';
 import type { ReactNode } from 'react';
+import { PwaBoot } from '@/components/pwa/pwa-boot';
 import { JsonLd } from '@/components/seo/json-ld';
 import { ToastProvider } from '@/components/ui/toast';
+import { IOS_SPLASH_SCREENS, PWA_COLORS } from '@/lib/pwa';
 import {
   generateOrganizationAndWebsiteSchema,
   SITE_DESCRIPTION,
@@ -87,6 +89,16 @@ export const metadata: Metadata = {
     title: `${SITE_NAME} — NSE Stock Analysis & Technical Screener`,
     description: SITE_DESCRIPTION,
   },
+  // Installed-app behaviour on iOS (docs/planning/pwa-plan.md §3.3). The
+  // manifest itself comes from app/manifest.ts.
+  appleWebApp: {
+    capable: true,
+    title: SITE_NAME,
+    statusBarStyle: 'default',
+    startupImage: [...IOS_SPLASH_SCREENS],
+  },
+  // Stops iOS turning prices and share counts into phone-number links.
+  formatDetection: { telephone: false },
   robots: {
     index: true,
     follow: true,
@@ -98,6 +110,19 @@ export const metadata: Metadata = {
       'max-snippet': -1,
     },
   },
+};
+
+/**
+ * `viewport-fit=cover` lets `env(safe-area-inset-*)` report real values on
+ * notched phones. Zoom is never capped (accessibility). One `theme-color` meta,
+ * not one per colour scheme: the in-app theme can differ from the OS, so
+ * THEME_INIT_SCRIPT and applyTheme() rewrite it to the resolved theme.
+ */
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+  themeColor: PWA_COLORS.lightSurface,
 };
 
 /**
@@ -141,7 +166,10 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         {/* Routes are gated in middleware.ts; this only shares what the server
             already knows about the visitor with client components. */}
         <SessionProvider initial={session} signupOpen={signupEnabled()}>
-          <ToastProvider>{children}</ToastProvider>
+          <ToastProvider>
+            {children}
+            <PwaBoot />
+          </ToastProvider>
         </SessionProvider>
       </body>
     </html>

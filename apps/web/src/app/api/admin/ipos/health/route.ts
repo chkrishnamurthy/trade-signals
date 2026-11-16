@@ -1,6 +1,6 @@
 import type { NextResponse } from 'next/server';
+import { handle, ok } from '@/server/api-response';
 import { getIpoAdminHealth } from '@/server/ipos';
-import { handle, ok } from '@/server/watchlist-routes';
 
 /**
  * GET /api/admin/ipos/health — the IPO pipeline's operator view: feed health,

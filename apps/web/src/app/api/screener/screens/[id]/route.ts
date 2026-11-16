@@ -1,7 +1,7 @@
 import type { NextResponse } from 'next/server';
+import { handle, jsonError, ok, parseBody, parseId } from '@/server/api-response';
 import { patchScreen, removeScreen } from '@/server/screener';
 import { savedScreenPatchSchema } from '@/server/screener-schemas';
-import { handle, jsonError, ok, parseBody, parseId } from '@/server/watchlist-routes';
 
 /**
  * PATCH  /api/screener/screens/:id — rename or update one of the caller's screens.

@@ -28,8 +28,6 @@ import type { LiveSourceState } from '@/lib/watchlist-types';
 
 /** The strip's height, px. One text line with air; the top bar is 56. */
 const STRIP_HEIGHT = 36;
-/** The top bar's height, px — `h-14` in `AppShell`. */
-const TOPBAR_HEIGHT = 56;
 
 /** Slots to reserve while loading, so the row does not reflow on data. */
 const SKELETON_SLOTS = ['a', 'b', 'c', 'd', 'e', 'f', 'g'] as const;
@@ -63,7 +61,8 @@ export function IndexStripView({
   return (
     <div
       data-slot="index-strip"
-      style={{ height: STRIP_HEIGHT, top: TOPBAR_HEIGHT }}
+      // Sticks under the top bar, whose height includes any top safe-area inset.
+      style={{ height: STRIP_HEIGHT, top: 'var(--nav-bar-offset)' }}
       className={cn(
         'sticky z-30 border-border border-b bg-surface/85 backdrop-blur supports-[backdrop-filter]:bg-surface/75',
         className,

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
+import { handle } from '@/server/api-response';
 import { getRealisedCsv } from '@/server/portfolio';
-import { handle } from '@/server/watchlist-routes';
 
 /**
  * GET /api/portfolio/realised — the signed-in user's realised gains as CSV, for

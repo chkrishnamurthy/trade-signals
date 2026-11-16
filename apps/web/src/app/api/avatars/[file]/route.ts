@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { jsonError } from '@/server/api-response';
 import { readAvatar } from '@/server/profile/avatar';
 
 export const runtime = 'nodejs';
@@ -19,7 +20,7 @@ export async function GET(
   const { file } = await params;
   const avatar = await readAvatar(file);
   if (avatar === null) {
-    return NextResponse.json({ error: 'Not found.' }, { status: 404 });
+    return jsonError('Not found.', 404, { code: 'NOT_FOUND' });
   }
   return new NextResponse(new Uint8Array(avatar.bytes), {
     status: 200,

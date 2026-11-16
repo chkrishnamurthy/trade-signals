@@ -1,5 +1,5 @@
 import type { NextResponse } from 'next/server';
-import { handle, jsonError, ok, parseId } from '@/server/watchlist-routes';
+import { handle, jsonError, ok, parseId } from '@/server/api-response';
 import { removeView } from '@/server/watchlists';
 
 /** DELETE /api/watchlists/:id/views/:viewId — forget a saved configuration. */

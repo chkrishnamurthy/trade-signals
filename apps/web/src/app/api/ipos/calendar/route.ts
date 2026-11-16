@@ -1,8 +1,8 @@
 import type { NextResponse } from 'next/server';
+import { handle, ok } from '@/server/api-response';
 import { parseQuery } from '@/server/ipo-routes';
 import { ipoCalendarQuerySchema } from '@/server/ipo-schemas';
 import { getIpoCalendar } from '@/server/ipos';
-import { handle, ok } from '@/server/watchlist-routes';
 
 /**
  * GET /api/ipos/calendar?from=YYYY-MM-DD&to=YYYY-MM-DD — IPO milestones per

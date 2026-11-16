@@ -1,6 +1,6 @@
 import type { NextResponse } from 'next/server';
+import { handle, ok, parseBody } from '@/server/api-response';
 import { saveSettings, settingsSchema } from '@/server/portfolio-notices';
-import { handle, ok, parseBody } from '@/server/watchlist-routes';
 
 /** PUT /api/portfolio/notices/settings — which holding notices the user gets, and their levels. */
 export const runtime = 'nodejs';

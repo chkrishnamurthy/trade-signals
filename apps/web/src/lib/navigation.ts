@@ -330,3 +330,53 @@ export function allReadyItems(includeAdmin: boolean): readonly ReadyNavItem[] {
   ];
   return items.filter((item): item is ReadyNavItem => item.status === 'ready');
 }
+
+// ---------------------------------------------------------------------------
+// Back navigation (installed app and phones) — docs/planning/pwa-plan.md §4.2
+// ---------------------------------------------------------------------------
+
+/** Where "Back" goes when the app has no history of its own (a cold open from a shortcut, notification or shared link). */
+export interface ParentRoute {
+  readonly href: Route;
+  readonly label: string;
+}
+
+/** The four tab roots: they are the top of the app, so they have no parent. */
+const TAB_ROOTS: ReadonlySet<string> = new Set(MOBILE_TABS.map((item) => item.href));
+
+const BRIEF_PARENT: ParentRoute = { href: MARKET_BRIEF.href, label: MARKET_BRIEF.label };
+
+/** First match wins, so the more specific prefixes come first. */
+const PARENT_RULES: ReadonlyArray<{
+  readonly test: (pathname: string) => boolean;
+  readonly parent: ParentRoute;
+}> = [
+  { test: (p) => p.startsWith('/stocks/'), parent: { href: SCREENER.href, label: SCREENER.label } },
+  {
+    test: (p) => p.startsWith('/portfolio/'),
+    parent: { href: PORTFOLIO.href, label: PORTFOLIO.label },
+  },
+  { test: (p) => p.startsWith('/ipos/'), parent: { href: IPOS.href, label: IPOS.label } },
+  { test: (p) => p.startsWith('/admin/'), parent: { href: '/admin', label: 'Admin console' } },
+  {
+    test: (p) =>
+      p === '/ipos' ||
+      p === '/admin' ||
+      p === '/profile' ||
+      MARKETS_GROUP.items.some((item) => item.status === 'ready' && underPrefix(p, item.href)) ||
+      underPrefix(p, '/markets') ||
+      underPrefix(p, '/account'),
+    parent: BRIEF_PARENT,
+  },
+];
+
+/**
+ * The page "Back" falls back to for `pathname`, or `null` on a tab root or a
+ * page outside the signed-in app. Every page below the tab level has one, so
+ * back never leaves the app or lands on a blank window.
+ */
+export function parentOf(pathname: string): ParentRoute | null {
+  const path = pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname;
+  if (TAB_ROOTS.has(path)) return null;
+  return PARENT_RULES.find((rule) => rule.test(path))?.parent ?? null;
+}

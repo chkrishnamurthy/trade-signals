@@ -776,7 +776,9 @@ async function fetchBseAnnouncementDay(
     const total = parsed.data.Table1?.[0]?.ROWCNT;
     const oldest = Math.min(...rows.map((row) => row.announcedAt.getTime()));
     if ((total !== undefined && seen >= total) || oldest < since.getTime()) return out;
-    await sleep(pageDelayMs);
+    // No timer at all for a zero delay: a 0 ms timeout still waits a full timer
+    // tick (about 15 ms on Windows), which adds up over hundreds of pages.
+    if (pageDelayMs > 0) await sleep(pageDelayMs);
   }
   throw new Error(`BSE announcements ${day} ran past ${BSE_MAX_PAGES_PER_DAY} pages`);
 }

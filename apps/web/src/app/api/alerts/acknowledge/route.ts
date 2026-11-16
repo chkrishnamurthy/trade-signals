@@ -1,6 +1,6 @@
 import type { NextResponse } from 'next/server';
 import { acknowledgeUserAlertEvents } from '@/server/alerts';
-import { handle, ok } from '@/server/watchlist-routes';
+import { handle, ok } from '@/server/api-response';
 
 /** POST /api/alerts/acknowledge — mark every fired alert as seen. */
 export const runtime = 'nodejs';

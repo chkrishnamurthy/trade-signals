@@ -1,5 +1,5 @@
-import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
+import { CODE_FILE_COUNT, codeHits } from './source-tree';
 
 /**
  * Architecture guard.
@@ -11,8 +11,6 @@ import { describe, expect, it } from 'vitest';
  * If it fails, the fix is to widen `MarketDataProvider`, not to add an
  * exception here.
  */
-
-const REPO_ROOT = new URL('../../../../', import.meta.url).pathname;
 
 /** Files allowed to name a concrete provider, and why. */
 const ALLOWED = [
@@ -28,36 +26,10 @@ const ALLOWED = [
   'scripts/',
 ];
 
-/** Comment lines. Prose explaining the rule must not trip the rule. */
-const COMMENT = /^\s*(\/\/|\*|\/\*)/;
-
-/**
- * Files containing `pattern` on a line of actual code.
- *
- * Matches with line numbers rather than `-l`, so comment lines can be filtered
- * out before a file is judged.
- */
+/** TypeScript files (tests excluded) with `pattern` on a line of actual code. */
 function grep(pattern: string): string[] {
-  let out: string;
-  try {
-    out = execFileSync('git', ['grep', '-n', '-E', pattern, '--', '*.ts', '*.tsx', ':!*.test.ts'], {
-      cwd: REPO_ROOT,
-      encoding: 'utf8',
-    });
-  } catch {
-    // git grep exits 1 when there are no matches. That is the passing case.
-    return [];
-  }
-
-  const files = new Set<string>();
-  for (const line of out.split('\n')) {
-    if (line === '') continue;
-    const [file, , ...rest] = line.split(':');
-    const code = rest.join(':');
-    if (file === undefined || COMMENT.test(code)) continue;
-    files.add(file);
-  }
-  return [...files];
+  const hits = codeHits(pattern, (file) => file.endsWith('.ts') || file.endsWith('.tsx'));
+  return [...new Set(hits.map((hit) => hit.file))];
 }
 
 function offenders(pattern: string): string[] {
@@ -65,6 +37,19 @@ function offenders(pattern: string): string[] {
 }
 
 describe('provider boundary', () => {
+  it('reads the source tree', () => {
+    // Zero files would make every check below pass without looking at anything.
+    expect(CODE_FILE_COUNT).toBeGreaterThan(500);
+  });
+
+  it('no route or page reaches for a provider adapter', () => {
+    // Routes ask `@/server/provider`; only that composition root picks an adapter.
+    const found = grep("from '@equitywise/providers-(fyers|dhan)'").filter((file) =>
+      file.startsWith('apps/web/src/app/'),
+    );
+    expect(found).toEqual([]);
+  });
+
   it('nothing outside the adapter imports the Fyers package', () => {
     expect(offenders("from '@equitywise/fyers'")).toEqual([]);
   });

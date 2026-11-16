@@ -1,6 +1,6 @@
 import type { NextResponse } from 'next/server';
+import { handle, ok } from '@/server/api-response';
 import { getStockFlow } from '@/server/disclosures';
-import { handle, ok } from '@/server/watchlist-routes';
 
 /**
  * GET /api/flows/:symbol — one stock's flow history for the drawer: delivery

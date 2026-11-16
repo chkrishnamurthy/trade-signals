@@ -1,6 +1,6 @@
 import type { NextResponse } from 'next/server';
+import { handle, ok } from '@/server/api-response';
 import { clearPortfolio, getPortfolio } from '@/server/portfolio';
-import { handle, ok } from '@/server/watchlist-routes';
 
 /**
  * GET    /api/portfolio — the signed-in user's holdings, valued at the last cached

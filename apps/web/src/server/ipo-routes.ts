@@ -1,8 +1,8 @@
 import 'server-only';
 import type { NextResponse } from 'next/server';
 import type { z } from 'zod';
+import { jsonError } from './api-response';
 import { searchParamsObject } from './ipo-schemas';
-import { jsonError } from './watchlist-routes';
 
 /**
  * Query-string validation for the IPO routes: the first invalid field is a 400

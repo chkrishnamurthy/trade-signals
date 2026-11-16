@@ -22,7 +22,7 @@ redundant and a sign something is off.
 ## Zod validates bodies, not query/route params — know which convention applies
 
 Every route that accepts a request body validates it with Zod, via a shared
-`parseBody(request, schema)` helper (`server/watchlist-routes.ts`) and schemas defined in
+`parseBody(request, schema)` helper (`server/api-response.ts`) and schemas defined in
 `server/watchlist-schemas.ts`. **This is the only place Zod is used for request
 validation** — no `route.ts` file imports Zod directly.
 
@@ -45,7 +45,7 @@ string, retryAfterSeconds?: number }`. `server/errors.ts`'s `MarketDataError`/
 
 Two call patterns both produce this shape today: most routes build the JSON object by
 hand in their catch block; watchlist routes go through a shared `handle`/`jsonError`/`ok`
-trio in `server/watchlist-routes.ts`, which additionally maps a Postgres unique-constraint
+trio in `server/api-response.ts`, which additionally maps a Postgres unique-constraint
 violation to `409 DUPLICATE_NAME`. **Prefer the `handle`/`jsonError` pattern for new
 routes** — it's DRYer and it's what the shared helper exists for — but if hand-rolling,
 match the field names exactly, since the client renders `error`/`code`/`remedy` uniformly

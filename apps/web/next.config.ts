@@ -29,6 +29,9 @@ const contentSecurityPolicy = [
   "font-src 'self' data:",
   `connect-src 'self'${isDev ? ' ws:' : ''}`,
   "frame-src 'self'",
+  // The PWA's service worker (/sw.js) and manifest are same-origin only.
+  "worker-src 'self'",
+  "manifest-src 'self'",
   "frame-ancestors 'none'",
   "object-src 'none'",
   "base-uri 'self'",
@@ -44,8 +47,16 @@ const securityHeaders = [
   { key: 'Content-Security-Policy', value: contentSecurityPolicy },
 ];
 
+/**
+ * A stamp unique to each build, inlined into the `/sw.js` route so every deploy
+ * serves a byte-different service worker — the browser's signal to update
+ * (docs/planning/pwa-plan.md §3.5). `PWA_BUILD_ID` may be set by CI to pin it.
+ */
+const pwaBuildId = process.env.PWA_BUILD_ID ?? new Date().toISOString();
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  env: { PWA_BUILD_ID: pwaBuildId },
   // A second local dev server (e.g. against the Docker test DB) needs its own
   // build folder; two `next dev` processes sharing `.next` corrupt each other.
   distDir: process.env.NEXT_DIST_DIR || '.next',

@@ -1,26 +1,14 @@
 import 'server-only';
-import { NextResponse } from 'next/server';
+import type { NextResponse } from 'next/server';
+import { jsonError as fail } from '../json-response';
 import { IS_PROD, SESSION_COOKIE_NAME } from './cookie-config';
 
 /**
  * JSON responses in the shape the client already renders (`{ error, code,
- * remedy? }`), always `no-store` — auth responses must never be cached.
+ * remedy? }`), always `no-store` — auth responses must never be cached. These
+ * are the shared `ok` / `jsonError` under the names the auth routes use.
  */
-
-export function json<T>(data: T, status = 200): NextResponse {
-  return NextResponse.json(data, { status, headers: { 'Cache-Control': 'no-store' } });
-}
-
-export function fail(
-  message: string,
-  status: number,
-  extra: { code?: string; remedy?: string } = {},
-): NextResponse {
-  return NextResponse.json(
-    { error: message, ...extra },
-    { status, headers: { 'Cache-Control': 'no-store' } },
-  );
-}
+export { jsonError as fail, ok as json } from '../json-response';
 
 /**
  * Deletes a dead session cookie on a response.

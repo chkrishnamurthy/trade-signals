@@ -1,6 +1,6 @@
 import type { NextResponse } from 'next/server';
+import { handle, jsonError, ok, parseBody, parseId } from '@/server/api-response';
 import { editEntrySchema, editPortfolioEntry, removePortfolioEntry } from '@/server/portfolio';
-import { handle, jsonError, ok, parseBody, parseId } from '@/server/watchlist-routes';
 
 /**
  * PATCH  /api/portfolio/entries/:id — correct an entry's date, shares and total amount.

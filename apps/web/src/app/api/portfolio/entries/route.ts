@@ -1,6 +1,6 @@
 import type { NextResponse } from 'next/server';
+import { handle, jsonError, ok, parseBody } from '@/server/api-response';
 import { addEntrySchema, addPortfolioEntry } from '@/server/portfolio';
-import { handle, jsonError, ok, parseBody } from '@/server/watchlist-routes';
 
 /** POST /api/portfolio/entries — add one entry by hand. Prices are integer paise. */
 export const runtime = 'nodejs';
