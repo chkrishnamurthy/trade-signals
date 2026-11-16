@@ -13,7 +13,7 @@ import {
   marketEvents,
   portfolioUsage,
 } from '../schema/index.js';
-import { hasTakenEffect } from './candles.js';
+import { hasTakenEffect, takenEffectBy } from './candles.js';
 
 /**
  * A user's own typed or uploaded share entries (`schema/portfolio.ts`).
@@ -239,6 +239,8 @@ export interface ShareChangeRow {
 export async function listShareChanges(
   db: Database,
   instrumentIds: readonly number[],
+  /** Count only actions in effect by this instant. Default: now (the database's clock). */
+  asOf?: Date,
 ): Promise<ShareChangeRow[]> {
   if (instrumentIds.length === 0) return [];
   const rows = await db
@@ -254,7 +256,7 @@ export async function listShareChanges(
         inArray(corporateActions.instrumentId, [...instrumentIds]),
         inArray(corporateActions.kind, ['split', 'bonus', 'consolidation']),
         // Announced ones are on record up to a month ahead; only those in effect restate shares.
-        hasTakenEffect,
+        asOf === undefined ? hasTakenEffect : takenEffectBy(asOf),
       ),
     );
   return rows.map((r) => ({ ...r, ratio: Number(r.ratio) }));

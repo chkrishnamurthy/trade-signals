@@ -92,6 +92,11 @@ interface Adjustment {
  */
 export const hasTakenEffect = sql`${corporateActions.exDate} <= (now() at time zone 'Asia/Kolkata')::date`;
 
+/** `hasTakenEffect` as of a given instant, for jobs that run on their own clock (and their tests). */
+export function takenEffectBy(asOf: Date) {
+  return sql`${corporateActions.exDate} <= (${asOf.toISOString()}::timestamptz at time zone 'Asia/Kolkata')::date`;
+}
+
 async function adjustmentsFor(db: Database, instrumentId: number): Promise<Adjustment[]> {
   const rows = await db
     .select({ exDate: corporateActions.exDate, ratio: corporateActions.ratio })

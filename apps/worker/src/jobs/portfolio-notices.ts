@@ -63,7 +63,7 @@ export async function writePortfolioNotices(
       }));
       const ids = [...new Set(entries.map((e) => e.instrumentId))];
       // Only actions already in effect (announced ones are on record ahead of their ex-date).
-      const changes = await listShareChanges(context.db, ids);
+      const changes = await listShareChanges(context.db, ids, now);
       const derived = derivePortfolio(entries, changes);
       const names = new Map(
         ledger.map((e) => [e.instrumentId, { symbol: e.symbol, name: e.name }]),

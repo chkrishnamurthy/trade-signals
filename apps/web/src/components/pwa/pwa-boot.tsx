@@ -38,6 +38,10 @@ export function PwaBoot() {
     let cancelled = false;
     let registration: ServiceWorkerRegistration | null = null;
     let offered = false;
+    // Set only when the user taps "Reload". The first install also changes the
+    // controller (the worker claims the page), and reloading then would
+    // interrupt whatever the page was loading on a first visit.
+    let updateAccepted = false;
     let reloading = false;
 
     const offerUpdate = (worker: ServiceWorker) => {
@@ -49,7 +53,10 @@ export function PwaBoot() {
         duration: 0,
         action: {
           label: 'Reload',
-          onClick: () => worker.postMessage({ type: 'SKIP_WAITING' }),
+          onClick: () => {
+            updateAccepted = true;
+            worker.postMessage({ type: 'SKIP_WAITING' });
+          },
         },
       });
     };
@@ -71,7 +78,7 @@ export function PwaBoot() {
     };
 
     const onControllerChange = () => {
-      if (reloading) return;
+      if (!updateAccepted || reloading) return;
       reloading = true;
       window.location.reload();
     };
