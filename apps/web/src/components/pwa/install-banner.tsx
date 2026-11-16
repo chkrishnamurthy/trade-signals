@@ -63,7 +63,8 @@ function countVisit(): Stored {
 
 /**
  * The install offer (docs/planning/pwa-plan.md §5.1): a slim, dismissible
- * banner above the phone tab bar, from the second visit on, never in an
+ * banner above the phone tab bar (bottom-right on desktop), from the first
+ * signed-in visit once the browser allows install, never in an
  * installed window, quiet for 30 days after "Not now".
  *
  * Chromium shows its own install dialog. iOS has none, so "Install" opens a
@@ -129,7 +130,7 @@ export function InstallBanner() {
       {show && (
         <section
           aria-label="Install EquityWise"
-          className="fixed inset-x-3 bottom-[calc(var(--bottom-chrome)+0.5rem)] z-30 mx-auto flex max-w-xl items-center gap-3 rounded-lg border border-border bg-surface-raised px-3 py-2.5 shadow-elevated lg:hidden"
+          className="fixed inset-x-3 bottom-[calc(var(--bottom-chrome)+0.5rem)] z-30 mx-auto flex max-w-xl items-center gap-3 rounded-lg border border-border bg-surface-raised px-3 py-2.5 shadow-elevated lg:inset-x-auto lg:right-6 lg:bottom-6 lg:max-w-sm"
         >
           <Image
             src="/icons/icon-192.png"

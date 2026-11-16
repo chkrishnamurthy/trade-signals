@@ -73,8 +73,8 @@ export const IOS_SPLASH_SCREENS: ReadonlyArray<{ readonly url: string; readonly 
     })),
   );
 
-/** The install banner waits for a second visit: a first-time visitor has not decided the app is worth keeping. */
-export const INSTALL_MIN_VISITS = 2;
+/** The install banner shows from the first signed-in visit, once the browser says the app can be installed. */
+export const INSTALL_MIN_VISITS = 1;
 /** "Not now" quiets the banner for this long. */
 export const INSTALL_SNOOZE_MS = 30 * 24 * 60 * 60 * 1000;
 

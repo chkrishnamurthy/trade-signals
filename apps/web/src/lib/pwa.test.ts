@@ -109,14 +109,14 @@ describe('shouldOfferInstall', () => {
     standalone: false,
     installed: false,
     installable: true,
-    visits: 2,
+    visits: 1,
     dismissedAt: null,
     now,
   };
 
-  it('offers from the second visit', () => {
+  it('offers from the first visit', () => {
     expect(shouldOfferInstall(base)).toBe(true);
-    expect(shouldOfferInstall({ ...base, visits: 1 })).toBe(false);
+    expect(shouldOfferInstall({ ...base, visits: 0 })).toBe(false);
   });
 
   it('never offers inside an installed app, after install, or where install is impossible', () => {

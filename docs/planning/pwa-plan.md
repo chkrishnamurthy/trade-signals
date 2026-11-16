@@ -285,9 +285,10 @@ header that scrolls away.
 ### 5.1 Install
 
 ```
-Signed-in, on a phone, not installed, ≥ 2nd session, not dismissed in 30 days
+Signed-in, not installed, from the 1st session, not dismissed in 30 days
+(changed 2026-11-16 from "phone only, ≥ 2nd session": nothing appeared on a first try)
  ├─ Chromium: beforeinstallprompt captured
- │    → slim banner above the tab bar: "Install EquityWise — opens full screen"
+ │    → slim banner above the tab bar (bottom-right on desktop): "Install EquityWise"
  │      [Install] [Not now] → prompt() → appinstalled → never shown again
  └─ iOS Safari (no prompt API): same banner, [How] → sheet:
       "Tap Share, then Add to Home Screen" (2 steps, illustrated),
