@@ -271,10 +271,15 @@ export interface LatestCloses {
  * Newest and previous daily close for some instruments, from stored candles.
  * The fallback price for a holding the live-quote cache has not reached yet
  * (a stock added outside market hours, or one outside the refresh list).
+ *
+ * Only candles from the 45 days before `asOf` count. `asOf` defaults to now;
+ * a job that runs on its own clock (and its tests) passes that clock, so the
+ * window never depends on the day the code happens to run.
  */
 export async function latestDailyCloses(
   db: Database,
   instrumentIds: readonly number[],
+  asOf: Date = new Date(),
 ): Promise<Map<number, LatestCloses>> {
   if (instrumentIds.length === 0) return new Map();
   const result = await db.execute<{
@@ -291,7 +296,7 @@ export async function latestDailyCloses(
         instrumentIds.map((id) => sql`${id}`),
         sql`, `,
       )})
-        and ts > now() - interval '45 days'
+        and ts > ${asOf.toISOString()}::timestamptz - interval '45 days'
     ) t where rn <= 2`);
   const out = new Map<
     number,

@@ -78,7 +78,7 @@ export async function writePortfolioNotices(
       if (heldIds.length === 0) continue;
       const [events, latest] = await Promise.all([
         upcomingHoldingEvents(context.db, heldIds, today, addDays(today, EVENT_DAYS_AHEAD)),
-        latestDailyCloses(context.db, heldIds),
+        latestDailyCloses(context.db, heldIds, now),
       ]);
       const closes = new Map(
         [...latest].map(([id, c]) => [
