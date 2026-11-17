@@ -387,7 +387,6 @@ export function IpoBoardTable({
             variant="outline"
             onClick={downloadCsv}
             title="Download the rows on this page as CSV"
-            className="h-10 lg:h-8"
           >
             <DownloadIcon aria-hidden />
             CSV
@@ -405,7 +404,7 @@ export function IpoBoardTable({
                   colSpan={g.span}
                   numeric={g.id !== 'issue' && g.id !== 'schedule'}
                   className={cn(
-                    'h-7 pt-2 font-semibold text-[0.65rem] uppercase tracking-wider',
+                    'h-7 pt-2 font-semibold text-3xs uppercase tracking-wider',
                     i === 0 ? 'pl-4' : 'border-border border-l',
                   )}
                 >
@@ -476,7 +475,7 @@ export function IpoBoardTable({
                     <Link
                       href={issueHref(row.slug)}
                       aria-label={`Open ${row.companyName}`}
-                      className="grid size-8 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-ring"
+                      className="grid size-(--control-md) place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-ring"
                     >
                       <ChevronRightIcon aria-hidden className="size-4" />
                     </Link>

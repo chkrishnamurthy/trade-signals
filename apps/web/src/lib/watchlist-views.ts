@@ -100,7 +100,7 @@ const VIEWS: readonly QuickView[] = [
   {
     id: 'oversold',
     label: 'Oversold',
-    description: 'RSI below 30 — a technical reading, not a recommendation',
+    description: 'RSI below 30',
     columns: [...PRICE_CORE, 'rsi14', 'from52wLow', 'relativeVolume', 'atrPercent'],
     sort: [{ columnId: 'rsi14', direction: 'asc' }],
     filters: { flags: ['rsi_oversold'] },

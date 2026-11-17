@@ -123,14 +123,18 @@ describe('PortfolioView', () => {
     expect(text).toMatch(/₹\s?40,000/);
   });
 
-  it('says the app never connects to a broker or places anything', () => {
-    expect(visibleText(portfolio([RELIANCE]))).toContain('never connects to your broker');
+  it('tells a new user there is no broker link, and repeats no advice line of its own', () => {
+    // Said once, where it matters: before anything is typed in.
+    expect(visibleText(portfolio([]))).toContain('No broker link');
+    // The app footer states "not investment advice" on every page.
+    const text = visibleText(portfolio([RELIANCE]));
+    expect(text).not.toContain('SEBI-registered');
+    expect(text).not.toContain('not a recommendation');
   });
 
   it('uses none of the order-ticket or advice vocabulary', () => {
     for (const dto of [portfolio([]), portfolio([RELIANCE, ITC])]) {
-      // The one sanctioned use is the disclaimer that nothing here places an order.
-      const text = visibleText(dto).replace(/nothing here places an order/gi, '');
+      const text = visibleText(dto);
       expect(text.match(BANNED)?.[0]).toBeUndefined();
     }
   });

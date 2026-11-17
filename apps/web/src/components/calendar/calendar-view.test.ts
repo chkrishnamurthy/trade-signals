@@ -74,7 +74,8 @@ describe('market calendar presentation', () => {
     expect(html).toContain(
       'Coverage reflects stored, source-attributed events and may be partial.',
     );
-    expect(html).toContain('This is market information, not investment advice.');
+    // The page carries no advice line of its own: the app footer states it once.
+    expect(html).not.toContain('not investment advice');
     expect(html).not.toContain('Time not specified');
   });
 

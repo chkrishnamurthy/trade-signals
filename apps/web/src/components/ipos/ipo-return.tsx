@@ -106,10 +106,7 @@ export function IpoBackLink({
     <Button
       asChild
       variant="ghost"
-      className={cn(
-        '-ml-2.5 h-9 self-start text-muted-foreground hover:text-foreground sm:h-8',
-        className,
-      )}
+      className={cn('-ml-2.5 self-start text-muted-foreground hover:text-foreground', className)}
     >
       <Link href={target.href as Route} onClick={onClick}>
         <ArrowLeftIcon aria-hidden />

@@ -107,8 +107,7 @@ export function StandsOut({
         </Button>
       )}
       <p className="text-2xs text-muted-foreground">
-        Computed from NSE end-of-day data and filings. Facts about price and disclosures, not
-        advice.
+        Computed from NSE end-of-day data and filings.
       </p>
     </Card>
   );

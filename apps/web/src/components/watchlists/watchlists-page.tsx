@@ -248,7 +248,7 @@ export function WatchlistsPage() {
           </PageHeading>
 
           {hasList && (
-            <PageActions>
+            <PageActions className="max-sm:w-full">
               {/* Where the prices are coming from, in one honest word. "Live"
                   is claimed only while ticks are actually streaming. */}
               <LiveIndicator
@@ -280,6 +280,9 @@ export function WatchlistsPage() {
                 onClick={refresh}
                 disabled={isRefreshing}
                 aria-label="Refresh prices"
+                // On a phone the status reads from the left and the two
+                // buttons sit at the right edge, under the thumb.
+                className="max-sm:ml-auto"
               >
                 <RefreshCwIcon className={isRefreshing ? 'animate-spin' : undefined} />
               </Button>
@@ -427,8 +430,10 @@ export function WatchlistsPage() {
                   </div>
                 )}
 
+                {/* Drag-to-reorder is a pointer affordance; on a phone the
+                    row menu simply offers "Move" when it applies. */}
                 {!canReorderRows && allRows.length > 1 && (
-                  <div className="border-b border-border bg-muted/35 px-4 py-2">
+                  <div className="hidden border-b border-border bg-muted/35 px-4 py-2 sm:block">
                     <Text variant="caption" className="text-muted-foreground">
                       Manual order is available after clearing active sorts and filters.
                     </Text>
@@ -470,6 +475,7 @@ export function WatchlistsPage() {
                       )
                     }
                     onSortChange={onSortChange}
+                    onSortSet={(next) => setLayout({ ...layout, sort: [...next] })}
                     onRemove={setPendingRemove}
                     onOpenDetail={setSelected}
                     onAddToList={(watchlistId, symbol) => void addSymbolsTo(watchlistId, [symbol])}

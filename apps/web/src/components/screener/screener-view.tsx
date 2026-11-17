@@ -28,6 +28,14 @@ import {
   PageHeading,
   PageTitle,
 } from '@/components/layout/page';
+import { PageOverflowActions } from '@/components/layout/page-overflow-actions';
+import {
+  AdaptivePopover,
+  PanelBody,
+  PanelHeader,
+  PanelItem,
+  PanelMessage,
+} from '@/components/ui/adaptive-popover';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import {
@@ -39,7 +47,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Sheet,
   SheetBody,
@@ -49,6 +56,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
+import { SegmentedControl } from '@/components/ui/toggle-group';
 import { API_ROUTES } from '@/lib/api-routes';
 import { encodeFilter, stockHref } from '@/lib/screener-format';
 import type {
@@ -313,12 +321,11 @@ export function ScreenerView({
               Multi-condition technical, delivery, F&amp;O and ownership filters across every NSE
               stock.
             </PageDescription>
-          </PageHeading>
-          <PageActions className="w-full min-w-0 flex-wrap sm:w-auto">
+            {/* Which session the results describe: part of what the page is. */}
             {result.tradingDate !== null && (
               <span
                 className={cn(
-                  'inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs',
+                  'inline-flex w-fit items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs',
                   result.stale
                     ? 'border-warning-line bg-warning-soft text-warning-strong'
                     : 'border-border text-muted-foreground',
@@ -326,19 +333,13 @@ export function ScreenerView({
               >
                 <ClockIcon aria-hidden className="size-3.5" />
                 Session {shortDate(result.tradingDate)}
-                {result.builtAt !== null && ` · built ${istTime(result.builtAt)} IST`}
+                {result.builtAt !== null && (
+                  <span className="max-sm:hidden">· built {istTime(result.builtAt)} IST</span>
+                )}
               </span>
             )}
-            <Button
-              variant="outline"
-              onClick={async () => {
-                await navigator.clipboard.writeText(window.location.href).catch(() => undefined);
-                setNotice('Link copied.');
-              }}
-            >
-              <LinkIcon aria-hidden />
-              Copy link
-            </Button>
+          </PageHeading>
+          <PageActions>
             <SavedScreensMenu
               saved={saved}
               onLoad={loadSaved}
@@ -364,6 +365,23 @@ export function ScreenerView({
                 setEdited(false);
                 setNotice(`Saved “${screen.name}”.`);
               }}
+            />
+            <PageOverflowActions
+              label="More screener actions"
+              size="default"
+              actions={[
+                {
+                  id: 'copy-link',
+                  label: 'Copy link',
+                  icon: LinkIcon,
+                  onSelect: () => {
+                    void navigator.clipboard
+                      .writeText(window.location.href)
+                      .catch(() => undefined)
+                      .then(() => setNotice('Link copied.'));
+                  },
+                },
+              ]}
             />
           </PageActions>
         </PageHeader>
@@ -647,27 +665,12 @@ function UniversePicker({
       <span className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
         Screen within
       </span>
-      <fieldset
+      <SegmentedControl
         aria-label="Universe"
-        className="min-w-0 inline-flex rounded-md border border-border bg-surface-sunken p-0.5"
-      >
-        {quick.map((q) => (
-          <button
-            key={q.value}
-            type="button"
-            aria-pressed={value === q.value}
-            onClick={() => onChange(q.value)}
-            className={cn(
-              'h-7 cursor-pointer rounded px-2.5 font-medium text-xs',
-              value === q.value
-                ? 'bg-surface text-foreground shadow-subtle'
-                : 'text-muted-foreground hover:text-foreground',
-            )}
-          >
-            {q.label}
-          </button>
-        ))}
-      </fieldset>
+        value={value}
+        onValueChange={onChange}
+        options={quick.map((q) => ({ value: q.value, label: q.label }))}
+      />
       <label className="inline-flex items-center">
         <span className="sr-only">Other universe</span>
         <select
@@ -714,33 +717,36 @@ function SavedScreensMenu({
 }) {
   const [open, setOpen] = useState(false);
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
+    <AdaptivePopover
+      open={open}
+      onOpenChange={setOpen}
+      title="My screens"
+      className="w-72"
+      trigger={
         <Button variant="outline">
           <BookmarkIcon aria-hidden />
           My screens
           <span className="figure text-muted-foreground text-xs">{saved.length}</span>
         </Button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-72 p-1.5">
+      }
+    >
+      <PanelHeader title="My screens" />
+      <PanelBody className="py-1.5">
         {saved.length === 0 ? (
-          <p className="px-2 py-4 text-center text-muted-foreground text-xs">
-            No saved screens yet. Build one and press Save.
-          </p>
+          <PanelMessage>No saved screens yet. Build one and press Save.</PanelMessage>
         ) : (
-          <ul className="flex max-h-80 flex-col overflow-y-auto">
+          <ul className="m-0 flex list-none flex-col p-0">
             {saved.map((s) => (
-              <li key={s.id} className="flex items-center gap-1 rounded-md hover:bg-accent">
-                <button
-                  type="button"
-                  className="min-w-0 flex-1 cursor-pointer truncate px-2 py-2 text-left text-sm"
+              <li key={s.id} className="flex items-center pr-2">
+                <PanelItem
+                  className="min-w-0 flex-1"
                   onClick={() => {
                     onLoad(s);
                     setOpen(false);
                   }}
                 >
-                  {s.name}
-                </button>
+                  <span className="truncate">{s.name}</span>
+                </PanelItem>
                 <Button
                   variant="ghost"
                   size="icon-sm"
@@ -753,8 +759,8 @@ function SavedScreensMenu({
             ))}
           </ul>
         )}
-      </PopoverContent>
-    </Popover>
+      </PanelBody>
+    </AdaptivePopover>
   );
 }
 
@@ -843,29 +849,28 @@ function AddToWatchlist({
   onAdd: (id: number, name: string) => Promise<void>;
 }) {
   return (
-    <Popover>
-      <PopoverTrigger asChild>
+    <AdaptivePopover
+      title="Add to watchlist"
+      className="w-64"
+      trigger={
         <Button>
           <ListPlusIcon aria-hidden />
           Add {count} to watchlist
         </Button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-60 p-1.5">
+      }
+    >
+      <PanelHeader title={`Add ${count} to a watchlist`} />
+      <PanelBody className="py-1.5">
         {watchlists.length === 0 ? (
-          <p className="px-2 py-3 text-muted-foreground text-xs">Create a watchlist first.</p>
+          <PanelMessage>Create a watchlist first.</PanelMessage>
         ) : (
           watchlists.map((w) => (
-            <button
-              key={w.id}
-              type="button"
-              className="w-full cursor-pointer truncate rounded-md px-2 py-2 text-left text-sm hover:bg-accent"
-              onClick={() => onAdd(w.id, w.name)}
-            >
-              {w.name}
-            </button>
+            <PanelItem key={w.id} onClick={() => onAdd(w.id, w.name)}>
+              <span className="truncate">{w.name}</span>
+            </PanelItem>
           ))
         )}
-      </PopoverContent>
-    </Popover>
+      </PanelBody>
+    </AdaptivePopover>
   );
 }

@@ -33,6 +33,7 @@ import {
   PageTitle,
   Section,
 } from '@/components/layout/page';
+import { PageOverflowActions } from '@/components/layout/page-overflow-actions';
 import { PercentChange, Price, PriceChange } from '@/components/market/numeric';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -101,27 +102,43 @@ export function PortfolioView({
           <PageHeading>
             <PageTitle>Portfolio</PageTitle>
             <PageDescription>
-              The shares you hold, valued at the latest price we have. You type them in or upload a
-              file. EquityWise never connects to your broker, and nothing here places an order.
+              The shares you hold, typed in or uploaded by you, valued at the latest price.
             </PageDescription>
           </PageHeading>
-          <PageActions className="max-w-full flex-wrap">
+          {/* One primary action. From `sm` the rest sit beside it; on a phone
+              they fold into one menu, so the header stays a single row. */}
+          <PageActions>
             <Button size="sm" onClick={() => setAddOpen(true)}>
               <PlusIcon /> Add shares
             </Button>
-            <Button size="sm" variant="outline" onClick={() => setImportOpen(true)}>
-              <FileUpIcon /> Upload a file
-            </Button>
-            {!empty && (
-              <>
-                <Button size="sm" variant="outline" onClick={() => exportCsv(portfolio.holdings)}>
-                  <DownloadIcon /> Export CSV
-                </Button>
-                <Button size="sm" variant="ghost" onClick={() => setEntriesOpen(true)}>
-                  <ListIcon /> Your entries
-                </Button>
-              </>
-            )}
+            <PageOverflowActions
+              label="More portfolio actions"
+              actions={[
+                {
+                  id: 'upload',
+                  label: 'Upload a file',
+                  icon: FileUpIcon,
+                  onSelect: () => setImportOpen(true),
+                },
+                ...(empty
+                  ? []
+                  : [
+                      {
+                        id: 'export',
+                        label: 'Export CSV',
+                        icon: DownloadIcon,
+                        onSelect: () => exportCsv(portfolio.holdings),
+                      },
+                      {
+                        id: 'entries',
+                        label: 'Your entries',
+                        icon: ListIcon,
+                        variant: 'ghost' as const,
+                        onSelect: () => setEntriesOpen(true),
+                      },
+                    ]),
+              ]}
+            />
           </PageActions>
         </PageHeader>
 
@@ -132,10 +149,6 @@ export function PortfolioView({
           ) : (
             <Overview portfolio={portfolio} fifoNoteSeen={fifoNoteSeen} />
           )}
-          <p className="text-xs text-muted-foreground">
-            This page describes the numbers you entered. It is not a recommendation, and EquityWise
-            is not a SEBI-registered adviser.
-          </p>
         </PageContent>
       </PageContainer>
 
@@ -231,7 +244,10 @@ function Overview({ portfolio, fifoNoteSeen }: { portfolio: PortfolioDto; fifoNo
       {portfolio.hasRemovals && <FifoNote seen={fifoNoteSeen} />}
 
       <Section aria-label="Summary" className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+        {/* The headline figure takes the full row on a phone; the four that
+            qualify it pair up beneath it. */}
         <MetricCard
+          className="col-span-2 lg:col-span-1"
           label="Value"
           hint="Shares you hold times the latest price we have for each."
           value={
@@ -309,9 +325,6 @@ function Overview({ portfolio, fifoNoteSeen }: { portfolio: PortfolioDto; fifoNo
               <li key={fact}>{fact}</li>
             ))}
           </ul>
-          <p className="mt-2 text-xs text-muted-foreground">
-            Facts about your own list. Not a suggestion to do anything.
-          </p>
         </Section>
       )}
 
@@ -479,7 +492,7 @@ function HoldingsTable({ holdings }: { holdings: readonly PortfolioHoldingDto[] 
             className="h-8 w-48"
           />
           <Select value={sort} onValueChange={(v) => setSort(v as typeof sort)}>
-            <SelectTrigger className="h-8 w-40" aria-label="Sort holdings">
+            <SelectTrigger className="w-40" aria-label="Sort holdings">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -598,14 +611,20 @@ function HoldingsTable({ holdings }: { holdings: readonly PortfolioHoldingDto[] 
                 )}
               </div>
             </div>
-            <div className="mt-2 flex flex-wrap justify-between gap-x-3 text-xs text-muted-foreground">
-              <span>
-                {h.shares.toLocaleString('en-IN')} shares · average {formatPaise(h.avgCostPaise)}
+            {/* What you hold on the left, today's move on the right — the
+                same two columns as the lines above, never three ragged items. */}
+            <div className="mt-2 flex items-baseline justify-between gap-3 text-xs text-muted-foreground">
+              <span className="flex min-w-0 flex-col">
+                <span>
+                  {h.shares.toLocaleString('en-IN')} shares · average {formatPaise(h.avgCostPaise)}
+                </span>
+                {h.weight !== null && <span>{pctText(h.weight)} of value</span>}
               </span>
-              <span>{h.weight === null ? '' : `${pctText(h.weight)} of value`}</span>
-              <span>
-                {h.dayChangeRatio === null ? '' : <PercentChange value={h.dayChangeRatio * 100} />}
-              </span>
+              {h.dayChangeRatio !== null && (
+                <span className="flex shrink-0 items-baseline gap-1.5">
+                  Today <PercentChange value={h.dayChangeRatio * 100} />
+                </span>
+              )}
             </div>
           </li>
         ))}

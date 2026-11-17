@@ -79,8 +79,7 @@ import { MarketDataError } from './errors';
  * can never see another's list membership.
  */
 
-const DISCLAIMER =
-  'Official exchange disclosures, shown for information only — not investment advice. Figures are as published by the exchanges.';
+const DISCLAIMER = 'Official exchange disclosures. Figures are as published by the exchanges.';
 
 const PAGE_SIZE = 25;
 /** Data older than this many days reads as stale on the freshness banner. */

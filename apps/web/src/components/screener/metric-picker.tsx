@@ -2,7 +2,7 @@
 
 import { SearchIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { AdaptivePopover } from '@/components/ui/adaptive-popover';
 import type { MetricDto } from '@/lib/screener-types';
 import { cn } from '@/lib/utils';
 
@@ -20,7 +20,8 @@ export function MetricPicker({
   metrics: readonly MetricDto[];
   categories: readonly { key: string; label: string }[];
   onSelect: (key: string) => void;
-  children: React.ReactNode;
+  /** The trigger — one element, a real button. */
+  children: React.ReactElement;
   align?: 'start' | 'end' | undefined;
 }) {
   const [open, setOpen] = useState(false);
@@ -44,74 +45,77 @@ export function MetricPicker({
   };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent align={align} className="w-[min(92vw,34rem)] p-0">
-        <label className="flex items-center gap-2 border-border border-b px-3 py-2 focus-within:bg-accent/40">
-          <SearchIcon aria-hidden className="size-4 text-muted-foreground" />
-          <span className="sr-only">Search metrics</span>
-          <input
-            // biome-ignore lint/a11y/noAutofocus: the popover opens for exactly this input
-            autoFocus
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={`Search ${metrics.length} metrics — delivery, RSI, OI…`}
-            className="h-8 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-          />
-        </label>
-        <div className="grid max-h-[min(60vh,24rem)] grid-cols-1 sm:grid-cols-[11rem_minmax(0,1fr)]">
-          {query.trim() === '' && (
-            <div
-              role="tablist"
-              aria-label="Metric categories"
-              className="flex gap-1 overflow-x-auto border-border border-b bg-surface-sunken p-1.5 sm:flex-col sm:overflow-y-auto sm:border-r sm:border-b-0"
-            >
-              {categories.map((c) => {
-                const count = metrics.filter((m) => m.category === c.key).length;
-                return (
-                  <button
-                    key={c.key}
-                    type="button"
-                    role="tab"
-                    aria-selected={category === c.key}
-                    onClick={() => setCategory(c.key)}
-                    className={cn(
-                      'flex shrink-0 cursor-pointer items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-left text-xs',
-                      category === c.key
-                        ? 'bg-surface font-medium text-foreground shadow-subtle'
-                        : 'text-muted-foreground hover:bg-accent hover:text-foreground',
-                    )}
-                  >
-                    <span>{c.label}</span>
-                    <span className="figure text-2xs text-subtle-foreground">{count}</span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-          <ul className="flex flex-col gap-0.5 overflow-y-auto p-1.5">
-            {visible.length === 0 && (
-              <li className="px-2 py-6 text-center text-muted-foreground text-xs">
-                No metric matches “{query}”.
-              </li>
-            )}
-            {visible.map((m) => (
-              <li key={m.key}>
+    <AdaptivePopover
+      open={open}
+      onOpenChange={setOpen}
+      title="Choose a metric"
+      align={align}
+      trigger={children}
+      className="w-[min(34rem,calc(100vw-1rem))]"
+      sheetClassName="h-[85dvh]"
+    >
+      <label className="flex items-center gap-2 border-border border-b px-3 py-2 focus-within:bg-accent/40">
+        <SearchIcon aria-hidden className="size-4 text-muted-foreground" />
+        <span className="sr-only">Search metrics</span>
+        <input
+          // biome-ignore lint/a11y/noAutofocus: the popover opens for exactly this input
+          autoFocus
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={`Search ${metrics.length} metrics — delivery, RSI, OI…`}
+          className="h-(--control-md) w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+        />
+      </label>
+      <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[auto_minmax(0,1fr)] sm:max-h-[min(60vh,24rem)] sm:grid-cols-[11rem_minmax(0,1fr)] sm:grid-rows-1">
+        {query.trim() === '' && (
+          <div
+            role="tablist"
+            aria-label="Metric categories"
+            className="flex gap-1 overflow-x-auto border-border border-b bg-surface-sunken p-1.5 sm:flex-col sm:overflow-y-auto sm:border-r sm:border-b-0"
+          >
+            {categories.map((c) => {
+              const count = metrics.filter((m) => m.category === c.key).length;
+              return (
                 <button
+                  key={c.key}
                   type="button"
-                  onClick={() => choose(m.key)}
-                  className="flex w-full cursor-pointer flex-col items-start gap-0.5 rounded-md px-2.5 py-2 text-left hover:bg-accent focus-visible:bg-accent"
+                  role="tab"
+                  aria-selected={category === c.key}
+                  onClick={() => setCategory(c.key)}
+                  className={cn(
+                    'flex min-h-(--control-sm) shrink-0 cursor-pointer items-center justify-between gap-2 rounded-md px-2.5 text-left text-xs',
+                    category === c.key
+                      ? 'bg-surface font-medium text-foreground shadow-subtle'
+                      : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                  )}
                 >
-                  <span className="font-medium text-sm">{m.label}</span>
-                  <span className="text-muted-foreground text-xs leading-snug">
-                    {m.description}
-                  </span>
+                  <span>{c.label}</span>
+                  <span className="figure text-2xs text-subtle-foreground">{count}</span>
                 </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </PopoverContent>
-    </Popover>
+              );
+            })}
+          </div>
+        )}
+        <ul className="flex flex-col gap-0.5 overflow-y-auto p-1.5">
+          {visible.length === 0 && (
+            <li className="px-2 py-6 text-center text-muted-foreground text-xs">
+              No metric matches “{query}”.
+            </li>
+          )}
+          {visible.map((m) => (
+            <li key={m.key}>
+              <button
+                type="button"
+                onClick={() => choose(m.key)}
+                className="flex min-h-(--touch-target) w-full cursor-pointer flex-col items-start justify-center gap-0.5 rounded-md px-2.5 py-2 text-left hover:bg-accent focus-visible:bg-accent"
+              >
+                <span className="font-medium text-sm">{m.label}</span>
+                <span className="text-muted-foreground text-xs leading-snug">{m.description}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </AdaptivePopover>
   );
 }

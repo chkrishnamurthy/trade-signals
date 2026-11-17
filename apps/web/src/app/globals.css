@@ -475,6 +475,60 @@
 }
 
 /* ---------------------------------------------------------------------------
+ * TOUCH
+ *
+ * Controls are sized for a mouse and step up on a finger-driven screen. The
+ * step is these four tokens, re-valued under `pointer: coarse`; the primitives
+ * (Button, Input, Select, ToggleGroup, Tabs, the sheet's close button) read
+ * them as `h-(--control-md)`, so no page enlarges a control for phones itself
+ * and a caller's own `h-*` class still overrides cleanly.
+ *
+ *                     mouse   touch
+ *   --control-xs      24px    36px    toggle-group items
+ *   --control-sm      28px    36px    small buttons, segmented tabs
+ *   --control-md      32px    40px    buttons, inputs, selects, icon buttons
+ *   --control-lg      40px    44px    large buttons, sheet close
+ *
+ *   --touch-target    44px, always: chrome a thumb hits without looking —
+ *                     tab bar items and the rows of a phone sheet.
+ *
+ * Menu rows gain padding through Tailwind's `pointer-coarse:` variant. Every
+ * text field gets 16px type on touch screens from the rule below the tokens:
+ * iOS zooms the whole page when a field under 16px takes focus.
+ * -------------------------------------------------------------------------*/
+@layer base {
+  :root {
+    --control-xs: 1.5rem;
+    --control-sm: 1.75rem;
+    --control-md: 2rem;
+    --control-lg: 2.5rem;
+    --touch-target: 2.75rem;
+  }
+
+  @media (pointer: coarse) {
+    :root {
+      --control-xs: 2.25rem;
+      --control-sm: 2.25rem;
+      --control-md: 2.5rem;
+      --control-lg: 2.75rem;
+    }
+  }
+}
+
+/* Unlayered on purpose, so it wins over a field's own `text-sm`: one rule for
+   every text field in the app — the Input primitive, search boxes, pickers —
+   rather than each remembering it. */
+@media (pointer: coarse) {
+  :where(
+    input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="color"]),
+    select,
+    textarea
+  ) {
+    font-size: 1rem;
+  }
+}
+
+/* ---------------------------------------------------------------------------
  * INSTALLED APP (PWA) — docs/planning/pwa-plan.md §4.4
  *
  * In its own window there is no browser chrome to rubber-band against: the

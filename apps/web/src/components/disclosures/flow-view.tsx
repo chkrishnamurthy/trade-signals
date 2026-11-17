@@ -4,6 +4,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback } from 'react';
 import { AppShell } from '@/components/layout/app-shell';
 import {
+  PageActions,
   PageContainer,
   PageContent,
   PageDescription,
@@ -62,7 +63,9 @@ export function FlowView({ data }: { data: InstitutionalFlowDto }) {
               Where the big money went — cash flows, futures positioning, delivery and large deals.
             </PageDescription>
           </PageHeading>
-          <ScopeToggle watchlistOnly={data.watchlistOnly} hasWatchlists={data.hasWatchlists} />
+          <PageActions>
+            <ScopeToggle watchlistOnly={data.watchlistOnly} hasWatchlists={data.hasWatchlists} />
+          </PageActions>
         </PageHeader>
 
         <PageContent>

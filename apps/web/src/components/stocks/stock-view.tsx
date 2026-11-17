@@ -336,9 +336,8 @@ export function StockView({ data, backHref }: { data: StockPageDto; backHref: st
           </div>
 
           <PageDisclaimer>
-            Prices are split/bonus-adjusted NSE end-of-day values. Readings describe price
-            structure, not advice. Prices are not adjusted for dividends. Fundamentals are not shown
-            in this version.
+            Prices are split/bonus-adjusted NSE end-of-day values, not adjusted for dividends.
+            Fundamentals are not shown in this version.
           </PageDisclaimer>
         </PageContent>
       </PageContainer>

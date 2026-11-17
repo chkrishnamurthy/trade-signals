@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { SegmentedControl } from '@/components/ui/toggle-group';
 import { quantity } from '@/lib/format';
 import { istDayTime, scopeLabel, shortDate, times } from '@/lib/ipo-format';
 import type { IpoDetailDto, SubscriptionRowDto, SubscriptionTableDto } from '@/lib/ipo-types';
@@ -175,32 +176,15 @@ export function IpoSubscription({ ipo }: { ipo: IpoDetailDto }) {
       }
       aside={
         canSwitch ? (
-          <fieldset className="m-0 inline-flex gap-0.5 rounded-md border border-border p-0.5">
-            <legend className="sr-only">Whose bids</legend>
-            {[
-              {
-                on: !nseOnly,
-                label: ipo.exchanges.length > 1 ? 'NSE + BSE' : 'All bids',
-                value: false,
-              },
-              { on: nseOnly, label: 'NSE only', value: true },
-            ].map((o) => (
-              <button
-                key={o.label}
-                type="button"
-                aria-pressed={o.on}
-                onClick={() => setNseOnly(o.value)}
-                className={cn(
-                  'h-8 rounded-sm px-2.5 font-medium text-xs transition-colors sm:h-7',
-                  o.on
-                    ? 'bg-foreground text-background'
-                    : 'text-muted-foreground hover:text-foreground',
-                )}
-              >
-                {o.label}
-              </button>
-            ))}
-          </fieldset>
+          <SegmentedControl
+            aria-label="Which bids"
+            value={nseOnly ? 'nse' : 'all'}
+            onValueChange={(next) => setNseOnly(next === 'nse')}
+            options={[
+              { value: 'all', label: ipo.exchanges.length > 1 ? 'NSE + BSE' : 'All bids' },
+              { value: 'nse', label: 'NSE only' },
+            ]}
+          />
         ) : undefined
       }
       footer={

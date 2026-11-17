@@ -152,7 +152,7 @@ export function InstallBanner() {
             type="button"
             onClick={notNow}
             aria-label="Not now"
-            className="-mr-1 flex size-9 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/60 hover:text-foreground focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-ring"
+            className="-mr-1 flex size-(--control-md) shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/60 hover:text-foreground focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-ring"
           >
             <XIcon className="size-4" aria-hidden />
           </button>

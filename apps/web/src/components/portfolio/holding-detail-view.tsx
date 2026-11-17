@@ -441,11 +441,6 @@ export function HoldingDetailView({ detail }: { detail: HoldingDetailDto }) {
               updates.
             </p>
           </Section>
-
-          <p className="text-xs text-muted-foreground">
-            This page describes the numbers you entered. It is not a recommendation, and EquityWise
-            is not a SEBI-registered adviser.
-          </p>
         </PageContent>
       </PageContainer>
     </AppShell>

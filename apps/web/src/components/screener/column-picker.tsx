@@ -1,9 +1,9 @@
 'use client';
 
 import { Columns3Icon } from 'lucide-react';
+import { AdaptivePopover, PanelBody, PanelHeader } from '@/components/ui/adaptive-popover';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { MetricDto } from '@/lib/screener-types';
 
 export const MAX_COLUMNS = 14;
@@ -28,18 +28,19 @@ export function ColumnPicker({
     onChange(next.sort((a, b) => order.indexOf(a) - order.indexOf(b)));
   };
   return (
-    <Popover>
-      <PopoverTrigger asChild>
+    <AdaptivePopover
+      title="Columns"
+      className="w-[min(26rem,calc(100vw-1rem))]"
+      trigger={
         <Button variant="outline">
           <Columns3Icon aria-hidden />
           Columns
           <span className="figure text-muted-foreground text-xs">{columns.length}</span>
         </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        align="end"
-        className="max-h-[min(70vh,30rem)] w-[min(92vw,26rem)] overflow-y-auto p-3"
-      >
+      }
+    >
+      <PanelHeader title="Columns" />
+      <PanelBody className="px-4 py-3 sm:max-h-[min(70vh,30rem)]">
         <p className="mb-2 text-muted-foreground text-xs">
           Up to {MAX_COLUMNS} columns. Stock, sparkline and selection are always shown.
         </p>
@@ -55,7 +56,7 @@ export function ColumnPicker({
                   .map((m) => (
                     <div
                       key={m.key}
-                      className="flex items-center gap-2 rounded px-1 py-1 text-sm hover:bg-accent"
+                      className="flex min-h-9 items-center gap-2 rounded-md px-1 text-sm hover:bg-accent pointer-coarse:min-h-(--touch-target)"
                     >
                       <Checkbox
                         id={`column-${m.key}`}
@@ -76,7 +77,7 @@ export function ColumnPicker({
             </fieldset>
           ))}
         </div>
-      </PopoverContent>
-    </Popover>
+      </PanelBody>
+    </AdaptivePopover>
   );
 }

@@ -2,8 +2,8 @@
 
 import { formatPaise } from '@equitywise/shared';
 import { useMemo, useState } from 'react';
+import { SegmentedControl } from '@/components/ui/toggle-group';
 import type { ChartBarDto } from '@/lib/stock-types';
-import { cn } from '@/lib/utils';
 
 /**
  * Daily candles from our own adjusted history (split/bonus adjusted on read),
@@ -127,28 +127,16 @@ export function PriceChart({
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <fieldset
+        <SegmentedControl
           aria-label="Chart range"
-          className="min-w-0 inline-flex rounded-md border border-border bg-surface-sunken p-0.5"
-        >
-          {RANGES.map((r) => (
-            <button
-              key={r.key}
-              type="button"
-              aria-pressed={range === r.key}
-              onClick={() => setRange(r.key)}
-              disabled={bars.length < Math.min(r.bars, 23)}
-              className={cn(
-                'h-7 cursor-pointer rounded px-2.5 font-medium text-xs disabled:cursor-not-allowed disabled:opacity-40',
-                range === r.key
-                  ? 'bg-surface text-foreground shadow-subtle'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              {r.key}
-            </button>
-          ))}
-        </fieldset>
+          value={range}
+          onValueChange={setRange}
+          options={RANGES.map((r) => ({
+            value: r.key,
+            label: r.key,
+            disabled: bars.length < Math.min(r.bars, 23),
+          }))}
+        />
         <div className="flex flex-wrap items-center gap-3 text-xs">
           <span className="inline-flex items-center gap-1.5">
             <span aria-hidden className="h-0.5 w-4 rounded bg-chart-1" />

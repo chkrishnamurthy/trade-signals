@@ -92,6 +92,13 @@ There is no `Heading` component — page/section headings are `Text as="h1"` /
 `Text as="h2"`, composed via `layout/page.tsx`'s `PageTitle`/`SectionTitle`, not written
 ad hoc per screen.
 
+## Control heights and touch (`globals.css`, "TOUCH")
+
+`--control-xs/sm/md/lg` are 24/28/32/40px with a mouse and 36/36/40/44px under
+`pointer: coarse`; `--touch-target` is 44px always (tab bar, sheet rows). Primitives read
+them (`h-(--control-md)`); a hand-built control does the same instead of `h-8`. Every text
+field gets 16px type on touch screens from one unlayered rule, so iOS never zooms on focus.
+
 ## Radius and shadow — four steps each
 
 | Radius | Value | Shadow | Value |

@@ -100,7 +100,30 @@ values: `--text-2xs` (0.6875rem) and `--text-3xs` (0.625rem), consumed via the
   `--nav-stagger-step`. All motion respects `prefers-reduced-motion` (a hard
   standard, not a nicety).
 
-## 8. Focus
+## 8. Touch density
+
+Signed off 2026-11-16 (the five tokens below, per the change process at the end of this file).
+
+Controls are dense for a mouse and step up on a finger-driven screen. The step
+is four tokens, re-valued under `@media (pointer: coarse)` in `globals.css`:
+
+| Token | Mouse | Touch | Read by |
+| :-- | :-- | :-- | :-- |
+| `--control-xs` | 24px | 36px | `ToggleGroupItem` |
+| `--control-sm` | 28px | 36px | `Button` `sm` / `icon-sm`, segmented `Tabs` |
+| `--control-md` | 32px | 40px | `Button` default / `icon`, `Input`, `Select` |
+| `--control-lg` | 40px | 44px | `Button` `lg`, the sheet's close button |
+| `--touch-target` | 44px | 44px | tab bar items, rows of a phone sheet |
+
+Primitives read them as `h-(--control-md)` / `size-(--control-md)`. A page never
+enlarges a control for phones itself, and a caller's own `h-*` class still wins
+through `tailwind-merge`. Menu rows gain padding and inputs go to 16px text
+(below that iOS zooms the page on focus) through the `pointer-coarse:` variant.
+
+Do not hard-code `h-8` / `size-8` on a new control: use the primitive, or the
+token if you are building one.
+
+## 9. Focus
 
 **One** `:focus-visible` treatment for the whole app, in the base layer of
 `globals.css`. It is never removed, only replaced.

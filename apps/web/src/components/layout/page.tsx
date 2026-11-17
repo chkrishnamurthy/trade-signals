@@ -49,12 +49,22 @@ export function PageContainer({
  * header takes is a row of the table the user actually came for. That budget is
  * why the description is one sentence and why the "not advice" line lives in
  * `PageDisclaimer` at the foot of the page rather than being restated up here.
+ *
+ * Phones: the title and the actions share a row when both fit and the actions
+ * drop to their own row when they do not. The heading has a real flex-basis for
+ * that — with a basis of zero it never forced the wrap and was crushed to a few
+ * pixels beside wide actions ("M…", one word per line). The description is not
+ * shown on phones: the tab bar already names the page, and the first screen
+ * belongs to the data.
  */
 export function PageHeader({ className, ...props }: React.ComponentProps<'header'>) {
   return (
     <header
       data-slot="page-header"
-      className={cn('flex flex-wrap items-start justify-between gap-x-4 gap-y-2 pb-3', className)}
+      className={cn(
+        'flex flex-wrap items-center justify-between gap-x-3 gap-y-2 pb-3 sm:items-start sm:gap-x-4',
+        className,
+      )}
       {...props}
     />
   );
@@ -68,7 +78,7 @@ export function PageHeading({ className, ...props }: React.ComponentProps<'div'>
   return (
     <div
       data-slot="page-heading"
-      className={cn('flex min-w-0 flex-1 flex-col gap-1', className)}
+      className={cn('flex min-w-0 flex-[1_1_10rem] flex-col gap-1 sm:flex-[1_1_16rem]', className)}
       {...props}
     />
   );
@@ -77,14 +87,14 @@ export function PageHeading({ className, ...props }: React.ComponentProps<'div'>
 /**
  * Header actions, primary rightmost.
  *
- * `shrink-0` and the wrap on the header mean these drop to their own line on a
- * narrow screen rather than squeezing the title.
+ * They keep their natural width, so on a narrow screen they drop to their own
+ * line (and wrap inside it) rather than squeezing the title.
  */
 export function PageActions({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
       data-slot="page-actions"
-      className={cn('flex shrink-0 flex-wrap items-center gap-2', className)}
+      className={cn('flex max-w-full min-w-0 flex-wrap items-center gap-2', className)}
       {...props}
     />
   );
@@ -100,7 +110,8 @@ export interface Crumb {
  *
  * The current page is the `<h1>` directly below, so repeating it here would
  * spend a line saying what the next line already says. Rendered only where a
- * route actually sits under another one.
+ * route actually sits under another one, and not on phones: there the top
+ * bar's "Back" and the tab bar already say where the page sits.
  */
 export function PageBreadcrumb({
   trail,
@@ -112,7 +123,11 @@ export function PageBreadcrumb({
   if (trail.length === 0) return null;
 
   return (
-    <nav aria-label="Breadcrumb" data-slot="page-breadcrumb" className={cn('min-w-0', className)}>
+    <nav
+      aria-label="Breadcrumb"
+      data-slot="page-breadcrumb"
+      className={cn('hidden min-w-0 sm:block', className)}
+    >
       <ol className="flex min-w-0 flex-wrap items-center gap-1 text-muted-foreground text-xs">
         {trail.map((crumb, index) => (
           <li key={crumb.href} className="flex min-w-0 items-center gap-1">
@@ -138,23 +153,21 @@ export function PageTitle({ className, ...props }: React.ComponentProps<'h1'>) {
   return <Text as="h1" variant="page-title" className={cn('truncate', className)} {...props} />;
 }
 
+/**
+ * One sentence on what the page is for. Hidden on phones (see `PageHeader`);
+ * pass `className="block"` for the rare description that carries state the
+ * page shows nowhere else.
+ */
 export function PageDescription({ className, ...props }: React.ComponentProps<'p'>) {
   return (
     <Text
       as="p"
       variant="secondary"
-      className={cn('max-w-2xl text-balance', className)}
+      className={cn('hidden max-w-2xl text-balance sm:block', className)}
       {...props}
     />
   );
 }
-
-/**
- * The standing disclaimer sentence. Every signed-in page shows it once, in the
- * app footer (`AppFooter`), and the phone "More" sheet repeats it.
- */
-export const DISCLAIMER =
-  'Technical-analysis decision support, not investment advice. Orders, if any, are placed elsewhere.';
 
 /**
  * A page's own note about its data — sources, timing, what is not adjusted —
@@ -194,7 +207,7 @@ export function SectionHeader({ className, ...props }: React.ComponentProps<'div
   return (
     <div
       data-slot="section-header"
-      className={cn('flex items-baseline justify-between gap-3', className)}
+      className={cn('flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5', className)}
       {...props}
     />
   );

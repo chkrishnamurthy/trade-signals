@@ -196,13 +196,17 @@ export function ResultsTable({
                   <Cell metric={metrics.get('changePct')} value={row.values.changePct ?? null} />
                 </span>
               </span>
-              <span className="col-span-2 flex flex-wrap gap-x-3 gap-y-1 text-xs">
+              {/* Two fixed columns, label left and value right, so the same
+                  metric sits in the same place on every card. */}
+              <span className="col-span-2 grid grid-cols-2 gap-x-4 gap-y-1 border-border border-t pt-2 text-xs">
                 {columns
                   .filter((k) => k !== 'close' && k !== 'changePct')
                   .slice(0, 4)
                   .map((k) => (
-                    <span key={k} className="inline-flex gap-1">
-                      <span className="text-muted-foreground">{metrics.get(k)?.label ?? k}</span>
+                    <span key={k} className="flex min-w-0 items-baseline justify-between gap-2">
+                      <span className="truncate text-muted-foreground">
+                        {metrics.get(k)?.label ?? k}
+                      </span>
                       <Cell metric={metrics.get(k)} value={row.values[k] ?? null} />
                     </span>
                   ))}

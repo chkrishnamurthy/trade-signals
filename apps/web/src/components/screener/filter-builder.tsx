@@ -2,12 +2,12 @@
 
 import type { Comparator, FilterGroup, FilterLeaf, FilterNode } from '@equitywise/core';
 import { ChevronDownIcon, ListPlusIcon, PlusIcon, XIcon } from 'lucide-react';
+import { AdaptivePopover, PanelBody, PanelMessage } from '@/components/ui/adaptive-popover';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { SegmentedControl } from '@/components/ui/toggle-group';
 import { unitHint } from '@/lib/screener-format';
 import type { MetricDto } from '@/lib/screener-types';
-import { cn } from '@/lib/utils';
 import {
   COMPARATOR_LABELS,
   comparatorsFor,
@@ -118,27 +118,15 @@ function childKey(node: FilterNode, i: number): string {
 
 function OpToggle({ op, onChange }: { op: 'and' | 'or'; onChange: (op: 'and' | 'or') => void }) {
   return (
-    <fieldset
+    <SegmentedControl
       aria-label="Combine conditions"
-      className="min-w-0 inline-flex rounded-md border border-border bg-surface-sunken p-0.5"
-    >
-      {(['and', 'or'] as const).map((value) => (
-        <button
-          key={value}
-          type="button"
-          aria-pressed={op === value}
-          onClick={() => onChange(value)}
-          className={cn(
-            'h-7 cursor-pointer rounded px-2.5 font-medium text-xs',
-            op === value
-              ? 'bg-surface text-foreground shadow-subtle'
-              : 'text-muted-foreground hover:text-foreground',
-          )}
-        >
-          {value === 'and' ? 'ALL of' : 'ANY of'}
-        </button>
-      ))}
-    </fieldset>
+      value={op}
+      onValueChange={onChange}
+      options={[
+        { value: 'and', label: 'ALL of' },
+        { value: 'or', label: 'ANY of' },
+      ]}
+    />
   );
 }
 
@@ -236,7 +224,7 @@ export function ConditionRow({
           <button
             type="button"
             title={metric.description}
-            className="inline-flex h-8 max-w-full cursor-pointer items-center gap-1 truncate rounded-md border border-border bg-surface-sunken px-2 font-medium text-sm hover:border-border-strong"
+            className="inline-flex h-(--control-md) max-w-full cursor-pointer items-center gap-1 truncate rounded-md border border-border bg-surface-sunken px-2 font-medium text-sm hover:border-border-strong"
           >
             <span className="truncate">{metric.label}</span>
             <ChevronDownIcon aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
@@ -248,7 +236,7 @@ export function ConditionRow({
             <select
               value={leaf.cmp}
               onChange={(e) => onChange(withComparator(leaf, e.target.value as Comparator, metric))}
-              className="h-8 cursor-pointer appearance-none rounded-md border border-border bg-surface px-2 pr-6 font-mono text-sm"
+              className="h-(--control-md) cursor-pointer appearance-none rounded-md border border-border bg-surface px-2 pr-6 font-mono text-sm"
             >
               {comparators.map((c) => (
                 <option key={c} value={c}>
@@ -258,7 +246,7 @@ export function ConditionRow({
             </select>
             <ChevronDownIcon
               aria-hidden
-              className="pointer-events-none absolute top-2.5 right-1.5 size-3.5 text-muted-foreground"
+              className="pointer-events-none absolute top-1/2 right-1.5 -translate-y-1/2 size-3.5 text-muted-foreground"
             />
           </label>
         ) : (
@@ -301,7 +289,7 @@ function NumberField({
   const display = isMoney ? value / 100 : value;
   const hint = unitHint(metric);
   return (
-    <label className="inline-flex h-8 items-center gap-1 rounded-md border border-border bg-surface px-2 focus-within:outline-2 focus-within:outline-ring">
+    <label className="inline-flex h-(--control-md) items-center gap-1 rounded-md border border-border bg-surface px-2 focus-within:outline-2 focus-within:outline-ring">
       <span className="sr-only">{label}</span>
       {isMoney && <span className="text-muted-foreground text-sm">₹</span>}
       <input
@@ -346,27 +334,15 @@ function ValueInput({
 
   if (metric.unit === 'boolean') {
     return (
-      <fieldset
+      <SegmentedControl
         aria-label={`${metric.label}: yes or no`}
-        className="min-w-0 inline-flex rounded-md border border-border p-0.5"
-      >
-        {[true, false].map((b) => (
-          <button
-            key={String(b)}
-            type="button"
-            aria-pressed={v === b}
-            onClick={() => set(b)}
-            className={cn(
-              'h-7 cursor-pointer rounded px-2.5 font-medium text-xs',
-              v === b
-                ? 'bg-foreground text-background'
-                : 'text-muted-foreground hover:text-foreground',
-            )}
-          >
-            {b ? 'Yes' : 'No'}
-          </button>
-        ))}
-      </fieldset>
+        value={v === true ? 'yes' : 'no'}
+        onValueChange={(next) => set(next === 'yes')}
+        options={[
+          { value: 'yes', label: 'Yes' },
+          { value: 'no', label: 'No' },
+        ]}
+      />
     );
   }
 
@@ -409,7 +385,7 @@ function ValueInput({
         <select
           value={v}
           onChange={(e) => set(e.target.value)}
-          className="h-8 cursor-pointer appearance-none rounded-md border border-border bg-surface px-2 pr-6 font-semibold text-sm"
+          className="h-(--control-md) cursor-pointer appearance-none rounded-md border border-border bg-surface px-2 pr-6 font-semibold text-sm"
         >
           {options.map((o) => (
             <option key={o.value} value={o.value}>
@@ -419,7 +395,7 @@ function ValueInput({
         </select>
         <ChevronDownIcon
           aria-hidden
-          className="pointer-events-none absolute top-2.5 right-1.5 size-3.5 text-muted-foreground"
+          className="pointer-events-none absolute top-1/2 right-1.5 -translate-y-1/2 size-3.5 text-muted-foreground"
         />
       </label>
     );
@@ -433,26 +409,28 @@ function ValueInput({
         ? selected.map((s) => options.find((o) => o.value === s)?.label ?? s).join(', ')
         : `${selected.length} selected`;
   return (
-    <Popover>
-      <PopoverTrigger asChild>
+    <AdaptivePopover
+      title={metric.label}
+      align="start"
+      className="w-64"
+      trigger={
         <button
           type="button"
-          className="inline-flex h-8 max-w-56 cursor-pointer items-center gap-1 truncate rounded-md border border-border bg-surface px-2 font-semibold text-sm"
+          className="inline-flex h-(--control-md) max-w-56 cursor-pointer items-center gap-1 truncate rounded-md border border-border bg-surface px-2 font-semibold text-sm"
         >
           <span className="truncate">{summary}</span>
           <ChevronDownIcon aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
         </button>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="max-h-72 w-64 overflow-y-auto p-1.5">
-        {options.length === 0 && (
-          <p className="px-2 py-3 text-muted-foreground text-xs">No values available yet.</p>
-        )}
+      }
+    >
+      <PanelBody className="py-1.5 sm:max-h-72">
+        {options.length === 0 && <PanelMessage>No values available yet.</PanelMessage>}
         {options.map((o) => {
           const checked = selected.includes(o.value);
           return (
             <div
               key={o.value}
-              className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent"
+              className="flex min-h-9 items-center gap-3 px-4 text-sm hover:bg-accent/60 pointer-coarse:min-h-(--touch-target)"
             >
               <Checkbox
                 id={`${leaf.metric}-${o.value}`}
@@ -467,7 +445,7 @@ function ValueInput({
             </div>
           );
         })}
-      </PopoverContent>
-    </Popover>
+      </PanelBody>
+    </AdaptivePopover>
   );
 }

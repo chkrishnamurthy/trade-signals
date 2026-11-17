@@ -117,8 +117,14 @@ function derivedPercent(columnId: string): (row: WatchlistRowDto) => ReactNode {
 
 const CELLS: Record<string, (row: WatchlistRowDto) => ReactNode> = {
   symbol: (row) => (
-    <StockIdentity symbol={row.symbol} name={row.name} size="sm">
-      <Badge variant="outline" size="sm" className="font-normal text-muted-foreground">
+    // Phones: the name truncates inside a fixed width and the venue badge is
+    // dropped, so the price and its change always fit beside the ticker.
+    <StockIdentity symbol={row.symbol} name={row.name} size="sm" className="max-w-32 sm:max-w-none">
+      <Badge
+        variant="outline"
+        size="sm"
+        className="font-normal text-muted-foreground max-sm:hidden"
+      >
         {row.exchange}
       </Badge>
       {row.indicatorDate === null && (

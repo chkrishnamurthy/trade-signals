@@ -72,6 +72,27 @@ Sheet drawer below `lg` and a permanent column at `lg`+.
   they do not squeeze two items onto one cramped line.
 - **Overlays fit the viewport**: a `Sheet` is `w-full sm:max-w-…`; a `Popover`/menu
   is capped with `w-[min(24rem,calc(100vw-2rem))]` so it never exceeds the screen.
+- **Overlays on phones are bottom sheets.** Below `sm` a panel or a long menu opens
+  as `Sheet side="bottom"` (grabber, safe-area padding, 85% height cap), not as a
+  popover hanging from a corner. Use `AdaptivePopover` (`ui/adaptive-popover.tsx`):
+  popover from `sm`, sheet below, same children, built from the `Panel*` parts
+  (`PanelHeader`, `PanelBody`, `PanelItem`, `PanelGroupLabel`, `PanelSeparator`,
+  `PanelMessage`, `PanelFooter`). Never hand-roll a list row inside a panel
+  (`px-2 py-2 hover:bg-accent`): use `PanelItem`. The account menu and the notices
+  bell are the reference uses. A short action menu anchored to its own trigger (a
+  row's "…" menu) stays a `DropdownMenu`. Never a fly-out sub-menu on a phone:
+  list the entries flat.
+- **Page headers follow the `PageHeader` contract.** Title and actions share one
+  row when both fit; the actions drop below when they do not. `PageDescription`
+  and `PageBreadcrumb` are not shown on phones. Keep one primary action visible
+  and pass the rest to `PageOverflowActions`, which renders them as buttons from `sm`
+  and as one "…" menu below it.
+- **One-of-a-few choices use `SegmentedControl`** (`ui/toggle-group.tsx`), never a
+  hand-built row of `aria-pressed` buttons. A watchlist-style list of stocks on a
+  phone is a two-line row list (`watchlists/watchlist-phone-list.tsx`), not a table.
+- **A figure is never cut off.** A value that cannot fit wraps (`PriceChange`
+  drops its percent to a second line) or its column is dropped; it never ends in
+  an ellipsis or runs under the edge of its card.
 - **Height-capped overlays scroll internally.** Put the height cap on the
   `ScrollArea` (its Viewport inherits it and becomes the scroller) — a tall Popover
   (e.g. the Filters panel) must scroll inside itself, never grow past the screen and
@@ -81,8 +102,9 @@ Sheet drawer below `lg` and a permanent column at `lg`+.
   while the price columns scroll — the prices must never scroll away from the name
   they belong to. An expanded row panel inside a scrolling table is pinned to the
   visible width so its chart/detail doesn't ride the horizontal scroll.
-- **Tap targets** stay comfortable on touch (don't shrink interactive controls
-  below the primitive's default height on mobile).
+- **Tap targets** come from the `--control-*` tokens (`tokens.md` §8), which grow
+  on touch screens by themselves. Do not set a fixed `h-7` / `size-8` on a control;
+  chrome hit without looking (tab bar, sheet rows) uses `min-h-(--touch-target)`.
 
 **How to check (required before "done")**
 - In **Storybook**: use the **Viewport toolbar** (Mobile 375 / Tablet 768 / Laptop
@@ -149,6 +171,12 @@ The catalogue is necessary but not sufficient. Before calling UI work done:
 
 - **CI:** `.github/workflows/ci.yml` runs `typecheck` + `build-storybook` on every
   PR. `build-storybook` is the gate that keeps the catalogue from rotting.
+- **Design-system guard** (`apps/web/src/lib/design-system.test.ts`, runs with
+  `pnpm test`): fails when source names a raw colour or an arbitrary font size,
+  imports `ui/popover` instead of `AdaptivePopover`, adds a fly-out sub-menu,
+  hand-builds an `aria-pressed` toggle, or pins a control to `h-7`/`h-8`/`size-8`.
+  Each rule has a short allowlist with the reason for every exception; a new
+  entry needs the same.
 - **Not yet wired (tracked):**
   - The Storybook interaction + a11y **test runner** (axe-as-error) — blocked by a
     `@storybook/nextjs-vite` + `@storybook/addon-vitest` React-duplication issue.

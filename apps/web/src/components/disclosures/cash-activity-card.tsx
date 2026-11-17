@@ -271,7 +271,7 @@ function FlowBarsChart({ bars, mode }: { bars: readonly FlowBar[]; mode: Mode })
               y={y(tick) + 4}
               textAnchor="end"
               fill="currentColor"
-              className="text-[11px] text-muted-foreground tabular-nums"
+              className="text-2xs text-muted-foreground tabular-nums"
             >
               {croreTick(tick, scale.step)}
             </text>
@@ -314,7 +314,7 @@ function FlowBarsChart({ bars, mode }: { bars: readonly FlowBar[]; mode: Mode })
             textAnchor="middle"
             fill="currentColor"
             className={cn(
-              'text-[11px]',
+              'text-2xs',
               index === active ? 'font-semibold text-foreground' : 'text-muted-foreground',
             )}
           >

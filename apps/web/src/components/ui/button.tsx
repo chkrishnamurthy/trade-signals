@@ -9,6 +9,9 @@ import { cn } from '@/lib/utils';
  *
  * Every clickable affordance resolves to one of these variants — there is no
  * page-specific button style anywhere in the product.
+ *
+ * Sizes are dense for a mouse and step up on touch screens, so no page has to
+ * remember to enlarge a control for phones.
  */
 const buttonVariants = cva(
   'inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-md text-sm font-medium transition-colors outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*=size-])]:size-4',
@@ -26,11 +29,13 @@ const buttonVariants = cva(
           'bg-destructive text-destructive-foreground shadow-subtle hover:bg-destructive/90',
       },
       size: {
-        sm: 'h-7 px-2 text-xs has-[>svg]:px-1.5',
-        default: 'h-8 px-3 has-[>svg]:px-2.5',
-        lg: 'h-10 px-4 has-[>svg]:px-3.5',
-        icon: 'size-8',
-        'icon-sm': 'size-7',
+        // Heights are the `--control-*` tokens (globals.css, "TOUCH"): dense
+        // for a mouse, and a step taller on a finger-driven screen.
+        sm: 'h-(--control-sm) px-2 text-xs has-[>svg]:px-1.5',
+        default: 'h-(--control-md) px-3 has-[>svg]:px-2.5',
+        lg: 'h-(--control-lg) px-4 has-[>svg]:px-3.5',
+        icon: 'size-(--control-md)',
+        'icon-sm': 'size-(--control-sm)',
       },
     },
     defaultVariants: { variant: 'default', size: 'default' },

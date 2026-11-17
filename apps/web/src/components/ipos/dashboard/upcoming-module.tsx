@@ -22,7 +22,7 @@ function DateLeaf({ date }: { date: string | null }) {
           : 'bg-info-soft text-info-strong ring-info-line',
       )}
     >
-      <span className="font-semibold text-[0.6rem] uppercase">
+      <span className="font-semibold text-3xs uppercase">
         {short === null ? 'TBA' : short.slice(-3)}
       </span>
       <span className="figure font-semibold text-sm">

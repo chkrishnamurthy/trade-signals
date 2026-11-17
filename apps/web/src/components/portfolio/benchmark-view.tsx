@@ -241,8 +241,7 @@ export function BenchmarkSection({
             </table>
           </div>
           <p className="text-xs text-muted-foreground">
-            Time-weighted, not annualised, without dividends on either side. A comparison of your
-            own numbers, not a recommendation.
+            Time-weighted, not annualised, without dividends on either side.
           </p>
         </>
       )}
@@ -369,8 +368,7 @@ function PastComparison({ past }: { past: PastPricesDto }) {
       </div>
       <p className="text-xs text-muted-foreground">
         The shares you hold now, at past prices: not your own record, which starts on the day you
-        entered them. Time-weighted, not annualised, without dividends on either side. A comparison
-        of numbers, not a recommendation.
+        entered them. Time-weighted, not annualised, without dividends on either side.
       </p>
     </>
   );

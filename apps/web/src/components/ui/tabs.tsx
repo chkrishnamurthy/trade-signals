@@ -37,7 +37,9 @@ function TabsList({
         className={cn(
           variant === 'line'
             ? 'flex w-full items-end gap-1 overflow-x-auto border-b border-border [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
-            : 'inline-flex w-fit items-center gap-0.5 rounded-md bg-muted p-0.5 text-muted-foreground',
+            : // Too many pills for the width scroll sideways inside the track;
+              // they never wrap into a ragged block or widen the page.
+              'scrollbar-none inline-flex w-fit max-w-full items-center gap-0.5 overflow-x-auto rounded-md bg-muted p-0.5 text-muted-foreground',
           className,
         )}
         {...props}
@@ -62,7 +64,7 @@ function TabsTrigger({ className, ...props }: React.ComponentProps<typeof TabsPr
               'data-[state=active]:font-semibold data-[state=active]:text-foreground data-[state=active]:after:bg-primary',
             ]
           : [
-              'h-7 flex-1 rounded-sm px-2.5 text-xs hover:text-foreground',
+              'h-(--control-sm) flex-1 shrink-0 rounded-sm px-2.5 text-xs hover:text-foreground',
               'data-[state=active]:bg-surface data-[state=active]:text-foreground data-[state=active]:shadow-subtle',
             ],
         className,

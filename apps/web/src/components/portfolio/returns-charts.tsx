@@ -203,7 +203,7 @@ export function ValueChart({
                   x={left - 6}
                   y={y(v) + 4}
                   textAnchor="end"
-                  className="fill-muted-foreground text-[11px] tabular-nums"
+                  className="fill-muted-foreground text-2xs tabular-nums"
                 >
                   {largeCurrency(v)}
                 </text>
@@ -215,7 +215,7 @@ export function ValueChart({
                 x={xAt(time)}
                 y={height - 8}
                 textAnchor={k === 0 ? 'start' : k === xTicks.length - 1 ? 'end' : 'middle'}
-                className="fill-muted-foreground text-[11px]"
+                className="fill-muted-foreground text-2xs"
               >
                 {monthLabel(new Date(time).toISOString().slice(0, 10))}
               </text>
@@ -344,7 +344,7 @@ export function QuarterBars({
       aria-label="Dividends received by quarter"
     >
       {shown.map((q) => (
-        <li key={q.label} className="flex min-w-10 flex-1 flex-col items-center gap-1 text-[11px]">
+        <li key={q.label} className="flex min-w-10 flex-1 flex-col items-center gap-1 text-2xs">
           <span className="tabular-nums">{largeCurrency(q.amountPaise)}</span>
           <span
             aria-hidden
@@ -488,7 +488,7 @@ export function LinesChart({
                   x={left - 6}
                   y={y(v) + 4}
                   textAnchor="end"
-                  className="fill-muted-foreground text-[11px] tabular-nums"
+                  className="fill-muted-foreground text-2xs tabular-nums"
                 >
                   {format(v)}
                 </text>
@@ -500,7 +500,7 @@ export function LinesChart({
                 x={xAt(time)}
                 y={height - 8}
                 textAnchor={k === 0 ? 'start' : k === xTicks.length - 1 ? 'end' : 'middle'}
-                className="fill-muted-foreground text-[11px]"
+                className="fill-muted-foreground text-2xs"
               >
                 {monthLabel(new Date(time).toISOString().slice(0, 10))}
               </text>

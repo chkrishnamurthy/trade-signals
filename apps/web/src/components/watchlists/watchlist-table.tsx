@@ -1,35 +1,16 @@
 'use client';
 
-import {
-  ArrowDownToLineIcon,
-  ArrowUpToLineIcon,
-  ChevronDownIcon,
-  ChevronsUpDownIcon,
-  ChevronUpIcon,
-  GripVerticalIcon,
-  ListPlusIcon,
-  MoreHorizontalIcon,
-  Trash2Icon,
-} from 'lucide-react';
+import { GripVerticalIcon } from 'lucide-react';
 import { type KeyboardEvent, useEffect, useMemo, useState } from 'react';
 import { DataTable, type DataTableColumn } from '@/components/data-display/data-table';
-import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { useIsPhone } from '@/lib/use-media-query';
 import { resolveColumns } from '@/lib/watchlist-columns';
 import { dropMember, type MoveTarget, moveMember } from '@/lib/watchlist-order';
 import type { SortRuleDto, WatchlistRowDto, WatchlistSummaryDto } from '@/lib/watchlist-types';
 import { cellFor } from './watchlist-cells';
+import { WatchlistPhoneList } from './watchlist-phone-list';
 import { WatchlistRowDetail } from './watchlist-row-detail';
+import { RowMenu } from './watchlist-row-menu';
 
 /**
  * The watchlist table.
@@ -59,6 +40,7 @@ export function WatchlistTable({
   hasFilters,
   isLive,
   onSortChange,
+  onSortSet,
   onRemove,
   onOpenDetail,
   onAddToList,
@@ -79,6 +61,8 @@ export function WatchlistTable({
   /** Whether the market is open — for the expanded row's live/last-traded wording. */
   isLive: boolean;
   onSortChange: (columnId: string, additive: boolean) => void;
+  /** Replaces the whole sort — the phone list's sort select. */
+  onSortSet?: ((sort: readonly SortRuleDto[]) => void) | undefined;
   onRemove: (row: WatchlistRowDto) => void;
   /** Opens the full chart & analysis drawer. Fired from inside the expanded row. */
   onOpenDetail: (row: WatchlistRowDto) => void;
@@ -95,6 +79,7 @@ export function WatchlistTable({
     | ((row: WatchlistRowDto, note: string) => Promise<{ ok: true } | { ok: false; error: string }>)
     | undefined;
 }) {
+  const phone = useIsPhone();
   const reorderable = canReorder && onReorder !== undefined && rows.length > 1;
   const orderedIds = useMemo(() => rows.map((row) => row.instrumentId), [rows]);
   const [dragId, setDragId] = useState<number | null>(null);
@@ -117,7 +102,7 @@ export function WatchlistTable({
         sortValue: column.source === null ? undefined : column.value,
         hideBelow: column.hideBelow,
         pinned: column.pinned === true,
-        headerClassName: column.pinned === true ? 'min-w-40' : undefined,
+        headerClassName: column.pinned === true ? 'min-w-28 sm:min-w-40' : undefined,
       })),
     [columnIds],
   );
@@ -143,6 +128,42 @@ export function WatchlistTable({
     const id = String(row.instrumentId);
     setExpandedIds((current) => (current.has(id) ? new Set() : new Set([id])));
   };
+
+  const emptyTitle = hasFilters
+    ? 'No stock matches these filters'
+    : 'Nothing on this watchlist yet';
+  const emptyDescription = hasFilters
+    ? 'Every stock is still on the list — the filters are hiding them. Clear a filter to see them again.'
+    : 'Search for a stock and add it to start tracking price, volume and daily indicators.';
+
+  // Phones get a two-line list rather than a three-column slice of the table.
+  if (phone) {
+    return (
+      <WatchlistPhoneList
+        rows={rows}
+        columnIds={columnIds}
+        sort={sort}
+        status={status}
+        errorMessage={errorMessage}
+        onRetry={onRetry}
+        emptyTitle={emptyTitle}
+        emptyDescription={emptyDescription}
+        emptyAction={emptyAction}
+        isLive={isLive}
+        otherLists={otherLists}
+        expandedIds={expandedIds}
+        onToggleExpand={toggleExpand}
+        onSortSet={onSortSet}
+        onRemove={onRemove}
+        onOpenDetail={onOpenDetail}
+        onAddToList={onAddToList}
+        onSaveNote={onSaveNote}
+        reorderable={reorderable}
+        canReorder={canReorder}
+        onMove={move}
+      />
+    );
+  }
 
   return (
     <DataTable
@@ -194,12 +215,8 @@ export function WatchlistTable({
             })
           : undefined
       }
-      emptyTitle={hasFilters ? 'No stock matches these filters' : 'Nothing on this watchlist yet'}
-      emptyDescription={
-        hasFilters
-          ? 'Every stock is still on the list — the filters are hiding them. Clear a filter to see them again.'
-          : 'Search for a stock and add it to start tracking price, volume and daily indicators.'
-      }
+      emptyTitle={emptyTitle}
+      emptyDescription={emptyDescription}
       emptyAction={emptyAction}
       caption="Watchlist constituents with their latest quote and daily indicators"
       rowActions={(row) => (
@@ -228,99 +245,6 @@ export function WatchlistTable({
         </div>
       )}
     />
-  );
-}
-
-function RowMenu({
-  row,
-  otherLists,
-  onRemove,
-  onToggleExpand,
-  onAddToList,
-  reorderable,
-  canReorder,
-  onMove,
-}: {
-  row: WatchlistRowDto;
-  otherLists: readonly WatchlistSummaryDto[];
-  onRemove: (row: WatchlistRowDto) => void;
-  onToggleExpand: (row: WatchlistRowDto) => void;
-  onAddToList: (watchlistId: number, symbol: string) => void;
-  reorderable: boolean;
-  /** True when the table is in the user's own order, even if there is only one row. */
-  canReorder: boolean;
-  onMove: (row: WatchlistRowDto, target: MoveTarget) => void;
-}) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon-sm" aria-label={`Actions for ${row.symbol}`}>
-          <MoreHorizontalIcon />
-        </Button>
-      </DropdownMenuTrigger>
-
-      <DropdownMenuContent align="end" className="w-52">
-        <DropdownMenuLabel>{row.symbol}</DropdownMenuLabel>
-        <DropdownMenuSeparator />
-
-        {/*
-          Same target as clicking the row or its chevron — a menu-first way to
-          reach the inline analysis for keyboard/AT users who navigate by menu
-          rather than by clicking the row itself.
-        */}
-        <DropdownMenuItem onSelect={() => onToggleExpand(row)}>
-          <ChevronsUpDownIcon />
-          View details
-        </DropdownMenuItem>
-
-        {canReorder && reorderable && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => onMove(row, 'up')}>
-              <ChevronUpIcon />
-              Move up
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => onMove(row, 'down')}>
-              <ChevronDownIcon />
-              Move down
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => onMove(row, 'top')}>
-              <ArrowUpToLineIcon />
-              Move to top
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => onMove(row, 'bottom')}>
-              <ArrowDownToLineIcon />
-              Move to bottom
-            </DropdownMenuItem>
-          </>
-        )}
-
-        {otherLists.length > 0 && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>
-                <ListPlusIcon />
-                Add to another list
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent>
-                {otherLists.map((list) => (
-                  <DropdownMenuItem key={list.id} onSelect={() => onAddToList(list.id, row.symbol)}>
-                    {list.name}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-          </>
-        )}
-
-        <DropdownMenuSeparator />
-        <DropdownMenuItem variant="destructive" onSelect={() => onRemove(row)}>
-          <Trash2Icon />
-          Remove from watchlist
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
   );
 }
 

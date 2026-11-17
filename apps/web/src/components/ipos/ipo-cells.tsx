@@ -153,7 +153,7 @@ export function SmeMark({ className }: { className?: string | undefined }) {
   return (
     <span
       className={cn(
-        'inline-flex shrink-0 items-center rounded-sm px-1 font-medium text-[0.625rem] text-muted-foreground leading-4 ring-1 ring-border ring-inset',
+        'inline-flex shrink-0 items-center rounded-sm px-1 font-medium text-3xs text-muted-foreground leading-4 ring-1 ring-border ring-inset',
         className,
       )}
     >

@@ -135,14 +135,15 @@ export function NavItem({
       {...shared}
       className={cn(
         FOCUS,
-        'relative flex items-start gap-3 rounded-md px-3 py-2.5 transition-colors',
+        // Full-bleed rows, the same geometry as `PanelItem` in every other sheet.
+        'relative flex min-h-(--touch-target) items-start gap-3 px-4 py-2.5 transition-colors',
         active
-          ? 'bg-accent text-foreground before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:rounded-full before:bg-primary'
+          ? 'bg-accent text-foreground before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:rounded-r-full before:bg-primary'
           : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground',
         className,
       )}
     >
-      <Icon className={cn('mt-0.5 size-4 shrink-0', active && 'text-primary-strong')} aria-hidden />
+      <Icon className={cn('mt-0.5 size-5 shrink-0', active && 'text-primary-strong')} aria-hidden />
       <span className="flex min-w-0 flex-col">
         <span className={cn('text-sm', active ? 'font-semibold' : 'font-medium text-foreground')}>
           {item.label}

@@ -88,7 +88,7 @@ function NumberField({
         id={id}
         type="number"
         inputMode="numeric"
-        className="h-8 w-20 tabular-nums"
+        className="w-20 tabular-nums"
         value={Number.isFinite(value) ? value : ''}
         onChange={(e) => onChange(e.target.valueAsNumber)}
       />
@@ -238,8 +238,7 @@ export function NoticesView({ data }: { data: PortfolioNoticesDto }) {
           <PageHeading>
             <PageTitle>Notices</PageTitle>
             <PageDescription>
-              What happened, or is coming up, for the stocks you hold. Facts about your own shares,
-              not suggestions.
+              What happened, or is coming up, for the stocks you hold.
             </PageDescription>
           </PageHeading>
         </PageHeader>
@@ -319,10 +318,6 @@ export function NoticesView({ data }: { data: PortfolioNoticesDto }) {
               </div>
             </details>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Notices describe your own numbers and the exchange&apos;s records. They are not a
-            recommendation, and EquityWise is not a SEBI-registered adviser.
-          </p>
         </PageContent>
       </PageContainer>
     </AppShell>

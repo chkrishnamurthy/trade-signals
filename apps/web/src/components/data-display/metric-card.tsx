@@ -38,8 +38,10 @@ export function MetricCard({
       <CardContent className="flex flex-col gap-2">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <div className="flex items-center gap-1">
-              <Text as="h3" variant="overline" className="truncate">
+            <div className="flex items-start gap-1">
+              {/* Wraps rather than truncates: in a two-up phone grid "This week's
+                  result events" was cut to "THIS WEEK'…", which names nothing. */}
+              <Text as="h3" variant="overline" className="text-balance">
                 {label}
               </Text>
               {hint !== undefined && <MetricHint>{hint}</MetricHint>}
@@ -49,7 +51,11 @@ export function MetricCard({
           {aside !== undefined && <div className="shrink-0">{aside}</div>}
         </div>
         {change !== undefined && <div className="text-sm">{change}</div>}
-        {footer !== undefined && <div className="mt-1 border-t border-border pt-2">{footer}</div>}
+        {footer !== undefined && (
+          <div className="mt-1 border-t border-border pt-2 text-muted-foreground text-xs">
+            {footer}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

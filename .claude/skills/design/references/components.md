@@ -10,7 +10,9 @@ The application's only button — no page-specific button style exists anywhere.
 
 - **Variants**: `default` (primary fill), `secondary`, `outline`, `ghost`, `link`,
   `destructive`. No `success`/`warning` variant.
-- **Sizes**: `sm` (h-7), `default` (h-8), `lg` (h-10), `icon` (size-8), `icon-sm` (size-7).
+- **Sizes**: `sm`, `default`, `lg`, `icon`, `icon-sm`, read from the `--control-*` height
+  tokens: 28/32/40/32/28px with a mouse, 36/40/44/40/36px on a touch screen. Never pin a
+  control's height with `h-8`/`size-7` — that freezes it at the mouse size on phones.
 - **States**: hover (variant-specific `hover:bg-*`), focus-visible (`outline-2
   outline-offset-2 outline-ring` — matches the global focus treatment exactly), disabled
   (`pointer-events-none opacity-50`).
@@ -87,7 +89,21 @@ the page.
 - **Sheet** — built on the same Dialog primitive. Four `side` variants: `right` (default,
   `sm:max-w-lg`), `left` (`sm:max-w-sm`), `bottom` (`rounded-t-xl`, `max-h-[85dvh]`), `top`.
   Structure is `SheetHeader` → `SheetBody` (`overflow-y-auto`) → `SheetFooter` (`mt-auto`).
-- **Popover** — `w-72`, no scrim, `sideOffset=4`.
+- **Popover** — `w-72`, no scrim, `sideOffset=4`. Only for a panel that should stay a
+  popover on phones too (a one-line info card). Anything with rows, filters or a search
+  is an `AdaptivePopover`.
+- **AdaptivePopover** (`ui/adaptive-popover.tsx`, 2026-11) — a popover from `sm`, a
+  bottom sheet below, same children. Build the inside from its parts so both forms look
+  alike: `PanelHeader` (title + optional action), `PanelBody` (the scrolling part),
+  `PanelFooter`, `PanelItem` (a row: 36px mouse / 44px touch, full width, icon muted,
+  `asChild` for links), `PanelGroupLabel`, `PanelSeparator`, `PanelMessage` (empty /
+  error line). Reference uses: notices bell, watchlist Filters, screener Columns, metric
+  picker, My screens, Add to watchlist. The phone account sheet uses the same parts.
+- **Bottom sheet** — every `side="bottom"` sheet has a grabber and safe-area padding,
+  from the primitive. A phone sheet never has a fly-out sub-menu: list entries flat
+  under `PanelGroupLabel`s.
+- **DropdownMenu** — stays a dropdown at every width for a short action menu anchored to
+  its own trigger (a row's "…" menu, `PageOverflowActions`). Rows pad up on touch.
 - **Tooltip** — smaller (`px-2.5 py-1.5 text-xs`), `sideOffset=6`, `delayDuration=200`ms
   from one app-wide `TooltipProvider` — never mount a second provider.
 
@@ -97,6 +113,11 @@ Both use **pill-in-track**, not underline: a `bg-muted rounded-md p-0.5` track, 
 item gets `bg-surface` + `shadow-subtle`. `ToggleGroup` is the shared control for "pick
 exactly one of a short list" — chart timeframes, filter toggles, theme — so a
 new one-of-many control reaches for this, not a fresh radio-button treatment.
+`SegmentedControl` (same file, 2026-11) is the data-driven form — `options`, `value`,
+`onValueChange` — and replaced eleven hand-built `aria-pressed` button rows (scope, date
+range, chart range, industry timeframe, financial year, AND/OR, yes/no, universe…).
+Never hand-build one again: the hand-built ones were 24–28px tall on phones and each
+picked its own track and selected style.
 
 **A second, separate tab pattern exists for switching between named, user-managed
 collections** — `watchlist-tabs.tsx`'s bespoke tab bar (not built on `ui/tabs.tsx`),

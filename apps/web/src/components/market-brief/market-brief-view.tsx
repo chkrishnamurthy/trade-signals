@@ -24,6 +24,7 @@ import { PercentChange, Price } from '@/components/market/numeric';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { SegmentedControl } from '@/components/ui/toggle-group';
 import { Text } from '@/components/ui/typography';
 import type { DailyMarketBrief } from '@/lib/market-brief';
 import { encodeFilter, stockHref } from '@/lib/screener-format';
@@ -81,10 +82,9 @@ export function MarketBriefView({
             <PageDescription>
               The latest completed NSE session, from the broad market to the stocks you follow.
             </PageDescription>
-          </PageHeading>
-          <PageActions className="flex-col items-stretch gap-1.5 sm:items-end">
-            <UniverseSelector universe={breadth.universe} />
-            <div className="flex flex-wrap items-center gap-2 text-2xs text-muted-foreground">
+            {/* Which session this is and whether it is complete: part of what
+                the page is, so it reads under the title at every width. */}
+            <div className="flex flex-wrap items-center gap-2 text-muted-foreground text-xs">
               <Badge
                 variant={latest === undefined ? 'neutral' : breadth.stale ? 'warning' : 'bullish'}
               >
@@ -92,9 +92,14 @@ export function MarketBriefView({
               </Badge>
               {breadth.session !== null && <span>{formatSessionDate(breadth.session)}</span>}
               {breadth.builtAt !== null && (
-                <span>· built {formatIstTimestamp(breadth.builtAt)} IST</span>
+                <span className="max-sm:hidden">
+                  · built {formatIstTimestamp(breadth.builtAt)} IST
+                </span>
               )}
             </div>
+          </PageHeading>
+          <PageActions>
+            <UniverseSelector universe={breadth.universe} />
           </PageActions>
         </PageHeader>
 
@@ -119,8 +124,8 @@ export function MarketBriefView({
           )}
 
           <PageDisclaimer>
-            {brief.disclaimer} Market-wide breadth is computed nightly from split/bonus-adjusted NSE
-            end-of-day history.
+            Market-wide breadth is computed nightly from split/bonus-adjusted NSE end-of-day
+            history.
           </PageDisclaimer>
         </PageContent>
       </PageContainer>
@@ -132,7 +137,7 @@ function UniverseSelector({ universe }: { universe: Universe }) {
   return (
     <fieldset
       aria-label="Market universe"
-      className="inline-flex self-start rounded-md border border-border bg-surface-sunken p-0.5 sm:self-end"
+      className="m-0 inline-flex rounded-md border-0 bg-muted p-0.5"
     >
       {(['all', 'nifty500'] as const).map((key) => (
         <Link
@@ -140,7 +145,7 @@ function UniverseSelector({ universe }: { universe: Universe }) {
           href={(key === 'all' ? '/today' : '/today?u=nifty500') as Route}
           aria-current={universe === key ? 'page' : undefined}
           className={cn(
-            'inline-flex h-8 items-center rounded px-3 font-medium text-xs',
+            'inline-flex h-(--control-sm) items-center rounded-sm px-3 font-medium text-xs',
             universe === key
               ? 'bg-surface text-foreground shadow-subtle'
               : 'text-muted-foreground hover:text-foreground',
@@ -266,9 +271,9 @@ function InsightTile({
       href={href}
       className="flex min-w-0 flex-col gap-0.5 rounded-lg border border-border bg-surface px-3 py-3 shadow-subtle transition-colors hover:border-border-strong"
     >
-      <span className="truncate text-muted-foreground text-xs">{label}</span>
-      <span className="figure font-semibold text-2xl tracking-tight">{value}</span>
-      <span className="truncate text-2xs text-muted-foreground">{hint}</span>
+      <span className="text-muted-foreground text-xs">{label}</span>
+      <span className="figure font-semibold text-xl tracking-tight sm:text-2xl">{value}</span>
+      <span className="line-clamp-2 text-2xs text-muted-foreground">{hint}</span>
     </Link>
   );
 }
@@ -400,25 +405,12 @@ function IndustrySection({ breadth }: { breadth: MarketBreadthDto }) {
             Median return of classified stocks in the selected universe
           </SectionDescription>
         </div>
-        <fieldset
-          className="inline-flex rounded-md border border-border bg-surface-sunken p-0.5"
+        <SegmentedControl
           aria-label="Industry timeframe"
-        >
-          {INDUSTRY_METRICS.map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              onClick={() => setMetric(option.id)}
-              aria-pressed={metric === option.id}
-              className={cn(
-                'h-7 rounded px-2.5 font-medium text-xs',
-                metric === option.id ? 'bg-surface shadow-subtle' : 'text-muted-foreground',
-              )}
-            >
-              {option.label}
-            </button>
-          ))}
-        </fieldset>
+          value={metric}
+          onValueChange={setMetric}
+          options={INDUSTRY_METRICS.map((option) => ({ value: option.id, label: option.label }))}
+        />
       </SectionHeader>
       <div className="grid gap-4 lg:grid-cols-2">
         <IndustryList title="Leading" rows={leaders} metric={metric} universe={breadth.universe} />
@@ -535,12 +527,12 @@ function MarketAttentionSection({
     <Section aria-labelledby="attention-heading">
       <SectionHeader>
         <SectionTitle id="attention-heading">Stocks worth a closer look</SectionTitle>
-        <SectionDescription>Measured market activity, not a recommendation</SectionDescription>
+        <SectionDescription>Measured market activity</SectionDescription>
       </SectionHeader>
       <Card>
         <CardContent className="py-4">
           <Tabs defaultValue={first.id}>
-            <TabsList variant="pill" className="max-w-full flex-wrap">
+            <TabsList variant="pill">
               {categories.map((category) => (
                 <TabsTrigger key={category.id} value={category.id}>
                   {category.label}{' '}

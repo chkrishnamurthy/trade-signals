@@ -21,8 +21,11 @@ const sheetVariants = cva(
         right:
           'inset-y-0 right-0 h-full w-full border-l data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right sm:max-w-lg',
         left: 'inset-y-0 left-0 h-full w-full border-r data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left sm:max-w-sm',
+        // The phone sheet: where every menu and panel opens below `sm`
+        // (docs/design-system/contributing.md, "Overlays on phones"). It clears
+        // the home indicator and never grows past 85% of the screen.
         bottom:
-          'inset-x-0 bottom-0 h-auto max-h-[85dvh] rounded-t-xl border-t data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom',
+          'inset-x-0 bottom-0 h-auto max-h-[85dvh] rounded-t-xl border-t pb-[env(safe-area-inset-bottom)] data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom',
         top: 'inset-x-0 top-0 h-auto border-b data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top',
       },
     },
@@ -66,9 +69,23 @@ function SheetContent({
         className={cn(sheetVariants({ side }), className)}
         {...props}
       >
+        {/* The grabber says "this slides away" before anything is read. It is
+            decoration: Escape, the backdrop and the close button dismiss. */}
+        {side === 'bottom' && (
+          <span
+            aria-hidden
+            data-slot="sheet-grabber"
+            className="mx-auto mt-2 h-1 w-9 shrink-0 rounded-full bg-border-strong"
+          />
+        )}
         {children}
         {showCloseButton && (
-          <SheetPrimitive.Close className="absolute top-4 right-4 rounded-sm p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+          <SheetPrimitive.Close
+            className={cn(
+              'absolute right-2 grid size-(--control-lg) place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground',
+              side === 'bottom' ? 'top-3' : 'top-2',
+            )}
+          >
             <XIcon className="size-4" />
             <span className="sr-only">Close</span>
           </SheetPrimitive.Close>

@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { BoldIcon, ItalicIcon, UnderlineIcon } from 'lucide-react';
-import { ToggleGroup, ToggleGroupItem } from './toggle-group';
+import { useState } from 'react';
+import { SegmentedControl, ToggleGroup, ToggleGroupItem } from './toggle-group';
 
 const meta = {
   title: 'Primitives/ToggleGroup',
@@ -40,4 +41,27 @@ export const Multiple: Story = {
       </ToggleGroupItem>
     </ToggleGroup>
   ),
+};
+
+/**
+ * `SegmentedControl` — the same switch as data. Use it for every one-of-a-few
+ * choice; a click on the selected option never clears it, and a disabled option
+ * says why on hover. On a touch screen the items grow to 36px.
+ */
+export const Segmented: Story = {
+  render: () => {
+    const [range, setRange] = useState<'1Y' | '3Y' | 'All'>('1Y');
+    return (
+      <SegmentedControl
+        aria-label="Range"
+        value={range}
+        onValueChange={setRange}
+        options={[
+          { value: '1Y', label: '1Y' },
+          { value: '3Y', label: '3Y', disabled: true, title: 'Needs three years of history' },
+          { value: 'All', label: 'All' },
+        ]}
+      />
+    );
+  },
 };

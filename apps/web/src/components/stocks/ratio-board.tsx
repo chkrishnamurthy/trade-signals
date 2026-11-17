@@ -211,7 +211,7 @@ export function RatioBoard({
                   aria-label={`Remove ${tile.label}`}
                   disabled={keys.length <= LIMITS.min}
                   onClick={() => remove(index)}
-                  className="absolute top-1.5 right-1.5 inline-flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-bearish-soft hover:text-bearish-strong disabled:cursor-not-allowed disabled:opacity-40"
+                  className="absolute top-1.5 right-1.5 inline-flex size-(--control-sm) cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-bearish-soft hover:text-bearish-strong disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <XIcon aria-hidden className="size-3.5" />
                 </button>
@@ -221,7 +221,7 @@ export function RatioBoard({
                     aria-label={`Move ${tile.label} earlier`}
                     disabled={index === 0}
                     onClick={() => move(index, -1)}
-                    className="inline-flex size-7 cursor-pointer items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                    className="inline-flex size-(--control-sm) cursor-pointer items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <ArrowLeftIcon aria-hidden className="size-3.5" />
                   </button>
@@ -230,7 +230,7 @@ export function RatioBoard({
                     aria-label={`Move ${tile.label} later`}
                     disabled={index === tiles.length - 1}
                     onClick={() => move(index, 1)}
-                    className="inline-flex size-7 cursor-pointer items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                    className="inline-flex size-(--control-sm) cursor-pointer items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <ArrowRightIcon aria-hidden className="size-3.5" />
                   </button>

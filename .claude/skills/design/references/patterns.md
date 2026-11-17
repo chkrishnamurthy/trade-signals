@@ -21,6 +21,24 @@ Every stock row (watchlist, screener results, market brief) follows the same ske
   own comment on this), and brokerage apps that use heavier card chrome per row are not
   the model here.
 
+## Page header (`layout/page.tsx`)
+
+- `PageHeader` → `PageHeading` (`PageBreadcrumb`, `PageTitle`, `PageDescription`) +
+  `PageActions`. Title and actions share one row when both fit; the actions drop to their
+  own row when they do not. Never give the heading `flex-1` with a zero basis — that is
+  what crushed titles to "M…" on phones.
+- Phones hide `PageDescription` and `PageBreadcrumb` (the tab bar and "Back" already say
+  where you are). State that belongs to the page (session date, "Complete") goes under the
+  title as its own line, not in the actions.
+- One primary button stays visible; the rest go through `PageOverflowActions`
+  (`layout/page-overflow-actions.tsx`): outline buttons from `sm`, one "…" menu on phones.
+
+## Phone overlays
+
+Rows, filters, pickers and account/notification panels open as a bottom sheet on phones
+(`AdaptivePopover`, or `Sheet side="bottom"` with the `Panel*` parts). A popover hanging
+from a top corner is a desktop shape.
+
 ## Stat-block anatomy
 
 For "Open / High / Low / Volume"-style definition data (`DefinitionGrid`,

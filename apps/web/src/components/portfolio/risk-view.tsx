@@ -185,7 +185,7 @@ function DrawdownChart({
                   x={left - 6}
                   y={y(v) + 4}
                   textAnchor="end"
-                  className="fill-muted-foreground text-[11px] tabular-nums"
+                  className="fill-muted-foreground text-2xs tabular-nums"
                 >
                   {pct(v, 0)}
                 </text>
@@ -222,7 +222,7 @@ function DrawdownChart({
                   x={Math.min(Math.max(x(trough.time), left + 40), width - right - 40)}
                   y={Math.min(y(trough.depth) + 18, height - bottom - 4)}
                   textAnchor="middle"
-                  className="fill-foreground text-[11px] font-medium tabular-nums"
+                  className="fill-foreground text-2xs font-medium tabular-nums"
                   style={{
                     paintOrder: 'stroke',
                     stroke: 'var(--surface)',
@@ -240,7 +240,7 @@ function DrawdownChart({
                 x={x(time)}
                 y={height - 8}
                 textAnchor={k === 0 ? 'start' : k === xTicks.length - 1 ? 'end' : 'middle'}
-                className="fill-muted-foreground text-[11px]"
+                className="fill-muted-foreground text-2xs"
               >
                 {monthYear(new Date(time).toISOString().slice(0, 10))}
               </text>

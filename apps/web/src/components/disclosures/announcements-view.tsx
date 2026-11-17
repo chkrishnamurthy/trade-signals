@@ -7,6 +7,7 @@ import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { EmptyState } from '@/components/data-display/states';
 import { AppShell } from '@/components/layout/app-shell';
 import {
+  PageActions,
   PageContainer,
   PageContent,
   PageDescription,
@@ -28,6 +29,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
+import { SegmentedControl } from '@/components/ui/toggle-group';
 import { Text } from '@/components/ui/typography';
 import { announcementMeta, DATE_RANGES } from '@/lib/announcement-meta';
 import type { AnnouncementDto, AnnouncementsPageDto } from '@/lib/disclosure-types';
@@ -64,7 +66,9 @@ export function AnnouncementsView({
               Company disclosures, with facts, context and unknowns.
             </PageDescription>
           </PageHeading>
-          <ScopeToggle watchlistOnly={data.watchlistOnly} hasWatchlists={data.hasWatchlists} />
+          <PageActions>
+            <ScopeToggle watchlistOnly={data.watchlistOnly} hasWatchlists={data.hasWatchlists} />
+          </PageActions>
         </PageHeader>
 
         <PageContent>
@@ -300,28 +304,12 @@ function DateRangeFilter({
   onSelect: (range: string | null) => void;
 }) {
   return (
-    <fieldset
-      className="m-0 inline-flex items-center gap-0.5 rounded-md border-0 bg-muted p-0.5 text-muted-foreground text-xs"
+    <SegmentedControl
       aria-label="Date range"
-    >
-      {DATE_RANGES.map((range) => {
-        const on = active === range.id;
-        return (
-          <button
-            key={range.id}
-            type="button"
-            onClick={() => onSelect(range.id === 'all' ? null : range.id)}
-            aria-pressed={on}
-            className={cn(
-              'rounded-sm px-2.5 py-1 font-medium transition-colors',
-              on ? 'bg-surface text-foreground shadow-subtle' : 'hover:text-foreground',
-            )}
-          >
-            {range.label}
-          </button>
-        );
-      })}
-    </fieldset>
+      value={active}
+      onValueChange={(next) => onSelect(next === 'all' ? null : next)}
+      options={DATE_RANGES.map((range) => ({ value: range.id, label: range.label }))}
+    />
   );
 }
 
@@ -337,7 +325,7 @@ function HighImpactToggle({
       type="button"
       variant={active ? 'default' : 'outline'}
       size="sm"
-      className="h-7 gap-1 px-2.5 text-xs"
+      className="gap-1 px-2.5 text-xs"
       aria-pressed={active}
       onClick={() => onToggle(!active)}
     >
@@ -530,7 +518,7 @@ function AnnouncementCard({
               {formatDateTimeIst(row.announcedAt)} IST
             </time>
             {row.attachmentUrl !== null && (
-              <Button asChild variant="outline" size="sm" className="h-7 gap-1 px-2 text-xs">
+              <Button asChild variant="outline" size="sm" className="gap-1 px-2 text-xs">
                 <a href={row.attachmentUrl} target="_blank" rel="noopener noreferrer">
                   <ExternalLinkIcon aria-hidden />
                   View filing

@@ -70,7 +70,7 @@ export function MarketStatusPill({
         <button
           type="button"
           className={cn(
-            'inline-flex h-7 shrink-0 cursor-pointer items-center gap-2 rounded-full border border-border bg-surface px-2.5 font-medium text-foreground text-xs transition-colors hover:bg-accent/60 data-[state=open]:bg-accent',
+            'inline-flex h-(--control-sm) shrink-0 cursor-pointer items-center gap-2 rounded-full border border-border bg-surface px-2.5 font-medium text-foreground text-xs transition-colors hover:bg-accent/60 data-[state=open]:bg-accent',
             'outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring',
             className,
           )}

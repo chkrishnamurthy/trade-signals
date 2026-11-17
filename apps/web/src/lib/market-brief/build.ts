@@ -35,7 +35,7 @@ import type {
   WatchlistBriefItemDto,
 } from './types';
 
-const DISCLAIMER = 'Technical observations based on completed market data. Not investment advice.';
+const DISCLAIMER = 'Technical observations based on completed market data.';
 
 /** After this IST minute the day's end-of-day pass is expected to have run. */
 const SESSION_COMPLETE_MINUTE = 17 * 60;

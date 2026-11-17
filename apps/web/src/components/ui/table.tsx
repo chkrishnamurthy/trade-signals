@@ -95,7 +95,7 @@ function TableHead({ className, numeric = false, ...props }: TableHeadProps) {
     <th
       data-slot="table-head"
       className={cn(
-        'h-8 px-3 text-left align-middle text-xs font-medium whitespace-nowrap text-muted-foreground',
+        'h-8 px-2 text-left align-middle text-xs font-medium whitespace-nowrap text-muted-foreground sm:px-3',
         numeric && 'text-right',
         className,
       )}
@@ -114,7 +114,7 @@ function TableCell({ className, numeric = false, ...props }: TableCellProps) {
     <td
       data-slot="table-cell"
       className={cn(
-        'px-3 py-2 align-middle whitespace-nowrap',
+        'px-2 py-2 align-middle whitespace-nowrap sm:px-3',
         numeric && 'figure text-right',
         className,
       )}

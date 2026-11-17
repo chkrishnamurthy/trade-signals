@@ -188,11 +188,6 @@ export function AlertsView({ overview }: { overview: AlertsOverviewDto }) {
               </ul>
             )}
           </Section>
-
-          <p className="text-xs text-muted-foreground">
-            Alerts describe the closing numbers of a completed session. They are not recommendations
-            and EquityWise is not a SEBI-registered adviser.
-          </p>
         </PageContent>
       </PageContainer>
     </AppShell>
@@ -258,7 +253,7 @@ function CreateForm({
       <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="alert-metric">Measure</Label>
         <Select value={metric} onValueChange={(v) => setMetric(v as Metric)}>
-          <SelectTrigger id="alert-metric">
+          <SelectTrigger id="alert-metric" className="w-full sm:w-fit">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -270,7 +265,7 @@ function CreateForm({
       <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="alert-direction">Condition</Label>
         <Select value={comparator} onValueChange={(v) => setComparator(v as Comparator)}>
-          <SelectTrigger id="alert-direction">
+          <SelectTrigger id="alert-direction" className="w-full sm:w-fit">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

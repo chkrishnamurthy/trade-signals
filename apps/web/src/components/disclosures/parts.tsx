@@ -5,6 +5,7 @@ import { useCallback } from 'react';
 import { Currency } from '@/components/market/numeric';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import { SegmentedControl } from '@/components/ui/toggle-group';
 import { TONE_GLYPH, type Tone, toneText } from '@/lib/tone';
 import { cn } from '@/lib/utils';
 
@@ -92,40 +93,26 @@ export function ScopeToggle({
   );
 
   return (
-    <fieldset
-      className="m-0 inline-flex items-center gap-0.5 rounded-md border-0 bg-muted p-0.5 text-muted-foreground text-xs"
+    <SegmentedControl
       aria-label="Scope"
-    >
-      <button
-        type="button"
-        onClick={() => setScope(false)}
-        aria-pressed={!watchlistOnly}
-        className={cn(
-          'rounded-sm px-2.5 py-1 font-medium transition-colors',
-          !watchlistOnly ? 'bg-surface text-foreground shadow-subtle' : 'hover:text-foreground',
-        )}
-      >
-        All names
-      </button>
-      <button
-        type="button"
-        onClick={() => setScope(true)}
-        aria-pressed={watchlistOnly}
-        disabled={!hasWatchlists}
-        title={hasWatchlists ? undefined : 'Add names to a watchlist first'}
-        className={cn(
-          'rounded-sm px-2.5 py-1 font-medium transition-colors disabled:opacity-40',
-          watchlistOnly ? 'bg-surface text-foreground shadow-subtle' : 'hover:text-foreground',
-        )}
-      >
-        My watchlist
-      </button>
-    </fieldset>
+      value={watchlistOnly ? 'watchlist' : 'all'}
+      onValueChange={(value) => setScope(value === 'watchlist')}
+      options={[
+        { value: 'all', label: 'All names' },
+        {
+          value: 'watchlist',
+          label: 'My watchlist',
+          disabled: !hasWatchlists,
+          title: hasWatchlists ? undefined : 'Add names to a watchlist first',
+        },
+      ]}
+    />
   );
 }
 
 /**
- * A generic segmented control (radio-style row of buttons).
+ * A segmented control keyed by `id` — `SegmentedControl` with this module's
+ * option shape.
  *
  * Client-only state, unlike {@link ScopeToggle} which drives the URL — use this
  * for view-local choices (chart series, deal filters) that need no round-trip.
@@ -142,28 +129,12 @@ export function Segmented<T extends string>({
   ariaLabel: string;
 }) {
   return (
-    <fieldset
-      className="m-0 inline-flex items-center gap-0.5 rounded-md border-0 bg-muted p-0.5 text-muted-foreground text-xs"
+    <SegmentedControl
       aria-label={ariaLabel}
-    >
-      {options.map((option) => {
-        const on = value === option.id;
-        return (
-          <button
-            key={option.id}
-            type="button"
-            aria-pressed={on}
-            onClick={() => onChange(option.id)}
-            className={cn(
-              'rounded-sm px-2.5 py-1 font-medium transition-colors',
-              on ? 'bg-surface text-foreground shadow-subtle' : 'hover:text-foreground',
-            )}
-          >
-            {option.label}
-          </button>
-        );
-      })}
-    </fieldset>
+      value={value}
+      onValueChange={onChange}
+      options={options.map((option) => ({ value: option.id, label: option.label }))}
+    />
   );
 }
 

@@ -59,6 +59,7 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
+import { SegmentedControl } from '@/components/ui/toggle-group';
 import { Text } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
 
@@ -229,9 +230,6 @@ export function CalendarView({
             </Text>
           </div>
           <EventTimeline data={data} range={range} />
-          <p className="text-subtle-foreground text-xs">
-            This is market information, not investment advice.
-          </p>
         </PageContent>
       </PageContainer>
     </AppShell>
@@ -295,27 +293,13 @@ function CalendarFilters({
       className="rounded-lg border border-border bg-surface-raised p-3 shadow-subtle"
     >
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-        <fieldset
-          className="m-0 grid grid-cols-3 items-center gap-0.5 rounded-md border-0 bg-muted p-0.5 text-muted-foreground text-xs sm:inline-grid sm:w-fit"
+        <SegmentedControl
           aria-label="Date range"
-        >
-          {RANGE_OPTIONS.map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              aria-pressed={range === option.id}
-              onClick={() => setParams({ range: option.id === 'month' ? null : option.id })}
-              className={cn(
-                'rounded-sm px-3 py-1.5 font-medium transition-colors',
-                range === option.id
-                  ? 'bg-surface text-foreground shadow-subtle'
-                  : 'hover:text-foreground',
-              )}
-            >
-              {option.label}
-            </button>
-          ))}
-        </fieldset>
+          className="w-full sm:w-fit [&>*]:flex-1"
+          value={range}
+          onValueChange={(next) => setParams({ range: next === 'month' ? null : next })}
+          options={RANGE_OPTIONS.map((option) => ({ value: option.id, label: option.label }))}
+        />
 
         <div className="flex min-w-0 items-center gap-2 text-sm">
           <label htmlFor="calendar-event-type" className="shrink-0 text-muted-foreground">
@@ -590,9 +574,6 @@ export function EventDetailContent({ event }: { event: MarketEventDto }) {
           </Button>
         )}
       </DetailSection>
-      <p className="rounded-md border border-border bg-muted/40 px-3 py-2.5 text-subtle-foreground text-xs">
-        This is market information, not investment advice.
-      </p>
     </div>
   );
 }

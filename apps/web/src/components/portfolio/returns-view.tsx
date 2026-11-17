@@ -9,6 +9,7 @@ import { MetricHint } from '@/components/data-display/metric-card';
 import { PercentChange, PriceChange } from '@/components/market/numeric';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { SegmentedControl } from '@/components/ui/toggle-group';
 import type { PortfolioBenchmarkDto, PortfolioReturnsDto, TermKey } from '@/lib/portfolio-types';
 import { cn } from '@/lib/utils';
 import { BenchmarkSection } from './benchmark-view';
@@ -445,9 +446,6 @@ export function ReturnsTab({
             Prices are daily closes; a day without a close uses the last one, and long gaps are
             marked partial.
           </li>
-          <li>
-            These figures describe your own entries. They are not tax advice or a recommendation.
-          </li>
         </ul>
       </details>
     </div>
@@ -500,25 +498,12 @@ function ValueOverTime({
           <span />
         )}
         {!showPast && (
-          <fieldset className="inline-flex gap-0.5 rounded-md border-0 bg-muted p-0.5">
-            <legend className="sr-only">Range</legend>
-            {(['1Y', '3Y', 'All'] as const).map((r) => (
-              <button
-                key={r}
-                type="button"
-                aria-pressed={range === r}
-                onClick={() => setRange(r)}
-                className={cn(
-                  'rounded-sm px-2.5 py-1 text-xs font-medium focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-ring',
-                  range === r
-                    ? 'bg-surface text-foreground shadow-subtle'
-                    : 'text-muted-foreground hover:text-foreground',
-                )}
-              >
-                {r}
-              </button>
-            ))}
-          </fieldset>
+          <SegmentedControl
+            aria-label="Range"
+            value={range}
+            onValueChange={setRange}
+            options={(['1Y', '3Y', 'All'] as const).map((r) => ({ value: r, label: r }))}
+          />
         )}
       </div>
       {showPast ? (

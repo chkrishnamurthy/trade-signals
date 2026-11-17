@@ -1,10 +1,10 @@
 'use client';
 
 import { EllipsisIcon } from 'lucide-react';
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type * as React from 'react';
 import { useRef, useState } from 'react';
+import { PanelGroupLabel } from '@/components/ui/adaptive-popover';
 import {
   Sheet,
   SheetContent,
@@ -15,7 +15,6 @@ import {
 import {
   ADMIN_GROUP,
   DRAWER_SECTIONS,
-  HELP_LINKS,
   isGroupActive,
   MOBILE_TABS,
   type NavMenuGroup,
@@ -23,7 +22,6 @@ import {
 import { useSoftKeyboardOpen } from '@/lib/use-pwa-environment';
 import { cn } from '@/lib/utils';
 import { NavItem } from './nav-item';
-import { DISCLAIMER } from './page';
 
 /**
  * Navigation below `lg`: a bottom tab bar (Groww, Kite mobile) plus a "More"
@@ -32,7 +30,9 @@ import { DISCLAIMER } from './page';
  * Why tabs and not the old hamburger: the four places people go most are one
  * thumb-tap away and always visible, so "where am I" never needs a menu
  * opened. The drawer — a bottom sheet, the direction a thumb already moves —
- * holds Markets, IPOs, the Admin menu and Help & legal, grouped with headings.
+ * holds Markets, IPOs and the Admin menu, grouped with headings. It is a list
+ * of places and nothing else: help & legal live in the account sheet and the
+ * page footer, and the standing disclaimer is in the footer of every page.
  *
  * The "More" tab lights when the current page lives in the drawer, so exactly
  * one tab is always current.
@@ -142,25 +142,20 @@ export function NavDrawer({
           event.preventDefault();
           returnFocusTo.current.focus();
         }}
-        className="max-h-[85dvh] overflow-y-auto p-0 pb-[env(safe-area-inset-bottom)]"
+        className="overflow-y-auto p-0"
       >
-        <SheetHeader className="border-border border-b px-4 py-3">
+        <SheetHeader className="items-center border-border border-b px-4 pt-2 pb-3">
           <SheetTitle className="text-base">More</SheetTitle>
           <SheetDescription className="sr-only">
-            Markets, IPOs and help pages of EquityWise
+            Markets, IPOs and other sections of EquityWise
           </SheetDescription>
         </SheetHeader>
 
-        <div className="flex flex-col gap-4 px-2 py-3">
+        <div className="flex flex-col gap-1.5 pb-3">
           {sections.map((group) => (
             <section key={group.id} aria-labelledby={`drawer-${group.id}`}>
-              <h2
-                id={`drawer-${group.id}`}
-                className="px-3 pb-1 font-medium text-muted-foreground text-xs uppercase tracking-wide"
-              >
-                {group.label}
-              </h2>
-              <ul className="flex flex-col gap-0.5">
+              <PanelGroupLabel id={`drawer-${group.id}`}>{group.label}</PanelGroupLabel>
+              <ul className="flex flex-col">
                 {group.items.map((item) => (
                   <li key={item.id}>
                     <NavItem item={item} variant="drawer" onNavigate={onNavigate} />
@@ -169,29 +164,6 @@ export function NavDrawer({
               </ul>
             </section>
           ))}
-
-          <section aria-labelledby="drawer-help" className="border-border border-t px-3 pt-3">
-            <h2
-              id="drawer-help"
-              className="pb-2 font-medium text-muted-foreground text-xs uppercase tracking-wide"
-            >
-              Help & legal
-            </h2>
-            <ul className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
-              {HELP_LINKS.map((link) => (
-                <li key={link.id}>
-                  <Link
-                    href={link.href}
-                    onClick={onNavigate}
-                    className="rounded-sm text-foreground underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-            <p className="pt-3 text-muted-foreground text-xs">{DISCLAIMER}</p>
-          </section>
         </div>
       </SheetContent>
     </Sheet>

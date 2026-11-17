@@ -39,7 +39,7 @@ function EmptyPlot({ className, children }: { className?: string | undefined; ch
 function AxisDates({ points }: { points: readonly SeriesPoint[] }) {
   return (
     <>
-      <text x={PAD_X} y={H - 6} fill="currentColor" className="text-[10px] text-muted-foreground">
+      <text x={PAD_X} y={H - 6} fill="currentColor" className="text-3xs text-muted-foreground">
         {shortDate(points[0]?.date ?? '')}
       </text>
       <text
@@ -47,7 +47,7 @@ function AxisDates({ points }: { points: readonly SeriesPoint[] }) {
         y={H - 6}
         textAnchor="end"
         fill="currentColor"
-        className="text-[10px] text-muted-foreground"
+        className="text-3xs text-muted-foreground"
       >
         {shortDate(points.at(-1)?.date ?? '')}
       </text>
@@ -343,7 +343,7 @@ export function ShareholdingBars({
               x={0}
               y={y + rowH * 0.7}
               fill="currentColor"
-              className="text-[10px] text-muted-foreground"
+              className="text-3xs text-muted-foreground"
             >
               {quarterLabel(quarter.asOfDate)}
             </text>

@@ -209,6 +209,9 @@ export function PercentChange({
 /**
  * The canonical "price moved" block: absolute change, then percent in
  * parentheses. Nine hand-rolled copies of this existed before it did.
+ *
+ * In a box too narrow for both, the percent drops to a second line; neither
+ * figure is ever cut off (a half-visible "(−12.9" is a wrong number).
  */
 export function PriceChange({
   paise,
@@ -226,7 +229,11 @@ export function PriceChange({
   const hasPercent = percent !== undefined;
   return (
     <span
-      className={cn('inline-flex items-baseline gap-1.5', toneText({ tone: resolved }), className)}
+      className={cn(
+        'inline-flex max-w-full flex-wrap items-baseline gap-x-1.5',
+        toneText({ tone: resolved }),
+        className,
+      )}
     >
       {showGlyph && (
         <span aria-hidden className="text-[0.75em]">

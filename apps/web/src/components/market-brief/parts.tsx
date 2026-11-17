@@ -251,7 +251,7 @@ export function AddToWatchlist({
     <Button
       variant="outline"
       size="sm"
-      className="h-7 gap-1 px-2 text-xs"
+      className="gap-1 px-2 text-xs"
       onClick={() => void onAdd()}
       disabled={pending}
       aria-label={`Add ${symbol} to your watchlist`}

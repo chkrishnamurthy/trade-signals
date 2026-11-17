@@ -3,8 +3,14 @@
 import { ListPlusIcon } from 'lucide-react';
 import { useState } from 'react';
 import { SkeletonRows } from '@/components/data-display/loading';
+import {
+  AdaptivePopover,
+  PanelBody,
+  PanelHeader,
+  PanelItem,
+  PanelMessage,
+} from '@/components/ui/adaptive-popover';
 import { Button } from '@/components/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { API_ROUTES } from '@/lib/api-routes';
 
 /** Adds the stock to one of the viewer's watchlists, chosen from a popover. */
@@ -34,32 +40,41 @@ export function AddToWatchlist({ symbol }: { symbol: string }) {
     }
   };
   return (
-    <Popover onOpenChange={(open) => open && void load()}>
-      <PopoverTrigger asChild>
+    <AdaptivePopover
+      title="Add to watchlist"
+      className="w-64"
+      onOpenChange={(open) => {
+        if (open) void load();
+      }}
+      trigger={
         <Button>
           <ListPlusIcon aria-hidden />
           Add to watchlist
         </Button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-60 p-1.5">
-        {status !== null && <p className="px-2 py-1.5 text-muted-foreground text-xs">{status}</p>}
+      }
+    >
+      <PanelHeader title={`Add ${symbol} to a watchlist`} />
+      <PanelBody className="py-1.5">
+        {status !== null && (
+          <p role="status" className="m-0 px-4 py-1.5 text-muted-foreground text-xs">
+            {status}
+          </p>
+        )}
         {failed ? (
-          <div className="p-2 text-xs" role="alert">
-            Could not load watchlists.{' '}
-            <Button variant="ghost" size="sm" onClick={() => void load()}>
+          <div className="flex items-center gap-1 px-4 py-2 text-sm" role="alert">
+            Could not load watchlists.
+            <Button variant="link" size="sm" onClick={() => void load()}>
               Retry
             </Button>
           </div>
         ) : lists === null ? (
-          <SkeletonRows rows={3} label="Loading watchlists" />
+          <SkeletonRows rows={3} label="Loading watchlists" className="px-4" />
         ) : lists.length === 0 ? (
-          <p className="px-2 py-3 text-muted-foreground text-xs">Create a watchlist first.</p>
+          <PanelMessage>Create a watchlist first.</PanelMessage>
         ) : (
           lists.map((w) => (
-            <button
+            <PanelItem
               key={w.id}
-              type="button"
-              className="w-full cursor-pointer truncate rounded-md px-2 py-2 text-left text-sm hover:bg-accent"
               onClick={async () => {
                 const r = await fetch(`${API_ROUTES.watchlist(w.id)}/items`, {
                   method: 'POST',
@@ -69,11 +84,11 @@ export function AddToWatchlist({ symbol }: { symbol: string }) {
                 setStatus(r.ok ? `Added to ${w.name}.` : 'Could not add it.');
               }}
             >
-              {w.name}
-            </button>
+              <span className="truncate">{w.name}</span>
+            </PanelItem>
           ))
         )}
-      </PopoverContent>
-    </Popover>
+      </PanelBody>
+    </AdaptivePopover>
   );
 }

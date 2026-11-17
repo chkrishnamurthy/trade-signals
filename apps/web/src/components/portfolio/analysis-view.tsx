@@ -65,8 +65,7 @@ export function AnalysisView({
           <PageHeading>
             <PageTitle>Portfolio analysis</PageTitle>
             <PageDescription>
-              Where your money sits and what is coming up for the stocks you hold. Facts about your
-              own numbers, not suggestions.
+              Where your money sits and what is coming up for the stocks you hold.
             </PageDescription>
           </PageHeading>
         </PageHeader>
@@ -165,10 +164,6 @@ export function AnalysisView({
               </Tabs>
             </>
           )}
-          <p className="text-xs text-muted-foreground">
-            This page describes the numbers you entered. It is not a recommendation, and EquityWise
-            is not a SEBI-registered adviser.
-          </p>
         </PageContent>
       </PageContainer>
     </AppShell>
@@ -355,9 +350,6 @@ function Allocation({ analysis }: { analysis: PortfolioAnalysisDto }) {
               ))}
             </ul>
           )}
-          <p className="text-xs text-muted-foreground">
-            Facts about your own list. Not a suggestion to do anything.
-          </p>
         </Card>
         <Card
           title="Upcoming company events"

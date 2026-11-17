@@ -136,7 +136,7 @@ function TimelineRow({
           <Link
             href={issueHref(row.slug)}
             className={cn(
-              'z-10 row-start-1 mx-1 flex h-5 items-center overflow-hidden whitespace-nowrap rounded-full px-2 font-medium text-[0.65rem] ring-1 ring-inset',
+              'z-10 row-start-1 mx-1 flex h-5 items-center overflow-hidden whitespace-nowrap rounded-full px-2 font-medium text-3xs ring-1 ring-inset',
               BAR[row.status] ?? 'bg-muted text-muted-foreground ring-border',
               clippedStart && 'ml-0 rounded-l-sm',
             )}

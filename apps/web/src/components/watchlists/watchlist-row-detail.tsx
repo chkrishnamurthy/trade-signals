@@ -10,9 +10,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Textarea } from '@/components/ui/textarea';
@@ -130,24 +129,24 @@ export function WatchlistRowDetail({
               Actions
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-52">
+          <DropdownMenuContent
+            align="start"
+            className="max-h-(--radix-dropdown-menu-content-available-height) w-56 overflow-y-auto"
+          >
             {otherLists.length > 0 && (
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  <ListPlusIcon />
+              <>
+                {/* Listed flat: a fly-out sub-menu has nowhere to open on a phone. */}
+                <DropdownMenuLabel className="text-muted-foreground text-xs">
                   Add to another list
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent>
-                  {otherLists.map((list) => (
-                    <DropdownMenuItem
-                      key={list.id}
-                      onSelect={() => onAddToList(list.id, row.symbol)}
-                    >
-                      {list.name}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
+                </DropdownMenuLabel>
+                {otherLists.map((list) => (
+                  <DropdownMenuItem key={list.id} onSelect={() => onAddToList(list.id, row.symbol)}>
+                    <ListPlusIcon />
+                    {list.name}
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuSeparator />
+              </>
             )}
             <DropdownMenuItem variant="destructive" onSelect={() => onRemove(row)}>
               <Trash2Icon />
@@ -157,9 +156,7 @@ export function WatchlistRowDetail({
         </DropdownMenu>
       </div>
 
-      <p className="mt-2 text-2xs text-subtle-foreground">
-        Technical observation from stored indicator data. Not a recommendation.
-      </p>
+      <p className="mt-2 text-2xs text-subtle-foreground">From stored end-of-day indicator data.</p>
     </div>
   );
 }

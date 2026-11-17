@@ -98,7 +98,7 @@ export function Treemap({
                 <text
                   x={cell.x + 9}
                   y={cell.y + 20}
-                  className="text-[12px] font-semibold"
+                  className="text-xs font-semibold"
                   style={{ fill: 'var(--chart-fill-ink)' }}
                 >
                   {cell.item.label}
@@ -108,7 +108,7 @@ export function Treemap({
                 <text
                   x={cell.x + 9}
                   y={cell.y + 36}
-                  className="text-[11px] tabular-nums"
+                  className="text-2xs tabular-nums"
                   style={{ fill: 'var(--chart-fill-ink)' }}
                 >
                   {cell.item.caption}
@@ -184,15 +184,10 @@ export function DonutWithLegend({
           offset += length;
           return el;
         })}
-        <text
-          x={c}
-          y={c - 2}
-          textAnchor="middle"
-          className="fill-foreground text-[13px] font-semibold"
-        >
+        <text x={c} y={c - 2} textAnchor="middle" className="fill-foreground text-xs font-semibold">
           {centre}
         </text>
-        <text x={c} y={c + 15} textAnchor="middle" className="fill-muted-foreground text-[11px]">
+        <text x={c} y={c + 15} textAnchor="middle" className="fill-muted-foreground text-2xs">
           {caption}
         </text>
       </svg>

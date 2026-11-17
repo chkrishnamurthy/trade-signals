@@ -7,8 +7,8 @@ import { MetricHint } from '@/components/data-display/metric-card';
 import { PriceChange } from '@/components/market/numeric';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { SegmentedControl } from '@/components/ui/toggle-group';
 import type { PortfolioTaxDto, TaxRowDto } from '@/lib/portfolio-types';
-import { cn } from '@/lib/utils';
 import { longDate } from './portfolio-client';
 import { TERM_LABEL } from './returns-view';
 import { SharesStillHeld } from './tax-lots-view';
@@ -77,25 +77,13 @@ export function TaxTab({ tax }: { tax: PortfolioTaxDto }) {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <fieldset className="inline-flex flex-wrap gap-0.5 rounded-md border-0 bg-muted p-0.5">
-          <legend className="sr-only">Financial year</legend>
-          {tax.years.map((fy) => (
-            <button
-              key={fy}
-              type="button"
-              aria-pressed={fy === year}
-              onClick={() => setYear(fy)}
-              className={cn(
-                'rounded-sm px-2.5 py-1 text-xs font-medium focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-ring',
-                fy === year
-                  ? 'bg-surface text-foreground shadow-subtle'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              FY {fy}
-            </button>
-          ))}
-        </fieldset>
+        <SegmentedControl
+          aria-label="Financial year"
+          className="max-w-full flex-wrap"
+          value={year}
+          onValueChange={setYear}
+          options={tax.years.map((fy) => ({ value: fy, label: `FY ${fy}` }))}
+        />
         {y.rows.length > 0 && (
           <Button asChild size="sm" variant="outline">
             <a href={`/api/portfolio/tax?year=${year}`} download>
